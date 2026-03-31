@@ -14,6 +14,8 @@ This package now has a parser-first structure intended to replace the legacy mix
 
 - `parsers/`
   - File-type specific parsers (text, table, pdf text, pdf ocr, drawing, container).
+  - Domain-specific parser packs under `parsers/professional_services/`.
+  - Text adapters are split by modality in `parsers/professional_services/adapters/`.
 - `extractors/`
   - Role-specific extraction modules and intake-only fallback.
 - `config/runtime/parsers/`

@@ -16,10 +16,12 @@ class ParsedBlock:
     block_id: str
     block_type: str
     text: str | None = None
+    normalized_text: str | None = None
     cells: dict[str, Any] | None = None
     span: ParserSpan | None = None
     confidence: float = 1.0
     tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)

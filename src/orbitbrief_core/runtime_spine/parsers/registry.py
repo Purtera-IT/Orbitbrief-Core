@@ -1,26 +1,25 @@
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
+from typing import Any
 
-from .container import ContainerParser
-from .drawing_vector import DrawingVectorParser
-from .pdf_ocr import PdfOcrParser
-from .pdf_text import PdfTextParser
-from .text_narrative import TextNarrativeParser
-from .tabular import TabularParser
+import yaml
+
+from ..config import repo_root
 from .models import ParsedArtifact
 
 
 class ParserRegistry:
     def __init__(self) -> None:
-        self._parsers = {
-            "text_narrative_parser": TextNarrativeParser(),
-            "tabular_parser": TabularParser(),
-            "pdf_text_parser": PdfTextParser(),
-            "pdf_ocr_parser": PdfOcrParser(),
-            "drawing_vector_parser": DrawingVectorParser(),
-            "container_parser": ContainerParser(),
-        }
+        config_path = repo_root() / "config" / "runtime" / "parsers" / "parser_registry.yaml"
+        payload = yaml.safe_load(config_path.read_text())
+        self._parsers: dict[str, Any] = {}
+        for entry in payload.get("parsers", []):
+            parser_id = entry["parser_id"]
+            module = importlib.import_module(entry["module"])
+            parser_cls = getattr(module, entry["class_name"])
+            self._parsers[parser_id] = parser_cls()
 
     def by_modality(self, modality: str):
         for parser in self._parsers.values():

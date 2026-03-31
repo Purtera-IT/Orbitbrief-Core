@@ -10,11 +10,13 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .config import allowed_business_fields, executable_pre_schema_ref, injection_config, post_schema_ref, role_runtime_status
+from .config import allowed_business_fields, executable_pre_schema_ref, post_schema_ref, role_runtime_status
 from .contracts import BoundingBox, DiagramEdge, DiagramNode, EvidenceChunk, FieldClaim, ImageCrop, ReviewFlag, RoleGraph, RowObject, SheetObject, SourceRef, TableObject
 from .file_utils import extract_pdf_text, load_csv_rows, load_xlsx_rows, pdf_page_count, read_textual_file, sha256_file, simple_header_normalize, split_paragraphs, text_lines
+from .extractors import InternalNarrativeClaim, intake_only_result, project_to_post_hints, project_to_rich_txt_pre, project_to_slim_pre
 from .mapping import resolve_alias
 from .mapping_models import HeaderBundle, HeaderPosition, ValueProfile
+from .parsers import ParserRegistry
 from .shared import make_id, normalize_whitespace, utc_now
 
 
@@ -130,82 +132,135 @@ def _split_city_state_zip(value: str) -> dict[str, str]:
     return out
 
 
-def ingest_transcript_or_notes(path: Path, modality: str) -> dict[str, Any]:
-    role_id = "transcript_or_notes"
-    text = read_textual_file(path, modality if modality not in {"pasted_notes", "text_blob", "email_export"} else ("txt" if modality in {"pasted_notes", "text_blob", "email_export"} else modality))
-    lines = [
-        line
-        for line in text_lines(text)
-        if not any(
-            noise in line.lower()
-            for noise in injection_config(role_id)["noise_patterns"] + injection_config(role_id)["negative_signals"]
-        )
-    ]
-    cleaned = "\n".join(lines)
-    paragraphs = split_paragraphs(cleaned) or [cleaned]
-    pre_ref = executable_pre_schema_ref(role_id, modality.upper() if modality in {"txt", "md", "docx"} else {"pasted_notes": "pasted notes", "email_export": "email export"}.get(modality, modality))
-    post_ref = post_schema_ref(role_id, modality.upper() if modality in {"txt", "md", "docx"} else {"pasted_notes": "pasted notes", "email_export": "email export"}.get(modality, modality))
-    source_ref = _source_ref(path, schema_ref=pre_ref)
+def _role_modality_label(role_id: str, modality: str) -> str:
+    if role_id == "transcript_or_notes":
+        if modality in {"txt", "md", "docx"}:
+            return modality.upper()
+        return {"pasted_notes": "pasted notes", "email_export": "email export"}.get(modality, modality)
+    if role_id == "drawing_packet":
+        return "PDF" if modality == "pdf" else ("DWG export PDF" if modality == "dwg_export_pdf" else "image PDF")
+    return modality.upper() if modality in {"csv", "xls", "xlsx", "pdf", "txt", "md", "docx"} else modality
 
-    evidence = []
-    for paragraph in paragraphs:
-        if not paragraph.strip():
-            continue
+
+def _parsed_blocks_to_evidence(
+    role_id: str,
+    modality: str,
+    source_ref: SourceRef,
+    parsed_blocks: list[Any],
+    parser_ref: str,
+) -> list[EvidenceChunk]:
+    evidence: list[EvidenceChunk] = []
+    for block in parsed_blocks:
+        raw_text = block.text or ""
         evidence.append(
             EvidenceChunk(
                 id=make_id("chunk"),
                 domain_id="professional_services",
                 role_id=role_id,
                 modality=modality,
-                content_kind="paragraph",
-                raw_text=paragraph,
-                normalized_text=normalize_whitespace(paragraph),
+                content_kind=block.block_type,
+                raw_text=raw_text,
+                normalized_text=block.normalized_text or normalize_whitespace(raw_text),
                 source_ref=source_ref,
-                token_estimate=max(1, len(paragraph.split())),
-                signal_tags=_extract_labeled_list([paragraph], injection_config(role_id)["positive_signals"]),
-                negative_signal_tags=_extract_labeled_list([paragraph], injection_config(role_id)["negative_signals"]),
-                parser_refs=["text_chunker.v1"],
-                confidence=0.8,
+                token_estimate=max(1, len(raw_text.split())) if raw_text else 0,
+                signal_tags=list(block.tags),
+                negative_signal_tags=[],
+                parser_refs=[parser_ref],
+                confidence=min(1.0, max(0.0, block.confidence)),
                 created_at=utc_now(),
             )
         )
+    return evidence
+
+
+def _intake_only_from_parsed(role_id: str, path: Path, modality: str, parsed_artifact: Any | None, reason: str) -> dict[str, Any]:
+    source_ref = _source_ref(path)
+    evidence: list[Any] = []
+    if parsed_artifact is not None:
+        parser_ref = f"{parsed_artifact.parser_id}:{parsed_artifact.parser_version}"
+        evidence.extend(_parsed_blocks_to_evidence(role_id, modality, source_ref, parsed_artifact.blocks, parser_ref))
+    parsed_for_flags = parsed_artifact
+    if parsed_for_flags is None:
+        # Minimal shim so intake_only_result can report parsed block count.
+        from .parsers.models import ParsedArtifact
+
+        parsed_for_flags = ParsedArtifact(
+            parser_id="none",
+            parser_version="0.0.0",
+            role_hint=role_id,
+            modality=modality,
+            source_path=str(path),
+            source_hash=source_ref.artifact_hash,
+            blocks=[],
+            metadata={},
+        )
+    extraction = intake_only_result(role_id, modality, parsed_for_flags, reason)
+    role_graph = RoleGraph(
+        id=make_id("role_graph"),
+        domain_id="professional_services",
+        role_id=role_id,
+        modality=modality,
+        source_artifact_id=path.stem,
+        source_ref=source_ref,
+        evidence_refs=[obj.id for obj in evidence],
+        field_claim_refs=[],
+        review_flag_refs=[flag.id for flag in extraction.review_flags],
+        summary=f"Intake-only fallback executed for {role_id}/{modality}.",
+        confidence=0.2,
+        created_at=utc_now(),
+    )
+    return {"evidence_objects": evidence, "field_claims": [], "review_flags": extraction.review_flags, "role_graph": role_graph}
+
+
+def ingest_transcript_or_notes(path: Path, modality: str) -> dict[str, Any]:
+    role_id = "transcript_or_notes"
+    modality_label = _role_modality_label(role_id, modality)
+    pre_ref = executable_pre_schema_ref(role_id, modality_label)
+    post_ref = post_schema_ref(role_id, modality_label)
+    source_ref = _source_ref(path, schema_ref=pre_ref)
+    parsed = ParserRegistry().parse(path, modality, role_hint=role_id)
+    parser_ref = f"{parsed.parser_id}:{parsed.parser_version}"
+    evidence = _parsed_blocks_to_evidence(role_id, modality, source_ref, parsed.blocks, parser_ref)
 
     evidence_refs = [chunk.id for chunk in evidence]
     claims: list[FieldClaim] = []
     review_flags: list[ReviewFlag] = []
+    normalized_lines = [block.normalized_text or "" for block in parsed.blocks if (block.text or "").strip()]
+    first_text = next((block.text for block in parsed.blocks if (block.text or "").strip()), "") or ""
 
-    first_para = paragraphs[0] if paragraphs else ""
-    if "project_summary" in allowed_business_fields(pre_ref) and first_para:
-        claims.append(_claim(role_id, modality, pre_ref, "project_summary", first_para, evidence_refs[:1], "pre_field"))
+    internal_claims: list[InternalNarrativeClaim] = []
+    if first_text:
+        internal_claims.append(InternalNarrativeClaim(claim_family="project_summary", value=first_text, confidence=0.8, evidence_refs=evidence_refs[:1]))
 
-    for name, patterns in {
-        "known_assumptions": ["assumption", "assume"],
-        "known_exclusions": ["exclusion", "out of scope", "not included"],
-        "open_questions": ["?", "open question", "tbd"],
-        "scope_tasks_requested": ["install", "replace", "migrate", "refresh", "scope", "task"],
-        "deliverables_needed": ["deliverable", "report", "drawing", "closeout"],
-        "testing_requirements": ["test", "certify", "validation"],
-        "access_constraints": ["escort", "badge", "access", "after hours"],
-        "location_details": ["site", "location", "address", "floor", "room"],
-    }.items():
-        if name in allowed_business_fields(pre_ref):
-            matches = _extract_labeled_list(lines, patterns)
-            if matches:
-                claims.append(_claim(role_id, modality, pre_ref, name, matches[:10], evidence_refs, "pre_field"))
+    claim_patterns = {
+        "assumption_claim": ["assumption", "assume"],
+        "scope_excluded_claim": ["exclusion", "out of scope", "not included"],
+        "open_question_claim": ["?", "open question", "tbd"],
+        "scope_included_claim": ["install", "replace", "migrate", "refresh", "scope", "task"],
+        "deliverable_claim": ["deliverable", "report", "drawing", "closeout"],
+        "testing_acceptance_claim": ["test", "certify", "validation"],
+        "access_logistics_claim": ["escort", "badge", "access", "after hours"],
+        "site_location_claim": ["site", "location", "address", "floor", "room"],
+    }
+    for family, patterns in claim_patterns.items():
+        hits = [block.text for block in parsed.blocks if block.text and any(p in (block.normalized_text or "").lower() for p in patterns)]
+        if hits:
+            internal_claims.append(InternalNarrativeClaim(claim_family=family, value=hits[:10], confidence=0.72, evidence_refs=evidence_refs))
+    quantity_hits: list[str] = []
+    for line in normalized_lines:
+        quantity_hits.extend(re.findall(r"\b\d+\s+(?:sites?|drops?|aps?|switches?|rooms?|racks?)\b", line, flags=re.I))
+    if quantity_hits:
+        internal_claims.append(InternalNarrativeClaim(claim_family="known_quantity_claim", value=quantity_hits[:20], confidence=0.7, evidence_refs=evidence_refs))
 
-    quantity_matches = re.findall(r"\b\d+\s+(?:sites?|drops?|aps?|switches?|rooms?|racks?)\b", cleaned, flags=re.I)
-    if "known_quantities" in allowed_business_fields(pre_ref) and quantity_matches:
-        claims.append(_claim(role_id, modality, pre_ref, "known_quantities", quantity_matches, evidence_refs, "pre_field"))
-    site_count_match = re.search(r"\b(\d+)\s+sites?\b", cleaned, flags=re.I)
-    if "site_count" in allowed_business_fields(pre_ref) and site_count_match:
-        claims.append(_claim(role_id, modality, pre_ref, "site_count", int(site_count_match.group(1)), evidence_refs, "pre_field"))
+    pre_payload = project_to_rich_txt_pre(internal_claims) if modality == "txt" else project_to_slim_pre(internal_claims)
+    post_payload = project_to_post_hints(internal_claims)
 
-    if "scope_overview" in allowed_business_fields(post_ref):
-        claims.append(_claim(role_id, modality, post_ref, "scope_overview", first_para or "No clear summary extracted.", evidence_refs[:1], "post_hint"))
-    if "open_items" in allowed_business_fields(post_ref):
-        open_items = [line for line in lines if "?" in line or "open" in line.lower()]
-        if open_items:
-            claims.append(_claim(role_id, modality, post_ref, "open_items", open_items[:10], evidence_refs, "post_hint"))
+    for field_name, value in pre_payload.items():
+        if field_name in allowed_business_fields(pre_ref) and value not in (None, "", [], {}):
+            claims.append(_claim(role_id, modality, pre_ref, field_name, value, evidence_refs, "pre_field"))
+    for field_name, value in post_payload.items():
+        if field_name in allowed_business_fields(post_ref) and value not in (None, "", [], {}):
+            claims.append(_claim(role_id, modality, post_ref, field_name, value, evidence_refs, "post_hint"))
 
     if modality == "docx" and post_ref.endswith(".alias"):
         review_flags.append(
@@ -624,167 +679,18 @@ def ingest_drawing_packet(path: Path, modality: str) -> dict[str, Any]:
 
 
 def ingest_generic_role(role_id: str, path: Path, modality: str) -> dict[str, Any]:
-    source_ref = _source_ref(path)
-    evidence: list[Any] = []
-    review_flags: list[ReviewFlag] = []
-    claims: list[FieldClaim] = []
-    modality_l = str(modality).lower()
-
-    if modality_l in {"txt", "md", "docx", "pasted_notes", "email_export"}:
-        text = read_textual_file(path, "txt" if modality_l in {"pasted_notes", "email_export"} else modality_l)
-        if text.strip():
-            chunk = EvidenceChunk(
-                id=make_id("chunk"),
-                domain_id="professional_services",
-                role_id=role_id,
-                modality=modality,
-                content_kind="generic_text_chunk",
-                raw_text=text[:4000],
-                normalized_text=normalize_whitespace(text[:4000]),
-                source_ref=source_ref,
-                token_estimate=max(1, len(text.split())),
-                parser_refs=["generic_fallback.text.v1"],
-                confidence=0.45,
-                created_at=utc_now(),
-            )
-            evidence.append(chunk)
-    elif modality_l == "pdf":
-        text = extract_pdf_text(path)
-        chunk = EvidenceChunk(
-            id=make_id("chunk"),
-            domain_id="professional_services",
-            role_id=role_id,
-            modality=modality,
-            content_kind="generic_pdf_chunk",
-            raw_text=(text[:4000] if text.strip() else "[no text extracted from pdf]"),
-            normalized_text=normalize_whitespace(text[:4000]) if text.strip() else "",
-            source_ref=source_ref,
-            token_estimate=max(1, len(text.split())) if text.strip() else 0,
-            parser_refs=["generic_fallback.pdf_text.v1"],
-            confidence=0.35,
-            created_at=utc_now(),
-        )
-        evidence.append(chunk)
-    elif modality_l == "csv":
-        headers, rows = load_csv_rows(path)
-        table = TableObject(
-            id=make_id("table"),
-            domain_id="professional_services",
-            role_id=role_id,
-            modality=modality,
-            source_ref=source_ref,
-            page_ref_or_sheet_ref={"index": 1, "name": "csv", "kind": "sheet"},
-            headers_raw=headers,
-            headers_normalized=[simple_header_normalize(h) for h in headers],
-            column_count=len(headers),
-            confidence=0.55,
-            created_at=utc_now(),
-        )
-        evidence.append(table)
-        for idx, row in enumerate(rows[:25]):
-            row_obj = RowObject(
-                id=make_id("row"),
-                domain_id="professional_services",
-                role_id=role_id,
-                modality=modality,
-                source_ref=source_ref,
-                parent_table_id=table.id,
-                row_index=idx,
-                raw_cells=row,
-                normalized_cells={simple_header_normalize(k): v for k, v in row.items()},
-                row_type="untyped",
-                confidence=0.5,
-                created_at=utc_now(),
-            )
-            evidence.append(row_obj)
-            table.row_refs.append(row_obj.id)
-    elif modality_l == "xlsx":
-        sheet_name, headers, rows = load_xlsx_rows(path)
-        table = TableObject(
-            id=make_id("table"),
-            domain_id="professional_services",
-            role_id=role_id,
-            modality=modality,
-            source_ref=source_ref,
-            page_ref_or_sheet_ref={"index": 1, "name": sheet_name, "kind": "sheet"},
-            headers_raw=headers,
-            headers_normalized=[simple_header_normalize(h) for h in headers],
-            column_count=len(headers),
-            confidence=0.55,
-            created_at=utc_now(),
-        )
-        evidence.append(table)
-        for idx, row in enumerate(rows[:25]):
-            row_obj = RowObject(
-                id=make_id("row"),
-                domain_id="professional_services",
-                role_id=role_id,
-                modality=modality,
-                source_ref=source_ref,
-                parent_table_id=table.id,
-                row_index=idx,
-                raw_cells=row,
-                normalized_cells={simple_header_normalize(k): v for k, v in row.items()},
-                row_type="untyped",
-                confidence=0.5,
-                created_at=utc_now(),
-            )
-            evidence.append(row_obj)
-            table.row_refs.append(row_obj.id)
-
-    review_flags.append(
-        ReviewFlag(
-            id=make_id("review"),
-            domain_id="professional_services",
-            role_id=role_id,
-            modality=modality,
-            severity="high",
-            code="generic_fallback_runtime_lane",
-            message=f"Role {role_id} uses generic fallback ingestion for {modality}; extraction is intentionally deferred.",
-            evidence_refs=[obj.id for obj in evidence if hasattr(obj, "id")],
-            requires_human=True,
-            created_at=utc_now(),
-        )
-    )
-    if modality_l in {"xls", "zip", "esx"}:
-        review_flags.append(
-            ReviewFlag(
-                id=make_id("review"),
-                domain_id="professional_services",
-                role_id=role_id,
-                modality=modality,
-                severity="high",
-                code="generic_fallback_low_visibility_modality",
-                message=f"Modality {modality} currently has low-visibility fallback handling and needs role-specific parser implementation.",
-                requires_human=True,
-                created_at=utc_now(),
-            )
-        )
-
-    role_graph = RoleGraph(
-        id=make_id("role_graph"),
-        domain_id="professional_services",
-        role_id=role_id,
-        modality=modality,
-        source_artifact_id=path.stem,
-        source_ref=source_ref,
-        evidence_refs=[obj.id for obj in evidence if hasattr(obj, "id")],
-        field_claim_refs=[],
-        review_flag_refs=[flag.id for flag in review_flags],
-        summary=f"Generic fallback runtime lane executed for {role_id}/{modality}.",
-        confidence=0.3,
-        created_at=utc_now(),
-    )
-    return {"evidence_objects": evidence, "field_claims": claims, "review_flags": review_flags, "role_graph": role_graph}
+    parsed_artifact = None
+    try:
+        parsed_artifact = ParserRegistry().parse(path, modality, role_hint=role_id)
+    except KeyError:
+        parsed_artifact = None
+    reason = f"Role {role_id}/{modality} is not implemented for extraction; routed to strict intake_only fallback."
+    return _intake_only_from_parsed(role_id, path, modality, parsed_artifact, reason)
 
 
 def ingest(role_id: str, path: Path, modality: str) -> dict[str, Any]:
-    if role_id == "transcript_or_notes":
-        return ingest_transcript_or_notes(path, modality)
-    if role_id == "site_roster_spreadsheet":
-        return ingest_site_roster_spreadsheet(path, modality)
-    if role_id == "drawing_packet":
-        return ingest_drawing_packet(path, modality)
     if role_runtime_status(role_id) == "parked":
         raise NotImplementedError(f"Runtime ingestor is parked for role: {role_id}")
+    if role_id == "transcript_or_notes":
+        return ingest_transcript_or_notes(path, modality)
     return ingest_generic_role(role_id, path, modality)

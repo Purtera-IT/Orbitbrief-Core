@@ -27,5 +27,5 @@ def test_pipeline_exits_cleanly_for_not_implemented_role(tmp_path: Path):
     assert result["role_result"]["status"] == "not_implemented"
     assert "ingested" in result
     assert result["ingested"]["review_flags"]
-    assert result["ingested"]["role_graph"].summary.startswith("Generic fallback runtime lane executed")
+    assert result["ingested"]["role_graph"].summary.startswith("Intake-only fallback executed")
     assert result["review_decision"]["decision"] == "needs_human_review"

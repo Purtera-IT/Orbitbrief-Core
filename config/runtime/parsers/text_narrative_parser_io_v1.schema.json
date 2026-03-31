@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "orbitbrief.runtime.parsers.text_narrative_parser.io.v1",
+  "title": "text_narrative_parser_io_v1",
+  "description": "Versioned I/O contract for text_narrative_parser claim-generation lane.",
+  "type": "object",
+  "required": [
+    "io_version",
+    "input",
+    "output"
+  ],
+  "properties": {
+    "io_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "input": {
+      "type": "object",
+      "required": [
+        "domain_id",
+        "role_id",
+        "modality",
+        "source_schema_ref",
+        "allowed_fields",
+        "normalized_artifact_text"
+      ],
+      "properties": {
+        "domain_id": {
+          "type": "string"
+        },
+        "role_id": {
+          "type": "string"
+        },
+        "modality": {
+          "type": "string"
+        },
+        "source_schema_ref": {
+          "type": "string"
+        },
+        "allowed_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed_field_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "normalized_artifact_text": {
+          "type": "string"
+        },
+        "modality_metadata": {
+          "type": "object"
+        },
+        "retrieval_bundle": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "required": [
+        "parser_id",
+        "parser_version",
+        "modality",
+        "source_path",
+        "source_hash",
+        "segments"
+      ],
+      "properties": {
+        "parser_id": {
+          "type": "string",
+          "const": "text_narrative_parser"
+        },
+        "parser_version": {
+          "type": "string"
+        },
+        "modality": {
+          "type": "string"
+        },
+        "source_path": {
+          "type": "string"
+        },
+        "source_hash": {
+          "type": "string"
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "segment_id",
+              "block_type",
+              "text",
+              "normalized_text",
+              "source_offsets",
+              "modality"
+            ],
+            "properties": {
+              "segment_id": {
+                "type": "string"
+              },
+              "block_type": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "normalized_text": {
+                "type": "string"
+              },
+              "section_label": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sender_label": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "message_index": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "source_offsets": {
+                "type": "object",
+                "required": [
+                  "start",
+                  "end"
+                ],
+                "properties": {
+                  "start": {
+                    "type": "integer"
+                  },
+                  "end": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "modality": {
+                "type": "string"
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
