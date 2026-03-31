@@ -1,0 +1,217 @@
+parent_domain_id: professional_services
+version: 1.0.0
+status: initial_structure
+owner: Orbitbrief-Core
+source_ref:
+  generated_at: '2026-03-30T00:00:00Z'
+description: Service-family overlays that extend the professional_services baseline with narrower specialization-specific emphasis.
+overlays:
+- overlay_id: wireless
+  top_level_service_family: true
+  status: planned
+  base_extension_mode: additive
+  focus_components:
+  - site_structure
+  - delivery_execution
+  - testing_deliverables
+  - quantity_normalization
+  - location_normalization
+  preferred_roles:
+  - transcript_or_notes
+  - site_roster_spreadsheet
+  - drawing_packet
+  - service_sow
+  - wireless_survey_packet
+  notes:
+  - Start from the professional_services baseline, then enrich with survey/AP/pathway-specific logic.
+- overlay_id: telecom
+  top_level_service_family: true
+  status: planned
+  base_extension_mode: additive
+  focus_components:
+  - site_structure
+  - security_access
+  - delivery_execution
+  - assumptions_exclusions_open_items
+  - testing_deliverables
+  preferred_roles:
+  - transcript_or_notes
+  - site_roster_spreadsheet
+  - service_sow
+  - proposal_quote
+  notes:
+  - Start from the professional_services baseline, then enrich with carrier, demarc, and cutover dependency logic.
+- overlay_id: low_voltage_cabling
+  top_level_service_family: true
+  status: planned
+  base_extension_mode: additive
+  focus_components:
+  - site_structure
+  - delivery_execution
+  - quantity_normalization
+  - location_normalization
+  - testing_deliverables
+  preferred_roles:
+  - transcript_or_notes
+  - site_roster_spreadsheet
+  - drawing_packet
+  - proposal_quote
+  - service_sow
+  notes:
+  - Start from the professional_services baseline, then enrich with room/pathway/drop/cable-specific logic.
+- overlay_id: rack_and_stack
+  top_level_service_family: true
+  status: planned
+  base_extension_mode: additive
+  focus_components:
+  - site_structure
+  - delivery_execution
+  - quantity_normalization
+  - testing_deliverables
+  preferred_roles:
+  - transcript_or_notes
+  - drawing_packet
+  - bom_equipment_schedule
+  - field_execution_report
+  notes:
+  - Start from the professional_services baseline, then enrich with rack elevation, RU layout, and install/handoff detail.
+- overlay_id: datacenter
+  top_level_service_family: true
+  status: planned
+  base_extension_mode: additive
+  focus_components:
+  - site_structure
+  - security_access
+  - delivery_execution
+  - quantity_normalization
+  preferred_roles:
+  - transcript_or_notes
+  - drawing_packet
+  - audit_site_review
+  - bom_equipment_schedule
+  - field_execution_report
+  notes:
+  - Start from the professional_services baseline, then enrich with room, row, rack, power, cooling, and controlled-access detail.
+- overlay_id: imac
+  top_level_service_family: true
+  status: planned
+  base_extension_mode: additive
+  focus_components:
+  - delivery_execution
+  - quantity_normalization
+  - assumptions_exclusions_open_items
+  preferred_roles:
+  - transcript_or_notes
+  - site_roster_spreadsheet
+  - proposal_quote
+  - field_execution_report
+  notes:
+  - Start from the professional_services baseline, then enrich with install-move-add-change sequencing and volume detail.
+- overlay_id: audit
+  top_level_service_family: true
+  status: planned
+  base_extension_mode: additive
+  focus_components:
+  - site_structure
+  - security_access
+  - delivery_execution
+  - testing_deliverables
+  - quantity_normalization
+  - location_normalization
+  preferred_roles:
+  - transcript_or_notes
+  - drawing_packet
+  - audit_site_review
+  - field_execution_report
+  notes:
+  - Start from the professional_services baseline, then enrich with observed-state, findings, inventory, and remediation-adjacent logic.
+- overlay_id: data_migration
+  top_level_service_family: true
+  status: planned
+  base_extension_mode: additive
+  focus_components:
+  - delivery_execution
+  - commercial
+  - assumptions_exclusions_open_items
+  - testing_deliverables
+  preferred_roles:
+  - transcript_or_notes
+  - proposal_quote
+  - service_sow
+  - field_execution_report
+  notes:
+  - Start from the professional_services baseline, then enrich with cutover, sequencing, rollback, and validation logic.
+- overlay_id: msp
+  top_level_service_family: true
+  status: planned
+  base_extension_mode: additive
+  focus_components:
+  - commercial
+  - delivery_execution
+  - testing_deliverables
+  - assumptions_exclusions_open_items
+  preferred_roles:
+  - transcript_or_notes
+  - proposal_quote
+  - service_sow
+  notes:
+  - Start from the professional_services baseline, then enrich with recurring support and operational coverage logic.
+- overlay_id: alm
+  top_level_service_family: true
+  status: planned
+  base_extension_mode: additive
+  focus_components:
+  - commercial
+  - delivery_execution
+  - quantity_normalization
+  preferred_roles:
+  - transcript_or_notes
+  - bom_equipment_schedule
+  - field_execution_report
+  notes:
+  - Start from the professional_services baseline, then enrich with asset lifecycle and inventory governance logic.
+- overlay_id: staff_augmentation
+  top_level_service_family: true
+  status: planned
+  base_extension_mode: additive
+  focus_components:
+  - commercial
+  - delivery_execution
+  - assumptions_exclusions_open_items
+  preferred_roles:
+  - transcript_or_notes
+  - proposal_quote
+  - service_sow
+  notes:
+  - Start from the professional_services baseline, then enrich with labor category, staffing, and scheduling logic.
+- overlay_id: hardware
+  top_level_service_family: true
+  status: planned
+  base_extension_mode: additive
+  focus_components:
+  - delivery_execution
+  - quantity_normalization
+  - testing_deliverables
+  preferred_roles:
+  - transcript_or_notes
+  - proposal_quote
+  - service_sow
+  - bom_equipment_schedule
+  - field_execution_report
+  notes:
+  - Start from the professional_services baseline, then enrich with BOM, shipment, install, and acceptance detail.
+- overlay_id: other
+  top_level_service_family: true
+  status: planned
+  base_extension_mode: additive
+  focus_components:
+  - site_structure
+  - delivery_execution
+  - assumptions_exclusions_open_items
+  preferred_roles:
+  - transcript_or_notes
+  - proposal_quote
+  - service_sow
+  - field_execution_report
+  notes:
+  - Catchall overlay for professional_services engagements that do not yet fit a narrower specialization.

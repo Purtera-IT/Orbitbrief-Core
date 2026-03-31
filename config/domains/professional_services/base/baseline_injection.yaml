@@ -1,0 +1,43 @@
+domain_id: professional_services
+baseline_id: professional_services_common_baseline
+version: 1.0.0
+status: initial_structure
+owner: Orbitbrief-Core
+source_ref:
+  baseline_fields_ref: config/domains/professional_services/base/baseline_fields.yaml
+  generated_at: '2026-03-30T00:00:00Z'
+runtime_order:
+- baseline_common_extraction
+- role_specific_ingestion
+- service_overlay_enrichment
+- planner_merge
+positive_signals:
+- explicit project summary
+- explicit site count
+- location references
+- explicit scope ask
+- explicit assumptions
+- explicit exclusions
+- explicit deliverables
+- explicit testing requirements
+- explicit access restrictions
+negative_signals:
+- cover-page boilerplate
+- legal disclaimer only
+- decorative legend only
+- repeated email footer
+- repeated signature block
+normalization_rules:
+- Attempt baseline fields first on every professional_services run.
+- Preserve role-modality schema legality even when a baseline field is shared.
+- Role-specific extraction may override baseline confidence, but not baseline provenance.
+- Shared baseline fields should merge through deterministic merge_policy first, then planner adjudication.
+review_triggers:
+- conflicting site_count across baseline sources
+- conflicting location_details across baseline sources
+- customer identity missing after baseline pass
+- access constraints implied but not explicit
+- assumptions and exclusions overlap ambiguously
+notes:
+- Baseline injection is role-agnostic and should be executed before narrower service-family overlays.
+- It exists to reduce duplicated extraction logic across wireless, telecom, audit, rack_and_stack, and other professional_services specializations.

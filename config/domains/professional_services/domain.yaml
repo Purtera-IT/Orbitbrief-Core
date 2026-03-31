@@ -1,0 +1,46 @@
+domain_id: professional_services
+version: 1.0.0
+status: initial_coverage
+owner: Orbitbrief-Core
+source_ref:
+  workbook: AWESOME_CHASE_orbitbrief_domain_only_schema_intake_workbook_v4-3.xlsx
+  sheet: D01_professional_services
+  generated_at: '2026-03-30T17:40:01+00:00'
+  source_manifest_ref: contracts/orbitbrief/professional_services/source_manifest.yaml
+baseline_ref: config/domains/professional_services/base/baseline_fields.yaml
+baseline_injection_ref: config/domains/professional_services/base/baseline_injection.yaml
+overlay_catalog_ref: config/domains/professional_services/overlays/overlay_catalog.yaml
+components:
+- site_structure
+- security_access
+- delivery_execution
+- commercial
+- testing_deliverables
+- assumptions_exclusions_open_items
+- quantity_normalization
+- location_normalization
+roles:
+- transcript_or_notes
+- site_roster_spreadsheet
+- drawing_packet
+- proposal_quote
+- service_sow
+- wireless_survey_packet
+- audit_site_review
+- door_schedule_access_control
+- camera_schedule_surveillance
+- bom_equipment_schedule
+- field_execution_report
+runtime_order:
+- baseline_common_extraction
+- role_specific_ingestion
+- service_overlay_enrichment
+- planner_merge
+source_manifest_ref: contracts/orbitbrief/professional_services/source_manifest.yaml
+notes:
+- INITIAL COVERAGE ONLY
+- Only professional_services is in scope for this pass.
+- Domain components remain internal to professional_services and are not top-level domains.
+- professional_services should be treated as the always-on base service-family layer.
+- Role-specific ingestion adds structured evidence lanes on top of the baseline.
+- Service-family overlays should extend the baseline for narrower specializations such as wireless, telecom, audit, or hardware.

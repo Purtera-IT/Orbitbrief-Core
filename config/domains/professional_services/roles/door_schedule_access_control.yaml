@@ -1,0 +1,36 @@
+domain_id: professional_services
+role_id: door_schedule_access_control
+version: 1.0.0
+status: parked
+owner: Orbitbrief-Core
+source_ref:
+  workbook: AWESOME_CHASE_orbitbrief_domain_only_schema_intake_workbook_v4-3.xlsx
+  sheet: D01_professional_services
+  cells:
+  - B50
+  - C50
+  - B51
+  - C51
+  - B52
+  - C52
+  generated_at: '2026-03-30T17:40:01+00:00'
+family_id: parked
+allowed_modalities:
+- XLSX
+- CSV
+- PDF
+executable_source_schema_refs: []
+source_spec_refs: []
+activates_components: []
+default_32b_mode: 'off'
+authoritative_fields: []
+supporting_fields: []
+workbook_cells_covered:
+- B50
+- C50
+- B51
+- C51
+- B52
+- C52
+notes:
+- Workbook rows 50-52 say SKIP; parked stub only for this initial pass.

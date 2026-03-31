@@ -1,0 +1,124 @@
+domain_id: professional_services
+role_id: drawing_packet
+version: 1.0.0
+status: initial_coverage
+owner: Orbitbrief-Core
+source_ref:
+  workbook: AWESOME_CHASE_orbitbrief_domain_only_schema_intake_workbook_v4-3.xlsx
+  sheet: D01_professional_services
+  cells:
+  - B21
+  - C21
+  - B22
+  - C22
+  - B23
+  - C23
+  source_manifest_ref: contracts/orbitbrief/professional_services/source_manifest.yaml
+  generated_at: '2026-03-30T17:40:01+00:00'
+family_id: ps_spatial
+allowed_modalities:
+- PDF
+- DWG export PDF
+- image PDF
+executable_source_schema_refs:
+- schema_ref_id: drawing_packet.pdf.pre
+  modality: PDF
+  stage: PRE
+  repo_path: contracts/orbitbrief/professional_services/source_schemas/drawing_packet/professional_services_pre_orbitbrief_drawing_packet_pdf_v3.json
+  workbook_cell: B21
+- schema_ref_id: drawing_packet.pdf.post
+  modality: PDF
+  stage: POST
+  repo_path: contracts/orbitbrief/professional_services/source_schemas/drawing_packet/professional_services_post_orbitbrief_drawing_packet_pdf_v1.json
+  workbook_cell: C21
+- schema_ref_id: drawing_packet.dwg_export_pdf.pre
+  modality: DWG export PDF
+  stage: PRE
+  repo_path: contracts/orbitbrief/professional_services/source_schemas/drawing_packet/professional_services_pre_orbitbrief_drawing_packet_dwg_export_pdf_v1.json
+  workbook_cell: B22
+- schema_ref_id: drawing_packet.dwg_export_pdf.post
+  modality: DWG export PDF
+  stage: POST
+  repo_path: contracts/orbitbrief/professional_services/source_schemas/drawing_packet/professional_services_post_orbitbrief_drawing_packet_dwg_export_pdf_v1.json
+  workbook_cell: C22
+- schema_ref_id: drawing_packet.image_pdf.pre
+  modality: image PDF
+  stage: PRE
+  repo_path: contracts/orbitbrief/professional_services/source_schemas/drawing_packet/professional_services_pre_orbitbrief_drawing_packet_image_pdf_v1.json
+  workbook_cell: B23
+- schema_ref_id: drawing_packet.image_pdf.post
+  modality: image PDF
+  stage: POST
+  repo_path: contracts/orbitbrief/professional_services/source_schemas/drawing_packet/professional_services_post_orbitbrief_drawing_packet_image_pdf_v1.json
+  workbook_cell: C23
+source_spec_refs: []
+activates_components:
+- site_structure
+- security_access
+- delivery_execution
+- testing_deliverables
+- quantity_normalization
+- location_normalization
+default_32b_mode: required
+authoritative_fields:
+- project_type
+- service_category
+- project_summary
+- project_name
+- customer_name
+- end_customer_name
+- site_count
+- location_details
+- site_name
+- site_address
+- drawing_packet_metadata
+- scope_confirmation_by_system
+- site_profile_from_drawings
+- scope_tasks_requested
+- known_quantities
+- customer_provided_materials
+- access_constraints
+- testing_requirements
+- deliverables_needed
+- known_assumptions
+- known_exclusions
+- open_questions
+- room_by_room_scope_matrix
+- device_inventory_by_area
+- distance_takeoff_by_run
+- pathway_and_constructability
+- installation_conditions
+- trade_responsibility_matrix
+- materials_required_by_system
+- materials_bill_of_materials_inputs
+- materials_allowance_model
+- labor_type_requirements
+- automatic_loe_inputs
+- testing_and_closeout_requirements
+- drawing_confidence
+- commercial_flags
+- pricing_risk_signals
+- normalization_notes
+- image_readability_confidence
+- visual_scope_confirmation_by_system
+- site_profile_from_visuals
+- estimated_device_counts_from_visuals
+- visual_pathway_and_constructability
+supporting_fields:
+- scope_overview
+- detailed_scope_of_services
+- deliverables
+- assumptions
+- customer_responsibilities
+- out_of_scope
+- risks_or_dependencies
+- completion_criteria
+- open_items
+workbook_cells_covered:
+- B21
+- C21
+- B22
+- C22
+- B23
+- C23
+notes: []

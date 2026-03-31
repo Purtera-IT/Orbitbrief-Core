@@ -1,0 +1,175 @@
+domain_id: professional_services
+role_id: field_execution_report
+version: 1.0.0
+status: initial_coverage
+owner: Orbitbrief-Core
+source_ref:
+  workbook: AWESOME_CHASE_orbitbrief_domain_only_schema_intake_workbook_v4-3.xlsx
+  sheet: D01_professional_services
+  cells:
+  - B74
+  - C74
+  - B75
+  - C75
+  - B76
+  - C76
+  generated_at: '2026-03-30T17:40:01+00:00'
+field_priorities:
+  authoritative_pre_fields_by_modality:
+    PDF:
+    - project_type
+    - service_category
+    - project_summary
+    - project_name
+    - customer_name
+    - end_customer_name
+    - site_count
+    - location_details
+    - report_identification
+    - scope_authorization_and_scheduling
+    - site_access_and_readiness
+    - personnel_on_site
+    - pre_work_assessment
+    - safety_and_environmental_conditions
+    - logistics_material_handling_and_inventory_control
+    - work_phases_and_milestones
+    - technical_workstreams
+    - labeling_and_naming
+    - testing_and_validation
+    - measurements_and_readings
+    - documentation_deliverables
+    - matrices_and_schedules
+    - photos_and_visual_evidence
+    - issues_exceptions_and_punch_list
+    - removals_and_decommissioning
+    - customer_communication_and_handoff
+    - time_labor_and_commercial_tracking
+    - final_closeout_and_approval
+    - narrative_fields
+    - signatures_and_approvals
+    - closeout_package_must_have_summary
+    - qc_and_customer_facing_quality_review
+    - known_quantities
+    - customer_provided_materials
+    - access_constraints
+    - testing_requirements
+    - deliverables_needed
+    - known_assumptions
+    - known_exclusions
+    - open_questions
+    - normalization_notes
+  supporting_post_fields_by_modality:
+    PDF:
+    - scope_overview
+    - detailed_scope_of_services
+    - deliverables
+    - assumptions
+    - customer_responsibilities
+    - out_of_scope
+    - risks_or_dependencies
+    - completion_criteria
+    - open_items
+    DOCX:
+    - downstream_alignment
+    - extraction_objectives
+    - deliverables_to_detect
+    - source_assumptions
+    - schema_rules
+    form export:
+    - form_export_alignment
+    - extraction_objectives
+    - deliverables_reference_list
+    - form_fields
+    - source_assumptions
+    - schema_rules
+  authoritative_pre_union:
+  - project_type
+  - service_category
+  - project_summary
+  - project_name
+  - customer_name
+  - end_customer_name
+  - site_count
+  - location_details
+  - report_identification
+  - scope_authorization_and_scheduling
+  - site_access_and_readiness
+  - personnel_on_site
+  - pre_work_assessment
+  - safety_and_environmental_conditions
+  - logistics_material_handling_and_inventory_control
+  - work_phases_and_milestones
+  - technical_workstreams
+  - labeling_and_naming
+  - testing_and_validation
+  - measurements_and_readings
+  - documentation_deliverables
+  - matrices_and_schedules
+  - photos_and_visual_evidence
+  - issues_exceptions_and_punch_list
+  - removals_and_decommissioning
+  - customer_communication_and_handoff
+  - time_labor_and_commercial_tracking
+  - final_closeout_and_approval
+  - narrative_fields
+  - signatures_and_approvals
+  - closeout_package_must_have_summary
+  - qc_and_customer_facing_quality_review
+  - known_quantities
+  - customer_provided_materials
+  - access_constraints
+  - testing_requirements
+  - deliverables_needed
+  - known_assumptions
+  - known_exclusions
+  - open_questions
+  - normalization_notes
+  supporting_post_union:
+  - scope_overview
+  - detailed_scope_of_services
+  - deliverables
+  - assumptions
+  - customer_responsibilities
+  - out_of_scope
+  - risks_or_dependencies
+  - completion_criteria
+  - open_items
+  - downstream_alignment
+  - extraction_objectives
+  - deliverables_to_detect
+  - source_assumptions
+  - schema_rules
+  - form_export_alignment
+  - deliverables_reference_list
+  - form_fields
+positive_signals:
+- work performed
+- completed/deferred/blocked tasks
+- signoff
+- test evidence
+- closeout artifacts
+- exception logs
+- photos
+negative_signals:
+- generic template text with no execution truth
+noise_patterns:
+- repeated form labels
+- empty checklist sections
+normalization_rules:
+- actual work performed outranks planned work
+- preserve unresolved defects and missing deliverables
+- do not overstate completion
+- use B75/C75/B76/C76 source specs to enrich normalization and review triggers
+review_triggers:
+- missing signoff
+- missing required deliverables
+- incomplete testing
+- contradictory completion status
+- return visit implied
+- customer acceptance unclear
+default_model_policy:
+  mode_32b: conditional
+notes:
+- B74/C74 are the executable source contracts for this initial pass.
+- DOCX and form export workbook comments are stored as source specs only and used to enrich injection behavior, not as executable
+  source contracts.

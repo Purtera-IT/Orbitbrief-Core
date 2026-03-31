@@ -1,0 +1,115 @@
+domain_id: professional_services
+role_id: camera_schedule_surveillance
+version: 1.0.0
+status: initial_coverage
+owner: Orbitbrief-Core
+source_ref:
+  workbook: AWESOME_CHASE_orbitbrief_domain_only_schema_intake_workbook_v4-3.xlsx
+  sheet: D01_professional_services
+  cells:
+  - B56
+  - C56
+  - B57
+  - C57
+  - B58
+  - C58
+  source_manifest_ref: contracts/orbitbrief/professional_services/source_manifest.yaml
+  generated_at: '2026-03-30T17:40:01+00:00'
+family_id: ps_schedule
+allowed_modalities:
+- XLSX
+- CSV
+- PDF
+executable_source_schema_refs:
+- schema_ref_id: camera_schedule_surveillance.xlsx.pre
+  modality: XLSX
+  stage: PRE
+  repo_path: contracts/orbitbrief/professional_services/source_schemas/camera_schedule_surveillance/professional_services_pre_orbitbrief_camera_schedule_surveillance_xlsx_v1.json
+  workbook_cell: B56
+- schema_ref_id: camera_schedule_surveillance.xlsx.post
+  modality: XLSX
+  stage: POST
+  repo_path: contracts/orbitbrief/professional_services/source_schemas/camera_schedule_surveillance/professional_services_post_orbitbrief_camera_schedule_surveillance_xlsx_v1.json
+  workbook_cell: C56
+- schema_ref_id: camera_schedule_surveillance.csv.pre
+  modality: CSV
+  stage: PRE
+  repo_path: contracts/orbitbrief/professional_services/source_schemas/camera_schedule_surveillance/professional_services_pre_orbitbrief_camera_schedule_surveillance_csv_v1.json
+  workbook_cell: B57
+- schema_ref_id: camera_schedule_surveillance.csv.post
+  modality: CSV
+  stage: POST
+  repo_path: contracts/orbitbrief/professional_services/source_schemas/camera_schedule_surveillance/professional_services_post_orbitbrief_camera_schedule_surveillance_csv_v1.json
+  workbook_cell: C57
+- schema_ref_id: camera_schedule_surveillance.pdf.pre
+  modality: PDF
+  stage: PRE
+  repo_path: contracts/orbitbrief/professional_services/source_schemas/camera_schedule_surveillance/professional_services_pre_orbitbrief_camera_schedule_surveillance_pdf_v1.json
+  workbook_cell: B58
+- schema_ref_id: camera_schedule_surveillance.pdf.post
+  modality: PDF
+  stage: POST
+  repo_path: contracts/orbitbrief/professional_services/source_schemas/camera_schedule_surveillance/professional_services_post_orbitbrief_camera_schedule_surveillance_pdf_v1.json
+  workbook_cell: C58
+source_spec_refs: []
+activates_components:
+- site_structure
+- security_access
+- delivery_execution
+- testing_deliverables
+- quantity_normalization
+- location_normalization
+default_32b_mode: 'off'
+authoritative_fields:
+- project_type
+- service_category
+- project_summary
+- project_name
+- customer_name
+- end_customer_name
+- site_count
+- location_details
+- site_name
+- site_address
+- camera_packet_metadata
+- site_profile
+- scope_tasks_requested
+- camera_scope_summary
+- camera_inventory_by_area
+- cabling_scope
+- pathway_and_access_conditions
+- surveillance_infrastructure_readiness
+- known_quantities
+- customer_provided_materials
+- owner_furnished_equipment
+- by_others_scope
+- access_constraints
+- testing_requirements
+- deliverables_needed
+- known_assumptions
+- known_exclusions
+- open_questions
+- labor_type_requirements
+- automatic_loe_inputs
+- materials_required_by_system
+- materials_bill_of_materials_inputs
+- pricing_risk_signals
+- normalization_notes
+supporting_fields:
+- scope_overview
+- detailed_scope_of_services
+- deliverables
+- assumptions
+- customer_responsibilities
+- out_of_scope
+- risks_or_dependencies
+- completion_criteria
+- open_items
+workbook_cells_covered:
+- B56
+- C56
+- B57
+- C57
+- B58
+- C58
+notes: []

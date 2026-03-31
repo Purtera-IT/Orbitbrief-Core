@@ -1,0 +1,15 @@
+accept_auto_threshold: 0.92
+review_threshold: 0.75
+top2_gap_min: 0.08
+hard_guards:
+- schema_allowed_target_only
+- expected_type_must_match
+- summary_only_targets_require_summary_row
+- site_row_targets_require_site_row
+family_resolution_order:
+- exact
+- normalized_exact
+- rule
+- family_retrieval
+- field_retrieval
+- hard_score

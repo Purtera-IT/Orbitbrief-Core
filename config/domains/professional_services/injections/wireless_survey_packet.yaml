@@ -1,0 +1,274 @@
+domain_id: professional_services
+role_id: wireless_survey_packet
+version: 1.0.0
+status: initial_coverage
+owner: Orbitbrief-Core
+source_ref:
+  workbook: AWESOME_CHASE_orbitbrief_domain_only_schema_intake_workbook_v4-3.xlsx
+  sheet: D01_professional_services
+  cells:
+  - B37
+  - C37
+  - B38
+  - C38
+  - B39
+  - C39
+  - B40
+  - C40
+  generated_at: '2026-03-30T17:40:01+00:00'
+field_priorities:
+  authoritative_pre_fields_by_modality:
+    PDF:
+    - project_type
+    - service_category
+    - project_summary
+    - project_name
+    - customer_name
+    - end_customer_name
+    - site_count
+    - location_details
+    - site_name
+    - site_address
+    - survey_packet_metadata
+    - site_profile
+    - performance_targets
+    - scope_tasks_requested
+    - ap_scope_summary
+    - ap_inventory_by_area
+    - cabling_scope
+    - pathway_and_access_conditions
+    - wireless_infrastructure_readiness
+    - known_quantities
+    - customer_provided_materials
+    - owner_furnished_equipment
+    - by_others_scope
+    - access_constraints
+    - testing_requirements
+    - deliverables_needed
+    - known_assumptions
+    - known_exclusions
+    - open_questions
+    - labor_type_requirements
+    - automatic_loe_inputs
+    - materials_required_by_system
+    - materials_bill_of_materials_inputs
+    - pricing_risk_signals
+    - normalization_notes
+    XLSX:
+    - project_type
+    - service_category
+    - project_summary
+    - project_name
+    - customer_name
+    - end_customer_name
+    - site_count
+    - location_details
+    - site_name
+    - site_address
+    - survey_packet_metadata
+    - site_profile
+    - performance_targets
+    - scope_tasks_requested
+    - ap_scope_summary
+    - ap_inventory_by_area
+    - cabling_scope
+    - pathway_and_access_conditions
+    - wireless_infrastructure_readiness
+    - known_quantities
+    - customer_provided_materials
+    - owner_furnished_equipment
+    - by_others_scope
+    - access_constraints
+    - testing_requirements
+    - deliverables_needed
+    - known_assumptions
+    - known_exclusions
+    - open_questions
+    - labor_type_requirements
+    - automatic_loe_inputs
+    - materials_required_by_system
+    - materials_bill_of_materials_inputs
+    - pricing_risk_signals
+    - normalization_notes
+    .esx:
+    - project_type
+    - service_category
+    - project_summary
+    - project_name
+    - customer_name
+    - end_customer_name
+    - site_count
+    - location_details
+    - site_name
+    - site_address
+    - survey_packet_metadata
+    - site_profile
+    - performance_targets
+    - scope_tasks_requested
+    - ap_scope_summary
+    - ap_inventory_by_area
+    - radio_design_inputs
+    - cabling_scope
+    - pathway_and_access_conditions
+    - wireless_infrastructure_readiness
+    - known_quantities
+    - customer_provided_materials
+    - owner_furnished_equipment
+    - by_others_scope
+    - access_constraints
+    - testing_requirements
+    - deliverables_needed
+    - known_assumptions
+    - known_exclusions
+    - open_questions
+    - labor_type_requirements
+    - automatic_loe_inputs
+    - materials_required_by_system
+    - materials_bill_of_materials_inputs
+    - pricing_risk_signals
+    - normalization_notes
+    ZIP export:
+    - project_type
+    - service_category
+    - project_summary
+    - project_name
+    - customer_name
+    - end_customer_name
+    - site_count
+    - location_details
+    - site_name
+    - site_address
+    - archive_metadata
+    - survey_packet_metadata
+    - site_profile
+    - performance_targets
+    - scope_tasks_requested
+    - ap_scope_summary
+    - ap_inventory_by_area
+    - cabling_scope
+    - pathway_and_access_conditions
+    - wireless_infrastructure_readiness
+    - known_quantities
+    - customer_provided_materials
+    - owner_furnished_equipment
+    - by_others_scope
+    - access_constraints
+    - testing_requirements
+    - deliverables_needed
+    - known_assumptions
+    - known_exclusions
+    - open_questions
+    - source_traceability
+    - labor_type_requirements
+    - automatic_loe_inputs
+    - materials_required_by_system
+    - materials_bill_of_materials_inputs
+    - pricing_risk_signals
+    - normalization_notes
+  supporting_post_fields_by_modality:
+    PDF:
+    - scope_overview
+    - detailed_scope_of_services
+    - deliverables
+    - assumptions
+    - customer_responsibilities
+    - out_of_scope
+    - risks_or_dependencies
+    - completion_criteria
+    - open_items
+    XLSX:
+    - scope_overview
+    - detailed_scope_of_services
+    - deliverables
+    - assumptions
+    - customer_responsibilities
+    - out_of_scope
+    - risks_or_dependencies
+    - completion_criteria
+    - open_items
+    .esx:
+    - scope_overview
+    - detailed_scope_of_services
+    - deliverables
+    - assumptions
+    - customer_responsibilities
+    - out_of_scope
+    - risks_or_dependencies
+    - completion_criteria
+    - open_items
+    ZIP export:
+    - scope_overview
+    - detailed_scope_of_services
+    - deliverables
+    - assumptions
+    - customer_responsibilities
+    - out_of_scope
+    - risks_or_dependencies
+    - completion_criteria
+    - open_items
+  authoritative_pre_union:
+  - project_type
+  - service_category
+  - project_summary
+  - project_name
+  - customer_name
+  - end_customer_name
+  - site_count
+  - location_details
+  - site_name
+  - site_address
+  - survey_packet_metadata
+  - site_profile
+  - performance_targets
+  - scope_tasks_requested
+  - ap_scope_summary
+  - ap_inventory_by_area
+  - cabling_scope
+  - pathway_and_access_conditions
+  - wireless_infrastructure_readiness
+  - known_quantities
+  - customer_provided_materials
+  - owner_furnished_equipment
+  - by_others_scope
+  - access_constraints
+  - testing_requirements
+  - deliverables_needed
+  - known_assumptions
+  - known_exclusions
+  - open_questions
+  - labor_type_requirements
+  - automatic_loe_inputs
+  - materials_required_by_system
+  - materials_bill_of_materials_inputs
+  - pricing_risk_signals
+  - normalization_notes
+  - radio_design_inputs
+  - archive_metadata
+  - source_traceability
+  supporting_post_union:
+  - scope_overview
+  - detailed_scope_of_services
+  - deliverables
+  - assumptions
+  - customer_responsibilities
+  - out_of_scope
+  - risks_or_dependencies
+  - completion_criteria
+  - open_items
+positive_signals:
+- AP inventory
+- floor references
+- survey findings
+- heatmap/survey metadata
+- readiness notes
+negative_signals:
+- empty archive artifacts
+noise_patterns:
+- duplicate exports
+normalization_rules:
+- capture survey-derived counts separately from assumptions
+- distinguish archive/container synthesis from single-file survey truth
+review_triggers: []
+default_model_policy:
+  mode_32b: conditional
+notes: []

@@ -1,0 +1,119 @@
+domain_id: professional_services
+component_id: assumptions_exclusions_open_items
+version: 1.0.0
+status: initial_coverage
+owner: Orbitbrief-Core
+source_ref:
+  workbook: AWESOME_CHASE_orbitbrief_domain_only_schema_intake_workbook_v4-3.xlsx
+  sheet: D01_professional_services
+  generated_at: '2026-03-30T17:40:01+00:00'
+  derived_from_roles:
+  - transcript_or_notes
+  - proposal_quote
+  - service_sow
+  - field_execution_report
+purpose: normalize assumptions, exclusions, out-of-scope findings, unresolved questions, and follow-up items
+consumes_roles:
+- transcript_or_notes
+- proposal_quote
+- service_sow
+- field_execution_report
+influences_fields:
+- project_name
+- customer_name
+- end_customer_name
+- request_source
+- project_type
+- service_category
+- business_driver
+- project_summary
+- success_criteria
+- site_count
+- site_locations
+- site_types
+- site_topology
+- site_conditions
+- scope_included
+- scope_excluded
+- scope_by_others
+- known_quantities
+- technical_environment
+- schedule
+- access_and_logistics
+- deliverables_required
+- testing_and_acceptance
+- customer_responsibilities
+- customer_inputs_required
+- customer_provided_materials
+- customer_documents_required
+- third_party_dependencies
+- commercial_structure
+- assumptions
+- risks
+- open_questions
+- readiness_gaps
+- primary_customer_contact
+- decision_makers
+- notes_for_sow_author
+- location_details
+- scope_tasks_requested
+- access_constraints
+- testing_requirements
+- deliverables_needed
+- known_assumptions
+- known_exclusions
+- quote_metadata
+- site_profile
+- systems_quoted
+- work_packages
+- quoted_scope_line_items
+- owner_furnished_equipment
+- by_others_scope
+- working_hours_constraints
+- commercial_terms_extracted
+- labor_type_requirements
+- automatic_loe_inputs
+- skillset_summary_inputs
+- materials_bill_of_materials_inputs
+- pricing_structure
+- purtera_rewrite_inputs
+- pricing_risk_signals
+- normalization_notes
+- source_document_structure
+- source_sow_metadata
+- systems_in_scope
+- systems_out_of_scope
+- quoted_or_stated_line_items
+- timeline_and_milestone_inputs
+- source_responsibilities_extracted
+- report_identification
+- scope_authorization_and_scheduling
+- site_access_and_readiness
+- personnel_on_site
+- pre_work_assessment
+- safety_and_environmental_conditions
+- logistics_material_handling_and_inventory_control
+- work_phases_and_milestones
+- technical_workstreams
+- labeling_and_naming
+- testing_and_validation
+- measurements_and_readings
+- documentation_deliverables
+- matrices_and_schedules
+- photos_and_visual_evidence
+- issues_exceptions_and_punch_list
+- removals_and_decommissioning
+- customer_communication_and_handoff
+- time_labor_and_commercial_tracking
+- final_closeout_and_approval
+- narrative_fields
+- signatures_and_approvals
+- closeout_package_must_have_summary
+- qc_and_customer_facing_quality_review
+review_triggers:
+- missing signoff
+- missing required deliverables
+- incomplete testing
+- contradictory completion status
+- return visit implied
+- customer acceptance unclear

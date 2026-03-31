@@ -1,0 +1,184 @@
+domain_id: professional_services
+role_id: site_roster_spreadsheet
+version: 1.0.0
+status: initial_coverage
+owner: Orbitbrief-Core
+source_ref:
+  workbook: AWESOME_CHASE_orbitbrief_domain_only_schema_intake_workbook_v4-3.xlsx
+  sheet: D01_professional_services
+  cells:
+  - B15
+  - C15
+  - B16
+  - C16
+  - B17
+  - C17
+  generated_at: '2026-03-30T17:40:01+00:00'
+field_priorities:
+  authoritative_pre_fields_by_modality:
+    XLSX:
+    - project_type
+    - service_category
+    - project_summary
+    - program_name
+    - customer_name
+    - end_customer_name
+    - global_program_type
+    - site_count
+    - location_details
+    - scope_tasks_requested
+    - known_quantities
+    - customer_provided_materials
+    - access_constraints
+    - testing_requirements
+    - deliverables_needed
+    - known_assumptions
+    - known_exclusions
+    - open_questions
+    - program_level_delivery_model
+    - program_level_commercial_model
+    - program_level_schedule
+    - rollout_metadata
+    - global_assumptions_and_risk_summary
+    - site_roster_rows
+    - normalization_notes
+    CSV:
+    - project_type
+    - service_category
+    - project_summary
+    - program_name
+    - customer_name
+    - end_customer_name
+    - global_program_type
+    - site_count
+    - location_details
+    - scope_tasks_requested
+    - known_quantities
+    - customer_provided_materials
+    - access_constraints
+    - testing_requirements
+    - deliverables_needed
+    - known_assumptions
+    - known_exclusions
+    - open_questions
+    - program_level_delivery_model
+    - program_level_commercial_model
+    - program_level_schedule
+    - rollout_metadata
+    - global_assumptions_and_risk_summary
+    - site_roster_rows
+    - normalization_notes
+    XLS:
+    - project_type
+    - service_category
+    - project_summary
+    - program_name
+    - customer_name
+    - end_customer_name
+    - global_program_type
+    - site_count
+    - location_details
+    - scope_tasks_requested
+    - known_quantities
+    - customer_provided_materials
+    - access_constraints
+    - testing_requirements
+    - deliverables_needed
+    - known_assumptions
+    - known_exclusions
+    - open_questions
+    - program_level_delivery_model
+    - program_level_commercial_model
+    - program_level_schedule
+    - rollout_metadata
+    - global_assumptions_and_risk_summary
+    - site_roster_rows
+    - normalization_notes
+  supporting_post_fields_by_modality:
+    XLSX:
+    - scope_overview
+    - detailed_scope_of_services
+    - deliverables
+    - assumptions
+    - customer_responsibilities
+    - out_of_scope
+    - risks_or_dependencies
+    - completion_criteria
+    - open_items
+    CSV:
+    - scope_overview
+    - detailed_scope_of_services
+    - deliverables
+    - assumptions
+    - customer_responsibilities
+    - out_of_scope
+    - risks_or_dependencies
+    - completion_criteria
+    - open_items
+    XLS:
+    - scope_overview
+    - detailed_scope_of_services
+    - deliverables
+    - assumptions
+    - customer_responsibilities
+    - out_of_scope
+    - risks_or_dependencies
+    - completion_criteria
+    - open_items
+  authoritative_pre_union:
+  - project_type
+  - service_category
+  - project_summary
+  - program_name
+  - customer_name
+  - end_customer_name
+  - global_program_type
+  - site_count
+  - location_details
+  - scope_tasks_requested
+  - known_quantities
+  - customer_provided_materials
+  - access_constraints
+  - testing_requirements
+  - deliverables_needed
+  - known_assumptions
+  - known_exclusions
+  - open_questions
+  - program_level_delivery_model
+  - program_level_commercial_model
+  - program_level_schedule
+  - rollout_metadata
+  - global_assumptions_and_risk_summary
+  - site_roster_rows
+  - normalization_notes
+  supporting_post_union:
+  - scope_overview
+  - detailed_scope_of_services
+  - deliverables
+  - assumptions
+  - customer_responsibilities
+  - out_of_scope
+  - risks_or_dependencies
+  - completion_criteria
+  - open_items
+positive_signals:
+- worksheet tabs with sites
+- header rows
+- site columns
+- wave columns
+- country/region columns
+- quantity columns
+negative_signals:
+- decorative cover tabs
+- legend tabs with no site rows
+noise_patterns:
+- merged headers
+- blank spacer rows
+normalization_rules:
+- one row object per site when possible
+- keep program-level summary separate from site-level rows
+- do not invent site counts
+review_triggers: []
+default_model_policy:
+  mode_32b: 'off'
+notes: []

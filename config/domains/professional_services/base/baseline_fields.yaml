@@ -1,0 +1,59 @@
+domain_id: professional_services
+baseline_id: professional_services_common_baseline
+version: 1.0.0
+status: initial_structure
+owner: Orbitbrief-Core
+source_ref:
+  shared_contracts_pre_baseline_ref: contracts/orbitbrief/professional_services/base/common_pre_baseline.schema.json
+  shared_contracts_post_baseline_ref: contracts/orbitbrief/professional_services/base/common_post_baseline.schema.json
+  generated_at: '2026-03-30T00:00:00Z'
+description: Baseline field layer that should run for every professional_services engagement before role-specific and overlay-specific extraction.
+always_attempt_pre_fields:
+- project_name
+- customer_name
+- end_customer_name
+- project_type
+- service_category
+- project_summary
+- site_count
+- location_details
+- scope_tasks_requested
+- known_quantities
+- customer_provided_materials
+- access_constraints
+- testing_requirements
+- deliverables_needed
+- known_assumptions
+- known_exclusions
+- open_questions
+always_attempt_post_fields:
+- scope_overview
+- detailed_scope_of_services
+- deliverables
+- assumptions
+- customer_responsibilities
+- out_of_scope
+- risks_or_dependencies
+- completion_criteria
+- open_items
+merge_policy:
+  project_name: first_high_confidence_scalar
+  customer_name: first_high_confidence_scalar
+  end_customer_name: first_high_confidence_scalar
+  project_type: highest_authority_scalar
+  service_category: highest_authority_scalar
+  project_summary: best_narrative_summary
+  site_count: review_on_conflict
+  location_details: union_with_dedup
+  scope_tasks_requested: union_with_dedup
+  known_quantities: review_on_conflict
+  customer_provided_materials: union_with_dedup
+  access_constraints: union_with_dedup
+  testing_requirements: union_with_dedup
+  deliverables_needed: union_with_dedup
+  known_assumptions: union_with_dedup
+  known_exclusions: union_with_dedup
+  open_questions: union_with_dedup
+notes:
+- professional_services baseline is an always-on layer, not a replacement for role-specific schemas.
+- Role-specific ingestion may add deeper nested structures and modality-specific fields on top of this baseline.

@@ -1,0 +1,1264 @@
+domain_id: professional_services
+runtime_scope:
+- drawing_packet
+- site_roster_spreadsheet
+- transcript_or_notes
+runtime_draft_fields:
+- project_type
+- service_category
+- project_summary
+- project_name
+- customer_name
+- end_customer_name
+- site_count
+- location_details
+- site_name
+- site_address
+- drawing_packet_metadata
+- scope_confirmation_by_system
+- site_profile_from_drawings
+- scope_tasks_requested
+- known_quantities
+- customer_provided_materials
+- access_constraints
+- testing_requirements
+- deliverables_needed
+- known_assumptions
+- known_exclusions
+- open_questions
+- room_by_room_scope_matrix
+- device_inventory_by_area
+- distance_takeoff_by_run
+- pathway_and_constructability
+- installation_conditions
+- trade_responsibility_matrix
+- materials_required_by_system
+- materials_bill_of_materials_inputs
+- materials_allowance_model
+- labor_type_requirements
+- automatic_loe_inputs
+- testing_and_closeout_requirements
+- drawing_confidence
+- commercial_flags
+- pricing_risk_signals
+- normalization_notes
+- image_readability_confidence
+- visual_scope_confirmation_by_system
+- site_profile_from_visuals
+- estimated_device_counts_from_visuals
+- visual_pathway_and_constructability
+- program_name
+- global_program_type
+- program_level_delivery_model
+- program_level_commercial_model
+- program_level_schedule
+- rollout_metadata
+- global_assumptions_and_risk_summary
+- site_roster_rows
+- request_source
+- business_driver
+- success_criteria
+- site_locations
+- site_types
+- site_topology
+- site_conditions
+- scope_included
+- scope_excluded
+- scope_by_others
+- technical_environment
+- schedule
+- access_and_logistics
+- deliverables_required
+- testing_and_acceptance
+- customer_responsibilities
+- customer_inputs_required
+- customer_documents_required
+- third_party_dependencies
+- commercial_structure
+- assumptions
+- risks
+- readiness_gaps
+- primary_customer_contact
+- decision_makers
+- notes_for_sow_author
+roles:
+- role_id: drawing_packet
+  rows:
+  - modality: PDF
+    pre_source_schema_ref: drawing_packet.pdf.pre
+    post_source_schema_ref: drawing_packet.pdf.post
+    pre_fields:
+    - field_name: project_type
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: service_category
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: project_summary
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: project_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: customer_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: end_customer_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_count
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: location_details
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: site_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_address
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: drawing_packet_metadata
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: scope_confirmation_by_system
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_profile_from_drawings
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: scope_tasks_requested
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: known_quantities
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: customer_provided_materials
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: access_constraints
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: testing_requirements
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: deliverables_needed
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_assumptions
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: known_exclusions
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: open_questions
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: room_by_room_scope_matrix
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: device_inventory_by_area
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: distance_takeoff_by_run
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: pathway_and_constructability
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: installation_conditions
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: trade_responsibility_matrix
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: materials_required_by_system
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: materials_bill_of_materials_inputs
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: materials_allowance_model
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: labor_type_requirements
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: automatic_loe_inputs
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: testing_and_closeout_requirements
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: drawing_confidence
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: commercial_flags
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: pricing_risk_signals
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: normalization_notes
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    post_fields:
+    - field_name: scope_overview
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: detailed_scope_of_services
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: deliverables
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: assumptions
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: customer_responsibilities
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: out_of_scope
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: risks_or_dependencies
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: completion_criteria
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: open_items
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+  - modality: DWG export PDF
+    pre_source_schema_ref: drawing_packet.dwg_export_pdf.pre
+    post_source_schema_ref: drawing_packet.dwg_export_pdf.post
+    pre_fields:
+    - field_name: project_type
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: service_category
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: project_summary
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: project_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: customer_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: end_customer_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_count
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: location_details
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: site_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_address
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: drawing_packet_metadata
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: scope_confirmation_by_system
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_profile_from_drawings
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: scope_tasks_requested
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: known_quantities
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: customer_provided_materials
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: access_constraints
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: testing_requirements
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: deliverables_needed
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_assumptions
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: known_exclusions
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: open_questions
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: room_by_room_scope_matrix
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: distance_takeoff_by_run
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: pathway_and_constructability
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: installation_conditions
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: materials_required_by_system
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: materials_bill_of_materials_inputs
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: labor_type_requirements
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: automatic_loe_inputs
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: drawing_confidence
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: pricing_risk_signals
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: normalization_notes
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    post_fields:
+    - field_name: scope_overview
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: detailed_scope_of_services
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: deliverables
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: assumptions
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: customer_responsibilities
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: out_of_scope
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: risks_or_dependencies
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: completion_criteria
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: open_items
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+  - modality: image PDF
+    pre_source_schema_ref: drawing_packet.image_pdf.pre
+    post_source_schema_ref: drawing_packet.image_pdf.post
+    pre_fields:
+    - field_name: project_type
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: service_category
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: project_summary
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: project_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: customer_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: end_customer_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_count
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: location_details
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: site_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_address
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: drawing_packet_metadata
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: image_readability_confidence
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: visual_scope_confirmation_by_system
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_profile_from_visuals
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: scope_tasks_requested
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: known_quantities
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: customer_provided_materials
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: access_constraints
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: testing_requirements
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: deliverables_needed
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_assumptions
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: known_exclusions
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: open_questions
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: room_by_room_scope_matrix
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: estimated_device_counts_from_visuals
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: distance_takeoff_by_run
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: visual_pathway_and_constructability
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: installation_conditions
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: materials_required_by_system
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: materials_bill_of_materials_inputs
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: labor_type_requirements
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: automatic_loe_inputs
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: testing_and_closeout_requirements
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: commercial_flags
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: pricing_risk_signals
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: normalization_notes
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    post_fields:
+    - field_name: scope_overview
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: detailed_scope_of_services
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: deliverables
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: assumptions
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: customer_responsibilities
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: out_of_scope
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: risks_or_dependencies
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: completion_criteria
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: open_items
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+- role_id: site_roster_spreadsheet
+  rows:
+  - modality: XLSX
+    pre_source_schema_ref: site_roster_spreadsheet.xlsx.pre
+    post_source_schema_ref: site_roster_spreadsheet.xlsx.post
+    pre_fields:
+    - field_name: project_type
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: service_category
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: project_summary
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: program_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: customer_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: end_customer_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: global_program_type
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_count
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: location_details
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: scope_tasks_requested
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_quantities
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: customer_provided_materials
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: access_constraints
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: testing_requirements
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: deliverables_needed
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_assumptions
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_exclusions
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: open_questions
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: program_level_delivery_model
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: program_level_commercial_model
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: program_level_schedule
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: rollout_metadata
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: global_assumptions_and_risk_summary
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_roster_rows
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: normalization_notes
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    post_fields:
+    - field_name: scope_overview
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: detailed_scope_of_services
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: deliverables
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: assumptions
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: customer_responsibilities
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: out_of_scope
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: risks_or_dependencies
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: completion_criteria
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: open_items
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+  - modality: CSV
+    pre_source_schema_ref: site_roster_spreadsheet.csv.pre
+    post_source_schema_ref: site_roster_spreadsheet.csv.post
+    pre_fields:
+    - field_name: project_type
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: service_category
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: project_summary
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: program_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: customer_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: end_customer_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: global_program_type
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_count
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: location_details
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: scope_tasks_requested
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_quantities
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: customer_provided_materials
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: access_constraints
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: testing_requirements
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: deliverables_needed
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_assumptions
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_exclusions
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: open_questions
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: program_level_delivery_model
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: program_level_commercial_model
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: program_level_schedule
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: rollout_metadata
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: global_assumptions_and_risk_summary
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_roster_rows
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: normalization_notes
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    post_fields:
+    - field_name: scope_overview
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: detailed_scope_of_services
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: deliverables
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: assumptions
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: customer_responsibilities
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: out_of_scope
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: risks_or_dependencies
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: completion_criteria
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: open_items
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+  - modality: XLS
+    pre_source_schema_ref: site_roster_spreadsheet.xls.pre
+    post_source_schema_ref: site_roster_spreadsheet.xls.post
+    pre_fields:
+    - field_name: project_type
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: service_category
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: project_summary
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: program_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: customer_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: end_customer_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: global_program_type
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_count
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: location_details
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: scope_tasks_requested
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_quantities
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: customer_provided_materials
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: access_constraints
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: testing_requirements
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: deliverables_needed
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_assumptions
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_exclusions
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: open_questions
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: program_level_delivery_model
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: program_level_commercial_model
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: program_level_schedule
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: rollout_metadata
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: global_assumptions_and_risk_summary
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_roster_rows
+      support_status: direct_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: normalization_notes
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    post_fields:
+    - field_name: scope_overview
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: detailed_scope_of_services
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: deliverables
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: assumptions
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: customer_responsibilities
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: out_of_scope
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: risks_or_dependencies
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: completion_criteria
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: open_items
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+- role_id: transcript_or_notes
+  rows:
+  - modality: TXT
+    pre_source_schema_ref: transcript_or_notes.txt.pre
+    post_source_schema_ref: transcript_or_notes.txt.post
+    pre_fields:
+    - field_name: project_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: customer_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: end_customer_name
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: request_source
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: project_type
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: service_category
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: business_driver
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: project_summary
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: success_criteria
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_count
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: site_locations
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_types
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_topology
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: site_conditions
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: scope_included
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: scope_excluded
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: scope_by_others
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: known_quantities
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: technical_environment
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: schedule
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: access_and_logistics
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: deliverables_required
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: testing_and_acceptance
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: customer_responsibilities
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: customer_inputs_required
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: customer_provided_materials
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: customer_documents_required
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: third_party_dependencies
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: commercial_structure
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: assumptions
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: risks
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: open_questions
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: readiness_gaps
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: primary_customer_contact
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: decision_makers
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: notes_for_sow_author
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    post_fields:
+    - field_name: scope_overview
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: detailed_scope_of_services
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: deliverables
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: assumptions
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: customer_responsibilities
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: out_of_scope
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: risks_or_dependencies
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: completion_criteria
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: open_items
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+  - modality: DOCX
+    pre_source_schema_ref: transcript_or_notes.docx.pre
+    post_source_schema_ref: transcript_or_notes.docx.post.alias
+    pre_fields:
+    - field_name: project_type
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: service_category
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: project_summary
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: site_count
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: location_details
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: scope_tasks_requested
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_quantities
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: customer_provided_materials
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: access_constraints
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: testing_requirements
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: deliverables_needed
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_assumptions
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_exclusions
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: open_questions
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    post_fields:
+    - field_name: scope_overview
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: detailed_scope_of_services
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: deliverables
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: assumptions
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: customer_responsibilities
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: out_of_scope
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: risks_or_dependencies
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: completion_criteria
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: open_items
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+  - modality: MD
+    pre_source_schema_ref: transcript_or_notes.md.pre
+    post_source_schema_ref: transcript_or_notes.md.post
+    pre_fields:
+    - field_name: project_type
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: service_category
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: project_summary
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: site_count
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: location_details
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: scope_tasks_requested
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_quantities
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: customer_provided_materials
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: access_constraints
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: testing_requirements
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: deliverables_needed
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_assumptions
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_exclusions
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: open_questions
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    post_fields:
+    - field_name: scope_overview
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: detailed_scope_of_services
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: deliverables
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: assumptions
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: customer_responsibilities
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: out_of_scope
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: risks_or_dependencies
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: completion_criteria
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: open_items
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+  - modality: pasted notes
+    pre_source_schema_ref: transcript_or_notes.pasted_notes.pre
+    post_source_schema_ref: transcript_or_notes.pasted_notes.post
+    pre_fields:
+    - field_name: project_type
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: service_category
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: project_summary
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: site_count
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: location_details
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: scope_tasks_requested
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_quantities
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: customer_provided_materials
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: access_constraints
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: testing_requirements
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: deliverables_needed
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_assumptions
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_exclusions
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: open_questions
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    post_fields:
+    - field_name: scope_overview
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: detailed_scope_of_services
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: deliverables
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: assumptions
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: customer_responsibilities
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: out_of_scope
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: risks_or_dependencies
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: completion_criteria
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: open_items
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+  - modality: email export
+    pre_source_schema_ref: transcript_or_notes.email_export.pre
+    post_source_schema_ref: transcript_or_notes.email_export.post
+    pre_fields:
+    - field_name: project_type
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: service_category
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: project_summary
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: site_count
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: location_details
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: scope_tasks_requested
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_quantities
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: customer_provided_materials
+      support_status: deferred_review_only
+      notes: Accounted for in coverage but deferred to later extraction/review stages.
+    - field_name: access_constraints
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: testing_requirements
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: deliverables_needed
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_assumptions
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: known_exclusions
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    - field_name: open_questions
+      support_status: heuristic_extract
+      notes: Implemented in Stage 2 ingestor.
+    post_fields:
+    - field_name: scope_overview
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: detailed_scope_of_services
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: deliverables
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: assumptions
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: customer_responsibilities
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: out_of_scope
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: risks_or_dependencies
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: completion_criteria
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.
+    - field_name: open_items
+      support_status: pass_through_chunk
+      notes: Mapped through chunking/summarization lane without final canonicalization.

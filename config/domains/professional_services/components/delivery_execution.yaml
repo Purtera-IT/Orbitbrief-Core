@@ -1,0 +1,189 @@
+domain_id: professional_services
+component_id: delivery_execution
+version: 1.0.0
+status: initial_coverage
+owner: Orbitbrief-Core
+source_ref:
+  workbook: AWESOME_CHASE_orbitbrief_domain_only_schema_intake_workbook_v4-3.xlsx
+  sheet: D01_professional_services
+  generated_at: '2026-03-30T17:40:01+00:00'
+  derived_from_roles:
+  - transcript_or_notes
+  - site_roster_spreadsheet
+  - drawing_packet
+  - proposal_quote
+  - service_sow
+  - wireless_survey_packet
+  - audit_site_review
+  - camera_schedule_surveillance
+  - bom_equipment_schedule
+  - field_execution_report
+purpose: normalize scope execution, work packages, sequencing, scheduling, readiness, and actual work performed
+consumes_roles:
+- transcript_or_notes
+- site_roster_spreadsheet
+- drawing_packet
+- proposal_quote
+- service_sow
+- wireless_survey_packet
+- audit_site_review
+- camera_schedule_surveillance
+- bom_equipment_schedule
+- field_execution_report
+influences_fields:
+- project_name
+- customer_name
+- end_customer_name
+- request_source
+- project_type
+- service_category
+- business_driver
+- project_summary
+- success_criteria
+- site_count
+- site_locations
+- site_types
+- site_topology
+- site_conditions
+- scope_included
+- scope_excluded
+- scope_by_others
+- known_quantities
+- technical_environment
+- schedule
+- access_and_logistics
+- deliverables_required
+- testing_and_acceptance
+- customer_responsibilities
+- customer_inputs_required
+- customer_provided_materials
+- customer_documents_required
+- third_party_dependencies
+- commercial_structure
+- assumptions
+- risks
+- open_questions
+- readiness_gaps
+- primary_customer_contact
+- decision_makers
+- notes_for_sow_author
+- location_details
+- scope_tasks_requested
+- access_constraints
+- testing_requirements
+- deliverables_needed
+- known_assumptions
+- known_exclusions
+- program_name
+- global_program_type
+- program_level_delivery_model
+- program_level_commercial_model
+- program_level_schedule
+- rollout_metadata
+- global_assumptions_and_risk_summary
+- site_roster_rows
+- normalization_notes
+- site_name
+- site_address
+- drawing_packet_metadata
+- scope_confirmation_by_system
+- site_profile_from_drawings
+- room_by_room_scope_matrix
+- device_inventory_by_area
+- distance_takeoff_by_run
+- pathway_and_constructability
+- installation_conditions
+- trade_responsibility_matrix
+- materials_required_by_system
+- materials_bill_of_materials_inputs
+- materials_allowance_model
+- labor_type_requirements
+- automatic_loe_inputs
+- testing_and_closeout_requirements
+- drawing_confidence
+- commercial_flags
+- pricing_risk_signals
+- image_readability_confidence
+- visual_scope_confirmation_by_system
+- site_profile_from_visuals
+- estimated_device_counts_from_visuals
+- visual_pathway_and_constructability
+- quote_metadata
+- site_profile
+- systems_quoted
+- work_packages
+- quoted_scope_line_items
+- owner_furnished_equipment
+- by_others_scope
+- working_hours_constraints
+- commercial_terms_extracted
+- skillset_summary_inputs
+- pricing_structure
+- purtera_rewrite_inputs
+- source_document_structure
+- source_sow_metadata
+- systems_in_scope
+- systems_out_of_scope
+- quoted_or_stated_line_items
+- timeline_and_milestone_inputs
+- source_responsibilities_extracted
+- survey_packet_metadata
+- performance_targets
+- ap_scope_summary
+- ap_inventory_by_area
+- cabling_scope
+- pathway_and_access_conditions
+- wireless_infrastructure_readiness
+- radio_design_inputs
+- archive_metadata
+- source_traceability
+- audit_packet_metadata
+- audit_scope_summary
+- room_and_closet_inventory
+- rack_inventory
+- device_inventory_by_rack_ru
+- patch_panel_and_port_mapping
+- photographic_evidence
+- infrastructure_readiness
+- switch_inventory
+- camera_packet_metadata
+- camera_scope_summary
+- camera_inventory_by_area
+- surveillance_infrastructure_readiness
+- bom_packet_metadata
+- software_and_licensing_filter
+- bom_scope_summary
+- equipment_inventory_lines
+- rack_and_mounting_requirements
+- cabling_and_patching_scope
+- report_identification
+- scope_authorization_and_scheduling
+- site_access_and_readiness
+- personnel_on_site
+- pre_work_assessment
+- safety_and_environmental_conditions
+- logistics_material_handling_and_inventory_control
+- work_phases_and_milestones
+- technical_workstreams
+- labeling_and_naming
+- testing_and_validation
+- measurements_and_readings
+- documentation_deliverables
+- matrices_and_schedules
+- photos_and_visual_evidence
+- issues_exceptions_and_punch_list
+- removals_and_decommissioning
+- customer_communication_and_handoff
+- time_labor_and_commercial_tracking
+- final_closeout_and_approval
+- narrative_fields
+- signatures_and_approvals
+- closeout_package_must_have_summary
+- qc_and_customer_facing_quality_review
+review_triggers:
+- missing signoff
+- missing required deliverables
+- incomplete testing
+- contradictory completion status
+- return visit implied
+- customer acceptance unclear

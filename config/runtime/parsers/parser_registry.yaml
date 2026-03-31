@@ -1,0 +1,43 @@
+id: runtime.parsers.registry
+version: 1.0.0
+owner: Orbitbrief-Core
+status: scaffold
+
+parsers:
+  - parser_id: text_narrative_parser
+    module: orbitbrief_core.runtime_spine.parsers.text_narrative
+    class_name: TextNarrativeParser
+    supported_modalities: [txt, md, docx, email_export, pasted_notes]
+    engine_type: deterministic
+
+  - parser_id: tabular_parser
+    module: orbitbrief_core.runtime_spine.parsers.tabular
+    class_name: TabularParser
+    supported_modalities: [csv, xlsx, xls]
+    engine_type: deterministic
+
+  - parser_id: pdf_text_parser
+    module: orbitbrief_core.runtime_spine.parsers.pdf_text
+    class_name: PdfTextParser
+    supported_modalities: [pdf]
+    engine_type: deterministic
+
+  - parser_id: pdf_ocr_parser
+    module: orbitbrief_core.runtime_spine.parsers.pdf_ocr
+    class_name: PdfOcrParser
+    supported_modalities: [image_pdf]
+    engine_type: model_backed
+    backend: not_wired
+
+  - parser_id: drawing_vector_parser
+    module: orbitbrief_core.runtime_spine.parsers.drawing_vector
+    class_name: DrawingVectorParser
+    supported_modalities: [dwg_export_pdf, esx, cad]
+    engine_type: model_backed
+    backend: not_wired
+
+  - parser_id: container_parser
+    module: orbitbrief_core.runtime_spine.parsers.container
+    class_name: ContainerParser
+    supported_modalities: [zip]
+    engine_type: deterministic
