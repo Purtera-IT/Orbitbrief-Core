@@ -4,14 +4,6 @@ owner: Orbitbrief-Core
 status: scaffold
 
 parsers:
-  - parser_id: text_narrative_parser
-    module: orbitbrief_core.runtime_spine.parsers.professional_services.text_narrative
-    class_name: TextNarrativeParser
-    parser_version: 1.0.0
-    io_schema_ref: config/runtime/parsers/text_narrative_parser_io_v1.schema.json
-    supported_modalities: [txt, md, docx, email_export, pasted_notes]
-    engine_type: deterministic
-
   - parser_id: tabular_parser
     module: orbitbrief_core.runtime_spine.parsers.tabular
     class_name: TabularParser
