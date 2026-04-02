@@ -250,3 +250,49 @@ def test_v2_embedded_and_external_scope_conflict_still_blocked_in_loader(tmp_pat
     )
     with pytest.raises(ContractConflictError):
         load_raw_contracts(paths)
+
+
+def test_v2_field_catalog_derives_fields_from_pre_post_when_missing_fields(tmp_path: Path) -> None:
+    paths = _build_paths(tmp_path)
+    _write(
+        paths.field_catalog_path,
+        json.dumps(
+            {
+                "version": "1.0.0",
+                "pre_field_definitions": {
+                    "project_summary": {"kind": "string"},
+                    "site_count": {"kind": "integer"},
+                },
+                "post_field_definitions": {"scope_overview": {"kind": "string"}},
+            }
+        ),
+    )
+    resolved = resolve_precedence(load_raw_contracts(paths))
+    assert "project_summary" in resolved.resolved_field_legality.fields
+    assert "scope_overview" in resolved.resolved_field_legality.fields
+    assert resolved.resolved_field_legality.fields["project_summary"]["pre_or_post"] == "pre"
+    assert resolved.resolved_field_legality.fields["scope_overview"]["pre_or_post"] == "post"
+
+
+def test_v2_wildcard_field_refs_are_legal_when_prefix_exists(tmp_path: Path) -> None:
+    paths = _build_paths(
+        tmp_path,
+        field_semantics="field_semantics:\n  access_and_logistics.*: {desc: Logistics section}\n",
+    )
+    _write(
+        paths.field_catalog_path,
+        json.dumps(
+            {
+                "version": "1.0.0",
+                "fields": {
+                    "access_and_logistics.escort_required": {},
+                    "access_and_logistics.badge_required": {},
+                        "project_summary": {},
+                        "scope_overview": {},
+                        "site_count": {},
+                },
+            }
+        ),
+    )
+    resolved = resolve_precedence(load_raw_contracts(paths))
+    assert resolved.resolved_field_semantics

@@ -32,8 +32,22 @@ FrozenJSONLike: TypeAlias = (
 )
 
 EXPECTED_ROLE_KEYS: dict[DocumentRole, set[str]] = {
-    "source_contracts": {"modalities", "sources", "source_contracts"},
-    "field_catalog": {"fields", "field_catalog"},
+    "source_contracts": {
+        "modalities",
+        "narrative_modalities",
+        "sources",
+        "source_contracts",
+        "common_target_views",
+        "base_scope",
+    },
+    "field_catalog": {
+        "fields",
+        "field_catalog",
+        "pre_field_definitions",
+        "post_field_definitions",
+        "rich_base_pre",
+        "fixed_post",
+    },
     "enhanced_machine": {"task_contract", "scope", "routing_handoff_contract", "field_definitions"},
     "rich_modalities": {"modalities", "allowed_field_paths", "parser_sandwich"},
     "scope_contract": {"pack_id", "artifact_family", "role_id", "scope"},

@@ -437,11 +437,14 @@ def _build_projection_rules(
             or data.get("field_paths")
             or data.get("emits")
         )
+        source_claim_name = str(data.get("claim_family") or data.get("source_claim_family") or "unknown_claim_family")
+        # Skip narrative/metadata projection entries that do not map to concrete claim->field rules.
+        if source_claim_name not in name_to_claim_id and targets and all(t not in path_to_id for t in targets):
+            continue
         unknown_targets = tuple(sorted(t for t in targets if t not in path_to_id))
         if unknown_targets:
             raise ContractLoadError(f"Projection rule '{name}' references unknown target fields: {unknown_targets}")
         target_ids = tuple(path_to_id[t] for t in targets)
-        source_claim_name = str(data.get("claim_family") or data.get("source_claim_family") or "unknown_claim_family")
         if source_claim_name not in name_to_claim_id:
             raise ContractLoadError(
                 f"Projection rule '{name}' references unknown source claim family: '{source_claim_name}'"
@@ -502,7 +505,13 @@ def _build_parser_profiles(
         allowed_claim_ids = (
             tuple(sorted(claim_name_to_id[name] for name in allowed_claim_names if name in claim_name_to_id))
             if allowed_claim_names
-            else all_claim_ids
+            else tuple(
+                sorted(
+                    claim.claim_family_id
+                    for claim in claim_families.values()
+                    if set(claim.projection_target_field_ids) & set(allowed_field_ids)
+                )
+            )
         )
         explicit_rule_names = _coerce_tuple_str(payload.get("linked_review_rules") or payload.get("review_rules"))
         if explicit_rule_names:

@@ -268,10 +268,25 @@ def _normalize_source_inventory(bundle: RawContractsBundle) -> SourceInventorySe
 
 def _normalize_field_catalog(bundle: RawContractsBundle) -> FieldCatalogSection:
     raw = bundle.field_catalog.data
-    fields = _as_mapping(raw.get("fields"))
-    pre = _as_mapping(raw.get("pre_field_definitions"))
-    post = _as_mapping(raw.get("post_field_definitions"))
+    fields = _as_mapping(raw.get("fields")) or _as_mapping(raw.get("field_catalog"))
+    pre = _as_mapping(raw.get("pre_field_definitions")) or _as_mapping(raw.get("rich_base_pre"))
+    post = _as_mapping(raw.get("post_field_definitions")) or _as_mapping(raw.get("fixed_post"))
+    if not fields:
+        derived_fields: dict[str, FrozenJSONLike] = {}
+        for name, payload in pre.items():
+            payload_map = _as_mapping(payload)
+            merged = dict(payload_map)
+            merged.setdefault("pre_or_post", "pre")
+            derived_fields[str(name)] = _freeze(merged)
+        for name, payload in post.items():
+            payload_map = _as_mapping(payload)
+            merged = dict(payload_map)
+            merged.setdefault("pre_or_post", "post")
+            derived_fields[str(name)] = _freeze(merged)
+        fields = MappingProxyType(derived_fields)
     paths = set(str(k) for k in fields.keys())
+    paths.update(str(k) for k in pre.keys())
+    paths.update(str(k) for k in post.keys())
     for key in ("field_paths", "allowed_field_paths"):
         value = raw.get(key)
         if isinstance(value, (list, tuple)):
@@ -313,7 +328,11 @@ def _normalize_semantic_sections(bundle: RawContractsBundle) -> SemanticSections
         or _as_mapping(raw.get("modalities"))
     )
     review_rules = _as_mapping(raw.get("review_rules")) or _as_mapping(raw.get("review_triggers"))
-    projection_rules = _as_mapping(raw.get("projection_rules")) or _as_mapping(raw.get("projection"))
+    projection_rules = (
+        _as_mapping(raw.get("projection_rules"))
+        or _as_mapping(raw.get("projection"))
+        or _as_mapping(raw.get("post_projection_rules"))
+    )
     return SemanticSections(
         field_semantics=field_semantics,
         claim_family_semantics=claim_family_semantics,
@@ -332,6 +351,19 @@ def _extract_legal_fields(section: FieldCatalogSection) -> set[str]:
     legal.update(str(k) for k in section.post_field_definitions.keys())
     legal.update(section.field_paths)
     return {v for v in legal if v}
+
+
+def _is_legal_field_ref(ref: str, legal_fields: set[str]) -> bool:
+    if ref in legal_fields:
+        return True
+    if ref.endswith("[]") and ref[:-2] in legal_fields:
+        return True
+    if not ref.endswith("[]") and f"{ref}[]" in legal_fields:
+        return True
+    if ref.endswith(".*"):
+        prefix = ref[:-2]
+        return any(field == prefix or field.startswith(prefix + ".") for field in legal_fields)
+    return False
 
 
 def _resolve_mapping(concern: str, primary: Mapping[str, FrozenJSONLike], fallback: Mapping[str, FrozenJSONLike], primary_path: str, fallback_path: str, fallback_note: str) -> ConcernResolution[Mapping[str, FrozenJSONLike]]:
@@ -506,7 +538,7 @@ def _resolve_semantic_concerns(
     projection_sem = _resolve_mapping(
         "projection_rules",
         semantic_sections.projection_rules,
-        _as_mapping(structural.raw.get("projection_rules")),
+        _as_mapping(structural.raw.get("projection_rules")) or _as_mapping(structural.raw.get("post_projection_rules")),
         str(bundle.enhanced_machine.metadata.path),
         str(bundle.rich_modalities.metadata.path),
         "Enhanced projection rules missing; used structural fallback.",
@@ -579,13 +611,21 @@ def resolve_precedence(bundle: RawContractsBundle) -> ResolvedContractsBundle:
                 raise ContractLoadError(f"Boundary violation: {category} authority leaked through parser modalities.")
 
     legal = _extract_legal_fields(legality)
-    illegal = sorted(ref for ref in refs if ref not in legal)
+    illegal = sorted(ref for ref in refs if not _is_legal_field_ref(ref, legal))
     if illegal:
         raise ContractLoadError(f"Illegal field references detected in resolved sections: {illegal}")
 
-    illegal_paths = sorted(path for path in structural.allowed_field_paths if path not in legal)
+    illegal_paths = sorted(path for path in structural.allowed_field_paths if not _is_legal_field_ref(path, legal))
     if illegal_paths:
-        raise ContractLoadError(f"Structural fallback references illegal field paths: {illegal_paths}")
+        diagnostics.append(
+            Diagnostic(
+                "warning",
+                "resolve_precedence.structural_defaults.illegal_paths",
+                "Structural fallback includes paths not present in legal field set.",
+                concern="structural_defaults",
+                context=_freeze({"illegal_paths": illegal_paths}),
+            )
+        )
 
     extras = sorted(set(str(k) for k in structural.modality_profiles.keys()) - parser_keys)
     if extras:

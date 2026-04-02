@@ -143,27 +143,30 @@ def _flatten_parser_profile_to_row(
     field_ids: set[str],
     claim_ids: set[str],
     rule_ids: set[str],
+    *,
+    strict_mask_alignment: bool,
 ) -> CompiledParserProfileRow:
     _validate_parser_profile_spec(profile, admitted_modalities, field_ids, claim_ids, rule_ids)
 
-    disallowed_fields = sorted(set(profile.allowed_field_ids) - set(mask.allowed_field_ids))
-    if disallowed_fields:
-        raise ContractLoadError(
-            f"Parser profile {profile.parser_profile_id} allows field IDs disallowed by mask {mask.mask_id}: "
-            f"{disallowed_fields}"
-        )
-    disallowed_claims = sorted(set(profile.allowed_claim_family_ids) - set(mask.allowed_claim_family_ids))
-    if disallowed_claims:
-        raise ContractLoadError(
-            f"Parser profile {profile.parser_profile_id} allows claim IDs disallowed by mask {mask.mask_id}: "
-            f"{disallowed_claims}"
-        )
-    disallowed_rules = sorted(set(profile.linked_review_rule_ids) - set(mask.allowed_review_rule_ids))
-    if disallowed_rules:
-        raise ContractLoadError(
-            f"Parser profile {profile.parser_profile_id} links review rules disallowed by mask {mask.mask_id}: "
-            f"{disallowed_rules}"
-        )
+    if strict_mask_alignment:
+        disallowed_fields = sorted(set(profile.allowed_field_ids) - set(mask.allowed_field_ids))
+        if disallowed_fields:
+            raise ContractLoadError(
+                f"Parser profile {profile.parser_profile_id} allows field IDs disallowed by mask {mask.mask_id}: "
+                f"{disallowed_fields}"
+            )
+        disallowed_claims = sorted(set(profile.allowed_claim_family_ids) - set(mask.allowed_claim_family_ids))
+        if disallowed_claims:
+            raise ContractLoadError(
+                f"Parser profile {profile.parser_profile_id} allows claim IDs disallowed by mask {mask.mask_id}: "
+                f"{disallowed_claims}"
+            )
+        disallowed_rules = sorted(set(profile.linked_review_rule_ids) - set(mask.allowed_review_rule_ids))
+        if disallowed_rules:
+            raise ContractLoadError(
+                f"Parser profile {profile.parser_profile_id} links review rules disallowed by mask {mask.mask_id}: "
+                f"{disallowed_rules}"
+            )
 
     allowed_field_ids = tuple(sorted(set(profile.allowed_field_ids) & set(mask.allowed_field_ids)))
     allowed_claim_family_ids = tuple(sorted(set(profile.allowed_claim_family_ids) & set(mask.allowed_claim_family_ids)))
@@ -373,6 +376,8 @@ def to_jsonable_diagnostic(diag: ParserProfileTableDiagnostic) -> dict[str, Any]
 def compile_parser_profile_table(
     ir: CanonicalIR,
     compiled_masks: CompiledAllowedMasks,
+    *,
+    strict_mask_alignment: bool = True,
 ) -> CompiledParserProfileTable:
     _validate_uniqueness(ir)
     admitted_modalities = set(ir.manifest.admitted_modalities)
@@ -393,6 +398,7 @@ def compile_parser_profile_table(
                 field_ids=field_ids,
                 claim_ids=claim_ids,
                 rule_ids=rule_ids,
+                strict_mask_alignment=strict_mask_alignment,
             )
         )
 

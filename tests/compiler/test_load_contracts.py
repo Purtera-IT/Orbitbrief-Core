@@ -238,3 +238,34 @@ def test_get_embedded_scope_returns_mapping_when_present(tmp_path: Path) -> None
 
     assert scope is not None
     assert scope["pack_id"] == "professional_services_text"
+
+
+def test_source_contracts_accepts_narrative_modalities_shape(tmp_path: Path) -> None:
+    source_contracts = _write(
+        tmp_path / "managed_services_base_source_contracts.json",
+        json.dumps(
+            {
+                "version": "1.0.0",
+                "narrative_modalities": {"txt": {}, "docx": {}},
+                "base_scope": {"role_id": "transcript_or_notes"},
+            }
+        ),
+    )
+    doc = load_document(source_contracts, "source_contracts")
+    assert "narrative_modalities" in doc.data
+
+
+def test_field_catalog_accepts_split_pre_post_shape(tmp_path: Path) -> None:
+    field_catalog = _write(
+        tmp_path / "managed_services_base_precise_field_catalog.json",
+        json.dumps(
+            {
+                "version": "1.0.0",
+                "pre_field_definitions": {"project_summary": {"kind": "string"}},
+                "post_field_definitions": {"scope_overview": {"kind": "string"}},
+            }
+        ),
+    )
+    doc = load_document(field_catalog, "field_catalog")
+    assert "pre_field_definitions" in doc.data
+    assert "post_field_definitions" in doc.data
