@@ -1,14 +1,21 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Mapping
 
+from orbitbrief_core.compiler.packs.professional_services_text.compiler_runner import (
+    load_compiled_pack as load_compiled_pack_artifact,
+)
 from orbitbrief_core.parser.registry import ParserRegistry, StrategyRegistry
 from orbitbrief_core.parser.router import RouterInput
 from orbitbrief_core.parser.runtime import (
     ParseExtractionResult,
     ParseRuntimeResult,
     run_parser_runtime,
+)
+from orbitbrief_core.runtime_spine.compat.legacy_output_adapter import (
+    adapt_parse_extraction_result,
 )
 from orbitbrief_core.runtime_spine.extractors import (
     ExtractorRegistry,
@@ -137,24 +144,40 @@ def parse_extract_and_postprocess(
     )
 
 
-def run_pipeline(path: str | Path, *, compiled_pack: Any) -> dict[str, Any]:
-    """Legacy facade that delegates to the official orchestration path."""
+def run_pipeline(
+    path: str | Path,
+    *,
+    compiled_pack: Any | None = None,
+    include_runtime_result: bool = False,
+) -> dict[str, Any]:
+    """Legacy facade that delegates to the official orchestration path.
+
+    This compatibility entrypoint preserves the legacy pipeline envelope while
+    routing through the parser-first runtime core.
+    """
     artifact_path = Path(path).resolve()
     text_preview = ""
     if artifact_path.suffix.lower() in {".txt", ".md", ".eml"} and artifact_path.exists():
         text_preview = artifact_path.read_text(encoding="utf-8", errors="replace")
+    active_compiled_pack = compiled_pack or _load_default_compiled_pack()
+    target_role_id = _infer_target_role_id(artifact_path)
     router_input = RouterInput(
         doc_id=artifact_path.stem or "runtime_doc",
         filename=str(artifact_path),
         raw_text_preview=text_preview,
         metadata={"path": str(artifact_path), "raw_text": text_preview},
     )
-    result = parse_extract_and_postprocess(router_input=router_input, compiled_pack=compiled_pack)
-    return {
-        "pipeline_state": result.pipeline_state,
-        "reason_codes": list(result.reason_codes),
-        "runtime_result": result,
-    }
+    result = parse_extract_and_postprocess(
+        router_input=router_input,
+        compiled_pack=active_compiled_pack,
+        target_role_id=target_role_id,
+    )
+    return adapt_parse_extraction_result(
+        result,
+        artifact_path=artifact_path,
+        target_role_id=target_role_id,
+        include_runtime_result=include_runtime_result,
+    )
 
 
 def _extract_claim_families_from_compiled_pack(compiled_pack: Any) -> frozenset[str]:
@@ -222,3 +245,41 @@ def _select_intake_only_spec(extractor_registry: ExtractorRegistry) -> Extractor
     if len(candidates) == 1:
         return candidates[0]
     return None
+
+
+def _infer_target_role_id(artifact_path: Path) -> str:
+    stem = artifact_path.stem.lower()
+    if "audit" in stem:
+        return "audit_site_review"
+    if "roster" in stem or "site" in stem:
+        return "site_roster_spreadsheet"
+    if "drawing" in stem or "plan" in stem:
+        return "drawing_packet"
+    return "transcript_or_notes"
+
+
+def _load_default_compiled_pack() -> Any:
+    try:
+        return load_compiled_pack_artifact(
+            "professional_services_text",
+            compiled_root=Path.cwd() / "compiled_artifacts",
+        )
+    except Exception:
+        modalities = ("txt", "md", "docx", "email_export", "pasted_notes", "pdf_text", "pdf_ocr")
+        parser_rows = [
+            {
+                "parser_profile_id": f"parser:professional_services_text:{modality}",
+                "modality": modality,
+            }
+            for modality in modalities
+        ]
+        return SimpleNamespace(
+            manifest=SimpleNamespace(
+                pack_id="professional_services_text",
+                role_id="transcript_or_notes",
+                artifact_family="managed_services_text",
+            ),
+            parser_profiles={"rows": parser_rows},
+            claim_family_table={"rows": []},
+            field_table={"rows": []},
+        )

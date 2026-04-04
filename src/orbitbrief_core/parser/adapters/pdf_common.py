@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from orbitbrief_core.parser.adapters.providers.docling_provider import extract_docling_pdf_hypothesis
+
 
 @dataclass(frozen=True, slots=True)
 class LayoutBlockCandidate:
@@ -309,44 +311,41 @@ def _pypdf_text_hypothesis(pdf_path: Path | None = None, pdf_bytes: bytes | None
 
 
 def _docling_hypothesis(pdf_path: Path | None = None, pdf_bytes: bytes | None = None) -> PdfParseHypothesis | None:
-    try:
-        from docling.document_converter import DocumentConverter  # type: ignore
-    except Exception:
+    provider_hypothesis = extract_docling_pdf_hypothesis(pdf_path=pdf_path, pdf_bytes=pdf_bytes)
+    if provider_hypothesis is None:
         return None
-    try:
-        converter = DocumentConverter()
-        if pdf_path is not None:
-            result = converter.convert(str(pdf_path))
-        else:
-            return None
-    except Exception:
-        return None
-    markdown = ""
-    try:
-        markdown = result.document.export_to_markdown()  # type: ignore[attr-defined]
-    except Exception:
-        return None
-    text = _normalize_block_text(markdown)
-    if not text:
-        return None
-    blocks = (
-        LayoutBlockCandidate(
-            block_id="docling_block:0000:0000",
-            page_index=0,
-            bbox=None,
-            text=text,
-            role="paragraph",
-            confidence=0.7,
-            source="docling",
-        ),
-    )
     return PdfParseHypothesis(
-        hypothesis_id="hypothesis:docling",
-        source="docling",
-        page_blocks=blocks,
-        table_regions=(),
-        confidence=0.7,
-        metadata={"degraded": True},
+        hypothesis_id=provider_hypothesis.hypothesis_id,
+        source=provider_hypothesis.source,
+        page_blocks=tuple(
+            LayoutBlockCandidate(
+                block_id=block.block_id,
+                page_index=block.page_index,
+                bbox=block.bbox,
+                text=_normalize_block_text(block.text),
+                role=block.role,
+                confidence=block.confidence,
+                source=block.source,
+                metadata=dict(block.metadata),
+            )
+            for block in provider_hypothesis.page_blocks
+            if _normalize_block_text(block.text)
+        ),
+        table_regions=tuple(
+            TableRegionCandidate(
+                region_id=region.region_id,
+                page_index=region.page_index,
+                bbox=region.bbox,
+                text=_normalize_block_text(region.text),
+                confidence=region.confidence,
+                source=region.source,
+                metadata=dict(region.metadata),
+            )
+            for region in provider_hypothesis.table_regions
+            if _normalize_block_text(region.text)
+        ),
+        confidence=provider_hypothesis.confidence,
+        metadata=dict(provider_hypothesis.metadata),
     )
 
 
