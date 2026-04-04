@@ -1,37 +1,89 @@
 id: runtime.parsers.registry
-version: 1.0.0
+version: 1.1.0
 owner: Orbitbrief-Core
-status: scaffold
+status: active
 
 parsers:
-  - parser_id: tabular_parser
-    module: orbitbrief_core.runtime_spine.parsers.tabular
-    class_name: TabularParser
-    supported_modalities: [csv, xlsx, xls]
-    engine_type: deterministic
+  - parser_id: txt_basic_v1
+    modality: txt
+    adapter: orbitbrief_core.parser.adapters.txt:TxtAdapter
+    strategy_defaults: [hybrid]
+    capabilities:
+      supports_sections: true
+      supports_messages: false
+      supports_page_provenance: false
+      supports_ocr: false
+    schema_refs: []
+    enabled: true
 
-  - parser_id: pdf_text_parser
-    module: orbitbrief_core.runtime_spine.parsers.pdf_text
-    class_name: PdfTextParser
-    supported_modalities: [pdf]
-    engine_type: deterministic
+  - parser_id: md_basic_v1
+    modality: md
+    adapter: orbitbrief_core.parser.adapters.md:MarkdownAdapter
+    strategy_defaults: [hybrid]
+    capabilities:
+      supports_sections: true
+      supports_messages: false
+      supports_page_provenance: false
+      supports_ocr: false
+    schema_refs: []
+    enabled: true
 
-  - parser_id: pdf_ocr_parser
-    module: orbitbrief_core.runtime_spine.parsers.pdf_ocr
-    class_name: PdfOcrParser
-    supported_modalities: [image_pdf]
-    engine_type: model_backed
-    backend: not_wired
+  - parser_id: docx_ooxml_v1
+    modality: docx
+    adapter: orbitbrief_core.parser.adapters.docx:DocxAdapter
+    strategy_defaults: [project_memo, hybrid]
+    capabilities:
+      supports_sections: true
+      supports_messages: false
+      supports_page_provenance: false
+      supports_ocr: false
+    schema_refs: []
+    enabled: true
 
-  - parser_id: drawing_vector_parser
-    module: orbitbrief_core.runtime_spine.parsers.drawing_vector
-    class_name: DrawingVectorParser
-    supported_modalities: [dwg_export_pdf, esx, cad]
-    engine_type: model_backed
-    backend: not_wired
+  - parser_id: email_export_v1
+    modality: email_export
+    adapter: orbitbrief_core.parser.adapters.email_export:EmailExportAdapter
+    strategy_defaults: [email_thread, hybrid]
+    capabilities:
+      supports_sections: true
+      supports_messages: true
+      supports_page_provenance: false
+      supports_ocr: false
+    schema_refs: []
+    enabled: true
 
-  - parser_id: container_parser
-    module: orbitbrief_core.runtime_spine.parsers.container
-    class_name: ContainerParser
-    supported_modalities: [zip]
-    engine_type: deterministic
+  - parser_id: pdf_text_v1
+    modality: pdf_text
+    adapter: orbitbrief_core.parser.adapters.pdf_text:PdfTextAdapter
+    strategy_defaults: [project_memo, hybrid]
+    capabilities:
+      supports_sections: true
+      supports_messages: false
+      supports_page_provenance: true
+      supports_ocr: false
+    schema_refs: []
+    enabled: true
+
+  - parser_id: pdf_ocr_v1
+    modality: pdf_ocr
+    adapter: orbitbrief_core.parser.adapters.pdf_ocr:PdfOcrAdapter
+    strategy_defaults: [project_memo, hybrid]
+    capabilities:
+      supports_sections: true
+      supports_messages: false
+      supports_page_provenance: true
+      supports_ocr: true
+    schema_refs: []
+    enabled: true
+
+  - parser_id: pasted_notes_v1
+    modality: pasted_notes
+    adapter: orbitbrief_core.parser.adapters.txt:TxtAdapter
+    strategy_defaults: [meeting_notes, hybrid]
+    capabilities:
+      supports_sections: true
+      supports_messages: false
+      supports_page_provenance: false
+      supports_ocr: false
+    schema_refs: []
+    enabled: true

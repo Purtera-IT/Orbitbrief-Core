@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "orbitbrief.runtime.extractors.registry.v1",
+  "title": "extractor_registry_v1",
+  "description": "Canonical extractor registry declaration for role and flow dispatch.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "version",
+    "status",
+    "extractors"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "const": "runtime.extractors.registry"
+    },
+    "version": {
+      "type": "string"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active"
+      ]
+    },
+    "extractors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/extractorSpec"
+      }
+    }
+  },
+  "$defs": {
+    "extractorSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "extractor_id",
+        "role_id",
+        "kind",
+        "entrypoint",
+        "supports_modalities",
+        "supports_discourse_types",
+        "packet_profile",
+        "emits_business_claims",
+        "enabled"
+      ],
+      "properties": {
+        "extractor_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "narrative",
+            "intake_only",
+            "specialized"
+          ]
+        },
+        "entrypoint": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "supports_modalities": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "supports_discourse_types": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "packet_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "allowed_claim_families": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "allowed_field_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "require_evidence_refs": {
+          "type": "boolean"
+        },
+        "review_rules": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "emits_business_claims": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

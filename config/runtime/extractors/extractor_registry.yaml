@@ -1,0 +1,57 @@
+id: runtime.extractors.registry
+version: 1.0.0
+owner: Orbitbrief-Core
+status: active
+
+extractors:
+  - extractor_id: ps_text_narrative_v1
+    role_id: transcript_or_notes
+    kind: narrative
+    entrypoint: orbitbrief_core.runtime_spine.extractors.runtime_impl:run_narrative_extractor
+    supports_modalities: [txt, md, docx, email_export, pdf_text, pdf_ocr, pasted_notes]
+    supports_discourse_types: [call_transcript, meeting_notes, email_thread, project_memo, hybrid_notes_memo]
+    packet_profile: professional_services_text_v1
+    allowed_claim_families:
+      - scope_included_claim
+      - scope_excluded_claim
+      - assumption_claim
+      - risk_claim
+      - third_party_dependency_claim
+      - site_location_claim
+      - known_quantity_claim
+      - deliverable_claim
+      - schedule_claim
+      - customer_responsibility_claim
+      - open_question_claim
+    allowed_field_paths:
+      - scope_included
+      - scope_excluded
+      - assumptions
+      - risks
+      - dependencies
+      - site_locations
+      - known_quantities
+      - deliverables_required
+      - schedule
+      - customer_responsibilities
+      - open_questions
+    require_evidence_refs: true
+    review_rules:
+      verification_confidence_threshold: 0.55
+      stronger_source_confidence_threshold: 0.40
+    emits_business_claims: true
+    enabled: true
+
+  - extractor_id: intake_only_v1
+    role_id: intake_only
+    kind: intake_only
+    entrypoint: orbitbrief_core.runtime_spine.extractors.runtime_impl:run_intake_only_extractor
+    supports_modalities: [txt, md, docx, email_export, pdf_text, pdf_ocr, pasted_notes]
+    supports_discourse_types: [call_transcript, meeting_notes, email_thread, project_memo, hybrid_notes_memo]
+    packet_profile: minimal
+    allowed_claim_families: []
+    allowed_field_paths: []
+    require_evidence_refs: true
+    review_rules: {}
+    emits_business_claims: false
+    enabled: true

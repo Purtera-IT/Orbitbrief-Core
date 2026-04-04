@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "orbitbrief.runtime.parsers.registry.v1",
+  "title": "parser_registry_v1",
+  "description": "Canonical parser registry declaration for parser runtime dispatch.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "version",
+    "status",
+    "parsers"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "const": "runtime.parsers.registry"
+    },
+    "version": {
+      "type": "string"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active"
+      ]
+    },
+    "parsers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/parserSpec"
+      }
+    }
+  },
+  "$defs": {
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "supports_sections": {
+          "type": "boolean"
+        },
+        "supports_messages": {
+          "type": "boolean"
+        },
+        "supports_page_provenance": {
+          "type": "boolean"
+        },
+        "supports_ocr": {
+          "type": "boolean"
+        }
+      }
+    },
+    "parserSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser_id",
+        "modality",
+        "adapter",
+        "enabled"
+      ],
+      "properties": {
+        "parser_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "modality": {
+          "type": "string",
+          "minLength": 1
+        },
+        "adapter": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "version": {
+          "type": "string"
+        },
+        "strategy_defaults": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "capabilities": {
+          "$ref": "#/$defs/capabilities"
+        },
+        "schema_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
