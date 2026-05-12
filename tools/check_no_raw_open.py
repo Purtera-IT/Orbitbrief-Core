@@ -55,6 +55,10 @@ PERMANENT_ALLOWLIST: frozenset[str] = frozenset({
     # Phase 1A CLI: writes the summary JSON when --out is passed.
     # Output is also part of the seam (a downstream artifact).
     "seam/__main__.py",
+    # Phase 3 world model: reads the bundled domain_packs.yaml via
+    # importlib.resources. That's reading packaged data shipped with
+    # the wheel, not user input — semantically distinct from raw I/O.
+    "world_model/registry.py",
 })
 
 # Top-level parser-os modules that are the public seam. Anything outside

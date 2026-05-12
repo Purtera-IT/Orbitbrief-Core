@@ -189,3 +189,81 @@ class NullInferenceClient:
             "NullInferenceClient.rerank() called — wire a real "
             "InferenceClient (VllmInferenceClient or test stub) before retrieval"
         )
+
+
+# ────────────────────────────── chat ──────────────────────────────────
+
+
+@dataclass(frozen=True)
+class ChatMessage:
+    """One turn in a chat conversation. Mirrors OpenAI message shape."""
+
+    role: str  # "system" | "user" | "assistant"
+    content: str
+
+
+class ChatClient(Protocol):
+    """Minimum chat surface: a non-streaming completion."""
+
+    def complete(
+        self,
+        messages: list[ChatMessage],
+        *,
+        model: str,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+        response_format: dict | None = None,
+    ) -> str:
+        """Return the assistant's full text reply (non-streaming)."""
+        ...
+
+
+@dataclass
+class OpenAIChatClient:
+    """OpenAI-compatible ``/v1/chat/completions`` client.
+
+    Targets vLLM, Ollama, LM Studio, OpenRouter, and proper OpenAI
+    interchangeably. ``base_url`` is the server root; we append
+    ``/v1/chat/completions``. ``temperature=0.0`` is the default
+    because Phase-3 escalations want deterministic output.
+    """
+
+    base_url: str
+    api_key: str | None = None
+    timeout_s: float = 120.0
+
+    def complete(
+        self,
+        messages: list[ChatMessage],
+        *,
+        model: str,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+        response_format: dict | None = None,
+    ) -> str:
+        if not messages:
+            raise InferenceError("complete: messages list is empty")
+        payload: dict = {
+            "model": model,
+            "temperature": float(temperature),
+            "messages": [{"role": m.role, "content": m.content} for m in messages],
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = int(max_tokens)
+        if response_format is not None:
+            payload["response_format"] = response_format
+        data = _post_json(
+            self._url("/v1/chat/completions"),
+            payload,
+            timeout_s=self.timeout_s,
+            api_key=self.api_key,
+        )
+        try:
+            return str(data["choices"][0]["message"]["content"])
+        except (KeyError, IndexError, TypeError) as exc:
+            raise InferenceError(
+                f"unexpected chat response shape: {data!r}"
+            ) from exc
+
+    def _url(self, path: str) -> str:
+        return self.base_url.rstrip("/") + path

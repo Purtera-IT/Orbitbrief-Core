@@ -69,3 +69,36 @@ source_modules =
 forbidden_modules =
     orbitbrief_core.inference
     orbitbrief_core.retrieval
+
+# ---------------------------------------------------------------------------
+# Phase 3 — World model layering
+# ---------------------------------------------------------------------------
+# world_model consumes evidence_runtime + inference (chat client). It MUST
+# NOT depend on retrieval (Phase 2 outputs feed downstream brains/composers,
+# not the world model). It MUST NOT depend on yet-to-be-built composers /
+# brains / validator / calibrator either.
+#
+# Conversely: evidence_runtime + retrieval + seam may not depend on
+# world_model (no upward references from substrate to engines).
+
+[importlinter:contract:world-model-bounded]
+name = world_model may consume evidence_runtime + inference, nothing else above
+type = forbidden
+source_modules =
+    orbitbrief_core.world_model
+forbidden_modules =
+    orbitbrief_core.retrieval
+    orbitbrief_core.composers
+    orbitbrief_core.brains
+    orbitbrief_core.validator
+    orbitbrief_core.calibrator
+
+[importlinter:contract:substrate-no-world-model]
+name = evidence_runtime / retrieval / seam must not depend on world_model
+type = forbidden
+source_modules =
+    orbitbrief_core.evidence_runtime
+    orbitbrief_core.retrieval
+    orbitbrief_core.seam
+forbidden_modules =
+    orbitbrief_core.world_model

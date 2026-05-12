@@ -15,15 +15,21 @@ swapping inference providers.
 from __future__ import annotations
 
 from orbitbrief_core.inference.client import (
+    ChatClient,
+    ChatMessage,
     InferenceClient,
     InferenceError,
     NullInferenceClient,
+    OpenAIChatClient,
     VllmInferenceClient,
 )
 
 __all__ = [
+    "ChatClient",
+    "ChatMessage",
     "InferenceClient",
     "InferenceError",
     "NullInferenceClient",
+    "OpenAIChatClient",
     "VllmInferenceClient",
 ]

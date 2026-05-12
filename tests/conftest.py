@@ -29,6 +29,10 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "perf: phase-2 latency / throughput gates (slow; usually local-only)",
     )
+    config.addinivalue_line(
+        "markers",
+        "slow: tests that build envelopes from real corpora (10s+ each)",
+    )
 
 
 # ────────────────────────────── shared fixtures ────────────────────────

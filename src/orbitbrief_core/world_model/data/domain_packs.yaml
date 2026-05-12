@@ -1,0 +1,513 @@
+_doc: |
+  OrbitBrief domain pack registry.
+  Source of truth: AWESOME_CHASE intake workbook v4 (auto-extracted into
+  ``keywords``) PLUS hand-curated ``boosted_keywords`` that disambiguate
+  packs whose workbook keywords are too generic. To regenerate just the
+  workbook-derived ``keywords`` portion, run:
+      python tools/extract_domain_packs.py path/to/workbook.xlsx
+  Boost lists must be re-applied after regeneration.
+version: v4
+packs:
+- id: alm
+  display_name: ALM
+  intake_aliases: []
+  subdomain_labels:
+  - ALM – Release / Environment / Workflow Governance
+  keywords:
+  - environment
+  - governance
+  - release
+  - workflow
+  - alm
+  - approvals
+  boosted_keywords:
+  - alm
+  - servicenow
+  - jira
+  - release_train
+  - cmdb
+  - itil
+- id: audit
+  display_name: Audit
+  intake_aliases:
+  - audit
+  subdomain_labels:
+  - Audit – Site Readiness / As-Built
+  keywords:
+  - built
+  - audit
+  - completeness
+  - findings
+  - photo
+  - readiness
+  - remediation
+  - severity
+  boosted_keywords:
+  - audit
+  - as_built
+  - punch_list
+  - readiness_assessment
+  - walkthrough
+  - photo_log
+- id: commercial
+  display_name: Commercial
+  intake_aliases: []
+  subdomain_labels:
+  - Commercial – T&M / NTE
+  - Commercial – Fixed Fee / Unit Pricing
+  - Commercial – Milestones / Hybrid Structures
+  keywords:
+  - commercial
+  - hybrid
+  - milestones
+  - nte
+  - acceptance
+  - exclusions
+  - fee
+  - fixed
+  - hourly
+  - pricing
+  - travel
+  boosted_keywords:
+  - nte
+  - not_to_exceed
+  - milestone_payment
+  - change_order
+  - rate_card
+  - t_and_m
+  - fixed_fee
+  - per_unit
+- id: data_migration
+  display_name: Data Migration
+  intake_aliases: []
+  subdomain_labels:
+  - Data Migration – User Data / Profile Migration
+  - Data Migration – Platform / Tenant Cutover
+  keywords:
+  - migration
+  - cutover
+  - platform
+  - profile
+  - tenant
+  - coexistence
+  - rollback
+  boosted_keywords:
+  - tenant_cutover
+  - profile_migration
+  - mailbox_move
+  - sharepoint
+  - onedrive
+  - data_migration
+  - mover
+  - cutover_window
+- id: datacenter
+  display_name: Datacenter
+  intake_aliases: []
+  subdomain_labels:
+  - Datacenter – Rack / Stack / Patch
+  - Datacenter – Power / Patching / RU Constraints
+  - Datacenter – Decommission / De-rack
+  keywords:
+  - datacenter
+  - rack_elevation
+  - power_requirements
+  - rack
+  - decommission
+  - patching
+  - stack
+  boosted_keywords:
+  - datacenter
+  - data_center
+  - colocation
+  - colo
+  - cabinet
+  - cage
+  - power_whip
+  - pdu
+  - cdu
+- id: delivery_execution
+  display_name: Delivery / Execution
+  intake_aliases:
+  - delivery_wave_management
+  subdomain_labels:
+  - Delivery / Execution – Cutover Windows / Live Execution
+  - Delivery / Execution – Lift / Dock / Material Logistics
+  - Delivery / Execution – Pilot / Wave / Variance Management
+  keywords:
+  - cutover
+  - blackout
+  - wave
+  - pilot
+  - lift
+  - dock
+  - logistics
+  - rollback
+  boosted_keywords:
+  - cutover_window
+  - blackout_window
+  - wave_plan
+  - go_live
+  - hypercare
+  - day_one
+  - dock_appointment
+- id: hardware
+  display_name: Hardware
+  intake_aliases: []
+  subdomain_labels:
+  - Hardware – Staging / Imaging / Configuration
+  - Hardware – Procurement / Shipping / Receiving
+  keywords:
+  - staging
+  - imaging
+  - procurement
+  - receiving
+  - asset_tagging
+  - configuration
+  boosted_keywords:
+  - staging_warehouse
+  - imaging_template
+  - sccm
+  - intune
+  - autopilot
+  - bom_procurement
+  - asset_tag
+- id: imac
+  display_name: IMAC
+  intake_aliases: []
+  subdomain_labels:
+  - IMAC – Refresh / Swap / Move / Add / Change
+  keywords:
+  - imac
+  - swap
+  - refresh
+  - move
+  - add
+  - change
+  boosted_keywords:
+  - imac
+  - desk_swap
+  - workstation_refresh
+  - device_swap
+  - move_add_change
+- id: itad
+  display_name: ITAD
+  intake_aliases:
+  - itad
+  subdomain_labels:
+  - ITAD – Chain of Custody / Data Sanitization
+  keywords:
+  - chain
+  - custody
+  - sanitization
+  - certificate
+  - itad
+  - serial
+  - tag
+  - handoff
+  boosted_keywords:
+  - itad
+  - chain_of_custody
+  - data_sanitization
+  - certificate_of_destruction
+  - asset_recovery
+  - r2v3
+  - nist_800_88
+  - decommission
+  - secure_disposal
+- id: low_voltage_cabling
+  display_name: Low Voltage Cabling
+  intake_aliases:
+  - telecom_structured_cabling
+  subdomain_labels:
+  - Cabling Assumptions
+  - Copper – AP Runs (Existing)
+  - Copper – AP Runs (New)
+  - Copper – Camera Runs (Existing)
+  - Copper – Camera Runs (New)
+  - Copper – DMARC Extension
+  - Copper – Data/Network Drops
+  - Fiber – DMARC Extension
+  - Fiber – New IDF Homerun to MDF
+  - Low Voltage – Testing / Certification
+  - Low Voltage – Labeling / As-Builts
+  keywords:
+  - copper
+  - cabling
+  - fiber
+  - cable
+  - drop
+  - drops
+  - idf
+  - mdf
+  - dmarc
+  - patch_panel
+  - certification
+  - termination
+  boosted_keywords:
+  - cat6
+  - cat6a
+  - cat5e
+  - cabling
+  - structured_cabling
+  - low_voltage
+  - patch_panel
+  - jack
+  - termination
+  - dmarc_extension
+  - homerun
+  - innerduct
+  - bicsi
+  - leviton
+  - panduit
+  - corning
+  - superior_essex
+- id: msp
+  display_name: MSP
+  intake_aliases:
+  - msp
+  subdomain_labels:
+  - MSP – Service Desk / Endpoint Operations
+  - MSP – Network Operations / Monitoring
+  - MSP – Patching / Backup / Lifecycle
+  keywords:
+  - msp
+  - backup
+  - endpoint
+  - monitoring
+  - patching
+  - service_desk
+  - ticketing
+  boosted_keywords:
+  - msp
+  - managed_service
+  - service_desk
+  - help_desk
+  - 24x7
+  - sla
+  - ticketing
+  - monitoring_tool
+  - rmm
+  - psa
+  - connectwise
+  - kaseya
+- id: other
+  display_name: Other / Adjacent
+  intake_aliases:
+  - access_control
+  - av
+  - erc_es
+  - video_surveillance
+  subdomain_labels:
+  - Other – Physical Security
+  - Other – AV / UC Rooms
+  - Other – Network Security / SD-WAN
+  keywords:
+  - cameras
+  - access_control
+  - av
+  - audio_visual
+  - firewall
+  - sd_wan
+  - vpn
+  boosted_keywords:
+  - camera
+  - cctv
+  - vms
+  - milestone_xprotect
+  - genetec
+  - axis
+  - bosch
+  - hikvision
+  - paging
+  - intercom
+  - loudspeaker
+  - bms
+  - tridium
+  - alerton
+  - hvac_controls
+  - audio_video
+  - videoconference
+  - huddle_room
+  - confroom
+  - meraki
+  - palo_alto
+  - fortinet
+- id: professional_services
+  display_name: Professional Services
+  intake_aliases:
+  - professional_services
+  subdomain_labels:
+  - Professional Services – Discovery / Assessment / Design
+  keywords:
+  - design
+  - discovery
+  - assessment
+  - workshop
+  boosted_keywords:
+  - sow
+  - statement_of_work
+  - workshop
+  - discovery_phase
+  - design_assessment
+  - bom_design
+  - method_of_procedure
+- id: rack_and_stack
+  display_name: Rack & Stack
+  intake_aliases: []
+  subdomain_labels:
+  - Rack & Stack – Device Racking / In-Rack Patch / Dressing
+  - Rack & Stack – Decommission / De-rack
+  keywords:
+  - rack
+  - stack
+  - racking
+  - dressing
+  - elevations
+  - patch_matrix
+  boosted_keywords:
+  - rack_and_stack
+  - rack_elevation
+  - cable_management
+  - rack_dressing
+  - de_rack
+  - in_rack_patch
+- id: security_access
+  display_name: Security / Access
+  intake_aliases:
+  - access_control
+  subdomain_labels:
+  - Security / Access – Badging / Escort / Clearance
+  - Security / Access – Facilities / Union / Trade Controls
+  - Security / Access – Physical Security Endpoints
+  keywords:
+  - badging
+  - badge
+  - escort
+  - clearance
+  - access_control
+  - secure
+  - subcontractor
+  - union
+  boosted_keywords:
+  - access_control
+  - badge
+  - card_reader
+  - lenel
+  - kantech
+  - genetec_security
+  - door_controller
+  - escort_required
+  - clearance_required
+  - background_check
+- id: site_structure
+  display_name: Site Structure
+  intake_aliases:
+  - site_structure
+  subdomain_labels:
+  - Site Structure – Site Counting / Normalization
+  - Site Structure – Site Archetypes / Variance
+  - Site Structure – Internal Topology / Areas
+  keywords:
+  - normalization
+  - topology
+  - archetypes
+  - dispatchable
+  - alias
+  - campus
+  boosted_keywords:
+  - site_normalization
+  - dispatchable_site
+  - campus_site
+  - shared_address
+  - site_alias
+  - true_site_count
+- id: staff_augmentation
+  display_name: Staff Augmentation
+  intake_aliases: []
+  subdomain_labels:
+  - Staff Aug – Onsite Field Surge
+  - Staff Aug – Cleared / Specialty Resources
+  keywords:
+  - staff
+  - augmentation
+  - surge
+  - onsite_field
+  - cleared
+  boosted_keywords:
+  - staff_aug
+  - field_resource
+  - badged_resource
+  - cleared_resource
+  - 1099
+  - subcontractor_field
+  - field_engineer
+- id: telecom
+  display_name: Telecom
+  intake_aliases:
+  - telecom_structured_cabling
+  subdomain_labels:
+  - Telecom – Carrier Circuit / Demarc / WAN Turn-up
+  - Telecom – UCaaS / VoIP Rollout / Number Porting
+  - Telecom – E911 / Dispatchable Location
+  keywords:
+  - telecom
+  - carrier
+  - circuit
+  - demarc
+  - voip
+  - ucaas
+  - porting
+  - e911
+  boosted_keywords:
+  - voip
+  - ucaas
+  - sip_trunk
+  - number_porting
+  - did_porting
+  - e911
+  - carrier_circuit
+  - demarc_extension
+  - turn_up
+  - granite
+  - ringcentral
+  - 8x8
+- id: wireless
+  display_name: Wireless
+  intake_aliases:
+  - wireless
+  subdomain_labels:
+  - AP on a Stick WSS
+  - Passive WSS
+  - Post Validation WSS
+  - Remote Predictive WSS
+  - WSS Out of Scope
+  - Wireless – RF Design & Capacity Planning
+  - Wireless – AP Installation / Mounting
+  keywords:
+  - wireless
+  - wss
+  - predictive
+  - validation
+  - mounting
+  - capacity
+  - coverage
+  - controller
+  - rf
+  - floorplan
+  boosted_keywords:
+  - wireless
+  - wifi
+  - wi_fi
+  - wlan
+  - access_point
+  - access_points
+  - aruba
+  - meraki_wireless
+  - cisco_wireless
+  - juniper_mist
+  - ekahau
+  - ap_install
+  - heatmap
+  - rf_design
+  - controller_cloud
+  - e_rate_wireless
