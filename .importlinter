@@ -34,20 +34,17 @@ forbidden_modules =
 # ---------------------------------------------------------------------------
 # Phase 2 — Layer-skip prevention
 # ---------------------------------------------------------------------------
-# composers/, brains/, validator/, calibrator/ MUST NOT import retrieval
+# composer/, brains/, validator/, calibrator/ MUST NOT import retrieval
 # directly. They consume orchestrator-prepared retrieval results, never
 # reach into the index themselves. This keeps the retrieval surface
 # bounded (RetrievalHit only — no text bodies leaking into prompts) and
 # keeps the layered architecture honest.
-#
-# The four layers are not yet implemented (Phase 3+/Phase 4) — this
-# contract trips the moment any of them appear and tries to bypass.
 
 [importlinter:contract:no-retrieval-bypass]
-name = composers / brains / validator / calibrator must not import retrieval directly
+name = composer / brains / validator / calibrator must not import retrieval directly
 type = forbidden
 source_modules =
-    orbitbrief_core.composers
+    orbitbrief_core.composer
     orbitbrief_core.brains
     orbitbrief_core.validator
     orbitbrief_core.calibrator
@@ -175,6 +172,53 @@ source_modules =
     orbitbrief_core.validator
 forbidden_modules =
     orbitbrief_core.retrieval
+
+# ---------------------------------------------------------------------------
+# Phase 8 — Composer + reviewer UI
+# ---------------------------------------------------------------------------
+# composer aggregates brain outputs + calibrator + validator into a
+# typed ComposedBrief. It must NOT touch the runtime, the seam, the
+# retrieval store, or any brain runner. It MAY import brain SCHEMAS
+# (BriefingState, ManagedServicesScopeState) since the doc carries
+# their payloads through verbatim.
+#
+# review_ui depends on composer (for the read-only doc render) and
+# review_runtime (for queue + decision logging). It must NOT touch
+# substrate or world_model engines.
+
+[importlinter:contract:composer-no-substrate]
+name = composer must not import the runtime, seam, retrieval, or brain runners
+type = forbidden
+source_modules =
+    orbitbrief_core.composer
+forbidden_modules =
+    orbitbrief_core.evidence_runtime
+    orbitbrief_core.seam
+    orbitbrief_core.retrieval
+    orbitbrief_core.brains.managed_services.runner
+    orbitbrief_core.brains.managed_services.prompt
+    orbitbrief_core.brains._briefing_runner
+    orbitbrief_core.world_model.pack_prior
+    orbitbrief_core.world_model.site_reality
+    orbitbrief_core.world_model.refiner
+    orbitbrief_core.world_model.planner.runner
+
+[importlinter:contract:review-ui-isolated]
+name = review_ui must not import substrate / world_model engines / brain runners
+type = forbidden
+source_modules =
+    orbitbrief_core.review_ui
+forbidden_modules =
+    orbitbrief_core.evidence_runtime
+    orbitbrief_core.seam
+    orbitbrief_core.retrieval
+    orbitbrief_core.brains.managed_services.runner
+    orbitbrief_core.brains.managed_services.prompt
+    orbitbrief_core.brains._briefing_runner
+    orbitbrief_core.world_model.pack_prior
+    orbitbrief_core.world_model.site_reality
+    orbitbrief_core.world_model.refiner
+    orbitbrief_core.world_model.planner.runner
 
 [importlinter:contract:review-runtime-isolated]
 name = review_runtime must not import substrate / world_model engines / brain runners

@@ -77,6 +77,10 @@ PERMANENT_ALLOWLIST: frozenset[str] = frozenset({
     "orchestrator/artifacts.py",
     "orchestrator/pipeline.py",
     "orchestrator/__main__.py",
+    # Phase 8 reviewer UI: reads the composed-brief JSON + Markdown
+    # written by the orchestrator. Operator-side filesystem seam, like
+    # orchestrator/__main__.py.
+    "review_ui/context.py",
 })
 
 # Top-level parser-os modules that are the public seam. Anything outside

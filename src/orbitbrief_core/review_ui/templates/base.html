@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}OrbitBrief Reviewer{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+  <style>
+    :root {
+      --fg: #0e1116;
+      --muted: #58606b;
+      --bg: #fafbfc;
+      --card: #ffffff;
+      --border: #e1e4e8;
+      --accept: #2c8a4d;
+      --review: #b35900;
+      --reject: #b3261e;
+      --link: #1f6feb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      line-height: 1.45;
+    }
+    header {
+      background: #0e1116;
+      color: #fafbfc;
+      padding: 14px 24px;
+    }
+    header h1 { margin: 0; font-size: 17px; font-weight: 600; }
+    header nav { margin-top: 6px; font-size: 13px; }
+    header nav a { color: #cdd6e0; margin-right: 14px; text-decoration: none; }
+    header nav a:hover { color: white; text-decoration: underline; }
+    main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+    }
+    .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 18px; }
+    .filters a {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 14px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--fg);
+      text-decoration: none;
+      font-size: 13px;
+    }
+    .filters a.active { background: var(--fg); color: white; border-color: var(--fg); }
+    table.queue { width: 100%; border-collapse: collapse; font-size: 14px; }
+    table.queue th, table.queue td {
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    table.queue th { background: #f4f5f7; font-size: 12px; text-transform: uppercase; color: var(--muted); }
+    table.queue tbody tr:hover { background: #fafbfc; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge.review { background: rgba(179,89,0,0.12); color: var(--review); }
+    .badge.reject { background: rgba(179,38,30,0.12); color: var(--reject); }
+    .badge.accept { background: rgba(44,138,77,0.12); color: var(--accept); }
+    .conf { font-variant-numeric: tabular-nums; color: var(--muted); }
+    .small { font-size: 12px; color: var(--muted); }
+    pre {
+      background: #f4f5f7;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px 12px;
+      overflow: auto;
+      max-height: 480px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    a.composite { color: var(--link); text-decoration: none; }
+    a.composite:hover { text-decoration: underline; }
+    form.decision { display: grid; gap: 10px; max-width: 700px; }
+    form.decision label { font-size: 13px; color: var(--muted); }
+    form.decision input[type=text],
+    form.decision textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 14px;
+    }
+    form.decision textarea { min-height: 110px; font-family: ui-monospace, SFMono-Regular, monospace; }
+    form.decision button {
+      padding: 8px 16px;
+      border: 1px solid var(--fg);
+      background: var(--fg);
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .pill {
+      padding: 6px 12px;
+      border-radius: 18px;
+      background: #e6f4ea;
+      color: var(--accept);
+      display: inline-block;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .pill.reject { background: #fdebea; color: var(--reject); }
+    .pill.edit   { background: #fff4e5; color: var(--review); }
+    .markdown {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 24px 32px;
+      font-size: 14px;
+    }
+    .markdown h1 { font-size: 22px; margin-top: 0; }
+    .markdown h2 { font-size: 18px; margin-top: 26px; }
+    .markdown h3 { font-size: 15px; margin-top: 18px; color: var(--muted); }
+    .markdown table { border-collapse: collapse; width: 100%; }
+    .markdown th, .markdown td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+    .markdown code { background: #f4f5f7; padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>OrbitBrief Reviewer</h1>
+    <nav>
+      <a href="/queue">Review Queue</a>
+      <a href="/composed">Composed Brief</a>
+      <a href="/healthz">Health</a>
+    </nav>
+  </header>
+  <main>
+    {% block main %}{% endblock %}
+  </main>
+</body>
+</html>

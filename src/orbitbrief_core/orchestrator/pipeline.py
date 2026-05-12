@@ -38,6 +38,12 @@ from typing import Any
 from orbitbrief_core.brains._retrieval_bundle import RetrievalBundle
 from orbitbrief_core.calibrator import Calibrator, CalibratorReport
 from orbitbrief_core.calibrator.verdict import Verdict
+from orbitbrief_core.composer import (
+    ComposedBrief,
+    Composer,
+    ComposerInputs,
+    render_markdown,
+)
 from orbitbrief_core.evidence_runtime.runtime import EvidenceRuntime
 from orbitbrief_core.inference.client import ChatClient
 from orbitbrief_core.orchestrator.artifacts import (
@@ -97,8 +103,10 @@ class PipelineResult:
     planner_result: PlannerResult | None = None
     refined_brief: BriefState | None = None
     brain_states: dict[str, Any] = field(default_factory=dict)
+    brain_fallbacks: dict[str, bool] = field(default_factory=dict)
     validations: dict[str, ValidationReport] = field(default_factory=dict)
     calibrations: dict[str, CalibratorReport] = field(default_factory=dict)
+    composed_brief: ComposedBrief | None = None
     queued_count: int = 0
     stage_records: list[StageRecord] = field(default_factory=list)
     skipped_brains_no_chat: bool = False
@@ -295,6 +303,7 @@ class BriefPipeline:
                 ),
             )
             result.brain_states[pack_id] = brain_result.state
+            result.brain_fallbacks[pack_id] = bool(brain_result.fallback_used)
             records.append(rec)
 
             is_briefing = pack_id in BRIEFING_PACK_IDS
@@ -359,6 +368,41 @@ class BriefPipeline:
                         detail={"queued": queued},
                     )
                 )
+
+        # 80 + 81 composer: aggregate all brain outputs into one document.
+        if result.refined_brief is not None and result.brain_states:
+            composer_inputs = ComposerInputs(
+                brief=result.refined_brief,
+                brain_states=result.brain_states,
+                calibrations=result.calibrations,
+                validations=result.validations,
+                fallback_used=result.brain_fallbacks,
+            )
+            composed, rec = self._run_stage(
+                "80_composer",
+                lambda: Composer().compose(composer_inputs),
+                artifact=artifacts.composed_brief_path,
+                extra_detail=lambda c: {
+                    "domains": [g.pack_id for g in c.domains],
+                    "auto_accept": c.auto_accept_count,
+                    "needs_review": c.review_count,
+                    "rejected": c.blocker_count,
+                },
+            )
+            if composed is not None:
+                result.composed_brief = composed
+                self._write_text(
+                    artifacts.composed_brief_markdown_path,
+                    render_markdown(composed),
+                )
+            records.append(rec)
+        else:
+            records.append(
+                _skipped_record(
+                    "80_composer",
+                    detail={"reason": "no brain states to compose"},
+                )
+            )
 
         artifacts.write_pipeline_log(records)
         artifacts.write_manifest(self._manifest(envelope_path, result, records))
@@ -452,6 +496,11 @@ class BriefPipeline:
             json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
+
+    def _write_text(self, artifact: Path, payload: str) -> None:
+        """Write ``payload`` (already a string, e.g. Markdown) to ``artifact``."""
+        artifact.parent.mkdir(parents=True, exist_ok=True)
+        artifact.write_text(payload, encoding="utf-8")
 
     def _pick_active_packs(self, pack_prior: PackPriorState) -> list[str]:
         active: list[str] = []

@@ -112,6 +112,14 @@ class BriefArtifacts:
         return self.root / "71_training_records.jsonl"
 
     @property
+    def composed_brief_path(self) -> Path:
+        return self.root / "80_composed_brief.json"
+
+    @property
+    def composed_brief_markdown_path(self) -> Path:
+        return self.root / "81_composed_brief.md"
+
+    @property
     def pipeline_log_path(self) -> Path:
         return self.root / "pipeline_log.json"
 

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}{{ item.ref.brain }} · {{ item.ref.item_id }} · Reviewer{% endblock %}
+{% block main %}
+
+  <div class="card">
+    <div class="small"><a href="/queue">← back to queue</a></div>
+    <h2 style="margin: 8px 0 4px 0; font-size: 18px;">
+      {{ item.payload.statement | default(item.ref.item_id) | truncate(220) }}
+    </h2>
+    <div class="small">
+      <code>{{ item.ref.brain }}</code> /
+      <code>{{ item.ref.section }}</code> /
+      <code>{{ item.ref.item_id }}</code>
+    </div>
+    <div style="margin-top: 12px;">
+      {% if item.verdict.value == "needs_review" %}<span class="badge review">needs review</span>
+      {% elif item.verdict.value == "reject" %}<span class="badge reject">reject</span>
+      {% else %}<span class="badge accept">{{ item.verdict.value }}</span>{% endif %}
+      &nbsp;
+      <span class="conf">calibrated {{ "%.3f" | format(item.calibrated_confidence) }}</span>
+      ·
+      <span class="conf">raw {{ "%.3f" | format(item.raw_confidence) }}</span>
+    </div>
+    <div class="small" style="margin-top: 4px;">
+      {% for r in item.reasons %}<code>{{ r.value }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin:0 0 8px 0;">Payload</h3>
+    <pre>{{ item.payload | tojson(indent=2) }}</pre>
+  </div>
+
+  {% if decisions %}
+  <div class="card">
+    <h3 style="margin:0 0 8px 0;">Past decisions</h3>
+    {% for d in decisions %}
+      <div style="margin-bottom: 8px;">
+        <span class="pill {% if d.action.value == 'reject' %}reject{% elif d.action.value == 'edit' %}edit{% endif %}">{{ d.action.value }}</span>
+        by <code>{{ d.decided_by }}</code> at <span class="small">{{ d.decided_at }}</span>
+        {% if d.notes %}<div class="small">notes: {{ d.notes }}</div>{% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="card" id="decision-card">
+    <h3 style="margin:0 0 12px 0;">Record a decision</h3>
+    <form
+      class="decision"
+      hx-post="/item/{{ item.composite_id }}/decide"
+      hx-target="#decision-card"
+      hx-swap="outerHTML"
+    >
+      <div>
+        <label for="action">Action</label>
+        <select name="action" required>
+          {% for a in verdicts_for_action %}
+            <option value="{{ a }}">{{ a }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="decided_by">Reviewer (email or handle)</label>
+        <input type="text" name="decided_by" value="reviewer@orbitbrief">
+      </div>
+      <div>
+        <label for="notes">Notes</label>
+        <textarea name="notes" placeholder="Why this decision?"></textarea>
+      </div>
+      <div>
+        <label for="edited_payload_json">Edited payload (JSON, only when action=edit)</label>
+        <textarea name="edited_payload_json" placeholder='{"id": "...", "statement": "..."}'></textarea>
+      </div>
+      <button type="submit">Submit decision</button>
+    </form>
+  </div>
+
+{% endblock %}

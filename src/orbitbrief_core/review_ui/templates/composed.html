@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Composed Brief · OrbitBrief Reviewer{% endblock %}
+{% block main %}
+
+  {% if not brief %}
+    <div class="card">
+      <p style="margin:0;">No <code>80_composed_brief.json</code> in the artifacts directory yet. Run the orchestrator to generate it.</p>
+    </div>
+  {% else %}
+    <div class="card">
+      <h2 style="margin-top:0;">{{ brief.summary.project_id }}</h2>
+      <div class="small">
+        Compile <code>{{ brief.summary.compile_id }}</code> ·
+        Generated {{ brief.summary.generated_at }} ·
+        Model <code>{{ brief.summary.planner_model or '—' }}</code> ({{ brief.summary.planner_tier or '—' }})
+      </div>
+      <div style="margin-top: 12px;">
+        <span class="badge accept">{{ brief.auto_accept_count }} auto-accepted</span>
+        &nbsp;<span class="badge review">{{ brief.review_count }} need review</span>
+        &nbsp;<span class="badge reject">{{ brief.blocker_count }} rejected</span>
+      </div>
+    </div>
+
+    <div class="card markdown">
+      {% if markdown %}
+        <pre style="background: transparent; border: none; padding: 0;">{{ markdown }}</pre>
+      {% else %}
+        <em>(Markdown render unavailable — only the JSON brief was found.)</em>
+      {% endif %}
+    </div>
+  {% endif %}
+
+{% endblock %}
