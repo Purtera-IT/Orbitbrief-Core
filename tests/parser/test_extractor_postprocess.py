@@ -122,3 +122,31 @@ def test_postprocess_rejects_field_path_mismatch() -> None:
     assert summary["claims_emitted_count"] == 0
     reason_codes = {row["reason_code"] for row in result["rejected_claims"]}
     assert "field_path_mismatch" in reason_codes
+
+
+def test_postprocess_rejects_new_field_claim_without_evidence_or_source() -> None:
+    output = {
+        "field_claims": [
+            {
+                "claim_family": "risk_claim",
+                "field_path": "risks",
+                "value": "risk:anchor=span_1 supports=1",
+                "confidence": 0.7,
+                "status": "possible",
+                "evidence": {"packet_id": "packet:risk:0001", "primary_span_id": "span_1", "supporting_span_ids": [], "all_span_ids": [], "refs": []},
+            }
+        ]
+    }
+    result = postprocess_extractor_output(
+        extractor_spec=_spec(kind="narrative", emits_business_claims=True),
+        extraction_output=output,
+        policy=PostprocessPolicy(
+            emits_business_claims=True,
+            allowed_claim_families=frozenset({"risk_claim"}),
+            allowed_field_paths=frozenset({"risks"}),
+            require_evidence_refs=True,
+        ),
+    )
+    assert result["summary"]["claims_emitted_count"] == 0
+    # Missing source_claim_id fails closed at mapping conversion.
+    assert result["summary"]["dropped_invalid_claims_count"] == 1

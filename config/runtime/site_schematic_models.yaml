@@ -1,0 +1,71 @@
+page_parser:
+  provider: paddleocr_vl
+  model: PaddleOCR-VL-1.5
+  enabled: true
+  module: paddleocr
+  weights_env: SITE_SCHEMATIC_PADDLEOCR_VL_PATH
+  required: false
+  diagnostics_label: site_schematic_page_parser
+pdf_backbone:
+  provider: docling
+  model: default
+  enabled: false
+  module: docling
+  required: false
+  diagnostics_label: site_schematic_pdf_backbone
+layout_lightweight:
+  provider: pp_structure
+  model: PPStructure
+  enabled: false
+  module: paddleocr
+  required: false
+  diagnostics_label: site_schematic_layout_lightweight
+observation_layer:
+  enabled: true
+  provider_policy: production_dynamic_v1
+  policy_profile: production_dynamic_v1
+  policy_profile_version: '2026-04-09'
+  docling_merge_enabled: false
+  lightweight_layout_enabled: false
+  lightweight_layout_min_confidence: 0.5
+  lightweight_layout_block_cap: 20
+  mixed_detail_lightweight_cap: 14
+  lightweight_layout_page_cap: 0
+  lightweight_layout_priority_mode: auto
+  lightweight_layout_crop_max_candidates: 2
+  lightweight_layout_crop_padding: 18
+  lightweight_layout_crop_scale: 0.85
+  lightweight_layout_crop_fallback_full_page: true
+  lightweight_layout_fallback_scale: 0.32
+  debug_priority_mode_override: ''
+  debug_profiles:
+    legend_first:
+      lightweight_layout_priority_mode: legend_first
+    mixed_detail_first:
+      lightweight_layout_priority_mode: mixed_detail_first
+  paddle_escalation_enabled: false
+  force_docling_all_pages: false
+  native_block_budget: 120
+  docling_limited_block_budget: 140
+  docling_full_block_budget: 220
+  mixed_detail_native_budget: 60
+  mixed_detail_docling_budget: 90
+  allow_partial: true
+  fallback_mode: deterministic
+  diagnostics: true
+pdf_native:
+  provider: fitz
+  enabled: true
+  vector_metadata_enabled: true
+  required: false
+  diagnostics_label: site_schematic_pdf_native_vector
+verifier:
+  provider: qwen
+  model: Qwen2.5-VL-32B-Instruct
+  enabled: false
+  endpoint_env: SITE_SCHEMATIC_QWEN_ENDPOINT
+symbol_detector:
+  provider: ultralytics
+  model: yolo11
+  enabled: false
+  weights_env: SITE_SCHEMATIC_SYMBOL_DETECTOR_PATH

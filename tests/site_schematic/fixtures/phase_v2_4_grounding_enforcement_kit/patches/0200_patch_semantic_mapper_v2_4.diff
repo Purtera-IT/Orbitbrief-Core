@@ -1,0 +1,11 @@
+--- a/src/orbitbrief_core/parser/site_schematic/semantic_mapper.py
++++ b/src/orbitbrief_core/parser/site_schematic/semantic_mapper.py
+@@
++from orbitbrief_core.parser.site_schematic.sample_row_audit import select_grounding_sample_rows
+@@
+ def map_candidate_to_semantics(...):
+@@
++    # V2.4: preserve raw evidence fields explicitly for auditing.
++    mapping_metadata["grounded_family"] = mapped_family if 'mapped_family' in locals() else mapping_metadata.get("grounded_family", "")
++    mapping_metadata["legend_match_score"] = legend_match_score if 'legend_match_score' in locals() else mapping_metadata.get("legend_match_score", 0.0)
++    mapping_metadata["page_type_compatibility"] = page_type_compatibility if 'page_type_compatibility' in locals() else mapping_metadata.get("page_type_compatibility", 0.0)

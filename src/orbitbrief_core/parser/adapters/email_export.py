@@ -48,6 +48,14 @@ class EmailExportAdapter(AbstractAdapter):
                 message=f"email_adapter_diagnostic: {diagnostic}",
                 metadata={"adapter": "email_export"},
             )
+        if any(message.boundary_review_needed for message in parse_result.messages):
+            add_flag(
+                builder,
+                severity=ReviewSeverity.WARNING,
+                category=ReviewCategory.AMBIGUITY,
+                message="Email boundary detection has uncertain regions; review recommended.",
+                metadata={"adapter": "email_export", "code": "boundary_uncertain"},
+            )
 
         section_titles_seen: dict[str, int] = {}
         for message_index, message in enumerate(parse_result.messages, start=1):
@@ -122,90 +130,221 @@ class EmailExportAdapter(AbstractAdapter):
         message: EmailMessageCandidate,
         chronology_rank_start: int,
     ) -> None:
+        if message.boundary_segments:
+            self._emit_boundary_segments(
+                builder=builder,
+                section_id=section_id,
+                message_id=message_id,
+                message=message,
+                chronology_rank_start=chronology_rank_start,
+            )
+            return
         current_text = message.current_text.strip() or message.body_text.strip()
-        current_segmentation = segment_text(current_text)
+        self._emit_segmented_current_body(
+            builder=builder,
+            section_id=section_id,
+            message_id=message_id,
+            subject=message.subject,
+            base_offset=message.start_char,
+            text=current_text,
+            chronology_rank_start=chronology_rank_start,
+            authority_score=0.9,
+            base_metadata={"kind": "email_current"},
+        )
+
+    def _section_path_for_offset(self, *, subject: str | None, segmentation, offset: int) -> tuple[str, ...]:
+        base = ("EMAIL_THREAD", subject or "message")
+        active_heading = None
+        for heading in segmentation.headings:
+            if heading.start_char <= offset:
+                active_heading = heading.title
+            else:
+                break
+        return base + ((active_heading,) if active_heading else ())
+
+    def _emit_segmented_current_body(
+        self,
+        *,
+        builder,
+        section_id: str,
+        message_id: str,
+        subject: str | None,
+        base_offset: int,
+        text: str,
+        chronology_rank_start: int,
+        authority_score: float,
+        base_metadata: dict[str, Any],
+    ) -> int:
+        segmentation = segment_text(text)
         chronology_rank = chronology_rank_start
-        for paragraph in current_segmentation.paragraphs:
+        if not segmentation.headings and not segmentation.bullets and not segmentation.paragraphs:
             span_id = builder.add_span(
-                text=paragraph.text,
-                normalized_text=paragraph.normalized_text,
-                char_range=(message.start_char + paragraph.start_char, message.start_char + paragraph.end_char),
-                section_path=("EMAIL_THREAD", message.subject or "message"),
+                text=text,
+                normalized_text=text,
+                char_range=(base_offset, base_offset + len(text)),
+                section_path=("EMAIL_THREAD", subject or "message"),
                 message_id=message_id,
                 chronology_rank=chronology_rank,
-                authority_score=0.9,
-                metadata={"kind": "email_current", "paragraph_id": paragraph.paragraph_id},
+                authority_score=authority_score,
+                metadata=dict(base_metadata),
+            )
+            builder.attach_span_to_section(span_id, section_id)
+            builder.attach_message_to_spans(message_id, (span_id,))
+            return chronology_rank + 1
+
+        for heading in segmentation.headings:
+            section_path = self._section_path_for_offset(subject=subject, segmentation=segmentation, offset=heading.start_char)
+            span_id = builder.add_span(
+                text=heading.title,
+                normalized_text=heading.normalized_title,
+                char_range=(base_offset + heading.start_char, base_offset + heading.end_char),
+                section_path=section_path,
+                message_id=message_id,
+                chronology_rank=chronology_rank,
+                authority_score=min(0.98, authority_score + 0.03),
+                metadata={
+                    **dict(base_metadata),
+                    "kind": "heading",
+                    "heading_id": heading.heading_id,
+                    "heading_level": heading.level,
+                    "heading_style": heading.style,
+                },
             )
             builder.attach_span_to_section(span_id, section_id)
             builder.attach_message_to_spans(message_id, (span_id,))
             chronology_rank += 1
 
-        if not self._config.attach_quote_spans:
-            return
-        for block in message.quoted_blocks:
+        for bullet in segmentation.bullets:
+            section_path = self._section_path_for_offset(subject=subject, segmentation=segmentation, offset=bullet.start_char)
             span_id = builder.add_span(
-                text=block.text,
-                normalized_text=block.text,
-                char_range=(message.start_char + block.start_char, message.start_char + block.end_char),
-                section_path=("EMAIL_THREAD", message.subject or "message"),
+                text=bullet.text,
+                normalized_text=bullet.normalized_text,
+                char_range=(base_offset + bullet.start_char, base_offset + bullet.end_char),
+                section_path=section_path,
                 message_id=message_id,
                 chronology_rank=chronology_rank,
-                authority_score=0.34,
-                metadata={"kind": "quoted_context", **dict(block.metadata)},
+                authority_score=authority_score,
+                metadata={
+                    **dict(base_metadata),
+                    "kind": "bullet",
+                    "bullet_id": bullet.bullet_id,
+                    "level": bullet.level,
+                    "marker": bullet.marker,
+                },
             )
             builder.attach_span_to_section(span_id, section_id)
             builder.attach_message_to_spans(message_id, (span_id,))
-            add_flag(
-                builder,
-                severity=ReviewSeverity.INFO,
-                category=ReviewCategory.AMBIGUITY,
-                message="Quoted email history retained as low-authority context.",
-                span_id=span_id,
-                metadata={"adapter": "email_export"},
-            )
             chronology_rank += 1
-        for block in message.forwarded_blocks:
+
+        for paragraph in segmentation.paragraphs:
+            section_path = self._section_path_for_offset(subject=subject, segmentation=segmentation, offset=paragraph.start_char)
             span_id = builder.add_span(
-                text=block.text,
-                normalized_text=block.text,
-                char_range=(message.start_char + block.start_char, message.start_char + block.end_char),
-                section_path=("EMAIL_THREAD", message.subject or "message"),
+                text=paragraph.text,
+                normalized_text=paragraph.normalized_text,
+                char_range=(base_offset + paragraph.start_char, base_offset + paragraph.end_char),
+                section_path=section_path,
                 message_id=message_id,
                 chronology_rank=chronology_rank,
-                authority_score=0.28,
-                metadata={"kind": "forwarded_context", **dict(block.metadata)},
+                authority_score=authority_score,
+                metadata={
+                    **dict(base_metadata),
+                    "kind": paragraph.kind,
+                    "paragraph_id": paragraph.paragraph_id,
+                    **dict(paragraph.metadata),
+                },
             )
             builder.attach_span_to_section(span_id, section_id)
             builder.attach_message_to_spans(message_id, (span_id,))
-            add_flag(
-                builder,
-                severity=ReviewSeverity.INFO,
-                category=ReviewCategory.AMBIGUITY,
-                message="Forwarded content retained as demoted context.",
-                span_id=span_id,
-                metadata={"adapter": "email_export"},
-            )
             chronology_rank += 1
-        for block in (*message.signature_blocks, *message.disclaimer_blocks):
+        return chronology_rank
+
+    def _emit_boundary_segments(
+        self,
+        *,
+        builder,
+        section_id: str,
+        message_id: str,
+        message: EmailMessageCandidate,
+        chronology_rank_start: int,
+    ) -> None:
+        chronology_rank = chronology_rank_start
+        segment_order = tuple(message.boundary_segments)
+        for segment in segment_order:
+            if segment.boundary_class == "current_authored":
+                chronology_rank = self._emit_segmented_current_body(
+                    builder=builder,
+                    section_id=section_id,
+                    message_id=message_id,
+                    subject=message.subject,
+                    base_offset=message.start_char + segment.start_char,
+                    text=segment.text,
+                    chronology_rank_start=chronology_rank,
+                    authority_score=segment.authority_weight,
+                    base_metadata={
+                        "kind": "email_current",
+                        "boundary_class": segment.boundary_class,
+                        "authority_kind": segment.authority_kind,
+                        "authority_weight": segment.authority_weight,
+                        "boundary_confidence": segment.boundary_confidence,
+                        "segment_source": segment.segment_source,
+                    },
+                )
+                continue
+
+            kind = {
+                "quoted_context": "quoted_context",
+                "forwarded_context": "forwarded_context",
+                "signature": "signature",
+                "disclaimer": "disclaimer",
+                "noise": "noise",
+            }.get(segment.boundary_class, "email_noise")
             span_id = builder.add_span(
-                text=block.text,
-                normalized_text=block.text,
-                char_range=(message.start_char + block.start_char, message.start_char + block.end_char),
+                text=segment.text,
+                normalized_text=segment.text,
+                char_range=(message.start_char + segment.start_char, message.start_char + segment.end_char),
                 section_path=("EMAIL_THREAD", message.subject or "message"),
                 message_id=message_id,
                 chronology_rank=chronology_rank,
-                authority_score=0.15,
-                metadata={"kind": "email_noise", **dict(block.metadata)},
+                authority_score=segment.authority_weight,
+                metadata={
+                    "kind": kind,
+                    "boundary_class": segment.boundary_class,
+                    "authority_kind": segment.authority_kind,
+                    "authority_weight": segment.authority_weight,
+                    "boundary_confidence": segment.boundary_confidence,
+                    "segment_source": segment.segment_source,
+                    **dict(segment.metadata),
+                },
             )
+            builder.attach_span_to_section(span_id, section_id)
             builder.attach_message_to_spans(message_id, (span_id,))
-            add_flag(
-                builder,
-                severity=ReviewSeverity.INFO,
-                category=ReviewCategory.QUALITY,
-                message="Signature/disclaimer preserved as noise context and should not be over-trusted.",
-                span_id=span_id,
-                metadata={"adapter": "email_export"},
-            )
+            if segment.boundary_class in {"quoted_context", "forwarded_context"}:
+                add_flag(
+                    builder,
+                    severity=ReviewSeverity.INFO,
+                    category=ReviewCategory.AMBIGUITY,
+                    message=f"{segment.boundary_class} retained as low-authority context.",
+                    span_id=span_id,
+                    metadata={"adapter": "email_export", "boundary_class": segment.boundary_class},
+                )
+            if segment.boundary_class in {"signature", "disclaimer", "noise"}:
+                add_flag(
+                    builder,
+                    severity=ReviewSeverity.INFO,
+                    category=ReviewCategory.QUALITY,
+                    message="Signature/disclaimer/noise preserved as low-authority context.",
+                    span_id=span_id,
+                    metadata={"adapter": "email_export", "boundary_class": segment.boundary_class},
+                )
+            if segment.boundary_confidence < 0.62:
+                add_flag(
+                    builder,
+                    severity=ReviewSeverity.WARNING,
+                    category=ReviewCategory.AMBIGUITY,
+                    message=f"{segment.boundary_class} boundary is uncertain.",
+                    span_id=span_id,
+                    metadata={"adapter": "email_export", "code": f"{segment.boundary_class}_boundary_uncertain"},
+                )
             chronology_rank += 1
 
 

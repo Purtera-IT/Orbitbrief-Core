@@ -1,0 +1,43 @@
+--- a/src/orbitbrief_core/parser/site_schematic/core.py
++++ b/src/orbitbrief_core/parser/site_schematic/core.py
+@@
+ from orbitbrief_core.parser.site_schematic.page_modality_router import classify_page_modality
++from orbitbrief_core.parser.site_schematic.modality_calibration import calibrate_modality_decision
+@@
+         decision = classify_page_modality(
+             page_index=idx,
+             sheet_type=stype,
+             page_text=page_texts[idx] if idx < len(page_texts) else "",
+             vector_path_count=vector_path_count,
+             image_count=image_count,
+             line_art_density=line_art_density,
+             table_count=table_count,
+         )
+-        phase_v0_modality.append(decision)
++        calibrated = calibrate_modality_decision(
++            modality=decision.modality,
++            confidence=decision.confidence,
++            vector_path_count=vector_path_count,
++            image_count=image_count,
++            line_art_density=line_art_density,
++            text_density=decision.diagnostics.get("text_density", 0.0),
++        )
++        decision.modality = calibrated.modality
++        decision.confidence = calibrated.confidence
++        decision.reasons.extend(calibrated.reasons)
++        decision.diagnostics["ambiguous"] = 1.0 if calibrated.ambiguous else 0.0
++        phase_v0_modality.append(decision)
+@@
+     model_registry.setdefault("phase_v0_v1", {})["page_modality"] = [
+         {
+             "page_index": d.page_index,
+             "sheet_type": d.sheet_type,
+             "modality": d.modality,
+             "confidence": d.confidence,
+             "scores": d.scores,
+             "reasons": d.reasons,
+             "diagnostics": d.diagnostics,
++            "ambiguous": bool(d.diagnostics.get("ambiguous", 0.0)),
+         }
+         for d in phase_v0_modality
+     ]

@@ -1,0 +1,155 @@
+You are working in the latest OrbitBrief Core repo on the `site_schematic` lane.
+
+This is the Phase V2.5 FAMILY-COVERAGE FIX PASS.
+
+CURRENT STATE
+
+The current V2 truth-audit is finally honest enough to show the real blocker:
+- `expected_family_grounded_coverage_rate` is too low
+- `hardpage_family_grounded_coverage_rate` is too low
+- `hardpage_requirement_truth_rate` is failing
+- all packets are still failing the V2 gate
+
+This means the next pass must repair:
+1. packet-relevant expected family derivation
+2. hard-page required type derivation
+3. grounded-family derivation from local evidence
+4. family coverage enforcement
+
+PRIMARY GOAL
+
+Make V2 evaluate and behave against the family universe each packet actually contains, then raise grounded family coverage on the hard pages that matter.
+
+DO NOT:
+- touch OrbitBrief
+- start V3
+- weaken V2 truth-audit
+- revert to fake-perfect defaults
+- use overbroad domain-wide family sets as the final evaluation target
+
+IMPLEMENT IN THIS ORDER
+
+## 1. Packet-relevant expected family derivation
+Add logic to derive:
+- `packet_expected_families`
+- `hardpage_expected_families`
+
+from:
+- legend grounding dictionary
+- legend entry text
+- outlet definition text
+- abbreviation text
+- page titles / sheet types
+- packet-local semantic aliases
+
+Use the helper module:
+- `packet_expected_family_deriver.py`
+
+## 2. Hard-page requirement repair
+Repair required page derivation using:
+- actual packet page rows
+- packet schema required types
+- only the page families truly present
+
+Use:
+- `hardpage_requirement_repair.py`
+
+Required hard-page sets must not be empty when those page types exist.
+
+## 3. Grounded-family derivation repair
+Improve `grounded_family` assignment using:
+- legend text normalization
+- local semantic text association
+- page type compatibility
+- connector/riser/rack/pathway context
+- room/device context
+
+Use:
+- `grounded_family_derivation.py`
+
+## 4. Family coverage truth metrics
+Compute and enforce:
+- `expected_family_grounded_coverage_rate`
+- `hardpage_family_grounded_coverage_rate`
+
+using packet-relevant family sets, not overbroad domain universes.
+
+Use:
+- `family_coverage_truth.py`
+
+## 5. Packet hard-page gate enforcement
+Packets should fail if:
+- required hard-page types are empty when they should not be
+- hard-page family coverage is too low
+- hard-page grounded yield is too low
+
+Use:
+- `hardpage_semantic_gate_v2_5.py`
+
+## 6. Re-run full V2 eval with strict reporting
+Report:
+- packet_expected_families
+- hardpage_expected_families
+- grounded_families
+- hardpage_grounded_families
+- expected_family_grounded_coverage_rate
+- hardpage_family_grounded_coverage_rate
+- hardpage_requirement_truth_rate
+- packet_level_v2_failures
+
+FILES MOST LIKELY TO CHANGE
+- `src/orbitbrief_core/parser/site_schematic/models.py`
+- `src/orbitbrief_core/parser/site_schematic/semantic_mapper.py`
+- `src/orbitbrief_core/parser/site_schematic/grounding_resolver.py`
+- `src/orbitbrief_core/parser/site_schematic/core.py`
+- `tests/site_schematic/phase_v2_eval.py`
+
+USE THE HELPER MODULES FROM THIS KIT
+- `packet_expected_family_deriver.py`
+- `hardpage_requirement_repair.py`
+- `family_coverage_truth.py`
+- `grounded_family_derivation.py`
+- `hardpage_semantic_gate_v2_5.py`
+
+VALIDATION REQUIRED
+
+Run:
+- `pytest tests/site_schematic/test_phase_v2_helpers.py -q`
+- `pytest tests/site_schematic/test_phase_v2_1_helpers.py -q`
+- `pytest tests/site_schematic/test_phase_v2_2_helpers.py -q`
+- `pytest tests/site_schematic/test_phase_v2_3_helpers.py -q`
+- new helper tests from this kit
+- `python -m tests.site_schematic.phase_v2_eval`
+- V0/V1 regression spot checks:
+  - `pytest tests/site_schematic/test_phase_v0_v1_eval.py -q`
+  - `pytest tests/site_schematic/test_phase_v0_v1_gap_closure_helpers.py -q`
+- parser spot checks:
+  - `pytest tests/site_schematic/test_gold_pdf_eval.py -q`
+  - `pytest tests/site_schematic/test_phasec_region_fidelity.py -q`
+
+TARGETS
+
+Preserve:
+- production_kpi_regression_count = 0
+- contradiction_lane_separation_rate = 1.0
+- V0/V1 stable
+- parser text/table coverage stable
+
+Must hit:
+- `expected_family_grounded_coverage_rate >= 0.75`
+- `hardpage_family_grounded_coverage_rate >= 0.8`
+- `hardpage_requirement_truth_rate = 1.0`
+- `hardpage_grounded_symbol_yield_rate >= 0.65`
+- `packet_level_v2_failures = 0`
+- `truth_audit_failures_total = 0`
+
+OUTPUT I WANT
+
+1. exact files changed
+2. what changed in expected family derivation
+3. what changed in grounded-family derivation
+4. what changed in hard-page requirement repair
+5. before/after family coverage metrics
+6. before/after packet-level V2 failures
+7. packet-by-packet family coverage rows
+8. whether V2 is now finally good enough for your two domains

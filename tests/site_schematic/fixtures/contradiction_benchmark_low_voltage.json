@@ -1,0 +1,59 @@
+{
+  "benchmark_id": "contradiction_benchmark::low_voltage_structural_v1",
+  "packet_id": "low_voltage_hospitality_packet",
+  "packet_label": "Low Voltage Hospitality Packet",
+  "packet_level_expected": "high_priority_review",
+  "expected_contradiction_families": [
+    "telecomm_jack_tag",
+    "patch_panel_row"
+  ],
+  "expected_review_only_families": [
+    "data_outlet",
+    "riser_endpoint",
+    "ladder_rack_cable_runway"
+  ],
+  "expected_safe_families": [
+    "door_contact_marker"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "lowv-detail-installation-pathway-incompatibility",
+      "taxonomy": "topology_backed_family_incompatibility",
+      "expected_outcome": "contradiction",
+      "families": [
+        "telecomm_jack_tag",
+        "patch_panel_row"
+      ],
+      "profiles": [
+        "detail_installation_profile",
+        "rack_detail_profile"
+      ],
+      "notes": "Use when inferred pathway/rack relation conflicts with strong local grounding.",
+      "required_evidence_fields": [
+        "evidence_symbol_instance_ids",
+        "evidence_topology_ids",
+        "profile_ids",
+        "metadata.contradiction_reasons"
+      ]
+    },
+    {
+      "scenario_id": "lowv-riser-cross-page-ambiguity",
+      "taxonomy": "cross_page_family_mismatch",
+      "expected_outcome": "high_priority_review",
+      "families": [
+        "riser_endpoint",
+        "ladder_rack_cable_runway"
+      ],
+      "profiles": [
+        "riser_profile",
+        "mixed_detail_profile"
+      ],
+      "notes": "Cross-page mismatch with structural support should escalate to high-priority review when contradiction is unsafe.",
+      "required_evidence_fields": [
+        "evidence_symbol_instance_ids",
+        "profile_ids",
+        "page_indices"
+      ]
+    }
+  ]
+}

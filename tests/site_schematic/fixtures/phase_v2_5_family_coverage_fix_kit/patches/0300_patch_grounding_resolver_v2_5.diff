@@ -1,0 +1,9 @@
+--- a/src/orbitbrief_core/parser/site_schematic/grounding_resolver.py
++++ b/src/orbitbrief_core/parser/site_schematic/grounding_resolver.py
+@@
+ def resolve_grounded_symbols(...):
+@@
++    # Preserve grounded_family on rows and avoid blank-family grounded rows.
++    if resolution_metadata.get("grounding_state") == "grounded" and not resolution_metadata.get("grounded_family"):
++        resolution_metadata["grounding_state"] = "ambiguous"
++        resolution_metadata.setdefault("grounding_state_reasons", []).append("missing_grounded_family")

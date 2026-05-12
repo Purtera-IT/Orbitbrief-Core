@@ -1,0 +1,18 @@
+--- a/src/orbitbrief_core/parser/site_schematic/models.py
++++ b/src/orbitbrief_core/parser/site_schematic/models.py
+@@
+ from dataclasses import dataclass, field
+ from typing import Any, Dict, List, Optional, Tuple
+@@
++@dataclass
++class SiteSchematicGroundingStateDecision:
++    state: str
++    confidence: float
++    reasons: List[str] = field(default_factory=list)
++
++@dataclass
++class SiteSchematicPacketV2HardpageSummary:
++    packet_id: str
++    required_page_types: List[str] = field(default_factory=list)
++    satisfied_page_types: List[str] = field(default_factory=list)
++    hardpage_rate: float = 1.0

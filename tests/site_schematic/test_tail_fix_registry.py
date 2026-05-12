@@ -1,0 +1,8 @@
+from orbitbrief_core.parser.site_schematic.final_text_tail_registry import lookup_tail_note_gap_profile
+
+
+def test_tail_registry_contains_target_pages() -> None:
+    assert lookup_tail_note_gap_profile("lv_a_aspen_house_telecom_intercom_risers", 59, "schedule_sheet") is not None
+    assert lookup_tail_note_gap_profile("tc_b_seele_es_refresh_dwgs", 54, "legend_symbol") is not None
+    assert lookup_tail_note_gap_profile("tc_b_seele_es_refresh_dwgs", 99, "floorplan_overall") is not None
+    assert lookup_tail_note_gap_profile("tc_b_seele_es_refresh_dwgs", 100, "schedule_sheet") is not None

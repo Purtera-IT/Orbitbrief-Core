@@ -1,0 +1,40 @@
+{
+  "packet_id": "wireless_current_pair",
+  "modality_domain": "telecom",
+  "selectors": [
+    "first legend/control sheet",
+    "first riser sheet",
+    "first telecom detail sheet",
+    "first part-plan page"
+  ],
+  "expected_modality": {
+    "legend_symbol": [
+      "vector_rich",
+      "hybrid"
+    ],
+    "notes_spec": [
+      "vector_rich",
+      "hybrid"
+    ],
+    "riser_diagram": [
+      "vector_rich",
+      "hybrid"
+    ],
+    "installation_detail": [
+      "vector_rich",
+      "hybrid"
+    ],
+    "floorplan_overall": [
+      "vector_rich",
+      "hybrid"
+    ]
+  },
+  "expected_v1_primitive_families": [
+    "lines",
+    "boxes",
+    "leaders",
+    "connectors",
+    "candidate_symbols",
+    "dimensions_optional"
+  ]
+}

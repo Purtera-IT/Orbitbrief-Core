@@ -1,0 +1,13 @@
+Use this kit to harden the existing V0/V1 implementation.
+
+Order:
+1. add helper modules
+2. patch `models.py`
+3. patch `observations.py`
+4. patch `vector_primitive_graph.py`
+5. patch `core.py`
+6. patch `phase_v0_v1_eval.py`
+7. run full 12-packet V0/V1 eval
+8. confirm parser regressions remain zero
+
+Do not start V2 yet.

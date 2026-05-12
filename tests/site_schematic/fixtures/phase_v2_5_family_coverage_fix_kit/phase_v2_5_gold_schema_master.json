@@ -1,0 +1,52 @@
+{
+  "packet_ids": [
+    "wireless_current_pair",
+    "low_voltage_current_pair",
+    "tc_a_4cd_science_building_asbuilts",
+    "tc_b_seele_es_refresh_dwgs",
+    "tc_c_ventura_admin_comms",
+    "tc_d_appalachian_gym_comms",
+    "tc_e_red_bay_admin_comms",
+    "lv_a_aspen_house_telecom_intercom_risers",
+    "lv_b_300_progress_communications",
+    "lv_c_union_street_telecom_grounding_intercom",
+    "lv_d_iqaluit_operations_centre",
+    "lv_e_columbus_library_technology_security"
+  ],
+  "v2_5_targets": {
+    "expected_family_grounded_coverage_rate_min": 0.75,
+    "hardpage_family_grounded_coverage_rate_min": 0.8,
+    "hardpage_requirement_truth_rate": 1.0,
+    "hardpage_grounded_symbol_yield_rate_min": 0.65,
+    "packet_level_v2_failures": 0,
+    "truth_audit_failures_total": 0
+  },
+  "telecom_expected_symbol_families": [
+    "wireless_access_point",
+    "telecom_data_outlet",
+    "telecom_voice_outlet",
+    "av_device_outlet",
+    "telecom_outlet_wall",
+    "telecom_outlet_floor",
+    "patch_panel_row",
+    "equipment_rack_front",
+    "ladder_rack_cable_runway",
+    "riser_endpoint",
+    "junction_box",
+    "pull_box"
+  ],
+  "low_voltage_expected_symbol_families": [
+    "camera_device",
+    "door_contact_marker",
+    "card_reader_device",
+    "request_to_exit_device",
+    "telecomm_jack_tag",
+    "data_outlet",
+    "intercom_endpoint",
+    "patch_panel_row",
+    "equipment_rack_front",
+    "ladder_rack_cable_runway",
+    "riser_endpoint",
+    "ground_bar"
+  ]
+}

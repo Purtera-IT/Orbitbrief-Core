@@ -1,0 +1,64 @@
+{
+  "benchmark_id": "contradiction_benchmark::synthetic_conflict_seed_v1",
+  "packet_id": "synthetic_conflict_packet",
+  "packet_label": "Synthetic Conflict Packet",
+  "packet_level_expected": "contradiction",
+  "expected_contradiction_families": [
+    "patch_panel_row",
+    "telecomm_jack_tag"
+  ],
+  "expected_review_only_families": [
+    "riser_endpoint"
+  ],
+  "expected_safe_families": [
+    "door_contact_marker"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "synthetic-legend-detail-conflict",
+      "taxonomy": "legend_vs_detail_conflict",
+      "expected_outcome": "contradiction",
+      "families": [
+        "patch_panel_row"
+      ],
+      "profiles": [
+        "detail_installation_profile"
+      ],
+      "page_indices": [
+        2
+      ],
+      "required_evidence_fields": [
+        "evidence_symbol_instance_ids",
+        "evidence_topology_ids",
+        "metadata.contradiction_reasons"
+      ]
+    },
+    {
+      "scenario_id": "synthetic-riser-review-only",
+      "taxonomy": "cross_page_family_mismatch",
+      "expected_outcome": "high_priority_review",
+      "families": [
+        "riser_endpoint"
+      ],
+      "profiles": [
+        "riser_profile"
+      ],
+      "page_indices": [
+        3
+      ],
+      "required_evidence_fields": [
+        "evidence_symbol_instance_ids",
+        "page_indices",
+        "profile_ids"
+      ]
+    },
+    {
+      "scenario_id": "synthetic-safe-door-contact",
+      "taxonomy": "safe_no_issue",
+      "expected_outcome": "safe",
+      "families": [
+        "door_contact_marker"
+      ]
+    }
+  ]
+}

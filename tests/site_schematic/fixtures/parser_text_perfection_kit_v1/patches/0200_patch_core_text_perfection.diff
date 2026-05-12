@@ -1,0 +1,27 @@
+--- a/src/orbitbrief_core/parser/site_schematic/core.py
++++ b/src/orbitbrief_core/parser/site_schematic/core.py
+@@
+ from orbitbrief_core.parser.site_schematic.reasoning import build_bounded_graph_reasoning, build_reasoning_summaries
++from orbitbrief_core.parser.site_schematic.note_clause_promoter import promote_note_clauses_from_blocks
+@@
+ def build_site_schematic_bundle_from_router_input(
+@@
+     # after page observations / before final extractor dispatch
++    # Residual text-perfection pass: deterministic note-clause promotion when pages clearly have note/spec cues
++    # but emitted zero structured note clauses.
++    if page_observations is not None:
++        for p_idx, page_obs in enumerate(page_observations):
++            try:
++                page_sheet_type = page_types[p_idx] if 'page_types' in locals() else ""
++            except Exception:
++                page_sheet_type = ""
++            existing_note_count = 0
++            if 'page_level_note_counts' in locals():
++                existing_note_count = int(page_level_note_counts.get(p_idx, 0))
++            promoted = promote_note_clauses_from_blocks(
++                sheet_type=page_sheet_type,
++                layout_blocks=getattr(page_obs, "layout_blocks", []) or [],
++                existing_note_count=existing_note_count,
++            )
++            if promoted:
++                model_registry.setdefault("text_perfection", {}).setdefault("promoted_note_candidates", {})[p_idx] = promoted

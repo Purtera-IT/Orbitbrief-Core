@@ -25,6 +25,13 @@ __all__ = [
     "project_to_post_hints",
     "project_to_rich_txt_pre",
     "project_to_slim_pre",
+    "NarrativeExtractionResult",
+    "InternalClaim",
+    "FieldClaim",
+    "ExtractionDiagnostic",
+    "EvidenceRef",
+    "EvidenceRefSet",
+    "run_narrative_extractor",
 ]
 
 
@@ -46,6 +53,24 @@ def __getattr__(name: str):
             "NARRATIVE_CLAIM_FAMILIES": NARRATIVE_CLAIM_FAMILIES,
             "NARRATIVE_CLAIM_ONTOLOGY_VERSION": NARRATIVE_CLAIM_ONTOLOGY_VERSION,
         }[name]
+    if name in {"NarrativeExtractionResult", "InternalClaim", "FieldClaim", "ExtractionDiagnostic", "EvidenceRef", "EvidenceRefSet"}:
+        from .narrative_claim_ontology import (
+            EvidenceRef,
+            EvidenceRefSet,
+            ExtractionDiagnostic,
+            FieldClaim,
+            InternalClaim,
+            NarrativeExtractionResult,
+        )
+
+        return {
+            "NarrativeExtractionResult": NarrativeExtractionResult,
+            "InternalClaim": InternalClaim,
+            "FieldClaim": FieldClaim,
+            "ExtractionDiagnostic": ExtractionDiagnostic,
+            "EvidenceRef": EvidenceRef,
+            "EvidenceRefSet": EvidenceRefSet,
+        }[name]
     if name in {"InternalNarrativeClaim", "project_to_post_hints", "project_to_rich_txt_pre", "project_to_slim_pre"}:
         from .narrative_projector import InternalNarrativeClaim, project_to_post_hints, project_to_rich_txt_pre, project_to_slim_pre
 
@@ -62,4 +87,8 @@ def __getattr__(name: str):
             "TEXT_NARRATIVE_EXTRACTOR_PROMPT_VERSION": TEXT_NARRATIVE_EXTRACTOR_PROMPT_VERSION,
             "build_text_narrative_extractor_prompt": build_text_narrative_extractor_prompt,
         }[name]
+    if name == "run_narrative_extractor":
+        from .narrative_extractor import run_narrative_extractor
+
+        return run_narrative_extractor
     raise AttributeError(name)

@@ -1,0 +1,168 @@
+{
+  "phase": "phase_c_region_fidelity",
+  "description": "Hard pages for parser-only mixed-page region fidelity and local note semantics, grounded in the two benchmark packet families.",
+  "packet_families": [
+    "wireless_telecom",
+    "low_voltage_security_hospitality"
+  ],
+  "hard_pages": [
+    {
+      "id": "wireless_tc001_page1",
+      "pdf": "100643PLANSD-4(3).pdf",
+      "sheet_id": "TC001",
+      "page_index": 1,
+      "page_title": "TELECOMM SYMBOL LIST",
+      "why_hard": [
+        "hybrid control sheet",
+        "multiple boxed semantic sections on one page",
+        "abbreviations + drawing index + symbol sections + outlet definitions + notes",
+        "multi-column control layout"
+      ],
+      "required_region_kinds": [
+        "title_block",
+        "revision_block",
+        "abbreviation_block",
+        "drawing_index_block",
+        "symbol_legend_block",
+        "outlet_definition_block",
+        "general_notes_block",
+        "horizontal_cabling_notes_block",
+        "junction_box_conduit_notes_block"
+      ]
+    },
+    {
+      "id": "southern_t000_page1",
+      "pdf": "2026-01-19 CONSOLIDATED SET - SOUTHERN POST - T (1) (1) (1)(3).pdf",
+      "sheet_id": "T000",
+      "page_index": 1,
+      "page_title": "PROJECT REQUIREMENTS NOTES & SPECS",
+      "why_hard": [
+        "multi-column notes/spec sheet",
+        "drawing index embedded on notes page",
+        "dense requirements prose with section blocks"
+      ],
+      "required_region_kinds": [
+        "title_block",
+        "notes_spec_column",
+        "drawing_index_block",
+        "notes_section_block"
+      ]
+    },
+    {
+      "id": "southern_t001_page2",
+      "pdf": "2026-01-19 CONSOLIDATED SET - SOUTHERN POST - T (1) (1) (1)(3).pdf",
+      "sheet_id": "T001",
+      "page_index": 2,
+      "page_title": "SYMBOLS & LEGENDS",
+      "why_hard": [
+        "dense multi-table legend matrix",
+        "responsibility matrix and multiple legend families on one page"
+      ],
+      "required_region_kinds": [
+        "responsibility_matrix_block",
+        "structured_cabling_legend_block",
+        "intrusion_legend_block",
+        "access_intercom_legend_block",
+        "cctv_legend_block",
+        "legend_notes_block"
+      ]
+    },
+    {
+      "id": "southern_t700_page11",
+      "pdf": "2026-01-19 CONSOLIDATED SET - SOUTHERN POST - T (1) (1) (1)(3).pdf",
+      "sheet_id": "T700",
+      "page_index": 11,
+      "page_title": "ENLARGED GUESTROOM LAYOUTS",
+      "why_hard": [
+        "many tiled guestroom/detail frames",
+        "local note and locality preservation challenge"
+      ],
+      "required_region_kinds": [
+        "detail_frame",
+        "pseudo_page",
+        "local_detail_note_block"
+      ]
+    },
+    {
+      "id": "southern_t900_page12",
+      "pdf": "2026-01-19 CONSOLIDATED SET - SOUTHERN POST - T (1) (1) (1)(3).pdf",
+      "sheet_id": "T900",
+      "page_index": 12,
+      "page_title": "ENLARGED EQUIPMENT ROOM LAYOUTS",
+      "why_hard": [
+        "mixed equipment-room plan and rack/elevation/riser content",
+        "multiple semantic subregions on one sheet"
+      ],
+      "required_region_kinds": [
+        "equipment_room_plan_block",
+        "rack_elevation_block",
+        "grounding_riser_block",
+        "embedded_schedule_block",
+        "local_detail_note_block"
+      ]
+    },
+    {
+      "id": "southern_t901_page13",
+      "pdf": "2026-01-19 CONSOLIDATED SET - SOUTHERN POST - T (1) (1) (1)(3).pdf",
+      "sheet_id": "T901",
+      "page_index": 13,
+      "page_title": "CONDUIT RISER DIAGRAM",
+      "why_hard": [
+        "riser sheet",
+        "continuity body plus callouts/insets"
+      ],
+      "required_region_kinds": [
+        "riser_body_block",
+        "riser_callout_block",
+        "detail_inset_block"
+      ]
+    },
+    {
+      "id": "southern_t905_page17",
+      "pdf": "2026-01-19 CONSOLIDATED SET - SOUTHERN POST - T (1) (1) (1)(3).pdf",
+      "sheet_id": "T905",
+      "page_index": 17,
+      "page_title": "SECURITY INSTALLATION DETAILS",
+      "why_hard": [
+        "detail sheet with embedded schedule box",
+        "multiple detail frames + local notes"
+      ],
+      "required_region_kinds": [
+        "detail_frame",
+        "embedded_schedule_block",
+        "local_detail_note_block"
+      ]
+    },
+    {
+      "id": "southern_t906_page18",
+      "pdf": "2026-01-19 CONSOLIDATED SET - SOUTHERN POST - T (1) (1) (1)(3).pdf",
+      "sheet_id": "T906",
+      "page_index": 18,
+      "page_title": "INSTALLATION DETAILS",
+      "why_hard": [
+        "installation-detail sheet",
+        "pathway/support/locality reasoning"
+      ],
+      "required_region_kinds": [
+        "detail_frame",
+        "pathway_support_block",
+        "local_detail_note_block"
+      ]
+    },
+    {
+      "id": "wireless_tc502_details_sheet",
+      "pdf": "100643PLANSD-4(3).pdf",
+      "sheet_id": "TC502",
+      "page_index": null,
+      "page_title": "TELECOMM DETAILS",
+      "why_hard": [
+        "detail-only telecom sheet",
+        "multiple isolated details requiring locality-preserving decomposition"
+      ],
+      "required_region_kinds": [
+        "detail_frame",
+        "detail_note_block"
+      ]
+    }
+  ]
+}

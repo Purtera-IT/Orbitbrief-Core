@@ -1,0 +1,13 @@
+id: runtime.extractors.site_schematic.low_voltage
+version: 0.1.0
+owner: Orbitbrief-Core
+status: experimental
+
+overlay: low_voltage
+expected_fact_families:
+  - network_room
+  - grounding_rule
+  - pathway_rule
+  - conduit_rule
+  - labeling_requirement
+  - testing_requirement

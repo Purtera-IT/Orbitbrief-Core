@@ -40,6 +40,18 @@ def resolve_modality(parse_plan: ParsePlan) -> str:
     return parse_plan.adapter_chain[0] if parse_plan.adapter_chain else "txt"
 
 
+def _resolve_role_id(*, parse_plan: ParsePlan, compiled_pack: Any) -> str:
+    metadata = parse_plan.metadata if isinstance(parse_plan.metadata, Mapping) else {}
+    explicit_role_id = str(metadata.get("role_id") or "").strip()
+    if explicit_role_id:
+        return explicit_role_id
+
+    modality = resolve_modality(parse_plan)
+    if modality in {"cad_sheet", "schematic", "floorplan", "drawing_packet", "site_schematic_pdf", "site_schematic_image"}:
+        return "drawing_packet"
+    return _manifest_attr(compiled_pack, "role_id", "transcript_or_notes")
+
+
 def build_context(
     *,
     router_input: RouterInput,
@@ -50,7 +62,7 @@ def build_context(
     return AdapterContext(
         doc_id=router_input.doc_id,
         pack_id=_manifest_attr(compiled_pack, "pack_id", "professional_services_text"),
-        role_id=_manifest_attr(compiled_pack, "role_id", "transcript_or_notes"),
+        role_id=_resolve_role_id(parse_plan=parse_plan, compiled_pack=compiled_pack),
         modality=resolve_modality(parse_plan),
         source_layer=source_layer or SourceLayer.NORMALIZED,
         metadata={

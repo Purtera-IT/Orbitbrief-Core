@@ -1,0 +1,16 @@
+--- a/src/orbitbrief_core/parser/site_schematic/topology_extract.py
++++ b/src/orbitbrief_core/parser/site_schematic/topology_extract.py
+@@
+ def extract_topology(...):
+@@
++    # Phase V1 additive hook:
++    # if vector leader/connector/dimension candidates exist, expose counts in diagnostics
++    # for future topology refinement without changing current truth-path behavior.
++    try:
++        graph_diag = getattr(bundle, "structure_graph_diagnostics", {}) if 'bundle' in locals() else {}
++        if graph_diag:
++            topology_diagnostics["vector_leader_candidate_count"] = graph_diag.get("vector_leader_candidate_count", 0)
++            topology_diagnostics["vector_connector_candidate_count"] = graph_diag.get("vector_connector_candidate_count", 0)
++            topology_diagnostics["vector_dimension_candidate_count"] = graph_diag.get("vector_dimension_candidate_count", 0)
++    except Exception:
++        pass

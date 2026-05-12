@@ -1,0 +1,26 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Iterable, List, Set
+
+
+@dataclass
+class FamilyCoverage:
+    expected_family_grounded_coverage_rate: float
+    hardpage_family_grounded_coverage_rate: float
+    grounded_families: Set[str]
+    hardpage_grounded_families: Set[str]
+
+
+def compute_family_coverage(
+    *,
+    expected_families: Iterable[str],
+    grounded_families: Iterable[str],
+    hardpage_grounded_families: Iterable[str],
+) -> FamilyCoverage:
+    exp = set(expected_families)
+    grd = set(grounded_families)
+    hgrd = set(hardpage_grounded_families)
+    exp_rate = (len(exp & grd) / len(exp)) if exp else 1.0
+    hard_rate = (len(exp & hgrd) / len(exp)) if exp else 1.0
+    return FamilyCoverage(exp_rate, hard_rate, grd, hgrd)

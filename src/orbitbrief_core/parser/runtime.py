@@ -7,6 +7,7 @@ from typing import Any, Mapping
 from orbitbrief_core.parser.authority import apply_authority_scoring
 from orbitbrief_core.parser.cue_tagger import apply_cue_tags
 from orbitbrief_core.parser.graph_builder import build_graph
+from orbitbrief_core.parser.intake_preview import hydrate_router_input
 from orbitbrief_core.parser.packetizer import build_packets
 from orbitbrief_core.parser.registry import (
     ParserRegistry,
@@ -182,7 +183,14 @@ def _run_graph_builder(
     compiled_pack: Any,
     diagnostics: list[str],
 ) -> DocumentParse:
-    graph_result = build_graph(document_parse=document_parse, parse_plan=parse_plan, compiled_pack=compiled_pack)
+    hooks = None
+    try:
+        from orbitbrief_core.parser.graph.qwen_pilot import build_qwen_graph_hooks_from_env
+
+        hooks = build_qwen_graph_hooks_from_env()
+    except Exception:
+        hooks = None
+    graph_result = build_graph(document_parse=document_parse, parse_plan=parse_plan, compiled_pack=compiled_pack, hooks=hooks)
     diagnostics.extend(graph_result.diagnostics)
     diagnostics.append(f"graph:pass_count={len(graph_result.pass_stats)}")
     diagnostics.append(f"graph:packet_seed_count={len(graph_result.packet_seed_hints)}")
@@ -237,16 +245,17 @@ def run_parser_runtime(
     """
     active_registry = _get_registry(registry, strict=strict)
     active_strategy_registry = _get_strategy_registry(strategy_registry, strict=strict)
+    hydrated_router_input = hydrate_router_input(router_input)
     diagnostics: list[str] = []
     stage_start = perf_counter()
-    parse_plan = _route(router_input=router_input, compiled_pack=compiled_pack)
+    parse_plan = _route(router_input=hydrated_router_input, compiled_pack=compiled_pack)
     diagnostics.append("phase:route")
     diagnostics.append(f"timing:route_ms={int((perf_counter() - stage_start) * 1000)}")
 
     try:
         stage_start = perf_counter()
         document_parse = _run_adapter(
-            router_input=router_input,
+            router_input=hydrated_router_input,
             parse_plan=parse_plan,
             compiled_pack=compiled_pack,
             registry=active_registry,

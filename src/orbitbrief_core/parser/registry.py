@@ -19,6 +19,8 @@ from orbitbrief_core.parser.strategies import (
     HybridStrategy,
     MeetingNotesStrategy,
     ProjectMemoStrategy,
+    SitePackageStrategy,
+    SpreadsheetRosterStrategy,
 )
 
 
@@ -156,7 +158,9 @@ class StrategyRegistry:
             "email_thread": {"email_export", "txt", "md"},
             "project_memo": {"txt", "md", "docx", "pdf_text", "pdf_ocr", "email_export"},
             "hybrid": {"txt", "md", "docx", "email_export", "pdf_text", "pdf_ocr", "pasted_notes"},
-            "noop": {"txt", "md", "docx", "email_export", "pdf_text", "pdf_ocr", "pasted_notes"},
+            "spreadsheet_roster": {"xlsx", "csv"},
+            "site_package": {"cad_sheet", "schematic", "floorplan", "drawing_packet", "site_schematic_pdf", "site_schematic_image"},
+            "noop": {"txt", "md", "docx", "email_export", "pdf_text", "pdf_ocr", "pasted_notes", "xlsx", "csv", "cad_sheet", "schematic", "floorplan", "drawing_packet", "site_schematic_pdf", "site_schematic_image"},
         }
 
     def register_strategy(self, discourse_key: str | DiscourseType, strategy: BaseStrategy) -> None:
@@ -302,6 +306,8 @@ def build_default_strategy_registry(*, allow_fallback: bool = True) -> StrategyR
     registry.register_strategy(DiscourseType.PROJECT_MEMO, ProjectMemoStrategy())
     registry.register_strategy(DiscourseType.HYBRID_NOTES_MEMO, HybridStrategy())
     registry.register_strategy("hybrid", HybridStrategy())
+    registry.register_strategy("spreadsheet_roster", SpreadsheetRosterStrategy())
+    registry.register_strategy("site_package", SitePackageStrategy())
     return registry
 
 

@@ -1,0 +1,174 @@
+{
+  "gold_standard_version": "2026-04-12.universal_table_contract_gold_v1",
+  "source_pdfs": [
+    {
+      "pdf_id": "wireless_packet",
+      "filename": "100643PLANSD-4(2).pdf"
+    },
+    {
+      "pdf_id": "southern_post_packet",
+      "filename": "2026-01-19 CONSOLIDATED SET - SOUTHERN POST - T (1) (1) (1)(2).pdf"
+    }
+  ],
+  "hard_pages": [
+    {
+      "gold_page_id": "wireless_tc001_page1",
+      "pdf_id": "wireless_packet",
+      "page_index": 1,
+      "sheet_number": "TC001",
+      "sheet_title": "TELECOMM SYMBOL LIST",
+      "modality": "control_legend_hybrid",
+      "why_hard": [
+        "Hybrid control/legend/index/abbreviations page",
+        "Contains both table-like structures and long note blocks",
+        "Must not flatten drawing list, abbreviations, and symbol rows together"
+      ],
+      "required_table_kinds": [
+        "drawing_index",
+        "abbreviation_matrix",
+        "symbol_legend",
+        "outlet_definition",
+        "generic_grid"
+      ],
+      "required_semantic_outputs": [
+        "drawing_index_row",
+        "legend_entry",
+        "abbreviation_entry",
+        "outlet_definition"
+      ]
+    },
+    {
+      "gold_page_id": "southern_t000_page1",
+      "pdf_id": "southern_post_packet",
+      "page_index": 1,
+      "sheet_number": "T000",
+      "sheet_title": "PROJECT REQUIREMENTS NOTES & SPECS",
+      "modality": "multi_column_notes_with_index",
+      "why_hard": [
+        "Dense multi-column notes/specs layout",
+        "Contains drawing index table alongside note columns",
+        "Tests region separation and table preservation together"
+      ],
+      "required_table_kinds": [
+        "drawing_index"
+      ],
+      "required_semantic_outputs": [
+        "drawing_index_row"
+      ],
+      "must_preserve_region_boundaries": [
+        "notes_spec_columns",
+        "drawing_index"
+      ]
+    },
+    {
+      "gold_page_id": "southern_t001_page2",
+      "pdf_id": "southern_post_packet",
+      "page_index": 2,
+      "sheet_number": "T001",
+      "sheet_title": "SYMBOLS & LEGENDS",
+      "modality": "dense_multi_table_legend_matrix",
+      "why_hard": [
+        "Multiple adjacent legend subtables",
+        "Responsibility/legend notes coexist with large legend grids",
+        "Most important test for row/cell preservation"
+      ],
+      "required_table_kinds": [
+        "symbol_legend",
+        "responsibility_matrix",
+        "generic_grid"
+      ],
+      "required_semantic_outputs": [
+        "legend_entry",
+        "outlet_definition"
+      ]
+    },
+    {
+      "gold_page_id": "southern_t002_page3",
+      "pdf_id": "southern_post_packet",
+      "page_index": 3,
+      "sheet_number": "T002",
+      "sheet_title": "SCHEDULES & MISCELLANEOUS",
+      "modality": "schedule_spec_table",
+      "why_hard": [
+        "Component/specification schedule page",
+        "Multi-column manufacturer/part/spec rows",
+        "Needs exact row preservation"
+      ],
+      "required_table_kinds": [
+        "component_spec",
+        "schedule",
+        "manufacturer_part_table"
+      ],
+      "required_semantic_outputs": [
+        "component_spec_row",
+        "schedule_row"
+      ]
+    },
+    {
+      "gold_page_id": "southern_t900_page12",
+      "pdf_id": "southern_post_packet",
+      "page_index": 12,
+      "sheet_number": "T900",
+      "sheet_title": "ENLARGED EQUIPMENT ROOM LAYOUTS",
+      "modality": "mixed_detail_embedded_tables",
+      "why_hard": [
+        "Equipment-room mixed layout",
+        "Embedded notes/legend/table boxes inside detail page",
+        "Tests separation of local tables from detail geometry"
+      ],
+      "required_table_kinds": [
+        "embedded_detail_schedule",
+        "generic_grid"
+      ],
+      "must_preserve_region_boundaries": [
+        "equipment_room_layouts",
+        "embedded_table_boxes",
+        "local_note_boxes"
+      ]
+    },
+    {
+      "gold_page_id": "southern_t905_page17",
+      "pdf_id": "southern_post_packet",
+      "page_index": 17,
+      "sheet_number": "T905",
+      "sheet_title": "SECURITY INSTALLATION DETAILS",
+      "modality": "detail_page_with_embedded_schedule",
+      "why_hard": [
+        "Small embedded CCTV/component schedule in a detail page",
+        "Tests tiny table survival inside non-table detail context"
+      ],
+      "required_table_kinds": [
+        "embedded_detail_schedule"
+      ],
+      "required_semantic_outputs": [
+        "schedule_row"
+      ],
+      "must_preserve_region_boundaries": [
+        "detail_diagrams",
+        "embedded_schedule_table"
+      ]
+    }
+  ],
+  "perfect_acceptance": {
+    "required_table_kind_coverage": 1.0,
+    "bbox_presence_rate": 1.0,
+    "row_integrity_rate": 1.0,
+    "cell_integrity_rate": 1.0,
+    "lineage_completeness_rate": 1.0,
+    "semantic_row_reference_rate": 1.0,
+    "semantic_cell_reference_rate": 1.0,
+    "drawing_index_row_preservation": 1.0,
+    "legend_pairing_integrity": 1.0,
+    "abbreviation_pairing_integrity": 1.0,
+    "outlet_definition_pairing_integrity": 1.0,
+    "component_spec_row_integrity": 1.0,
+    "unflagged_row_merge_count": 0,
+    "unflagged_row_split_count": 0,
+    "unflagged_cell_merge_count": 0,
+    "unflagged_cell_split_count": 0
+  },
+  "status_rules": {
+    "perfect": "All perfect_acceptance metrics are met on all hard_pages.",
+    "not_perfect": "Any missing table kind, missing provenance, broken row/cell lineage, or unflagged merge/split fails the gold."
+  }
+}

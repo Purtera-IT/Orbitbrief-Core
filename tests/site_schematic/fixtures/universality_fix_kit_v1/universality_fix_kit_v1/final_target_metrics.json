@@ -1,0 +1,21 @@
+{
+  "current_pair_must_preserve": {
+    "phase_b_perfect": true,
+    "phase_c_perfect": true,
+    "production_kpi_regression_count": 0.0,
+    "contradiction_lane_separation_rate": 1.0
+  },
+  "next_pass_targets": {
+    "holdout_phase_a_pass_count_min": 9,
+    "holdout_phase_b_pass_count_min": 9,
+    "holdout_phase_c_pass_count_min": 8,
+    "holdout_phase_d_packet_pass_count_min": 3,
+    "evidence_trace_completeness_rate_min": 0.95
+  },
+  "final_targets": {
+    "holdout_phase_a_pass_count": 10,
+    "holdout_phase_b_pass_count": 10,
+    "holdout_phase_c_pass_count": 10,
+    "holdout_packet_pass_rate_min": 0.9
+  }
+}

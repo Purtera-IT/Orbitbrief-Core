@@ -1,0 +1,14 @@
+Use this Phase V2 kit in the live repo.
+
+Order:
+1. add helper modules
+2. patch `models.py`
+3. patch `core.py`
+4. patch `structure_graph.py`
+5. patch `symbols/model_output_adapter.py` / `symbols/linker.py`
+6. add V2 eval harness
+7. run all 12 packets
+8. confirm parser + V0/V1 stability
+
+Do not implement full raster fallback yet.
+Do not touch OrbitBrief.

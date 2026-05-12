@@ -1,0 +1,17 @@
+--- a/src/orbitbrief_core/parser/site_schematic/semantic_mapper.py
++++ b/src/orbitbrief_core/parser/site_schematic/semantic_mapper.py
+@@
++from orbitbrief_core.parser.site_schematic.grounded_family_derivation import derive_grounded_family
+@@
+ def map_candidate_to_semantics(...):
+@@
++    mapping_metadata["grounded_family"] = derive_grounded_family(
++        legend_text=legend_entry_text if 'legend_entry_text' in locals() else "",
++        mapped_semantic_text=mapped_semantic_text if 'mapped_semantic_text' in locals() else "",
++        outlet_definition_text=outlet_definition_text if 'outlet_definition_text' in locals() else "",
++        page_title=page_title if 'page_title' in locals() else "",
++        page_type=sheet_type if 'sheet_type' in locals() else "",
++        connector_context_score=mapping_metadata.get("connector_context_score", 0.0),
++        room_device_association_score=mapping_metadata.get("room_device_association_score", 0.0),
++        allowed_families=packet_expected_families if 'packet_expected_families' in locals() else [],
++    )

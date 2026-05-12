@@ -1,0 +1,68 @@
+{
+  "low_voltage": {
+    "critical_sections": {
+      "critical_color_and_termination_facts": 0.9945,
+      "critical_device_and_outlet_types": 0.9938,
+      "critical_equipment_room_and_detail_facts": 0.9638,
+      "critical_floorplan_facts": 0.9362,
+      "critical_page_1_facts": 0.973,
+      "critical_page_2_symbol_tables": 1.0,
+      "critical_riser_facts": 0.9422
+    },
+    "exact_anchor_checks": {
+      "color_cables": true,
+      "environment_70f_60rh": true,
+      "site_survey_responsibility": true,
+      "tgb_tmgb_present": true
+    },
+    "graph_expectations_match": true,
+    "legality_status_match": true,
+    "minimum_output_keys_match": true,
+    "page_count_match": true,
+    "region_presence_match": true,
+    "route_id": "low_voltage_hospitality_packet",
+    "sheet_type_counts_match": true,
+    "typed_pages_match": true,
+    "unmatched_examples": {
+      "critical_color_and_termination_facts": [],
+      "critical_device_and_outlet_types": [],
+      "critical_equipment_room_and_detail_facts": [],
+      "critical_floorplan_facts": [],
+      "critical_page_1_facts": [],
+      "critical_page_2_symbol_tables": [],
+      "critical_riser_facts": []
+    }
+  },
+  "wireless": {
+    "critical_sections": {
+      "critical_detail_facts": 0.9845,
+      "critical_floorplan_facts": 0.8706,
+      "critical_page_1_facts": 0.9973,
+      "critical_riser_facts": 0.9476,
+      "critical_visual_tokens": 1.0
+    },
+    "exact_anchor_checks": {
+      "jack_color_conventions": true,
+      "owner_provided_wap": true,
+      "wap_20ft_slack": true,
+      "wap_dedicated_patch_panel": true
+    },
+    "graph_expectations_match": true,
+    "legality_status_match": true,
+    "minimum_output_keys_match": true,
+    "page_count_match": true,
+    "region_presence_match": true,
+    "route_id": "wireless_ap_heavy_telecom_packet",
+    "sheet_type_counts_match": true,
+    "typed_pages_match": true,
+    "unmatched_examples": {
+      "critical_detail_facts": [],
+      "critical_floorplan_facts": [
+        "EC provides 3/4 inch conduit to planters"
+      ],
+      "critical_page_1_facts": [],
+      "critical_riser_facts": [],
+      "critical_visual_tokens": []
+    }
+  }
+}

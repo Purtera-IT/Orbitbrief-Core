@@ -1,0 +1,18 @@
+--- /dev/null
++++ b/src/orbitbrief_core/parser/site_schematic/vector_measurement.py
+@@
++from __future__ import annotations
++
++from dataclasses import dataclass, field
++from typing import Dict, Optional, Tuple
++
++
++@dataclass
++class MeasurementCandidate:
++    measurement_id: str
++    page_index: int
++    bbox: Optional[Tuple[float, float, float, float]]
++    measurement_source: str  # vector | raster | inferred
++    scale_source: str        # title_block | detail_scale | dimension_text | inferred
++    confidence: float
++    metadata: Dict[str, object] = field(default_factory=dict)

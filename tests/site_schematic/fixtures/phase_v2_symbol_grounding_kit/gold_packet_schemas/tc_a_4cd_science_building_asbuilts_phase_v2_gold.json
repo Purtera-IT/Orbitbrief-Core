@@ -1,0 +1,1186 @@
+{
+  "packet_id": "tc_a_4cd_science_building_asbuilts",
+  "category": "telecom_wireless",
+  "page_count": 94,
+  "sheet_type_counts": {
+    "schedule_sheet": 40,
+    "floorplan_overall": 26,
+    "notes_spec": 11,
+    "riser_diagram": 10,
+    "rack_detail": 5,
+    "legend_symbol": 2
+  },
+  "legend_pages": [
+    {
+      "page_index": 86,
+      "sheet_id": "DO104",
+      "sheet_title": "",
+      "sheet_type": "legend_symbol",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "note_spec_zone",
+        "legend_zone",
+        "abbreviation_zone",
+        "plan_body_zone"
+      ],
+      "targets": [
+        "packet_local_symbol_dictionary",
+        "symbol_legend_rows",
+        "outlet_definition_meanings",
+        "abbreviation-backed alias families"
+      ],
+      "validation_targets": [
+        "legend_dictionary_completeness",
+        "candidate_to_legend_alignment"
+      ]
+    },
+    {
+      "page_index": 93,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "legend_symbol",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "legend_zone",
+        "plan_body_zone"
+      ],
+      "targets": [
+        "packet_local_symbol_dictionary",
+        "symbol_legend_rows",
+        "outlet_definition_meanings",
+        "abbreviation-backed alias families"
+      ],
+      "validation_targets": [
+        "legend_dictionary_completeness",
+        "candidate_to_legend_alignment"
+      ]
+    }
+  ],
+  "schematic_pages": [
+    {
+      "page_index": 3,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 9,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "plan_body_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 12,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "drawing_index_block_zone",
+        "generic_grid_block_zone",
+        "notes_section_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 20,
+      "sheet_id": "IQ6226",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "legend_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "drawing_index_block_zone",
+        "generic_grid_block_zone",
+        "notes_section_block_zone",
+        "junction_box_conduit_notes_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 23,
+      "sheet_id": "N240",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "plan_body_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone",
+        "abbreviation_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 30,
+      "sheet_id": "OJ058.00",
+      "sheet_title": "",
+      "sheet_type": "riser_diagram",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "note_spec_zone",
+        "detail_zone"
+      ],
+      "targets": [
+        "riser_endpoint candidates",
+        "trunk/branch connector candidates",
+        "riser leader attachments",
+        "topology hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "connector_topology_candidate_rate"
+      ]
+    },
+    {
+      "page_index": 32,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone",
+        "notes_section_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 41,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "drawing_index_block_zone",
+        "generic_grid_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 43,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "drawing_index_block_zone",
+        "generic_grid_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 45,
+      "sheet_id": "C311",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "drawing_index_block_zone",
+        "generic_grid_block_zone",
+        "notes_section_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 46,
+      "sheet_id": "IQ6226",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "drawing_index_block_zone",
+        "generic_grid_block_zone",
+        "notes_section_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 48,
+      "sheet_id": "",
+      "sheet_title": "RISER DIAGRAM",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "legend_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone",
+        "riser_body_block_zone",
+        "symbol_legend_block_zone",
+        "notes_section_block_zone",
+        "junction_box_conduit_notes_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 49,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "title_block_zone",
+        "outlet_definition_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 52,
+      "sheet_id": "M204",
+      "sheet_title": "",
+      "sheet_type": "rack_detail",
+      "zones": [
+        "detail_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone",
+        "notes_section_block_zone",
+        "symbol_legend_block_zone",
+        "outlet_definition_block_zone",
+        "junction_box_conduit_notes_block_zone"
+      ],
+      "targets": [
+        "rack-front / patch-panel / runway candidate symbols",
+        "detail-local dimensions",
+        "connector hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "dimension_candidate_quality"
+      ]
+    },
+    {
+      "page_index": 54,
+      "sheet_id": "AL3356",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "legend_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone",
+        "notes_section_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 56,
+      "sheet_id": "PFD1200",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "legend_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone",
+        "notes_section_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 57,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "legend_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "drawing_index_block_zone",
+        "generic_grid_block_zone",
+        "notes_section_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 58,
+      "sheet_id": "IFD1200",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "legend_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone",
+        "notes_section_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 60,
+      "sheet_id": "I102",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "legend_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "abbreviation_zone",
+        "generic_grid_block_zone",
+        "notes_section_block_zone",
+        "drawing_index_block_zone",
+        "outlet_definition_block_zone",
+        "responsibility_matrix_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 61,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "legend_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone",
+        "notes_section_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 62,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "legend_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "drawing_index_block_zone",
+        "generic_grid_block_zone",
+        "notes_section_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 63,
+      "sheet_id": "PFP2400",
+      "sheet_title": "ENLARGED EQUIPMENT ROOM LAYOUTS",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "legend_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone",
+        "notes_section_block_zone",
+        "drawing_index_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 64,
+      "sheet_id": "D0400",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "legend_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone",
+        "responsibility_matrix_block_zone",
+        "notes_section_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 65,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "legend_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "drawing_index_block_zone",
+        "generic_grid_block_zone",
+        "notes_section_block_zone",
+        "outlet_definition_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 67,
+      "sheet_id": "PFD0200",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone",
+        "drawing_index_block_zone",
+        "notes_section_block_zone",
+        "outlet_definition_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 68,
+      "sheet_id": "TI201",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "legend_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "title_block_zone",
+        "generic_grid_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 70,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone",
+        "outlet_definition_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 72,
+      "sheet_id": "TI201",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "title_block_zone",
+        "outlet_definition_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 73,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "rack_detail",
+      "zones": [
+        "abbreviation_zone",
+        "detail_zone",
+        "note_spec_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone",
+        "notes_section_block_zone"
+      ],
+      "targets": [
+        "rack-front / patch-panel / runway candidate symbols",
+        "detail-local dimensions",
+        "connector hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "dimension_candidate_quality"
+      ]
+    },
+    {
+      "page_index": 74,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "rack_detail",
+      "zones": [
+        "abbreviation_zone",
+        "detail_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone"
+      ],
+      "targets": [
+        "rack-front / patch-panel / runway candidate symbols",
+        "detail-local dimensions",
+        "connector hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "dimension_candidate_quality"
+      ]
+    },
+    {
+      "page_index": 75,
+      "sheet_id": "AP7620",
+      "sheet_title": "",
+      "sheet_type": "riser_diagram",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "note_spec_zone",
+        "detail_zone"
+      ],
+      "targets": [
+        "riser_endpoint candidates",
+        "trunk/branch connector candidates",
+        "riser leader attachments",
+        "topology hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "connector_topology_candidate_rate"
+      ]
+    },
+    {
+      "page_index": 77,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "rack_detail",
+      "zones": [
+        "detail_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone",
+        "rack_elevation_block_zone"
+      ],
+      "targets": [
+        "rack-front / patch-panel / runway candidate symbols",
+        "detail-local dimensions",
+        "connector hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "dimension_candidate_quality"
+      ]
+    },
+    {
+      "page_index": 78,
+      "sheet_id": "AP7620",
+      "sheet_title": "",
+      "sheet_type": "riser_diagram",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "note_spec_zone",
+        "detail_zone"
+      ],
+      "targets": [
+        "riser_endpoint candidates",
+        "trunk/branch connector candidates",
+        "riser leader attachments",
+        "topology hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "connector_topology_candidate_rate"
+      ]
+    },
+    {
+      "page_index": 80,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "rack_detail",
+      "zones": [
+        "detail_zone",
+        "note_spec_zone",
+        "schedule_table_zone",
+        "title_block_zone",
+        "generic_grid_block_zone",
+        "abbreviation_zone",
+        "outlet_definition_block_zone",
+        "notes_section_block_zone"
+      ],
+      "targets": [
+        "rack-front / patch-panel / runway candidate symbols",
+        "detail-local dimensions",
+        "connector hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "dimension_candidate_quality"
+      ]
+    },
+    {
+      "page_index": 82,
+      "sheet_id": "",
+      "sheet_title": "RISER DIAGRAM",
+      "sheet_type": "riser_diagram",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "note_spec_zone",
+        "detail_zone"
+      ],
+      "targets": [
+        "riser_endpoint candidates",
+        "trunk/branch connector candidates",
+        "riser leader attachments",
+        "topology hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "connector_topology_candidate_rate"
+      ]
+    },
+    {
+      "page_index": 83,
+      "sheet_id": "",
+      "sheet_title": "RISER DIAGRAM",
+      "sheet_type": "riser_diagram",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "note_spec_zone",
+        "detail_zone"
+      ],
+      "targets": [
+        "riser_endpoint candidates",
+        "trunk/branch connector candidates",
+        "riser leader attachments",
+        "topology hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "connector_topology_candidate_rate"
+      ]
+    },
+    {
+      "page_index": 86,
+      "sheet_id": "DO104",
+      "sheet_title": "",
+      "sheet_type": "legend_symbol",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "note_spec_zone",
+        "legend_zone",
+        "abbreviation_zone",
+        "plan_body_zone"
+      ],
+      "targets": [
+        "packet_local_symbol_dictionary",
+        "symbol_legend_rows",
+        "outlet_definition_meanings",
+        "abbreviation-backed alias families"
+      ],
+      "validation_targets": [
+        "legend_dictionary_completeness",
+        "candidate_to_legend_alignment"
+      ]
+    },
+    {
+      "page_index": 88,
+      "sheet_id": "N255",
+      "sheet_title": "",
+      "sheet_type": "riser_diagram",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "note_spec_zone",
+        "legend_zone",
+        "abbreviation_zone",
+        "detail_zone"
+      ],
+      "targets": [
+        "riser_endpoint candidates",
+        "trunk/branch connector candidates",
+        "riser leader attachments",
+        "topology hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "connector_topology_candidate_rate"
+      ]
+    },
+    {
+      "page_index": 89,
+      "sheet_id": "N255",
+      "sheet_title": "",
+      "sheet_type": "riser_diagram",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "note_spec_zone",
+        "legend_zone",
+        "detail_zone"
+      ],
+      "targets": [
+        "riser_endpoint candidates",
+        "trunk/branch connector candidates",
+        "riser leader attachments",
+        "topology hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "connector_topology_candidate_rate"
+      ]
+    },
+    {
+      "page_index": 90,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "riser_diagram",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "note_spec_zone",
+        "legend_zone",
+        "detail_zone"
+      ],
+      "targets": [
+        "riser_endpoint candidates",
+        "trunk/branch connector candidates",
+        "riser leader attachments",
+        "topology hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "connector_topology_candidate_rate"
+      ]
+    },
+    {
+      "page_index": 91,
+      "sheet_id": "CP316",
+      "sheet_title": "N0N-MAGNETIC,.18",
+      "sheet_type": "riser_diagram",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "note_spec_zone",
+        "detail_zone"
+      ],
+      "targets": [
+        "riser_endpoint candidates",
+        "trunk/branch connector candidates",
+        "riser leader attachments",
+        "topology hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "connector_topology_candidate_rate"
+      ]
+    },
+    {
+      "page_index": 92,
+      "sheet_id": "U300",
+      "sheet_title": "OR U400 SERIES WALL OR PARTITION",
+      "sheet_type": "riser_diagram",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "note_spec_zone",
+        "detail_zone"
+      ],
+      "targets": [
+        "riser_endpoint candidates",
+        "trunk/branch connector candidates",
+        "riser leader attachments",
+        "topology hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "connector_topology_candidate_rate"
+      ]
+    },
+    {
+      "page_index": 93,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "legend_symbol",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "legend_zone",
+        "plan_body_zone"
+      ],
+      "targets": [
+        "packet_local_symbol_dictionary",
+        "symbol_legend_rows",
+        "outlet_definition_meanings",
+        "abbreviation-backed alias families"
+      ],
+      "validation_targets": [
+        "legend_dictionary_completeness",
+        "candidate_to_legend_alignment"
+      ]
+    }
+  ],
+  "expected_symbol_families": [
+    "ap_wap_marker",
+    "data_outlet_marker",
+    "av_endpoint_marker",
+    "room_scheduler_marker",
+    "telecom_rack_front",
+    "patch_panel_row",
+    "ladder_rack_runway",
+    "conduit_pathway",
+    "pull_or_junction_box",
+    "wall_phone_marker",
+    "unknown_symbol_group"
+  ],
+  "packet_level_targets": {
+    "candidate_symbol_grouping_rate_min": 0.95,
+    "grounded_symbol_provenance_rate": 1.0,
+    "legend_grounding_dictionary_completeness_min": 0.95,
+    "candidate_to_legend_alignment_rate_min": 0.9,
+    "room_device_association_rate_min": 0.9,
+    "connector_topology_candidate_rate_min": 0.85,
+    "dimension_candidate_quality_rate_min": 0.8
+  }
+}

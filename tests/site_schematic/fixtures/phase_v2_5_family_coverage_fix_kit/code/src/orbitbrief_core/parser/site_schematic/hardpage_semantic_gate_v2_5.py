@@ -1,0 +1,30 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Iterable, List
+
+
+@dataclass
+class HardpageSemanticGate:
+    ok: bool
+    reasons: List[str]
+
+
+def enforce_v2_5_hardpage_gate(
+    *,
+    required_page_types: List[str],
+    hardpage_grounded_symbol_yield_rate: float,
+    hardpage_family_grounded_coverage_rate: float,
+) -> HardpageSemanticGate:
+    reasons = []
+    ok = True
+    if not required_page_types:
+        ok = False
+        reasons.append("empty_required_page_types")
+    if hardpage_grounded_symbol_yield_rate < 0.65:
+        ok = False
+        reasons.append("hardpage_grounded_yield_too_low")
+    if hardpage_family_grounded_coverage_rate < 0.8:
+        ok = False
+        reasons.append("hardpage_family_coverage_too_low")
+    return HardpageSemanticGate(ok, reasons)

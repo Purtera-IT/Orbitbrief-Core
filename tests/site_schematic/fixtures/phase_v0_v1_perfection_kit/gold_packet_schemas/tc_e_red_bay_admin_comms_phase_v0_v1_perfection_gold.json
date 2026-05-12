@@ -1,0 +1,40 @@
+{
+  "packet_id": "tc_e_red_bay_admin_comms",
+  "modality_domain": "telecom",
+  "selectors": [
+    "first control/legend page",
+    "first notes/spec page",
+    "first riser page",
+    "first detail page"
+  ],
+  "expected_modality": {
+    "legend_symbol": [
+      "vector_rich",
+      "hybrid"
+    ],
+    "notes_spec": [
+      "vector_rich",
+      "hybrid"
+    ],
+    "riser_diagram": [
+      "vector_rich",
+      "hybrid"
+    ],
+    "installation_detail": [
+      "vector_rich",
+      "hybrid"
+    ],
+    "floorplan_overall": [
+      "vector_rich",
+      "hybrid"
+    ]
+  },
+  "expected_v1_primitive_families": [
+    "lines",
+    "boxes",
+    "leaders",
+    "connectors",
+    "candidate_symbols",
+    "dimensions_optional"
+  ]
+}

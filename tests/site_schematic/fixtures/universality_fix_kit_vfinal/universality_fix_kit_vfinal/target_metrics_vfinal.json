@@ -1,0 +1,27 @@
+{
+  "pass1_target": {
+    "A": 8,
+    "B": 8,
+    "C": 7,
+    "D": 3
+  },
+  "pass2_target": {
+    "A": 9,
+    "B": 9,
+    "C": 8,
+    "D": 5
+  },
+  "final_target": {
+    "A": 10,
+    "B": 10,
+    "C": 10,
+    "D": 10
+  },
+  "must_preserve": {
+    "production_kpi_regression_count": 0.0,
+    "contradiction_lane_separation_rate": 1.0,
+    "current_pair_phase_b_perfect": true,
+    "current_pair_phase_c_perfect": true,
+    "evidence_trace_completeness_rate_min": 0.98
+  }
+}

@@ -1,0 +1,136 @@
+You are working in the latest OrbitBrief Core repo on the `site_schematic` lane.
+
+This is the FINAL PARSER-ONLY TEXT PERFECTION PASS before moving to graphics.
+
+CURRENT STATE
+
+The parser already completed a full 12-document corpus extraction pass and is marked parser-ready-for-vision on all 12 documents.
+However, a small amount of non-graphics residual remains:
+
+- unresolved_text_only_gap_rate_avg = 0.0215
+- note_spec_coverage_rate_avg = 0.9715
+
+Dominant remaining parser-only issues:
+1. `multiple detail-local scoped note links remain unresolved`
+2. `note/spec cues present but no structured note clause emitted`
+
+Most common on:
+- `schedule_sheet`
+- `notes_spec`
+- `riser_diagram`
+- some `legend_symbol`
+- a small tail in `installation_detail`
+
+MISSION
+
+Make the parser effectively perfect for all non-graphics content before moving to the graphics/schematics phase.
+
+PRIMARY GOAL
+
+Eliminate the remaining text-only and locality-scope residuals while preserving:
+- current pair canonical behavior
+- universal table spine behavior
+- Phase C region fidelity behavior
+- production KPI stability
+- contradiction lane separation
+
+DO NOT
+- work on OrbitBrief
+- work on contradiction truth paths
+- start graphics/schematic interpretation yet
+- open a heavy model path globally
+- fake perfection by weakening eval criteria
+
+WHAT TO IMPLEMENT
+
+## 1. Structured note-clause promotion
+Add a deterministic promotion pass for pages/regions where:
+- note/spec cues are clearly present
+- but zero structured note clauses were emitted
+
+Target sheet types:
+- `schedule_sheet`
+- `notes_spec`
+- `legend_symbol`
+- `riser_diagram`
+- explicit note blocks on `floorplan_overall` only when clearly note-like
+
+The pass should promote:
+- numbered notes
+- bullet-like note blocks
+- sectioned note paragraphs
+- note sidebars / footer notes
+into real structured note clauses
+
+Do not promote random labels or room text into notes.
+
+## 2. Locality-scope closure
+Add a deterministic post-scope closure pass that upgrades unresolved local note links when evidence is strong:
+- same `detail_region_id`
+- or same `subregion_id`
+- or same `pseudo_page_id`
+- and same `column_id` when applicable
+- and detail/note cue agreement
+
+If evidence is weak, leave unresolved.
+
+## 3. Strong global-note guard
+Protect clearly global notes from being over-localized.
+
+Examples of strong global note cues:
+- `general note`
+- `keyed note`
+- `project requirements`
+- `general infrastructure installation notes`
+- `drawing index`
+- page-level requirements/specs headers
+
+## 4. Provenance completion
+If a note-bearing region or scoped note object is missing derivable locality ids or provenance, complete them deterministically.
+
+## 5. Corpus-level perfection audit
+Re-run the full corpus extraction pass and report:
+- visible_text_coverage_estimate_avg
+- note_spec_coverage_rate_avg
+- unresolved_text_only_gap_rate_avg
+- graphics_only_gap_rate_avg
+- parser_ready_for_vision_handoff_rate
+- top remaining non-graphics gaps, if any
+
+TARGET METRICS
+
+I want you to push toward:
+- visible_text_coverage_estimate_avg >= 0.995
+- note_spec_coverage_rate_avg >= 0.995
+- unresolved_text_only_gap_rate_avg <= 0.002
+- legend_table_coverage_rate_avg = 1.0
+- semantic_lineage_coverage_rate_avg = 1.0
+- parser_ready_for_vision_handoff_rate = 1.0
+
+VALIDATION REQUIRED
+
+Run:
+- `pytest tests/site_schematic/test_gold_pdf_eval.py -q`
+- `pytest tests/site_schematic/test_universal_table_contract.py -q`
+- `pytest tests/site_schematic/test_phasec_region_fidelity.py -q`
+- `pytest tests/site_schematic/test_phase_d_universality.py -q`
+- `pytest tests/site_schematic/test_parser_full_extraction_corpus.py -q`
+- `python -m tests.site_schematic.parser_full_extraction_eval`
+
+Also add/run new tests for:
+- note clause promotion
+- locality scope closure
+- global-note preservation
+- provenance completion
+
+OUTPUT I WANT
+
+1. exact files changed
+2. what structured note promotion rules were added
+3. what locality closure rules were added
+4. what global-note guard rules were added
+5. before/after corpus metrics
+6. per-document remaining text-only gaps, if any
+7. whether parser-only perfection is now achieved for non-graphics content
+8. if yes, confirm that the next real phase is graphics/schematics
+9. if not, name the exact last parser-only blockers

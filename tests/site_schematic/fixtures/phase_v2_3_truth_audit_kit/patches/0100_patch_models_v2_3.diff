@@ -1,0 +1,14 @@
+--- a/src/orbitbrief_core/parser/site_schematic/models.py
++++ b/src/orbitbrief_core/parser/site_schematic/models.py
+@@
+ from dataclasses import dataclass, field
+ from typing import Any, Dict, List, Optional, Tuple
+@@
++@dataclass
++class SiteSchematicPacketV2TruthAuditSummary:
++    packet_id: str
++    truth_audit_reasons: List[str] = field(default_factory=list)
++    suspicious_uniform_grounding: bool = False
++    impossible_connector_success: bool = False
++    impossible_room_assoc_success: bool = False
++    empty_required_hardpage_set: bool = False

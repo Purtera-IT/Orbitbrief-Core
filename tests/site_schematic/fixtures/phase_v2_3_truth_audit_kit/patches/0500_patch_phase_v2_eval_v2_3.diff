@@ -1,0 +1,65 @@
+--- a/tests/site_schematic/phase_v2_eval.py
++++ b/tests/site_schematic/phase_v2_eval.py
+@@
++from orbitbrief_core.parser.site_schematic.hardpage_truth_enforcer import enforce_nonempty_required_hardpages
++from orbitbrief_core.parser.site_schematic.grounding_truth_audit import audit_packet_truth_signals
++from orbitbrief_core.parser.site_schematic.grounded_yield_sanity import check_yield_sanity
+@@
+ def run_phase_v2_eval(...):
+@@
++    empty_required_hardpage_packet_failures = 0
++    suspicious_uniform_grounding_packet_failures = 0
++    impossible_connector_success_packet_failures = 0
++    impossible_room_assoc_packet_failures = 0
++    truth_audit_failures_total = 0
+@@
+         hardpage_summary = build_packet_hardpage_summary(packet_id, page_rows)
+-        hardpage_summary.required_page_types = derive_required_hardpage_types(page_rows)
++        schema_required = packet_schema.get("schema_required_types", []) if 'packet_schema' in locals() else []
++        hardpage_summary.required_page_types = enforce_nonempty_required_hardpages(page_rows=page_rows, schema_required_types=schema_required)
+         hardpage_rates.append(hardpage_summary.rate)
+@@
++        audit = audit_packet_truth_signals(
++            candidate_symbol_count=total_candidates,
++            grounded_symbol_count=grounded_symbols,
++            unresolved_symbol_count=unresolved_symbols,
++            connector_topology_candidate_rate=float(packet_row.get("connector_topology_candidate_rate", 0.0)),
++            connector_grounding_quality_rate=float(packet_row.get("connector_grounding_quality_rate", 0.0)),
++            room_device_association_rate=float(packet_row.get("room_device_association_rate", 0.0)),
++            required_page_types=hardpage_summary.required_page_types,
++            satisfied_page_types=hardpage_summary.satisfied_page_types,
++            grounded_rows=packet_row.get("grounded_symbol_rows", []),
++        )
++        packet_row["truth_audit_reasons"] = audit.reasons
++        packet_row["suspicious_uniform_grounding"] = audit.suspicious_uniform_grounding
++        packet_row["impossible_connector_success"] = audit.impossible_connector_success
++        packet_row["impossible_room_assoc_success"] = audit.impossible_room_assoc_success
++
++        if hardpage_summary.required_page_types == [] and any(str(r.get("sheet_type", "")) in {"legend_symbol","riser_diagram","equipment_room_layout","installation_detail","floorplan_overall"} for r in page_rows):
++            empty_required_hardpage_packet_failures += 1
++        if audit.suspicious_uniform_grounding:
++            suspicious_uniform_grounding_packet_failures += 1
++        if audit.impossible_connector_success:
++            impossible_connector_success_packet_failures += 1
++        if audit.impossible_room_assoc_success:
++            impossible_room_assoc_packet_failures += 1
++
++        sanity = check_yield_sanity(
++            grounded_symbol_yield_rate=metrics.grounded_symbol_yield_rate,
++            unresolved_symbol_ratio=metrics.unresolved_symbol_ratio,
++        )
++        packet_row["grounded_yield_ok"] = sanity.grounded_yield_ok
++        packet_row["unresolved_ratio_ok"] = sanity.unresolved_ratio_ok
++        packet_row["yield_sanity_reasons"] = sanity.reasons
+@@
++    truth_audit_failures_total = (
++        empty_required_hardpage_packet_failures
++        + suspicious_uniform_grounding_packet_failures
++        + impossible_connector_success_packet_failures
++        + impossible_room_assoc_packet_failures
++    )
++    summary["empty_required_hardpage_packet_failures"] = empty_required_hardpage_packet_failures
++    summary["suspicious_uniform_grounding_packet_failures"] = suspicious_uniform_grounding_packet_failures
++    summary["impossible_connector_success_packet_failures"] = impossible_connector_success_packet_failures
++    summary["impossible_room_assoc_packet_failures"] = impossible_room_assoc_packet_failures
++    summary["truth_audit_failures_total"] = truth_audit_failures_total

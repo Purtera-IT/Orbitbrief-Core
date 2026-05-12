@@ -1,0 +1,36 @@
+--- a/src/orbitbrief_core/parser/site_schematic/models.py
++++ b/src/orbitbrief_core/parser/site_schematic/models.py
+@@
+ from dataclasses import dataclass, field
+ from typing import Any, Dict, List, Optional, Tuple
+@@
++@dataclass
++class SiteSchematicCalibratedPageModalityDecision:
++    page_index: int
++    sheet_type: str
++    modality: str
++    confidence: float
++    ambiguous: bool = False
++    reasons: List[str] = field(default_factory=list)
++    diagnostics: Dict[str, float] = field(default_factory=dict)
++
++@dataclass
++class SiteSchematicVectorPrimitiveValidation:
++    primitive_id: str
++    valid: bool
++    quality_score: float
++    candidate_kind: str
++    reasons: List[str] = field(default_factory=list)
++
++@dataclass
++class SiteSchematicPacketV0V1Summary:
++    packet_id: str
++    page_count: int
++    modality_counts: Dict[str, int] = field(default_factory=dict)
++    ambiguous_page_count: int = 0
++    primitive_count: int = 0
++    validated_primitive_count: int = 0
++    leader_candidate_count: int = 0
++    dimension_candidate_count: int = 0
++    modality_fail: bool = False
++    primitive_graph_fail: bool = False

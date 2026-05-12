@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from dataclasses import dataclass
 
 import pytest
 
 import orbitbrief_core.parser.runtime as runtime_module
+from orbitbrief_core.parser.router import RouterInput
 from orbitbrief_core.parser.registry import (
     RegistryDispatchError,
     build_default_strategy_registry,
@@ -12,6 +14,7 @@ from orbitbrief_core.parser.registry import (
 )
 from orbitbrief_core.parser.router import ParsePlan
 from orbitbrief_core.parser.shared.types import ContainerType, DiscourseType
+from orbitbrief_core.runtime_spine.pipeline import parse_extract_and_postprocess
 
 
 def _plan(*, modality: str, discourse: DiscourseType, strategy_chain: tuple[str, ...]) -> ParsePlan:
@@ -105,3 +108,53 @@ def test_runtime_entrypoint_uses_loader_when_registry_not_supplied(monkeypatch: 
     adapter = runtime_module.get_adapter_for_plan(plan, registry=None, strict=True)
     assert called["value"] is True
     assert adapter.info.modality == "txt"
+
+
+@dataclass(frozen=True, slots=True)
+class _ManifestStub:
+    pack_id: str = "professional_services_text"
+    role_id: str = "transcript_or_notes"
+
+
+@dataclass(frozen=True, slots=True)
+class _CompiledPackStub:
+    manifest: _ManifestStub
+    parser_profiles: dict
+    claim_family_table: dict
+    field_table: dict
+    review_rules: dict
+    projection_rules: dict
+    retrieval_exemplars: dict
+    negative_examples: dict
+
+
+def _compiled_pack_stub() -> _CompiledPackStub:
+    rows = [{"modality": "txt", "parser_profile_id": "parser:professional_services_text:txt"}]
+    return _CompiledPackStub(
+        manifest=_ManifestStub(),
+        parser_profiles={"rows": rows},
+        claim_family_table={"rows": []},
+        field_table={"rows": []},
+        review_rules={"rows": []},
+        projection_rules={"rows": []},
+        retrieval_exemplars={"rows": []},
+        negative_examples={"rows": []},
+    )
+
+
+def test_fallback_state_is_explicit_and_not_fake_success() -> None:
+    compiled_pack = _compiled_pack_stub()
+    router_input = RouterInput(
+        doc_id="fallback_10_001",
+        filename="notes.txt",
+        raw_text_preview="just notes",
+        metadata={"raw_text": "just notes"},
+    )
+    result = parse_extract_and_postprocess(
+        router_input=router_input,
+        compiled_pack=compiled_pack,
+        target_role_id="unknown_role_for_phase10",
+    )
+    assert result.pipeline_state in {"intake_only", "parked", "unsupported"}
+    assert result.emits_business_claims is False
+    assert result.review_required is True

@@ -1,0 +1,18 @@
+id: runtime.extractors.site_schematic.base
+version: 0.1.0
+owner: Orbitbrief-Core
+status: experimental
+
+extractor_family: site_schematic_core
+fields:
+  - drawing_packet_metadata
+  - site_profile_from_drawings
+  - known_quantities
+  - scope_included
+  - access_and_logistics
+  - deliverables_required
+  - dependencies
+  - risks
+notes:
+  - Shared base config for site schematic overlays.
+  - Not directly loaded by runtime yet; intended as Cursor integration target for phase 2b.

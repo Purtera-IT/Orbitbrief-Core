@@ -1,0 +1,37 @@
+--- /dev/null
++++ b/src/orbitbrief_core/parser/site_schematic/grounded_family_derivation.py
+@@
++from __future__ import annotations
++
++from typing import Dict, Iterable, Optional
++
++from orbitbrief_core.parser.site_schematic.packet_expected_family_deriver import KEYWORD_TO_FAMILY
++
++
++def derive_grounded_family(
++    *,
++    legend_text: str = "",
++    mapped_semantic_text: str = "",
++    outlet_definition_text: str = "",
++    page_title: str = "",
++    page_type: str = "",
++    connector_context_score: float = 0.0,
++    room_device_association_score: float = 0.0,
++    allowed_families: Iterable[str] = (),
++) -> str:
++    text = " | ".join((legend_text or "", mapped_semantic_text or "", outlet_definition_text or "", page_title or "")).lower()
++    allowed = set(allowed_families)
++    matches = []
++    for kw, fam in KEYWORD_TO_FAMILY.items():
++        if kw in text:
++            if not allowed or fam in allowed:
++                matches.append(fam)
++    if matches:
++        return matches[0]
++    # Weak fallback from page type context only when local evidence is non-trivial.
++    if connector_context_score >= 0.55 or room_device_association_score >= 0.55:
++        if page_type == "riser_diagram" and (not allowed or "riser_endpoint" in allowed):
++            return "riser_endpoint"
++        if page_type == "equipment_room_layout" and (not allowed or "equipment_rack_front" in allowed):
++            return "equipment_rack_front"
++    return ""

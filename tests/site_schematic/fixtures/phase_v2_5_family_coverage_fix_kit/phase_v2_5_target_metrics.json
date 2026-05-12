@@ -1,0 +1,16 @@
+{
+  "must_preserve": {
+    "production_kpi_regression_count": 0.0,
+    "contradiction_lane_separation_rate": 1.0,
+    "v0_v1_stable": true,
+    "parser_text_coverage_stable": true
+  },
+  "v2_5_targets": {
+    "expected_family_grounded_coverage_rate_min": 0.75,
+    "hardpage_family_grounded_coverage_rate_min": 0.8,
+    "hardpage_requirement_truth_rate": 1.0,
+    "hardpage_grounded_symbol_yield_rate_min": 0.65,
+    "packet_level_v2_failures": 0,
+    "truth_audit_failures_total": 0
+  }
+}

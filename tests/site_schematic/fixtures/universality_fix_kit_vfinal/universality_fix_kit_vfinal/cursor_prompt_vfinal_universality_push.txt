@@ -1,0 +1,141 @@
+You are working in the latest OrbitBrief Core repo on the `site_schematic` lane.
+
+This is the vFinal parser-only universality push.
+
+CURRENT STATE
+
+Latest measured holdout state:
+- Phase A: 7/10
+- Phase B: 7/10
+- Phase C: 5/10
+- Phase D packet pass: 2/10
+- production_kpi_regression_count = 0
+- contradiction_lane_separation_rate = 1.0
+- current pair canonical lanes remain protected
+
+PRIMARY GOAL
+
+Break the current universality plateau and push toward:
+- A = 10/10
+- B = 10/10
+- C = 10/10
+- D = 10/10
+
+without touching OrbitBrief logic and without regressing the current pair.
+
+RULES
+- Parser only
+- Do not modify OrbitBrief / projection logic
+- Do not modify contradiction truth paths
+- Do not replace the parser with a giant model
+- Keep production current-pair lanes frozen
+
+IMPLEMENT IN THIS ORDER
+
+## Pass 1 — deterministic plateau breakers
+
+### A. Holdout-aware titleblock / sheet-archetype generalization
+Integrate `holdout_titleblock_profiles.py` into:
+- `src/orbitbrief_core/parser/site_schematic/classification/sheet_type.py`
+
+Goal:
+- reduce title-block and sheet-family drift on unfamiliar holdouts
+- improve A from 7/10 toward 9/10
+
+### B. Column structure fusion
+Integrate `column_structure_fusion.py` into:
+- `src/orbitbrief_core/parser/site_schematic/zoning/page_zones.py`
+- possibly `core.py` if easier
+
+Goal:
+- preserve multi-column notes better on unfamiliar layouts
+- improve locality provenance / global-vs-local note separation / detail locality
+- improve C from 5/10 toward 8/10
+
+### C. Holdout-aware table-family router
+Integrate `table_family_router_holdouts.py` into:
+- `src/orbitbrief_core/parser/site_schematic/universal_table_spine.py`
+
+Goal:
+- improve table-family coverage on unfamiliar schedules / indexes / legends / specs
+- reduce generic_grid overuse
+- improve B from 7/10 toward 9/10
+
+Then rerun:
+- current-pair canonical eval
+- full holdout Phase D universality eval
+
+## Pass 2 — bounded layout-native escalation
+Only if Pass 1 still does not hit:
+- A >= 9/10
+- B >= 9/10
+- C >= 8/10
+
+Integrate `observation_escalation_policy.py` into:
+- `src/orbitbrief_core/parser/site_schematic/core.py`
+
+Behavior:
+- enable stronger layout-native observation only on residual ambiguous holdout pages
+- do not turn on a heavy path globally
+- keep current pair stable
+- keep escalation auditable and bounded
+
+Then rerun:
+- current-pair canonical eval
+- full holdout Phase D universality eval
+
+## Pass 3 — residual cleanup
+Only after Pass 1/2:
+- inspect remaining failed holdouts
+- fix archetype-family or page-family residuals
+- avoid packet-specific hacks unless absolutely necessary
+
+FILES MOST LIKELY TO CHANGE
+- `src/orbitbrief_core/parser/site_schematic/classification/sheet_type.py`
+- `src/orbitbrief_core/parser/site_schematic/universal_table_spine.py`
+- `src/orbitbrief_core/parser/site_schematic/zoning/page_zones.py`
+- `src/orbitbrief_core/parser/site_schematic/core.py`
+- plus the new helper modules from this kit
+
+VALIDATION REQUIRED
+Run and report:
+- current pair canonical eval
+- full holdout Phase D universality eval
+- packet-by-packet A/B/C/D summaries
+- before/after A/B/C/D holdout counts
+- before/after current-pair production status
+- evidence trace completeness
+- contradiction lane separation
+- escalated-page counts if Pass 2 is used
+
+ACCEPTANCE CRITERIA
+
+Pass 1 accepted if:
+- A >= 8/10
+- B >= 8/10
+- C >= 7/10
+- production regressions remain 0
+
+Pass 2 accepted if:
+- A >= 9/10
+- B >= 9/10
+- C >= 8/10
+- production regressions remain 0
+- current pair remain perfect
+
+Final target:
+- A = 10/10
+- B = 10/10
+- C = 10/10
+- D = 10/10
+
+OUTPUT I WANT
+1. exact files changed
+2. what changed in titleblock/archetype logic
+3. what changed in column structure fusion
+4. what changed in table-family routing
+5. whether targeted layout-native escalation was needed
+6. before/after holdout A/B/C/D counts
+7. before/after current-pair canonical state
+8. remaining blockers to full universality
+9. whether another parser pass is enough or not

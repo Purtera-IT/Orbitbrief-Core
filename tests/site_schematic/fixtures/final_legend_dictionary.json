@@ -1,0 +1,1260 @@
+{
+  "wireless_current_pair": {
+    "packet_id": "wireless_current_pair",
+    "category": "telecom_wireless",
+    "role": "current_pair_benchmark",
+    "required_page_types": [],
+    "families": []
+  },
+  "low_voltage_current_pair": {
+    "packet_id": "low_voltage_current_pair",
+    "category": "low_voltage_security",
+    "role": "current_pair_benchmark",
+    "required_page_types": [
+      "floor_plan",
+      "riser",
+      "detail",
+      "telecom"
+    ],
+    "families": [
+      {
+        "grounded_family": "communications_outlet",
+        "canonical_meaning": "# PORT ADMIN OUTLET (# = NUMBER OF PORTS)",
+        "aliases": [
+          "A",
+          "D",
+          "POS"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "A",
+            "text": "A # # PORT ADMIN OUTLET (# = NUMBER OF PORTS) # CAT6, CMP JACK INSERT, CAT6, RJ45 DEDICATED ADMIN PATCH PANEL, CAT6, RJ45 18\" 4\" X 4\" BACK BOX WITH 1 GANG MUD RING, CONDUIT STUBBED TO ACCESSIBLE CEILING SPACE, SIZED PER CABLE QTY: 1-4 = 3/4\"\u00d8, 5-6 = 1\"\u00d8, 7-8 = 1-1/4\"\u00d8 120VAC / 20A DUPLEX POWER OUTLET WITHIN THE SAME STUD CAVITY CABLES TO BE TERMINATED ON DEDICATED ADMIN PATCH PANELS"
+          },
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "D",
+            "text": "D 1 PORT GUESTROOM DESK DATA OUTLET 1 CAT6, CMP JACK INSERT, CAT6, RJ45 PATCH PANEL, CAT6, RJ45 18\" 4\" X 4\" BACK BOX WITH 1 GANG MUD RING, REFER TO GUESTROOM RACEWAY DETAIL FOR CONDUIT REQ. 120VAC / 20A DUPLEX POWER OUTLET WITHIN THE SAME STUD CAVITY"
+          },
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "POS",
+            "text": "POS-T # # PORT POINT OF SALE TERMINAL OUTLET (# = NUMBER OF PORTS) # CAT6, CMP JACK INSERT, CAT6, RJ45 DEDICATED POS PATCH PANEL, CAT6, RJ45 18\" 4\" X 4\" BACK BOX WITH 1 GANG MUD RING, CONDUIT STUBBED TO ACCESSIBLE CEILING SPACE, SIZED PER CABLE QTY: 1-4 = 3/4\"\u00d8, 5-6 = 1\"\u00d8, 7-8 = 1-1/4\"\u00d8 120VAC / 20A DUPLEX POWER OUTLET WITHIN THE SAME STUD CAVITY CABLES TO BE TERMINATED ON DEDICATED POS PATCH PANELS"
+          },
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "POS",
+            "text": "POS-P # # PORT POINT OF SALE PRINTER OUTLET (# = NUMBER OF PORTS) # CAT6, CMP JACK INSERT, CAT6, RJ45 DEDICATED POS PATCH PANEL, CAT6, RJ45 18\" 4\" X 4\" BACK BOX WITH 1 GANG MUD RING, CONDUIT STUBBED TO ACCESSIBLE CEILING SPACE, SIZED PER CABLE QTY: 1-4 = 3/4\"\u00d8, 5-6 = 1\"\u00d8, 7-8 = 1-1/4\"\u00d8 120VAC / 20A DUPLEX POWER OUTLET WITHIN THE SAME STUD CAVITY CABLES TO BE TERMINATED ON DEDICATED POS PATCH PANELS"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "A",
+            "text": "A"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "A",
+            "text": "A"
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "custom_camera_see_camera_schedule",
+        "canonical_meaning": "CUSTOM CAMERA - SEE CAMERA SCHEDULE X = CAMERA TYPE M= MOUNT TYPE L = LENS TYPE",
+        "aliases": [
+          "L"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "L",
+            "text": "L X M CUSTOM CAMERA - SEE CAMERA SCHEDULE X = CAMERA TYPE M= MOUNT TYPE L = LENS TYPE 1 CAT6, CMP MALE PLUG CAT6, RJ45 PATCH PANEL, CAT6, RJ45 TYPICAL 8'-10', VERIFY WITH ARCH 4\" X 4\" BACK BOX WITH 1 GANG MUD RING, 3/4\"\u00d8 CONDUIT STUB TO ACCESSIBLE CEILING SPACE NA - TYPICALLY POE POWERED BY CCTV NETWORK SWITCH SEE CCTV SYSTEM COMPONENTS SCHEDULE AND INSTALLATION DETAILS FOR ADDITIONAL REQUIREMENTS"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "L",
+            "text": "L"
+          },
+          {
+            "type": "alias_token",
+            "page": 4,
+            "alias": "L",
+            "text": "L"
+          },
+          {
+            "type": "alias_token",
+            "page": 4,
+            "alias": "L",
+            "text": "L"
+          },
+          {
+            "type": "alias_token",
+            "page": 5,
+            "alias": "L",
+            "text": "L"
+          },
+          {
+            "type": "alias_token",
+            "page": 5,
+            "alias": "L",
+            "text": "L"
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "data_voice_combination_outlet_v",
+        "canonical_meaning": "DATA/VOICE COMBINATION OUTLET (#V = # VOICE PORTS #D = # OF DATA PORTS)",
+        "aliases": [
+          "V"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "V",
+            "text": "#V #D DATA/VOICE COMBINATION OUTLET (#V = # VOICE PORTS #D = # OF DATA PORTS) #D CAT6, CMP JACK INSERT, CAT6, RJ45 PATCH PANEL, CAT6, RJ45 18\" 4\" X 4\" BACK BOX WITH 1 GANG MUD RING, CONDUIT STUBBED TO ACCESSIBLE CEILING SPACE, SIZED PER CABLE QTY: 1-4 = 3/4\"\u00d8, 5-6 = 1\"\u00d8, 7-8 = 1-1/4\"\u00d8 120VAC / 20A DUPLEX POWER OUTLET WITHIN THE SAME STUD CAVITY"
+          },
+          {
+            "type": "alias_token",
+            "page": 4,
+            "alias": "V",
+            "text": "V"
+          },
+          {
+            "type": "alias_token",
+            "page": 4,
+            "alias": "V",
+            "text": "V"
+          },
+          {
+            "type": "alias_token",
+            "page": 4,
+            "alias": "V",
+            "text": "V"
+          },
+          {
+            "type": "alias_token",
+            "page": 4,
+            "alias": "V",
+            "text": "V"
+          },
+          {
+            "type": "alias_token",
+            "page": 4,
+            "alias": "V",
+            "text": "V"
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "door_contact",
+        "canonical_meaning": "DOOR CONTACT",
+        "aliases": [
+          "DC"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "DC",
+            "text": "DC DOOR CONTACT 1 2C/22 AWG,CMP, STRANDED, UNSHIELDED DEVICE SYSTEM CONTROL PANEL N/A 3/4\"\u00d8 CONDUIT FROM DOOR FRAME TO ACCESSIBLE CEILING. PROVIDE HOLE IN DOOR FRAME FOR ACCESS TO CONDUIT FEED. N/A"
+          },
+          {
+            "type": "title_phrase",
+            "page": 17,
+            "alias": "DOOR_CON",
+            "text": "door contact"
+          },
+          {
+            "type": "title_phrase",
+            "page": 17,
+            "alias": "DOOR_CON",
+            "text": "door contact"
+          },
+          {
+            "type": "title_phrase",
+            "page": 17,
+            "alias": "DOOR_CON",
+            "text": "door contact"
+          },
+          {
+            "type": "title_phrase",
+            "page": 17,
+            "alias": "DOOR_CON",
+            "text": "door contact"
+          },
+          {
+            "type": "alias_token",
+            "page": 17,
+            "alias": "DC",
+            "text": "DC"
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "duress_alarm_button",
+        "canonical_meaning": "DURESS ALARM PUSH BUTTON",
+        "aliases": [
+          "DA"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "DA",
+            "text": "DA DURESS ALARM PUSH BUTTON 1 2C/22 AWG,CMP, STRANDED, UNSHIELDED DEVICE SYSTEM CONTROL PANEL TYPICALLY UNDER COUNTER, VERIFY WITH ARCH SINGLE GANG, 3-1/2\" DEEP BACK BOX WITH MUD RING, WITH 3/4\"\u00d8 CONDUIT STUB TO ACCESSIBLE CEILING. N/A"
+          },
+          {
+            "type": "alias_token",
+            "page": 5,
+            "alias": "DA",
+            "text": "DA"
+          },
+          {
+            "type": "alias_token",
+            "page": 5,
+            "alias": "DA",
+            "text": "DA"
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "fiber_outlet",
+        "canonical_meaning": "OUTLET - DATA AND FIBER",
+        "aliases": [
+          "F"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "F",
+            "text": "F 2 3 PORT OUTLET - DATA AND FIBER 2 CAT6, CMP JACK INSERT, CAT6, RJ45 PATCH PANEL, CAT6, RJ45 18\" 4\" X 4\" BACK BOX WITH 1 GANG MUD RING, (2) 3/4\"\u00d8 CONDUIT STUBBED TO ACCESSIBLE CEILING SPACE 120VAC / 20A DUPLEX POWER OUTLET WITHIN THE SAME STUD CAVITY"
+          },
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "F",
+            "text": "F 2 TV 4 PORT OUTLET - COAX, DATA AND FIBER 1 COAX, CMP F TYPE INSERT MATV BACKBOARD, F TYPE PER ARCH/I.D. DRAWINGS 4\" X 4\" BACK BOX WITH 1 GANG MUD RING, (2) 3/4\"\u00d8 CONDUITS STUBBED TO ACCESSIBLE CEILING SPACE. 120VAC / 20A DUPLEX POWER OUTLET WITHIN THE SAME STUD CAVITY USE RG6 COAX FOR LENGTHS UP TO 150' USE RG11 COAX FOR LENGTHS OVER 150'"
+          },
+          {
+            "type": "alias_token",
+            "page": 4,
+            "alias": "F",
+            "text": "F"
+          },
+          {
+            "type": "alias_token",
+            "page": 5,
+            "alias": "F",
+            "text": "F"
+          },
+          {
+            "type": "alias_token",
+            "page": 5,
+            "alias": "F",
+            "text": "F"
+          },
+          {
+            "type": "alias_token",
+            "page": 6,
+            "alias": "F",
+            "text": "F"
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "port_data_box_outlet_number",
+        "canonical_meaning": "# PORT DATA FLOOR BOX OUTLET (# = NUMBER OF PORTS)",
+        "aliases": [
+          "A"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "A",
+            "text": "A # # PORT DATA FLOOR BOX OUTLET (# = NUMBER OF PORTS) # CAT6, CMP JACK INSERT, CAT6, RJ45 DEDICATED ADMIN PATCH PANEL, CAT6, RJ45 FLOOR BOX 1 GANG SECTION OF FLOOR BOX - SPECIFIED BY ELECTRICAL ENGINEER, 1.5\"\u00d8 CONDUIT STUBBED TO ACCESSIBLE CEILING SPACE 120VAC / 20A DUPLEX POWER OUTLET IN SAME OR ADJACENT FLOOR BOX CABLES TO BE TERMINATED ON DEDICATED ADMIN PATCH PANELS"
+          }
+        ],
+        "quality_status": "expected_unresolved"
+      },
+      {
+        "grounded_family": "telephone_outlet",
+        "canonical_meaning": "BED PHONE OUTLET - VOIP",
+        "aliases": [
+          "B",
+          "E"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "B",
+            "text": "B 1 PORT BED PHONE OUTLET - VOIP 1 CAT6, CMP JACK INSERT, CAT6, RJ45 PATCH PANEL, CAT6, RJ45 18\" 4\" X 4\" BACK BOX WITH 1 GANG MUD RING, REFER TO GUESTROOM RACEWAY DETAIL FOR CONDUIT REQ. N/A - TYPICALLY POE POWERED BY OTHERS"
+          },
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "B",
+            "text": "B 1 PORT BED PHONE OUTLET - ANALOG 1 CAT6, CMP JACK INSERT, CAT6, RJ45 110 BLOCK 18\" 4\" X 4\" BACK BOX WITH 1 GANG MUD RING, REFER TO GUESTROOM RACEWAY DETAIL FOR CONDUIT REQ. 120VAC / 20A DUPLEX POWER OUTLET WITHIN THE SAME STUD CAVITY PROVIDE A 10'-0\" SERVICE LOOP ABOVE 110 BLOCKS IN CLOSET"
+          },
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "E",
+            "text": "E 1 PORT ELEVATOR PHONE OUTLET - ANALOG 1 CAT6, CMP JACK INSERT, CAT6, RJ45 110 BLOCK 18\" N/A N/A PROVIDE A 10'-0\" SERVICE LOOP ABOVE 110 BLOCKS IN CLOSET. COORDINATE TERMINATION WITH ELEVATOR VENDOR."
+          },
+          {
+            "type": "alias_token",
+            "page": 2,
+            "alias": "E",
+            "text": "E"
+          },
+          {
+            "type": "alias_token",
+            "page": 2,
+            "alias": "B",
+            "text": "B"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "E",
+            "text": "E"
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "television_data_combo_outlet",
+        "canonical_meaning": "# PORT DATA TV OUTLET - IPTV",
+        "aliases": [
+          "TV"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "TV",
+            "text": "TV # # PORT DATA TV OUTLET - IPTV # CAT6, CMP JACK INSERT, CAT6, RJ45 PATCH PANEL, CAT6, RJ45 PER ARCH/I.D. DRAWINGS 4\" X 4\" BACK BOX WITH 1 GANG MUD RING, CONDUIT STUBBED TO ACCESSIBLE CEILING SPACE, SIZED PER CABLE QTY: 1-4 = 3/4\"\u00d8, 5-6 = 1\"\u00d8, 7-8 = 1-1/4\"\u00d8 120VAC / 20A DUPLEX POWER OUTLET WITHIN THE SAME STUD CAVITY"
+          },
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "TV",
+            "text": "TV 1 PORT COAX TV OUTLET 1 COAX F TYPE INSERT MATV BACKBOARD, F TYPE PER ARCH/I.D. DRAWINGS 4\" X 4\" BACK BOX WITH 1 GANG MUD RING, TYPICAL NON GUESTROOM 3/4\"\u00d8 CONDUIT STUBBED TO ACCESSIBLE CEILING SPACE. FOR GUESTROOM, REFER TO GUESTROOM RACEWAY DETAIL 120VAC / 20A DUPLEX POWER OUTLET WITHIN THE SAME STUD CAVITY USE RG6 COAX FOR LENGTHS UP TO 150' USE RG11 COAX FOR LENGTHS OVER 150'"
+          },
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "TV",
+            "text": "TV 2 PORT TV OUTLET - COAX AND DATA 1 COAX, CMP F TYPE INSERT MATV BACKBOARD, F TYPE PER ARCH/I.D. DRAWINGS 4\" X 4\" BACK BOX WITH 1 GANG MUD RING, TYPICAL NON GUESTROOM 3/4\"\u00d8 CONDUIT STUBBED TO ACCESSIBLE CEILING SPACE. FOR GUESTROOM, REFER TO GUESTROOM RACEWAY DETAIL 120VAC / 20A DUPLEX POWER OUTLET WITHIN THE SAME STUD CAVITY USE RG6 COAX FOR LENGTHS UP TO 150' USE RG11 COAX FOR LENGTHS OVER 150'"
+          },
+          {
+            "type": "alias_token",
+            "page": 4,
+            "alias": "TV",
+            "text": "TV"
+          },
+          {
+            "type": "alias_token",
+            "page": 5,
+            "alias": "TV",
+            "text": "TV"
+          },
+          {
+            "type": "alias_token",
+            "page": 5,
+            "alias": "TV",
+            "text": "TV"
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "zigbee_node_outlet",
+        "canonical_meaning": "CEILING MOUNTED ZIGBEE NODE OUTLET",
+        "aliases": [
+          "ZN"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 2,
+            "alias": "ZN",
+            "text": "ZN 1 PORT CEILING MOUNTED ZIGBEE NODE OUTLET 1 CAT6, CMP JACK INSERT, CAT6, RJ45 PATCH PANEL, CAT6, RJ45 ABOVE FINISHED CEILING TYPICALLY NOT REQUIRED UNLESS OTHERWISE NOTED ON PLANS N/A - TYPICALLY POE POWERED BY OTHERS CONFIRM OUTLET LOCATION WITH ARCHITECT AND ZIBGEE VENDOR PRIOR TO ROUGH IN. OUTLET IS TYPICALLY MOUNTED IN ACCESSIBLE CEILING SPACE, OR BEHIND ACCESS PANEL. INSTALL 10'"
+          },
+          {
+            "type": "alias_token",
+            "page": 6,
+            "alias": "ZN",
+            "text": "ZN"
+          },
+          {
+            "type": "alias_token",
+            "page": 6,
+            "alias": "ZN",
+            "text": "ZN"
+          },
+          {
+            "type": "alias_token",
+            "page": 6,
+            "alias": "ZN",
+            "text": "ZN"
+          },
+          {
+            "type": "alias_token",
+            "page": 6,
+            "alias": "ZN",
+            "text": "ZN"
+          },
+          {
+            "type": "alias_token",
+            "page": 7,
+            "alias": "ZN",
+            "text": "ZN"
+          }
+        ],
+        "quality_status": "grounded"
+      }
+    ]
+  },
+  "tc_a_4cd_science_building_asbuilts": {
+    "packet_id": "tc_a_4cd_science_building_asbuilts",
+    "category": "telecom_wireless",
+    "role": "holdout",
+    "required_page_types": [],
+    "families": []
+  },
+  "tc_b_seele_es_refresh_dwgs": {
+    "packet_id": "tc_b_seele_es_refresh_dwgs",
+    "category": "telecom_wireless",
+    "role": "holdout",
+    "required_page_types": [
+      "floor_plan",
+      "detail",
+      "schedule"
+    ],
+    "families": [
+      {
+        "grounded_family": "card_reader",
+        "canonical_meaning": "CARD READER - SINGLE DOOR",
+        "aliases": [
+          "CARD"
+        ],
+        "evidence_examples": [
+          {
+            "type": "phrase",
+            "page": 95,
+            "alias": "CARD",
+            "text": "CARD READER - SINGLE DOOR"
+          }
+        ],
+        "quality_status": "expected_unresolved"
+      },
+      {
+        "grounded_family": "communications_outlet",
+        "canonical_meaning": "DISPLAY BACKBOX DATA WALL OUTLET",
+        "aliases": [
+          "DB"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 87,
+            "alias": "DB",
+            "text": "DB DISPLAY BACKBOX DATA WALL OUTLET TYPE * * GANG -- -- -- (#)M COORDINATE ROUGH-IN BOX AND DEVICE COVER MOUNTING WITH INTEGRATED AV BOX. -- . ."
+          },
+          {
+            "type": "alias_token",
+            "page": 63,
+            "alias": "DB",
+            "text": "DB"
+          },
+          {
+            "type": "alias_token",
+            "page": 63,
+            "alias": "DB",
+            "text": "DB"
+          },
+          {
+            "type": "alias_token",
+            "page": 63,
+            "alias": "DB",
+            "text": "DB"
+          },
+          {
+            "type": "alias_token",
+            "page": 63,
+            "alias": "DB",
+            "text": "DB"
+          },
+          {
+            "type": "alias_token",
+            "page": 64,
+            "alias": "DB",
+            "text": "DB"
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "duress_alarm_button",
+        "canonical_meaning": "DOOR RELEASE / PANIC BUTTON",
+        "aliases": [
+          "DOOR"
+        ],
+        "evidence_examples": [
+          {
+            "type": "phrase",
+            "page": 95,
+            "alias": "DOOR",
+            "text": "DOOR RELEASE / PANIC BUTTON"
+          }
+        ],
+        "quality_status": "expected_unresolved"
+      },
+      {
+        "grounded_family": "outlet_in_accessible",
+        "canonical_meaning": "CEILING OUTLET IN ACCESSIBLE CEILING",
+        "aliases": [
+          "CEILING"
+        ],
+        "evidence_examples": [
+          {
+            "type": "phrase",
+            "page": 91,
+            "alias": "CEILING",
+            "text": "CEILING OUTLET IN ACCESSIBLE CEILING"
+          }
+        ],
+        "quality_status": "expected_unresolved"
+      },
+      {
+        "grounded_family": "telecommunications_panel",
+        "canonical_meaning": "EXISTING IDF PANEL",
+        "aliases": [
+          "TE"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 87,
+            "alias": "TE",
+            "text": "TE EXISTING IDF PANEL -- -- -- -- -- -- -- -- . ."
+          },
+          {
+            "type": "title_phrase",
+            "page": 88,
+            "alias": "TELECOMM",
+            "text": "existing idf panel"
+          },
+          {
+            "type": "alias_token",
+            "page": 88,
+            "alias": "TE",
+            "text": "TE"
+          },
+          {
+            "type": "alias_token",
+            "page": 88,
+            "alias": "TE",
+            "text": "TE"
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "telephone_outlet",
+        "canonical_meaning": "TYPICAL WALL PHONE OUTLET",
+        "aliases": [
+          "TYPICAL"
+        ],
+        "evidence_examples": [
+          {
+            "type": "phrase",
+            "page": 91,
+            "alias": "TYPICAL",
+            "text": "TYPICAL WALL PHONE OUTLET"
+          }
+        ],
+        "quality_status": "expected_unresolved"
+      }
+    ]
+  },
+  "tc_c_ventura_admin_comms": {
+    "packet_id": "tc_c_ventura_admin_comms",
+    "category": "telecom_wireless",
+    "role": "holdout",
+    "required_page_types": [
+      "floor_plan",
+      "site_plan",
+      "riser",
+      "detail"
+    ],
+    "families": [
+      {
+        "grounded_family": "leviton_sst_indoor_plenum_rated",
+        "canonical_meaning": "LEVITON 'SST' INDOOR, PLENUM RATED CAT6A CABLING, BLUE IN COLOR",
+        "aliases": [
+          "A"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 37,
+            "alias": "A",
+            "text": "A LEVITON 'SST' INDOOR, PLENUM RATED CAT6A CABLING, BLUE IN COLOR"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "A",
+            "text": "A706,"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "A",
+            "text": "A615"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "A",
+            "text": "A706"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "A",
+            "text": "A."
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "A",
+            "text": "A."
+          }
+        ],
+        "quality_status": "grounded"
+      }
+    ]
+  },
+  "tc_d_appalachian_gym_comms": {
+    "packet_id": "tc_d_appalachian_gym_comms",
+    "category": "telecom_wireless",
+    "role": "holdout",
+    "required_page_types": [
+      "floor_plan",
+      "riser",
+      "detail"
+    ],
+    "families": [
+      {
+        "grounded_family": "equipment_rack",
+        "canonical_meaning": "COMMUNICATIONS RACK ELEVATION",
+        "aliases": [
+          "COMMUNIC"
+        ],
+        "evidence_examples": [
+          {
+            "type": "phrase",
+            "page": 90,
+            "alias": "COMMUNIC",
+            "text": "COMMUNICATIONS RACK ELEVATION"
+          }
+        ],
+        "quality_status": "expected_unresolved"
+      },
+      {
+        "grounded_family": "wireless_access_point",
+        "canonical_meaning": "TYPICAL WIRELESS ACCESS POINT OUTLET",
+        "aliases": [
+          "TYPICAL"
+        ],
+        "evidence_examples": [
+          {
+            "type": "phrase",
+            "page": 89,
+            "alias": "TYPICAL",
+            "text": "TYPICAL WIRELESS ACCESS POINT OUTLET"
+          }
+        ],
+        "quality_status": "expected_unresolved"
+      }
+    ]
+  },
+  "tc_e_red_bay_admin_comms": {
+    "packet_id": "tc_e_red_bay_admin_comms",
+    "category": "telecom_wireless",
+    "role": "holdout",
+    "required_page_types": [
+      "floor_plan",
+      "riser",
+      "detail"
+    ],
+    "families": [
+      {
+        "grounded_family": "communications_outlet",
+        "canonical_meaning": "TYPICAL COMMUNICATION OUTLET",
+        "aliases": [
+          "TYPICAL"
+        ],
+        "evidence_examples": [
+          {
+            "type": "phrase",
+            "page": 44,
+            "alias": "TYPICAL",
+            "text": "TYPICAL COMMUNICATION OUTLET"
+          }
+        ],
+        "quality_status": "expected_unresolved"
+      },
+      {
+        "grounded_family": "equipment_rack",
+        "canonical_meaning": "COMMUNICATIONS RACK ELEVATION",
+        "aliases": [
+          "COMMUNIC"
+        ],
+        "evidence_examples": [
+          {
+            "type": "phrase",
+            "page": 45,
+            "alias": "COMMUNIC",
+            "text": "COMMUNICATIONS RACK ELEVATION"
+          }
+        ],
+        "quality_status": "expected_unresolved"
+      },
+      {
+        "grounded_family": "security_camera",
+        "canonical_meaning": "TYPICAL SECURITY CAMERA OUTLET",
+        "aliases": [
+          "TYPICAL"
+        ],
+        "evidence_examples": [
+          {
+            "type": "phrase",
+            "page": 44,
+            "alias": "TYPICAL",
+            "text": "TYPICAL SECURITY CAMERA OUTLET"
+          }
+        ],
+        "quality_status": "expected_unresolved"
+      },
+      {
+        "grounded_family": "wireless_access_point",
+        "canonical_meaning": "TYPICAL WIRELESS ACCESS POINT OUTLET",
+        "aliases": [
+          "TYPICAL"
+        ],
+        "evidence_examples": [
+          {
+            "type": "phrase",
+            "page": 44,
+            "alias": "TYPICAL",
+            "text": "TYPICAL WIRELESS ACCESS POINT OUTLET"
+          }
+        ],
+        "quality_status": "expected_unresolved"
+      }
+    ]
+  },
+  "lv_a_aspen_house_telecom_intercom_risers": {
+    "packet_id": "lv_a_aspen_house_telecom_intercom_risers",
+    "category": "low_voltage_security",
+    "role": "holdout",
+    "required_page_types": [],
+    "families": []
+  },
+  "lv_b_300_progress_communications": {
+    "packet_id": "lv_b_300_progress_communications",
+    "category": "low_voltage_security",
+    "role": "holdout",
+    "required_page_types": [],
+    "families": []
+  },
+  "lv_c_union_street_telecom_grounding_intercom": {
+    "packet_id": "lv_c_union_street_telecom_grounding_intercom",
+    "category": "low_voltage_security",
+    "role": "holdout",
+    "required_page_types": [],
+    "families": []
+  },
+  "lv_d_iqaluit_operations_centre": {
+    "packet_id": "lv_d_iqaluit_operations_centre",
+    "category": "low_voltage_security",
+    "role": "holdout",
+    "required_page_types": [
+      "floor_plan",
+      "site_plan",
+      "detail",
+      "telecom",
+      "fire_alarm",
+      "schedule"
+    ],
+    "families": [
+      {
+        "grounded_family": "hws_glycol_fill_station_pump",
+        "canonical_meaning": "HWS Glycol Fill Station Pump (GFT-1",
+        "aliases": [
+          "P"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 63,
+            "alias": "P",
+            "text": "P-11 HWS Glycol Fill Station Pump (GFT-1 MECH. ROOM 2nd FLOOR 0.7A 120/1 E E PM21-26 15A1P 2#12AWG + GND 21mm Y Y N"
+          },
+          {
+            "type": "alias_token",
+            "page": 16,
+            "alias": "P",
+            "text": "P."
+          },
+          {
+            "type": "alias_token",
+            "page": 17,
+            "alias": "P",
+            "text": "P."
+          },
+          {
+            "type": "alias_token",
+            "page": 19,
+            "alias": "P",
+            "text": "P."
+          },
+          {
+            "type": "alias_token",
+            "page": 19,
+            "alias": "P",
+            "text": "P."
+          },
+          {
+            "type": "alias_token",
+            "page": 19,
+            "alias": "P",
+            "text": "P."
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "power_ddc_panel",
+        "canonical_meaning": "POWER FOR DDC PANEL",
+        "aliases": [
+          "DDC"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 63,
+            "alias": "DDC",
+            "text": "DDC PANELS POWER FOR DDC PANEL MECH. ROOM 2nd FLOOR TBD 120/1 - - - - - PM11-25 15A1P 2#12AWG + GND 21mm Y Y N"
+          },
+          {
+            "type": "alias_token",
+            "page": 61,
+            "alias": "DDC",
+            "text": "DDC"
+          },
+          {
+            "type": "alias_token",
+            "page": 61,
+            "alias": "DDC",
+            "text": "DDC"
+          },
+          {
+            "type": "alias_token",
+            "page": 61,
+            "alias": "DDC",
+            "text": "DDC"
+          },
+          {
+            "type": "alias_token",
+            "page": 63,
+            "alias": "DDC",
+            "text": "DDC"
+          },
+          {
+            "type": "alias_token",
+            "page": 63,
+            "alias": "DDC",
+            "text": "DDC"
+          }
+        ],
+        "quality_status": "grounded"
+      }
+    ]
+  },
+  "lv_e_columbus_library_technology_security": {
+    "packet_id": "lv_e_columbus_library_technology_security",
+    "category": "low_voltage_security",
+    "role": "holdout",
+    "required_page_types": [
+      "floor_plan",
+      "riser"
+    ],
+    "families": [
+      {
+        "grounded_family": "4_11_16_square_2",
+        "canonical_meaning": "4-11/16\" SQUARE, 2-1/8\" DEEP BOX WITH A SINGLE GANG PLASTER RING AND 3/4\" CONDUIT INSTALLED TO ABOVE ACCESSIBLE CEILING",
+        "aliases": [
+          "A",
+          "D",
+          "DC",
+          "GB",
+          "I",
+          "LD",
+          "MD",
+          "MS",
+          "PUSH",
+          "VIDEO"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 1,
+            "alias": "A",
+            "text": "A ALARM HORN, OWNER PROVIDED 4-11/16\" SQUARE, 2-1/8\" DEEP BOX WITH A SINGLE GANG PLASTER RING AND 3/4\" CONDUIT INSTALLED TO ABOVE ACCESSIBLE CEILING."
+          },
+          {
+            "type": "table",
+            "page": 1,
+            "alias": "D",
+            "text": "D DOOR BELL, OWNER PROVIDED 4-11/16\" SQUARE, 2-1/8\" DEEP BOX WITH A SINGLE GANG PLASTER RING AND 1\" CONDUIT INSTALLED TO TELECOM RACK."
+          },
+          {
+            "type": "table",
+            "page": 1,
+            "alias": "DC",
+            "text": "DC DOOR CONTACT, OWNER PROVIDED 4-11/16\" SQUARE, 2-1/8\" DEEP BOX WITH A SINGLE GANG PLASTER RING AND 3/4\" CONDUIT INSTALLED TO ABOVE ACCESSIBLE CEILING."
+          },
+          {
+            "type": "table",
+            "page": 1,
+            "alias": "GB",
+            "text": "GB GLASS BREAK SENSOR, OWNER PROVIDED 4-11/16\" SQUARE, 2-1/8\" DEEP BOX WITH A SINGLE GANG PLASTER RING AND 3/4\" CONDUIT INSTALLED TO ABOVE ACCESSIBLE CEILING."
+          },
+          {
+            "type": "alias_token",
+            "page": 2,
+            "alias": "A",
+            "text": "A."
+          },
+          {
+            "type": "alias_token",
+            "page": 2,
+            "alias": "D",
+            "text": "D."
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "junction_box",
+        "canonical_meaning": "JUNCTION BOX",
+        "aliases": [
+          "JB"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 1,
+            "alias": "JB",
+            "text": "JB JUNCTION BOX"
+          },
+          {
+            "type": "title_phrase",
+            "page": 3,
+            "alias": "JUNCTION",
+            "text": "junction box"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "JB",
+            "text": "JB"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "JB",
+            "text": "JB"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "JB",
+            "text": "JB"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "JB",
+            "text": "JB"
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "keypad",
+        "canonical_meaning": "4-11/16\" SQUARE, 2-1/8\" DEEP BOX WITH A SINGLE GANG PLASTER RING AND 3/4\" CONDUIT INSTALLED TO ABOVE ACCESSIBLE CEILING. 48\" AFF. 'KP' = WITH KEYPAD",
+        "aliases": [
+          "CR"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 1,
+            "alias": "CR",
+            "text": "CR CARD READER, OWNER PROVIDED 4-11/16\" SQUARE, 2-1/8\" DEEP BOX WITH A SINGLE GANG PLASTER RING AND 3/4\" CONDUIT INSTALLED TO ABOVE ACCESSIBLE CEILING. 48\" AFF. 'KP' = WITH KEYPAD"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "CR",
+            "text": "CR"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "CR",
+            "text": "CR"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "CR",
+            "text": "CR"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "CR",
+            "text": "CR"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "CR",
+            "text": "CR"
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "marion_franklin_branch_2800_lockbourne",
+        "canonical_meaning": "Marion Franklin Branch 2800 Lockbourne Rd, Columbus, Ohio 43207 03/15/2024",
+        "aliases": [
+          "CML"
+        ],
+        "evidence_examples": [
+          {
+            "type": "section",
+            "page": 1,
+            "alias": "CML",
+            "text": "in/CML_MarionFranklin - v22 - MEPFT.rvt CML Marion Franklin Branch 2800 Lockbourne Rd, Columbus, Ohio 43207 03/15/2024 GENERAL INFORMATION - TECHNOLOGY T001 22"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "CML",
+            "text": "CML"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "CML",
+            "text": "CML"
+          },
+          {
+            "type": "title_phrase",
+            "page": 3,
+            "alias": "MARION_F",
+            "text": "marion franklin branch 2800 lockbourne rd, columbus, ohio 43207 03/15/2024"
+          },
+          {
+            "type": "title_phrase",
+            "page": 3,
+            "alias": "MARION_F",
+            "text": "marion franklin branch 2800 lockbourne rd, columbus, ohio 43207 03/15/2024"
+          },
+          {
+            "type": "title_phrase",
+            "page": 3,
+            "alias": "MARION_F",
+            "text": "marion franklin branch 2800 lockbourne rd, columbus, ohio 43207 03/15/2024"
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "marion_franklin_camera_schedule_number",
+        "canonical_meaning": "Marion-Franklin Camera Schedule Number Type Mounting Environment Description Sheet P1 Outdoor panaromic (3 lens)",
+        "aliases": [
+          "PROVIDED"
+        ],
+        "evidence_examples": [
+          {
+            "type": "section",
+            "page": 1,
+            "alias": "PROVIDED",
+            "text": "ALLED TO TELECOM RACK. DOOR BELL, OWNER PROVIDED Marion-Franklin Camera Schedule Number Type Mounting Environment Description Sheet P1 Outdoor panaromic (3 lens) Pole-mounted Exterior NE Parking Lot T002 P2 Outdoor panaromic"
+          },
+          {
+            "type": "alias_token",
+            "page": 2,
+            "alias": "PROVIDED",
+            "text": "PROVIDED"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "PROVIDED",
+            "text": "PROVIDED"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "PROVIDED",
+            "text": "PROVIDED"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "PROVIDED",
+            "text": "PROVIDED"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "PROVIDED",
+            "text": "PROVIDED"
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "speaker",
+        "canonical_meaning": "PROVIDE SPEAKER AND CABLING PER SPECIFICATION.",
+        "aliases": [
+          "PA"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 1,
+            "alias": "PA",
+            "text": "PA PA SPEAKER, SURFACE MOUNTED. PROVIDE SPEAKER AND CABLING PER SPECIFICATION. 4-11/16\" SQUARE, 2.125\" DEEP BOX.3/4\"C TO NEXT SPEAKER, TO CABLE TRAY OR TO TELECOM ROOM."
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "PA",
+            "text": "PA"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "PA",
+            "text": "PA"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "PA",
+            "text": "PA"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "PA",
+            "text": "PA"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "PA",
+            "text": "PA"
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "telecommunications_ground_busbar",
+        "canonical_meaning": "TELECOMMUNICATIONS GROUNDING BUSBAR",
+        "aliases": [
+          "TGB",
+          "TMGB"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 1,
+            "alias": "TGB",
+            "text": "TGB TELECOMMUNICATIONS GROUNDING BUSBAR"
+          },
+          {
+            "type": "table",
+            "page": 1,
+            "alias": "TMGB",
+            "text": "TMGB TELECOMMUNICATIONS MAIN GROUNDING BUSBAR"
+          },
+          {
+            "type": "alias_token",
+            "page": 6,
+            "alias": "TMGB",
+            "text": "(TMGB)"
+          },
+          {
+            "type": "alias_token",
+            "page": 6,
+            "alias": "TMGB",
+            "text": "TMGB"
+          }
+        ],
+        "quality_status": "grounded"
+      },
+      {
+        "grounded_family": "wireless_access_point",
+        "canonical_meaning": "WIRELESS ACCESS POINT",
+        "aliases": [
+          "WAP"
+        ],
+        "evidence_examples": [
+          {
+            "type": "table",
+            "page": 1,
+            "alias": "WAP",
+            "text": "WAP WIRELESS ACCESS POINT"
+          },
+          {
+            "type": "alias_token",
+            "page": 3,
+            "alias": "WAP",
+            "text": "WAP"
+          }
+        ],
+        "quality_status": "grounded"
+      }
+    ]
+  }
+}

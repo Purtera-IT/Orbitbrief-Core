@@ -26,9 +26,47 @@ def decide_pipeline_state(
     routing_confidence: float,
     packet_count: int = 0,
     weak_ocr: bool = False,
+    template_schema_artifact: bool = False,
+    meta_reference_artifact: bool = False,
     min_extract_confidence: float = 0.40,
     min_packet_count: int = 0,
 ) -> PipelineDecision:
+    if template_schema_artifact:
+        try:
+            fallback = extractor_registry.resolve(
+                role_id=role_id,
+                modality=modality,
+                discourse_type=discourse_type,
+                allow_intake_only_fallback=True,
+            )
+        except ExtractorRegistryError:
+            fallback = None
+        return PipelineDecision(
+            state="intake_only",
+            reason_codes=("template_schema_artifact",),
+            extractor_spec=fallback if fallback is not None and fallback.kind == "intake_only" else None,
+            emits_business_claims=False,
+            review_required=True,
+        )
+
+    if meta_reference_artifact:
+        try:
+            fallback = extractor_registry.resolve(
+                role_id=role_id,
+                modality=modality,
+                discourse_type=discourse_type,
+                allow_intake_only_fallback=True,
+            )
+        except ExtractorRegistryError:
+            fallback = None
+        return PipelineDecision(
+            state="intake_only",
+            reason_codes=("meta_reference_artifact",),
+            extractor_spec=fallback if fallback is not None and fallback.kind == "intake_only" else None,
+            emits_business_claims=False,
+            review_required=True,
+        )
+
     if weak_ocr:
         return PipelineDecision(
             state="parked",

@@ -1,0 +1,33 @@
+--- /dev/null
++++ b/src/orbitbrief_core/parser/site_schematic/family_coverage_truth.py
+@@
++from __future__ import annotations
++
++from dataclasses import dataclass
++from typing import Iterable, Set
++
++
++@dataclass
++class FamilyCoverageTruth:
++    packet_expected_families: Set[str]
++    grounded_families: Set[str]
++    hardpage_expected_families: Set[str]
++    hardpage_grounded_families: Set[str]
++    expected_family_grounded_coverage_rate: float
++    hardpage_family_grounded_coverage_rate: float
++
++
++def compute_family_coverage_truth(
++    *,
++    packet_expected_families: Iterable[str],
++    grounded_families: Iterable[str],
++    hardpage_expected_families: Iterable[str],
++    hardpage_grounded_families: Iterable[str],
++) -> FamilyCoverageTruth:
++    pe = set(packet_expected_families)
++    gf = set(grounded_families)
++    he = set(hardpage_expected_families)
++    hg = set(hardpage_grounded_families)
++    exp_rate = (len(pe & gf) / len(pe)) if pe else 1.0
++    hard_rate = (len(he & hg) / len(he)) if he else 1.0
++    return FamilyCoverageTruth(pe, gf, he, hg, exp_rate, hard_rate)

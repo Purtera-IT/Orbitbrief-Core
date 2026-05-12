@@ -1,0 +1,75 @@
+{
+  "version": "2026-04-12.phase1b_perfect_table_spine_v1",
+  "phase": "phase1b_universal_lossless_table_spine",
+  "acceptance_metrics": {
+    "required_table_kind_coverage": 1.0,
+    "bbox_presence_rate": 1.0,
+    "lineage_completeness_rate": 1.0,
+    "semantic_row_reference_rate_min": 0.95,
+    "semantic_cell_reference_rate_min": 0.95,
+    "unflagged_row_merge_count_max": 0,
+    "unflagged_row_split_count_max": 0,
+    "unflagged_cell_merge_count_max": 0,
+    "unflagged_cell_split_count_max": 0
+  },
+  "hard_page_requirements": {
+    "wireless_tc001_page1": {
+      "must_detect": [
+        "drawing_index",
+        "symbol_legend",
+        "outlet_definition",
+        "abbreviation_matrix",
+        "generic_grid"
+      ],
+      "must_not_flatten_into_single_blob": true
+    },
+    "southern_t001_page2": {
+      "must_detect": [
+        "responsibility_matrix",
+        "symbol_legend",
+        "generic_grid"
+      ],
+      "must_preserve_multiple_distinct_tables": true
+    },
+    "southern_t900_page12": {
+      "must_detect": [
+        "embedded_detail_schedule"
+      ],
+      "must_preserve_embedded_table_provenance": true
+    },
+    "southern_t000_page1": {
+      "must_preserve": [
+        "drawing_index"
+      ]
+    },
+    "southern_t002_page3": {
+      "must_preserve": [
+        "component_spec",
+        "manufacturer_part_table",
+        "schedule"
+      ]
+    },
+    "southern_t905_page17": {
+      "must_preserve": [
+        "embedded_detail_schedule"
+      ]
+    }
+  },
+  "semantic_lineage_contract": {
+    "table_derived_objects_must_include": [
+      "source_table_id",
+      "source_row_id",
+      "source_cell_ids"
+    ],
+    "table_contract_must_include": [
+      "table_id",
+      "row_id",
+      "cell_id",
+      "row_index",
+      "col_index",
+      "bbox",
+      "source_mode",
+      "confidence"
+    ]
+  }
+}

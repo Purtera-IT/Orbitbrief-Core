@@ -1,0 +1,38 @@
+--- a/src/orbitbrief_core/parser/site_schematic/zoning/page_zones.py
++++ b/src/orbitbrief_core/parser/site_schematic/zoning/page_zones.py
+@@
+ import re
+ from typing import Iterable
++from orbitbrief_core.parser.site_schematic.locality_scope_closure import close_locality_scope_if_strong
++from orbitbrief_core.parser.site_schematic.global_note_guard import is_strong_global_note
+@@
+ def resolve_note_scope(
+@@
+     for idx, note in enumerate(note_clauses, start=1):
+         text = getattr(note, "text", "") or ""
+         lowered = text.lower()
+@@
++        # Strong global-note guard: do not accidentally localize truly page-global requirements/notes/index content.
++        if is_strong_global_note(text):
++            scope_level = "page_global"
++            status = "scoped"
++            confidence = max(confidence, 0.9)
++
+@@
+         scoped_note = {
+             "note_id": note_id,
+             "scope_level": scope_level,
+             "scope_confidence": confidence,
+             "status": status,
+             "metadata": metadata,
+         }
++
++        # Residual locality closure: only upgrade unresolved/mixed locals when evidence is strong.
++        scoped_note = close_locality_scope_if_strong(
++            scoped_note,
++            same_detail_region=bool(parent_detail_region_id),
++            same_subregion=bool(parent_subregion_id),
++            same_pseudo_page=bool(parent_pseudo_page_id),
++            same_column=bool(parent_region_id and "column" in str(parent_region_id)),
++            detail_cue_present=any(tok in lowered for tok in ("detail", "riser", "rack", "cabinet", "termination", "pathway", "support")),
++        )

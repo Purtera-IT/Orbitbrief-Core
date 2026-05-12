@@ -1,0 +1,60 @@
+{
+  "must_preserve": {
+    "current_pair_phase_b_perfect": true,
+    "current_pair_phase_c_perfect": true,
+    "production_kpi_regression_count": 0.0,
+    "contradiction_lane_separation_rate": 1.0,
+    "legend_table_coverage_rate_avg": 1.0,
+    "semantic_lineage_coverage_rate_avg": 1.0
+  },
+  "tail_fix_targets": {
+    "remaining_text_only_gap_pages": 0,
+    "unresolved_text_only_gap_rate_avg_max": 0.001,
+    "note_spec_coverage_rate_avg_min": 0.998,
+    "parser_ready_for_vision_handoff_rate": 1.0
+  },
+  "target_pages": [
+    {
+      "packet_id": "lv_a_aspen_house_telecom_intercom_risers",
+      "page_index": 59,
+      "sheet_type": "schedule_sheet",
+      "sheet_title": "SCHEDULES & MISCELLANEOUS",
+      "table_count": 8,
+      "room_label_count": 2,
+      "profile": "schedule_with_note_sidecar",
+      "root_cause": "Schedule-like page has note/spec cues but promoter did not emit note clauses; likely sidecar note header or long spec paragraph adjacent to tables is below current promotion threshold."
+    },
+    {
+      "packet_id": "tc_b_seele_es_refresh_dwgs",
+      "page_index": 54,
+      "sheet_type": "legend_symbol",
+      "sheet_title": "",
+      "table_count": 2,
+      "room_label_count": 0,
+      "profile": "legend_with_note_sidecar",
+      "root_cause": "Legend page has sidecar notes/spec text but note promotion currently favors obvious numbered notes and misses legend-adjacent narrative note blocks."
+    },
+    {
+      "packet_id": "tc_b_seele_es_refresh_dwgs",
+      "page_index": 99,
+      "sheet_type": "floorplan_overall",
+      "sheet_title": "",
+      "sheet_number": "A300",
+      "table_count": 2,
+      "room_label_count": 5,
+      "profile": "floorplan_with_note_sidecar",
+      "root_cause": "Floorplan page includes explicit note/spec sidecar or table-adjacent narrative, but floorplan pages are currently under-promoted because the promoter avoids plan-label noise."
+    },
+    {
+      "packet_id": "tc_b_seele_es_refresh_dwgs",
+      "page_index": 100,
+      "sheet_type": "schedule_sheet",
+      "sheet_title": "",
+      "sheet_number": "A300",
+      "table_count": 2,
+      "room_label_count": 0,
+      "profile": "schedule_with_note_sidecar",
+      "root_cause": "Small schedule page with notes/spec text, but current deterministic note promotion likely needs table-adjacent schedule-note fallback."
+    }
+  ]
+}

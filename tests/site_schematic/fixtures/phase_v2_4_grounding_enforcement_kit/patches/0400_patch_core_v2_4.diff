@@ -1,0 +1,38 @@
+--- a/src/orbitbrief_core/parser/site_schematic/core.py
++++ b/src/orbitbrief_core/parser/site_schematic/core.py
+@@
++from orbitbrief_core.parser.site_schematic.family_coverage_enforcement import compute_family_coverage
++from orbitbrief_core.parser.site_schematic.hardpage_gate_enforcement import enforce_hardpage_truth
++from orbitbrief_core.parser.site_schematic.sample_row_audit import select_grounding_sample_rows
+@@
+ def build_site_schematic_bundle_from_router_input(...):
+@@
++    try:
++        packet_row = model_registry.get("phase_v2", {}).get("packet_row", {})
++        expected_families = packet_row.get("expected_symbol_families", [])
++        grounded_rows = packet_row.get("grounded_symbol_rows", [])
++        grounded_families = [row.get("grounded_family", "") for row in grounded_rows if row.get("grounded_family")]
++        hardpage_grounded_rows = [row for row in grounded_rows if row.get("hardpage_page", False)]
++        hardpage_grounded_families = [row.get("grounded_family", "") for row in hardpage_grounded_rows if row.get("grounded_family")]
++        family_cov = compute_family_coverage(
++            expected_families=expected_families,
++            grounded_families=grounded_families,
++            hardpage_grounded_families=hardpage_grounded_families,
++        )
++        hardpage_gate = enforce_hardpage_truth(
++            required_page_types=packet_row.get("required_page_types", []),
++            satisfied_page_types=packet_row.get("satisfied_page_types", []),
++            hardpage_grounded_symbol_yield_rate=float(packet_row.get("hardpage_grounded_symbol_yield_rate", 0.0)),
++            hardpage_family_grounded_coverage_rate=family_cov.hardpage_family_grounded_coverage_rate,
++        )
++        model_registry.setdefault("phase_v2_4", {})["packet_enforcement_summary"] = {
++            "expected_family_grounded_coverage_rate": family_cov.expected_family_grounded_coverage_rate,
++            "hardpage_family_grounded_coverage_rate": family_cov.hardpage_family_grounded_coverage_rate,
++            "grounded_families": sorted(list(family_cov.grounded_families)),
++            "hardpage_grounded_families": sorted(list(family_cov.hardpage_grounded_families)),
++            "hardpage_requirement_truth_ok": hardpage_gate.hardpage_requirement_truth_ok,
++            "hardpage_requirement_truth_reasons": hardpage_gate.reasons,
++            "grounding_sample_rows": select_grounding_sample_rows(grounded_rows, limit=25),
++        }
++    except Exception:
++        pass

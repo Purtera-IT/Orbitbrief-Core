@@ -1,0 +1,52 @@
+--- /dev/null
++++ b/src/orbitbrief_core/parser/site_schematic/semantic_mapper.py
+@@
++from __future__ import annotations
++
++from typing import Any, Iterable, List
++
++from orbitbrief_core.parser.site_schematic.primitive_symbol_ontology import DEFAULT_V2_ONTOLOGY
++from orbitbrief_core.parser.site_schematic.legend_grounding_models import LegendGroundingEntry
++
++def build_legend_grounding_dictionary(
++    *,
++    page_index: int,
++    legend_entries: Iterable[Any],
++) -> List[LegendGroundingEntry]:
++    ontology_aliases = {}
++    for entry in DEFAULT_V2_ONTOLOGY:
++        for alias in entry.aliases:
++            ontology_aliases[alias.lower()] = entry.family
++
++    grounded: List[LegendGroundingEntry] = []
++    for idx, entry in enumerate(legend_entries):
++        if isinstance(entry, dict):
++            label = (entry.get("label") or entry.get("description") or entry.get("raw_text") or "").strip()
++            source_row_id = entry.get("source_row_id", "")
++            source_cell_ids = entry.get("source_cell_ids", [])
++            bbox = entry.get("bbox")
++        else:
++            label = (getattr(entry, "label", "") or getattr(entry, "description", "") or "").strip()
++            source_row_id = getattr(entry, "source_row_id", "")
++            source_cell_ids = getattr(entry, "source_cell_ids", [])
++            bbox = getattr(entry, "bbox", None)
++
++        lowered = label.lower()
++        family = "unknown_symbol_group"
++        for alias, fam in ontology_aliases.items():
++            if alias in lowered:
++                family = fam
++                break
++
++        grounded.append(LegendGroundingEntry(
++            legend_id=f"legend:{page_index}:{idx}",
++            page_index=page_index,
++            family=family,
++            raw_label=label,
++            aliases=[label] if label else [],
++            source_row_id=source_row_id,
++            source_cell_ids=source_cell_ids,
++            bbox=bbox,
++            confidence=0.8 if family != "unknown_symbol_group" else 0.4,
++        ))
++    return grounded

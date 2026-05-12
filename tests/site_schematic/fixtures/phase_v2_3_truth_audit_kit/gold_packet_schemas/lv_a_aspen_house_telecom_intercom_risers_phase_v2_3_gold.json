@@ -1,0 +1,25 @@
+{
+  "packet_id": "lv_a_aspen_house_telecom_intercom_risers",
+  "domain": "low_voltage",
+  "schema_required_types": [
+    "legend_symbol",
+    "riser_diagram",
+    "equipment_room_layout",
+    "installation_detail",
+    "floorplan_overall"
+  ],
+  "expected_symbol_families": [
+    "camera_device",
+    "door_contact_marker",
+    "card_reader_device",
+    "request_to_exit_device",
+    "telecomm_jack_tag",
+    "data_outlet",
+    "intercom_endpoint",
+    "patch_panel_row",
+    "equipment_rack_front",
+    "ladder_rack_cable_runway",
+    "riser_endpoint",
+    "ground_bar"
+  ]
+}

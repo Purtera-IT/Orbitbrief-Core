@@ -87,3 +87,100 @@ parsers:
       supports_ocr: false
     schema_refs: []
     enabled: true
+
+
+  - parser_id: xlsx_spreadsheet_v1
+    modality: xlsx
+    adapter: orbitbrief_core.parser.adapters.spreadsheet:SpreadsheetAdapter
+    strategy_defaults: [spreadsheet_roster]
+    capabilities:
+      supports_sections: true
+      supports_messages: false
+      supports_page_provenance: false
+      supports_ocr: false
+    schema_refs: []
+    enabled: true
+
+  - parser_id: csv_spreadsheet_v1
+    modality: csv
+    adapter: orbitbrief_core.parser.adapters.spreadsheet:SpreadsheetAdapter
+    strategy_defaults: [spreadsheet_roster]
+    capabilities:
+      supports_sections: true
+      supports_messages: false
+      supports_page_provenance: false
+      supports_ocr: false
+    schema_refs: []
+    enabled: true
+
+  - parser_id: cad_sheet_v1
+    modality: cad_sheet
+    adapter: orbitbrief_core.parser.adapters.cad_pdf:CadPdfAdapter
+    strategy_defaults: [site_package]
+    capabilities:
+      supports_sections: true
+      supports_messages: false
+      supports_page_provenance: true
+      supports_ocr: false
+    schema_refs: []
+    enabled: true
+
+  - parser_id: schematic_image_v1
+    modality: schematic
+    adapter: orbitbrief_core.parser.adapters.cad_image:CadImageAdapter
+    strategy_defaults: [site_package]
+    capabilities:
+      supports_sections: true
+      supports_messages: false
+      supports_page_provenance: true
+      supports_ocr: true
+    schema_refs: []
+    enabled: true
+
+  - parser_id: floorplan_image_v1
+    modality: floorplan
+    adapter: orbitbrief_core.parser.adapters.cad_image:CadImageAdapter
+    strategy_defaults: [site_package]
+    capabilities:
+      supports_sections: true
+      supports_messages: false
+      supports_page_provenance: true
+      supports_ocr: true
+    schema_refs: []
+    enabled: true
+
+  - parser_id: drawing_packet_v1
+    modality: drawing_packet
+    adapter: orbitbrief_core.parser.adapters.cad_pdf:CadPdfAdapter
+    strategy_defaults: [site_package]
+    capabilities:
+      supports_sections: true
+      supports_messages: false
+      supports_page_provenance: true
+      supports_ocr: true
+    schema_refs: []
+    enabled: true
+
+  - parser_id: site_schematic_pdf_v1
+    modality: site_schematic_pdf
+    adapter: orbitbrief_core.parser.adapters.site_schematic_pdf:SiteSchematicPdfAdapter
+    strategy_defaults: [site_package]
+    capabilities:
+      supports_sections: true
+      supports_messages: false
+      supports_page_provenance: true
+      supports_ocr: true
+    schema_refs: []
+    enabled: true
+
+  - parser_id: site_schematic_image_v1
+    modality: site_schematic_image
+    adapter: orbitbrief_core.parser.adapters.site_schematic_image:SiteSchematicImageAdapter
+    strategy_defaults: [site_package]
+    capabilities:
+      supports_sections: true
+      supports_messages: false
+      supports_page_provenance: true
+      supports_ocr: true
+    schema_refs: []
+    enabled: true

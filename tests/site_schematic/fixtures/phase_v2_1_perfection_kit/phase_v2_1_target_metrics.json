@@ -1,0 +1,14 @@
+{
+  "must_preserve": {
+    "production_kpi_regression_count": 0.0,
+    "contradiction_lane_separation_rate": 1.0,
+    "v0_v1_stable": true,
+    "parser_text_coverage_stable": true
+  },
+  "v2_1_targets": {
+    "grounding_state_honesty_rate_min": 0.95,
+    "connector_grounding_quality_rate_min": 0.9,
+    "packet_hardpage_semantics_rate_min": 0.9,
+    "packet_level_v2_failures": 0
+  }
+}

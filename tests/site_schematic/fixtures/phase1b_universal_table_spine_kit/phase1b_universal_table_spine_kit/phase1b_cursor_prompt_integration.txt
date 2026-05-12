@@ -1,0 +1,46 @@
+You are integrating the Phase 1B Universal Lossless Table Spine upgrade into the current OrbitBrief Core `site_schematic` parser lane.
+
+SOURCE OF TRUTH
+- Use the current repo as the base.
+- Use the Phase 1B integration plan and gold standard in this kit as the target.
+- This is parser-only. Do not work on OrbitBrief projection logic.
+
+INTEGRATION GOAL
+Integrate a parser-level lossless table improvement that closes the remaining hard-page gold gaps by adding:
+- header-aware multi-table splitting
+- stronger table-kind routing
+- embedded-table promotion on detail pages
+- mandatory table-first extractor routing
+
+FILES MOST LIKELY TO CHANGE
+- src/orbitbrief_core/parser/site_schematic/universal_table_spine.py
+- src/orbitbrief_core/parser/site_schematic/core.py
+- src/orbitbrief_core/parser/site_schematic/extractors/common.py
+- src/orbitbrief_core/parser/site_schematic/extractors/index_sheet_extractor.py
+- src/orbitbrief_core/parser/site_schematic/extractors/legend_sheet_extractor.py
+- src/orbitbrief_core/parser/site_schematic/extractors/notes_spec_extractor.py
+- src/orbitbrief_core/parser/site_schematic/extractors/schedule_sheet_extractor.py
+- src/orbitbrief_core/parser/site_schematic/extractors/__init__.py
+- tests/site_schematic/universal_table_contract_eval.py
+- tests/site_schematic/test_universal_table_contract.py
+
+HARD REQUIREMENTS
+1. Do not break current parser gold/decomposition tests.
+2. Keep bbox/provenance and lineage completeness at 1.0.
+3. Increase required table kind coverage on the hard-page gold set from 0.6 toward 1.0.
+4. Increase semantic row/cell reference coverage from ~0.08 toward >= 0.95.
+5. Do not silently merge/split rows/cells without ambiguity flags.
+
+IMPLEMENTATION ORDER
+1. Integrate header-aware splitting.
+2. Integrate stronger table-kind routing.
+3. Integrate embedded-detail table promotion.
+4. Convert semantic extractors to table-first routing.
+5. Re-run hard-page contract eval and full parser suite.
+
+OUTPUT I WANT
+When done, give me:
+- exact files changed
+- before/after metrics
+- remaining misses
+- whether the Phase 1B gold standard is fully satisfied

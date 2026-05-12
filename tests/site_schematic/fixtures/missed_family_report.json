@@ -1,0 +1,110 @@
+[
+  {
+    "packet_id": "wireless_current_pair",
+    "missed_families": [],
+    "status": "none"
+  },
+  {
+    "packet_id": "low_voltage_current_pair",
+    "missed_families": [
+      {
+        "family": "port_data_box_outlet_number",
+        "reason": "local legend/section definition"
+      }
+    ],
+    "status": "missed"
+  },
+  {
+    "packet_id": "tc_a_4cd_science_building_asbuilts",
+    "missed_families": [],
+    "status": "none"
+  },
+  {
+    "packet_id": "tc_b_seele_es_refresh_dwgs",
+    "missed_families": [
+      {
+        "family": "card_reader",
+        "reason": "definition text contains device/outlet semantics"
+      },
+      {
+        "family": "duress_alarm_button",
+        "reason": "definition text contains device/outlet semantics"
+      },
+      {
+        "family": "outlet_in_accessible",
+        "reason": "definition text contains device/outlet semantics"
+      },
+      {
+        "family": "telephone_outlet",
+        "reason": "definition text contains device/outlet semantics"
+      }
+    ],
+    "status": "missed"
+  },
+  {
+    "packet_id": "tc_c_ventura_admin_comms",
+    "missed_families": [],
+    "status": "none"
+  },
+  {
+    "packet_id": "tc_d_appalachian_gym_comms",
+    "missed_families": [
+      {
+        "family": "equipment_rack",
+        "reason": "definition text contains device/outlet semantics"
+      },
+      {
+        "family": "wireless_access_point",
+        "reason": "definition text contains device/outlet semantics"
+      }
+    ],
+    "status": "missed"
+  },
+  {
+    "packet_id": "tc_e_red_bay_admin_comms",
+    "missed_families": [
+      {
+        "family": "communications_outlet",
+        "reason": "definition text contains device/outlet semantics"
+      },
+      {
+        "family": "equipment_rack",
+        "reason": "definition text contains device/outlet semantics"
+      },
+      {
+        "family": "security_camera",
+        "reason": "definition text contains device/outlet semantics"
+      },
+      {
+        "family": "wireless_access_point",
+        "reason": "definition text contains device/outlet semantics"
+      }
+    ],
+    "status": "missed"
+  },
+  {
+    "packet_id": "lv_a_aspen_house_telecom_intercom_risers",
+    "missed_families": [],
+    "status": "none"
+  },
+  {
+    "packet_id": "lv_b_300_progress_communications",
+    "missed_families": [],
+    "status": "none"
+  },
+  {
+    "packet_id": "lv_c_union_street_telecom_grounding_intercom",
+    "missed_families": [],
+    "status": "none"
+  },
+  {
+    "packet_id": "lv_d_iqaluit_operations_centre",
+    "missed_families": [],
+    "status": "none"
+  },
+  {
+    "packet_id": "lv_e_columbus_library_technology_security",
+    "missed_families": [],
+    "status": "none"
+  }
+]

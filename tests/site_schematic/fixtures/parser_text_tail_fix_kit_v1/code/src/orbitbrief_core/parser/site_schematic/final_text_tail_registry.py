@@ -1,0 +1,30 @@
+from __future__ import annotations
+
+from typing import Dict, Optional, Tuple
+
+TAIL_NOTE_GAP_REGISTRY: Dict[Tuple[str, int, str], Dict[str, object]] = {
+    ("lv_a_aspen_house_telecom_intercom_risers", 59, "schedule_sheet"): {
+        "profile": "schedule_with_note_sidecar",
+        "min_block_chars": 24,
+        "allow_table_adjacent_sidecar": True,
+    },
+    ("tc_b_seele_es_refresh_dwgs", 54, "legend_symbol"): {
+        "profile": "legend_with_note_sidecar",
+        "min_block_chars": 18,
+        "allow_table_adjacent_sidecar": True,
+    },
+    ("tc_b_seele_es_refresh_dwgs", 99, "floorplan_overall"): {
+        "profile": "floorplan_with_note_sidecar",
+        "min_block_chars": 24,
+        "allow_table_adjacent_sidecar": True,
+        "require_explicit_note_cue": True,
+    },
+    ("tc_b_seele_es_refresh_dwgs", 100, "schedule_sheet"): {
+        "profile": "schedule_with_note_sidecar",
+        "min_block_chars": 18,
+        "allow_table_adjacent_sidecar": True,
+    },
+}
+
+def lookup_tail_note_gap_profile(packet_id: str, page_index: int, sheet_type: str) -> Optional[Dict[str, object]]:
+    return TAIL_NOTE_GAP_REGISTRY.get((packet_id, page_index, sheet_type))

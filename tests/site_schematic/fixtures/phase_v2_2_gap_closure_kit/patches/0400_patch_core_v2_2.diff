@@ -1,0 +1,49 @@
+--- a/src/orbitbrief_core/parser/site_schematic/core.py
++++ b/src/orbitbrief_core/parser/site_schematic/core.py
+@@
+ from orbitbrief_core.parser.site_schematic.packet_hardpage_semantics import build_packet_hardpage_summary
++from orbitbrief_core.parser.site_schematic.hardpage_requirement_registry import derive_required_hardpage_types
++from orbitbrief_core.parser.site_schematic.grounded_yield_metrics import compute_grounded_yield_metrics
+@@
+ def build_site_schematic_bundle_from_router_input(...):
+@@
++    # V2.2 packet quality summary
++    try:
++        page_rows = model_registry.get("phase_v2", {}).get("page_rows", [])
++        required_types = derive_required_hardpage_types(page_rows)
++        packet_hardpage_summary = build_packet_hardpage_summary(
++            packet_id=packet_id if 'packet_id' in locals() else "",
++            page_rows=page_rows,
++        )
++        packet_hardpage_summary.required_page_types = required_types
++        packet_hardpage_summary.hardpage_rate = packet_hardpage_summary.rate
++
++        total_candidates = int(model_registry.get("phase_v2", {}).get("candidate_symbol_total", 0))
++        grounded_symbols = int(model_registry.get("phase_v2", {}).get("grounded_symbol_total", 0))
++        unresolved_symbols = int(model_registry.get("phase_v2", {}).get("unresolved_symbol_total", 0))
++        hardpage_candidates = int(model_registry.get("phase_v2", {}).get("hardpage_candidate_symbol_total", 0))
++        hardpage_grounded = int(model_registry.get("phase_v2", {}).get("hardpage_grounded_symbol_total", 0))
++        expected_family_total = int(model_registry.get("phase_v2", {}).get("expected_family_total", 0))
++        expected_family_grounded = int(model_registry.get("phase_v2", {}).get("expected_family_grounded", 0))
++        metrics = compute_grounded_yield_metrics(
++            total_candidates=total_candidates,
++            grounded_symbols=grounded_symbols,
++            unresolved_symbols=unresolved_symbols,
++            hardpage_candidates=hardpage_candidates,
++            hardpage_grounded=hardpage_grounded,
++            expected_family_total=expected_family_total,
++            expected_family_grounded=expected_family_grounded,
++        )
++
++        model_registry.setdefault("phase_v2_2", {})["packet_quality_summary"] = {
++            "packet_id": packet_id if 'packet_id' in locals() else "",
++            "required_page_types": required_types,
++            "satisfied_page_types": packet_hardpage_summary.satisfied_page_types,
++            "hardpage_rate": packet_hardpage_summary.hardpage_rate,
++            "grounded_symbol_yield_rate": metrics.grounded_symbol_yield_rate,
++            "hardpage_grounded_symbol_yield_rate": metrics.hardpage_grounded_symbol_yield_rate,
++            "unresolved_symbol_ratio": metrics.unresolved_symbol_ratio,
++            "expected_family_grounded_coverage_rate": metrics.expected_family_grounded_coverage_rate,
++        }
++    except Exception:
++        pass

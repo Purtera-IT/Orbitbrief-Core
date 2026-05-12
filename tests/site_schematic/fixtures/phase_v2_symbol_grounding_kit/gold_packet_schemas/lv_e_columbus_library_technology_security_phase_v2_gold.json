@@ -1,0 +1,34 @@
+{
+  "packet_id": "lv_e_columbus_library_technology_security",
+  "category": "low_voltage_security",
+  "page_count": 6,
+  "sheet_type_counts": {
+    "schedule_sheet": 5,
+    "notes_spec": 1
+  },
+  "legend_pages": [],
+  "schematic_pages": [],
+  "expected_symbol_families": [
+    "data_outlet_marker",
+    "cctv_camera_marker",
+    "door_contact_marker",
+    "access_intercom_marker",
+    "telecom_rack_front",
+    "patch_panel_row",
+    "ladder_rack_runway",
+    "riser_endpoint",
+    "conduit_pathway",
+    "pull_or_junction_box",
+    "pathway_support_symbol",
+    "unknown_symbol_group"
+  ],
+  "packet_level_targets": {
+    "candidate_symbol_grouping_rate_min": 0.95,
+    "grounded_symbol_provenance_rate": 1.0,
+    "legend_grounding_dictionary_completeness_min": 0.0,
+    "candidate_to_legend_alignment_rate_min": 0.0,
+    "room_device_association_rate_min": 0.0,
+    "connector_topology_candidate_rate_min": 0.0,
+    "dimension_candidate_quality_rate_min": 0.0
+  }
+}

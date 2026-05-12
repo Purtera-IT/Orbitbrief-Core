@@ -1,0 +1,30 @@
+--- /dev/null
++++ b/src/orbitbrief_core/parser/site_schematic/primitive_dedup.py
+@@
++from __future__ import annotations
++
++from typing import Iterable, List, Tuple
++
++from orbitbrief_core.parser.site_schematic.vector_primitives import VectorPrimitive
++
++
++def _round_bbox(bbox, ndigits=1):
++    if bbox is None:
++        return None
++    return tuple(round(float(x), ndigits) for x in bbox)
++
++
++def dedup_vector_primitives(primitives: Iterable[VectorPrimitive]) -> List[VectorPrimitive]:
++    seen = {}
++    out: List[VectorPrimitive] = []
++    for p in primitives:
++        key = (p.primitive_kind, _round_bbox(p.bbox, 1))
++        if key in seen:
++            # keep the higher-confidence representative
++            prev_idx = seen[key]
++            if p.confidence > out[prev_idx].confidence:
++                out[prev_idx] = p
++            continue
++        seen[key] = len(out)
++        out.append(p)
++    return out

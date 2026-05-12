@@ -1,0 +1,16 @@
+--- a/src/orbitbrief_core/parser/site_schematic/models.py
++++ b/src/orbitbrief_core/parser/site_schematic/models.py
+@@
+ from dataclasses import dataclass, field
+ from typing import Any, Dict, List, Optional, Tuple
+@@
++@dataclass
++class SiteSchematicPacketV2QualitySummary:
++    packet_id: str
++    grounded_symbol_yield_rate: float = 0.0
++    hardpage_grounded_symbol_yield_rate: float = 0.0
++    unresolved_symbol_ratio: float = 0.0
++    room_device_association_rate: float = 0.0
++    connector_grounding_quality_rate: float = 0.0
++    expected_family_grounded_coverage_rate: float = 0.0
++    hardpage_requirement_complete: bool = False

@@ -1,0 +1,37 @@
+--- a/src/orbitbrief_core/parser/site_schematic/core.py
++++ b/src/orbitbrief_core/parser/site_schematic/core.py
+@@
++from orbitbrief_core.parser.site_schematic.hardpage_truth_enforcer import enforce_nonempty_required_hardpages
++from orbitbrief_core.parser.site_schematic.grounding_truth_audit import audit_packet_truth_signals
+@@
+ def build_site_schematic_bundle_from_router_input(...):
+@@
++    try:
++        packet_rows = model_registry.get("phase_v2", {}).get("page_rows", [])
++        schema_required_types = model_registry.get("phase_v2", {}).get("schema_required_types", [])
++        required_types = enforce_nonempty_required_hardpages(
++            page_rows=packet_rows,
++            schema_required_types=schema_required_types,
++        )
++        packet_row = model_registry.get("phase_v2", {}).get("packet_row", {})
++        grounded_rows = packet_row.get("grounded_symbol_rows", [])
++        audit = audit_packet_truth_signals(
++            candidate_symbol_count=int(packet_row.get("candidate_symbol_count", 0)),
++            grounded_symbol_count=int(packet_row.get("grounded_symbol_count", 0)),
++            unresolved_symbol_count=int(packet_row.get("unresolved_symbol_count", 0)),
++            connector_topology_candidate_rate=float(packet_row.get("connector_topology_candidate_rate", 0.0)),
++            connector_grounding_quality_rate=float(packet_row.get("connector_grounding_quality_rate", 0.0)),
++            room_device_association_rate=float(packet_row.get("room_device_association_rate", 0.0)),
++            required_page_types=required_types,
++            satisfied_page_types=packet_row.get("satisfied_page_types", []),
++            grounded_rows=grounded_rows,
++        )
++        model_registry.setdefault("phase_v2_3", {})["truth_audit_summary"] = {
++            "required_page_types": required_types,
++            "suspicious_uniform_grounding": audit.suspicious_uniform_grounding,
++            "impossible_connector_success": audit.impossible_connector_success,
++            "impossible_room_assoc_success": audit.impossible_room_assoc_success,
++            "reasons": audit.reasons,
++        }
++    except Exception:
++        pass

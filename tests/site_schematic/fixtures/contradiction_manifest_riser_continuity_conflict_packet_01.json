@@ -1,0 +1,124 @@
+{
+  "benchmark_id": "contradiction_manifest::riser_continuity_conflict_packet_01_v1",
+  "packet_id": "riser_continuity_conflict_packet_01",
+  "packet_label": "Riser Continuity Conflict Packet 01",
+  "packet_level_expected": "contradiction",
+  "packet_type": "riser_continuity_conflict",
+  "expected_contradiction_families": [
+    "riser_endpoint",
+    "ladder_rack_cable_runway",
+    "patch_panel_row"
+  ],
+  "expected_review_only_families": [
+    "telecomm_jack_tag",
+    "data_outlet",
+    "j_hook_pathway_symbol"
+  ],
+  "expected_safe_families": [
+    "door_contact_marker"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "riser01-cross-page-endpoint-continuity-break",
+      "taxonomy": "cross_page_family_mismatch",
+      "expected_outcome": "contradiction",
+      "families": [
+        "riser_endpoint",
+        "ladder_rack_cable_runway"
+      ],
+      "profiles": [
+        "riser_profile"
+      ],
+      "page_indices": [
+        2,
+        6
+      ],
+      "required_evidence_fields": [
+        "evidence_symbol_instance_ids",
+        "evidence_topology_ids",
+        "profile_ids",
+        "page_indices",
+        "metadata.contradiction_reasons"
+      ],
+      "notes": "Same riser continuity chain grounded incompatibly across pages with inferred continuity support."
+    },
+    {
+      "scenario_id": "riser01-trunk-vs-branch-role-conflict",
+      "taxonomy": "conflicting_structural_role_assignment",
+      "expected_outcome": "contradiction",
+      "families": [
+        "riser_endpoint",
+        "patch_panel_row"
+      ],
+      "profiles": [
+        "riser_profile",
+        "mixed_detail_profile"
+      ],
+      "page_indices": [
+        4
+      ],
+      "required_evidence_fields": [
+        "evidence_symbol_instance_ids",
+        "evidence_topology_ids",
+        "profile_ids",
+        "metadata.contradiction_reasons"
+      ],
+      "notes": "Riser trunk/branch interpretation conflicts with local grounded family role assignment."
+    },
+    {
+      "scenario_id": "riser01-pathway-attachment-review",
+      "taxonomy": "topology_backed_family_incompatibility",
+      "expected_outcome": "high_priority_review",
+      "families": [
+        "telecomm_jack_tag",
+        "data_outlet",
+        "ladder_rack_cable_runway"
+      ],
+      "profiles": [
+        "riser_profile",
+        "detail_installation_profile"
+      ],
+      "page_indices": [
+        3,
+        5
+      ],
+      "required_evidence_fields": [
+        "evidence_symbol_instance_ids",
+        "evidence_topology_ids",
+        "profile_ids"
+      ],
+      "notes": "Topology support indicates likely incompatibility but contradiction confidence may remain below fail-closed threshold."
+    },
+    {
+      "scenario_id": "riser01-cross-page-legend-ambiguity",
+      "taxonomy": "detail_vs_riser_conflict",
+      "expected_outcome": "ambiguous",
+      "families": [
+        "riser_endpoint",
+        "telecomm_jack_tag"
+      ],
+      "profiles": [
+        "riser_profile",
+        "mixed_detail_profile"
+      ],
+      "page_indices": [
+        1,
+        7
+      ],
+      "required_evidence_fields": [
+        "evidence_symbol_instance_ids",
+        "page_indices"
+      ],
+      "notes": "Legend/detail clauses create bounded ambiguity in continuity interpretation without deterministic incompatibility."
+    },
+    {
+      "scenario_id": "riser01-safe-door-contact-baseline",
+      "taxonomy": "safe_no_issue",
+      "expected_outcome": "safe",
+      "families": [
+        "door_contact_marker"
+      ],
+      "notes": "Control family expected to remain stable and non-contradictory."
+    }
+  ]
+}

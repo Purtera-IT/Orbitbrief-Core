@@ -8,10 +8,13 @@ from email.parser import BytesParser, Parser
 from email.utils import getaddresses, parsedate_to_datetime
 from typing import Any, Mapping, Sequence
 
+from orbitbrief_core.parser.adapters.providers.talon_provider import TalonBoundarySuggestion, suggest_talon_boundaries
+
 _HEADER_LINE_RE = re.compile(r"(?im)^(from|to|cc|bcc|subject|date):\s+.*$")
 _QUOTED_LINE_RE = re.compile(r"(?m)^>.*$")
 _ON_WROTE_RE = re.compile(r"(?im)^On .+ wrote:\s*$")
 _FORWARD_RE = re.compile(r"(?im)^[- ]*Forwarded message[- ]*$|^Begin forwarded message:\s*$")
+_FORWARD_HEADER_RE = re.compile(r"(?im)^(from|sent|to|cc|subject|date):\s+.*$")
 _SIGNATURE_RE = re.compile(r"(?im)^(--\s*$|thanks[,!]?\s*$|best[,!]?\s*$|regards[,!]?\s*$)")
 _DISCLAIMER_RE = re.compile(
     r"(?is)(confidential|intended solely|unauthorized|privileged communication|virus disclaimer|opinions expressed)"
@@ -70,6 +73,21 @@ class DisclaimerBlockCandidate:
 
 
 @dataclass(frozen=True, slots=True)
+class BoundarySegmentCandidate:
+    segment_id: str
+    start_char: int
+    end_char: int
+    text: str
+    boundary_class: str
+    authority_kind: str
+    authority_weight: float
+    boundary_confidence: float
+    segment_source: str
+    quoted_depth: int = 0
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
 class EmailMessageCandidate:
     message_id: str
     headers: Mapping[str, str]
@@ -89,6 +107,8 @@ class EmailMessageCandidate:
     signature_blocks: tuple[SignatureBlockCandidate, ...]
     disclaimer_blocks: tuple[DisclaimerBlockCandidate, ...]
     confidence: float
+    boundary_segments: tuple[BoundarySegmentCandidate, ...] = ()
+    boundary_review_needed: bool = False
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
 
@@ -331,6 +351,166 @@ def detect_disclaimer_blocks(text: str, *, char_offset: int = 0) -> tuple[Discla
     return tuple(blocks)
 
 
+def _authority_for_boundary(boundary_class: str) -> tuple[str, float]:
+    mapping = {
+        "current_authored": ("current_authored", 1.0),
+        "quoted_context": ("quoted_context", 0.45),
+        "forwarded_context": ("forwarded_context", 0.35),
+        "signature": ("signature", 0.15),
+        "disclaimer": ("disclaimer", 0.05),
+        "noise": ("noise", 0.05),
+    }
+    return mapping.get(boundary_class, ("noise", 0.05))
+
+
+def _line_classification(lines: Sequence[str]) -> list[tuple[str, float, str]]:
+    out: list[tuple[str, float, str]] = []
+    forward_mode = False
+    quote_mode = False
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        lower = stripped.lower()
+        boundary_class = "current_authored"
+        confidence = 0.78
+        source = "deterministic"
+
+        if _FORWARD_RE.match(stripped) or _FORWARD_HEADER_RE.match(stripped):
+            forward_mode = True
+            quote_mode = False
+            boundary_class = "forwarded_context"
+            confidence = 0.92
+        elif _ON_WROTE_RE.match(stripped) or _QUOTED_LINE_RE.match(stripped):
+            quote_mode = True
+            if not forward_mode:
+                boundary_class = "quoted_context"
+                confidence = 0.90
+        elif forward_mode and stripped:
+            boundary_class = "forwarded_context"
+            confidence = 0.72
+        elif quote_mode and stripped:
+            boundary_class = "quoted_context"
+            confidence = 0.68
+
+        if _SIGNATURE_RE.match(stripped) and idx >= max(1, len(lines) // 4):
+            boundary_class = "signature"
+            confidence = 0.86
+        if _DISCLAIMER_RE.search(lower):
+            boundary_class = "disclaimer"
+            confidence = 0.88
+        if not stripped:
+            source = "deterministic"
+        out.append((boundary_class, confidence, source))
+    return out
+
+
+def _reconcile_with_talon(
+    text: str,
+    classes: list[tuple[str, float, str]],
+    talon: TalonBoundarySuggestion | None,
+) -> tuple[list[tuple[str, float, str]], bool]:
+    if talon is None:
+        return classes, False
+    # Convert char index boundaries to line indices.
+    line_starts: list[int] = []
+    cursor = 0
+    for line in text.splitlines(keepends=True):
+        line_starts.append(cursor)
+        cursor += len(line)
+    review_needed = False
+    if talon.quoted_start is not None and talon.quoted_start >= int(len(text) * 0.2):
+        qidx = 0
+        for i, start in enumerate(line_starts):
+            if start >= talon.quoted_start:
+                qidx = i
+                break
+        for i in range(qidx, len(classes)):
+            klass, conf, _source = classes[i]
+            if klass in {"signature", "disclaimer"}:
+                continue
+            if klass == "current_authored":
+                review_needed = True
+            classes[i] = ("quoted_context", max(conf, talon.confidence), "reconciled")
+    if talon.signature_start is not None and talon.signature_start >= int(len(text) * 0.35):
+        sidx = 0
+        for i, start in enumerate(line_starts):
+            if start >= talon.signature_start:
+                sidx = i
+                break
+        for i in range(sidx, len(classes)):
+            klass, conf, _source = classes[i]
+            if klass == "disclaimer":
+                continue
+            if klass == "current_authored":
+                review_needed = True
+            classes[i] = ("signature", max(conf, talon.confidence), "reconciled")
+    return classes, review_needed
+
+
+def segment_email_boundaries(body_text: str) -> tuple[tuple[BoundarySegmentCandidate, ...], bool]:
+    lines = body_text.splitlines(keepends=True)
+    if not lines:
+        return (), False
+    classes = _line_classification(lines)
+    talon = suggest_talon_boundaries(body_text)
+    classes, talon_review_needed = _reconcile_with_talon(body_text, classes, talon)
+
+    segments: list[BoundarySegmentCandidate] = []
+    cursor = 0
+    block_start = 0
+    current_class, current_conf, current_source = classes[0]
+    segment_index = 0
+
+    for idx, line in enumerate(lines):
+        start = cursor
+        end = cursor + len(line)
+        klass, conf, source = classes[idx]
+        if idx == 0:
+            block_start = start
+            current_class, current_conf, current_source = klass, conf, source
+        else:
+            if klass != current_class:
+                text_chunk = body_text[block_start:start].strip()
+                if text_chunk:
+                    authority_kind, authority_weight = _authority_for_boundary(current_class)
+                    segments.append(
+                        BoundarySegmentCandidate(
+                            segment_id=f"segment:{segment_index:06d}",
+                            start_char=block_start,
+                            end_char=start,
+                            text=text_chunk,
+                            boundary_class=current_class,
+                            authority_kind=authority_kind,
+                            authority_weight=authority_weight,
+                            boundary_confidence=current_conf,
+                            segment_source=current_source,
+                        )
+                    )
+                    segment_index += 1
+                block_start = start
+                current_class, current_conf, current_source = klass, conf, source
+        cursor = end
+
+    tail_chunk = body_text[block_start:cursor].strip()
+    if tail_chunk:
+        authority_kind, authority_weight = _authority_for_boundary(current_class)
+        segments.append(
+            BoundarySegmentCandidate(
+                segment_id=f"segment:{segment_index:06d}",
+                start_char=block_start,
+                end_char=cursor,
+                text=tail_chunk,
+                boundary_class=current_class,
+                authority_kind=authority_kind,
+                authority_weight=authority_weight,
+                boundary_confidence=current_conf,
+                segment_source=current_source,
+            )
+        )
+
+    low_conf_uncertain = any(seg.boundary_confidence < 0.62 for seg in segments if seg.boundary_class != "current_authored")
+    return tuple(segments), bool(talon_review_needed or low_conf_uncertain)
+
+
 def strip_non_authored_context(
     body_text: str,
     quoted_blocks: Sequence[QuotedBlockCandidate],
@@ -386,11 +566,65 @@ def build_message_candidate(
     cc_emails = _extract_addresses(normalized_headers.get("cc"))
     date_text, date_iso = _parse_date(normalized_headers.get("date"))
 
-    quoted = detect_quoted_blocks(body_text, char_offset=0)
-    forwarded = detect_forwarded_blocks(body_text, char_offset=0)
-    signature = detect_signature_blocks(body_text, char_offset=0)
-    disclaimer = detect_disclaimer_blocks(body_text, char_offset=0)
-    current_text = strip_non_authored_context(body_text, quoted, forwarded, signature, disclaimer)
+    boundary_segments, boundary_review_needed = segment_email_boundaries(body_text)
+    if boundary_segments:
+        quoted = tuple(
+            QuotedBlockCandidate(
+                block_id=f"quoted:{idx:06d}",
+                start_char=seg.start_char,
+                end_char=seg.end_char,
+                text=seg.text,
+                confidence=seg.boundary_confidence,
+                metadata={"source": seg.segment_source, "boundary_class": seg.boundary_class},
+            )
+            for idx, seg in enumerate(boundary_segments, start=1)
+            if seg.boundary_class == "quoted_context"
+        )
+        forwarded = tuple(
+            ForwardedBlockCandidate(
+                block_id=f"forwarded:{idx:06d}",
+                start_char=seg.start_char,
+                end_char=seg.end_char,
+                text=seg.text,
+                confidence=seg.boundary_confidence,
+                metadata={"source": seg.segment_source, "boundary_class": seg.boundary_class},
+            )
+            for idx, seg in enumerate(boundary_segments, start=1)
+            if seg.boundary_class == "forwarded_context"
+        )
+        signature = tuple(
+            SignatureBlockCandidate(
+                block_id=f"signature:{idx:06d}",
+                start_char=seg.start_char,
+                end_char=seg.end_char,
+                text=seg.text,
+                confidence=seg.boundary_confidence,
+                metadata={"source": seg.segment_source, "boundary_class": seg.boundary_class},
+            )
+            for idx, seg in enumerate(boundary_segments, start=1)
+            if seg.boundary_class == "signature"
+        )
+        disclaimer = tuple(
+            DisclaimerBlockCandidate(
+                block_id=f"disclaimer:{idx:06d}",
+                start_char=seg.start_char,
+                end_char=seg.end_char,
+                text=seg.text,
+                confidence=seg.boundary_confidence,
+                metadata={"source": seg.segment_source, "boundary_class": seg.boundary_class},
+            )
+            for idx, seg in enumerate(boundary_segments, start=1)
+            if seg.boundary_class in {"disclaimer", "noise"}
+        )
+        current_chunks = [seg.text for seg in boundary_segments if seg.boundary_class == "current_authored"]
+        current_text = "\n\n".join(chunk for chunk in current_chunks if chunk.strip()).strip()
+    else:
+        quoted = detect_quoted_blocks(body_text, char_offset=0)
+        forwarded = detect_forwarded_blocks(body_text, char_offset=0)
+        signature = detect_signature_blocks(body_text, char_offset=0)
+        disclaimer = detect_disclaimer_blocks(body_text, char_offset=0)
+        current_text = strip_non_authored_context(body_text, quoted, forwarded, signature, disclaimer)
+        boundary_review_needed = False
 
     return EmailMessageCandidate(
         message_id=message_id,
@@ -411,7 +645,9 @@ def build_message_candidate(
         signature_blocks=signature,
         disclaimer_blocks=disclaimer,
         confidence=confidence,
-        metadata=dict(metadata or {}),
+        boundary_segments=boundary_segments,
+        boundary_review_needed=boundary_review_needed,
+        metadata={**dict(metadata or {}), "boundary_review_needed": boundary_review_needed},
     )
 
 

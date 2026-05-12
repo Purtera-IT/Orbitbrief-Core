@@ -1,0 +1,107 @@
+You are working in the latest OrbitBrief Core repo on the `site_schematic` lane.
+
+This is the NEXT UNIVERSALITY FIX PASS and should be executed in this order:
+1. Phase C generalization
+2. Phase A residual sheet-archetype mapping
+3. Phase B residual table-kind routing
+4. Full Phase D holdout re-run
+
+CURRENT STATE
+
+Latest measured state:
+- Holdout Phase A: 7/10
+- Holdout Phase B: 7/10
+- Holdout Phase C: 5/10
+- Holdout Phase D: 2/10
+- production_kpi_regression_count = 0
+- current pair canonical lanes remain protected
+
+PRIMARY GOAL
+
+Generalize the parser by unifying A/B/C around one shared page-structure graph and materially improve holdout performance without touching OrbitBrief or truth paths.
+
+DO NOT:
+- modify OrbitBrief logic
+- modify contradiction logic
+- replace the parser with a giant model
+- regress the current pair
+- hide failures in the evaluator
+
+IMPLEMENTATION ORDER
+
+## 1. Add the shared page-structure graph
+Use the provided starter modules under `code/src/orbitbrief_core/parser/site_schematic/`.
+Integrate a per-page structural graph that preserves:
+- section/header nodes
+- column nodes
+- table nodes
+- row/cell references
+- region/detail/pseudo-page locality
+- confidence/provenance
+
+Build it in `core.py` after observations and universal tables exist.
+
+## 2. Phase C first
+Use the structure graph to improve:
+- multi-column note preservation
+- global-vs-local note separation
+- detail locality references
+- mixed-page locality contracts
+- silent note-scope conflict reduction
+
+Patch likely:
+- `src/orbitbrief_core/parser/site_schematic/zoning/page_zones.py`
+- `src/orbitbrief_core/parser/site_schematic/core.py`
+
+## 3. Phase A second
+Use structure-graph header/section evidence to improve:
+- sheet-id extraction robustness
+- title block handling
+- archetype mapping on holdouts
+- riser/legend/schedule/floorplan disambiguation
+
+Patch likely:
+- `src/orbitbrief_core/parser/site_schematic/classification/sheet_type.py`
+
+## 4. Phase B third
+Use structure graph to improve:
+- header-aware table-family routing
+- unfamiliar schedule/index/spec/legend signatures
+- section-to-table typing
+- reduction of `generic_grid` overuse
+- semantic routing from row/cell lineage first
+
+Patch likely:
+- `src/orbitbrief_core/parser/site_schematic/universal_table_spine.py`
+- table-derived extractors if necessary
+
+VALIDATION REQUIRED
+
+Run and report:
+- current pair canonical eval
+- full Phase D holdout universality eval
+- packet-by-packet A/B/C summaries
+- before/after holdout Phase A/B/C/D counts
+- production regression summary
+- evidence trace completeness
+- contradiction lane separation
+
+ACCEPTANCE CRITERIA
+- current pair canonical Phase B remains perfect
+- current pair canonical Phase C remains perfect
+- production_kpi_regression_count = 0
+- holdout Phase A >= 9/10
+- holdout Phase B >= 9/10
+- holdout Phase C >= 8/10
+- evidence_trace_completeness_rate >= 0.95
+
+OUTPUT I WANT
+1. exact files changed
+2. how the structure graph was integrated
+3. what changed in Phase C
+4. what changed in Phase A
+5. what changed in Phase B
+6. before/after holdout A/B/C/D counts
+7. before/after production current-pair status
+8. remaining blockers to actual universality
+9. whether another parser pass is enough or whether layout-native modeling is now justified

@@ -1,0 +1,367 @@
+{
+  "packet_id": "lv_d_iqaluit_operations_centre",
+  "category": "low_voltage_security",
+  "page_count": 78,
+  "sheet_type_counts": {
+    "floorplan_overall": 5,
+    "schedule_sheet": 40,
+    "notes_spec": 25,
+    "riser_diagram": 7,
+    "legend_symbol": 1
+  },
+  "legend_pages": [
+    {
+      "page_index": 51,
+      "sheet_id": "E001",
+      "sheet_title": "ELECTRICAL LEGEND AND DRAWING LIST",
+      "sheet_type": "legend_symbol",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "note_spec_zone",
+        "legend_zone",
+        "abbreviation_zone",
+        "plan_body_zone"
+      ],
+      "targets": [
+        "packet_local_symbol_dictionary",
+        "symbol_legend_rows",
+        "outlet_definition_meanings",
+        "abbreviation-backed alias families"
+      ],
+      "validation_targets": [
+        "legend_dictionary_completeness",
+        "candidate_to_legend_alignment"
+      ]
+    }
+  ],
+  "schematic_pages": [
+    {
+      "page_index": 1,
+      "sheet_id": "G001",
+      "sheet_title": "COVER SHEET",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "legend_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "title_block_zone",
+        "rack_elevation_block_zone",
+        "generic_grid_block_zone",
+        "cctv_legend_block_zone",
+        "symbol_legend_block_zone",
+        "notes_section_block_zone",
+        "general_notes_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 9,
+      "sheet_id": "A300",
+      "sheet_title": "U/S ROOF STRUCT. H.P.",
+      "sheet_type": "riser_diagram",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "detail_zone"
+      ],
+      "targets": [
+        "riser_endpoint candidates",
+        "trunk/branch connector candidates",
+        "riser leader attachments",
+        "topology hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "connector_topology_candidate_rate"
+      ]
+    },
+    {
+      "page_index": 16,
+      "sheet_id": "A351",
+      "sheet_title": "VESTIBULE",
+      "sheet_type": "riser_diagram",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "note_spec_zone",
+        "detail_zone"
+      ],
+      "targets": [
+        "riser_endpoint candidates",
+        "trunk/branch connector candidates",
+        "riser leader attachments",
+        "topology hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "connector_topology_candidate_rate"
+      ]
+    },
+    {
+      "page_index": 17,
+      "sheet_id": "A401",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "title_block_zone",
+        "generic_grid_block_zone",
+        "notes_section_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 18,
+      "sheet_id": "D103",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "title_block_zone",
+        "generic_grid_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 27,
+      "sheet_id": "S203",
+      "sheet_title": "GENERATOR FOUNDATION PLAN",
+      "sheet_type": "riser_diagram",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "detail_zone"
+      ],
+      "targets": [
+        "riser_endpoint candidates",
+        "trunk/branch connector candidates",
+        "riser leader attachments",
+        "topology hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "connector_topology_candidate_rate"
+      ]
+    },
+    {
+      "page_index": 38,
+      "sheet_id": "",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "title_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 44,
+      "sheet_id": "D116",
+      "sheet_title": "",
+      "sheet_type": "riser_diagram",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "detail_zone"
+      ],
+      "targets": [
+        "riser_endpoint candidates",
+        "trunk/branch connector candidates",
+        "riser leader attachments",
+        "topology hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "connector_topology_candidate_rate"
+      ]
+    },
+    {
+      "page_index": 48,
+      "sheet_id": "M500",
+      "sheet_title": "",
+      "sheet_type": "floorplan_overall",
+      "zones": [
+        "abbreviation_zone",
+        "legend_zone",
+        "note_spec_zone",
+        "plan_body_zone",
+        "revision_zone",
+        "title_block_zone",
+        "notes_section_block_zone"
+      ],
+      "targets": [
+        "candidate_symbol_groups",
+        "room/device associations",
+        "text-tag-to-symbol associations",
+        "plan-level leader attachments",
+        "dimension candidates where present"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "room_device_association"
+      ]
+    },
+    {
+      "page_index": 51,
+      "sheet_id": "E001",
+      "sheet_title": "ELECTRICAL LEGEND AND DRAWING LIST",
+      "sheet_type": "legend_symbol",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "schedule_table_zone",
+        "note_spec_zone",
+        "legend_zone",
+        "abbreviation_zone",
+        "plan_body_zone"
+      ],
+      "targets": [
+        "packet_local_symbol_dictionary",
+        "symbol_legend_rows",
+        "outlet_definition_meanings",
+        "abbreviation-backed alias families"
+      ],
+      "validation_targets": [
+        "legend_dictionary_completeness",
+        "candidate_to_legend_alignment"
+      ]
+    },
+    {
+      "page_index": 52,
+      "sheet_id": "E600",
+      "sheet_title": "FOR CABLES",
+      "sheet_type": "riser_diagram",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "legend_zone",
+        "abbreviation_zone",
+        "detail_zone"
+      ],
+      "targets": [
+        "riser_endpoint candidates",
+        "trunk/branch connector candidates",
+        "riser leader attachments",
+        "topology hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "connector_topology_candidate_rate"
+      ]
+    },
+    {
+      "page_index": 66,
+      "sheet_id": "T501",
+      "sheet_title": "CLEARANCES OF CABLE TRAY",
+      "sheet_type": "riser_diagram",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "note_spec_zone",
+        "detail_zone"
+      ],
+      "targets": [
+        "riser_endpoint candidates",
+        "trunk/branch connector candidates",
+        "riser leader attachments",
+        "topology hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "connector_topology_candidate_rate"
+      ]
+    },
+    {
+      "page_index": 69,
+      "sheet_id": "T504",
+      "sheet_title": "TYPICAL BONDING OF EQUIPMENT",
+      "sheet_type": "riser_diagram",
+      "zones": [
+        "title_block_zone",
+        "revision_zone",
+        "detail_zone"
+      ],
+      "targets": [
+        "riser_endpoint candidates",
+        "trunk/branch connector candidates",
+        "riser leader attachments",
+        "topology hints"
+      ],
+      "validation_targets": [
+        "candidate_symbol_grouping",
+        "connector_topology_candidate_rate"
+      ]
+    }
+  ],
+  "expected_symbol_families": [
+    "data_outlet_marker",
+    "cctv_camera_marker",
+    "door_contact_marker",
+    "access_intercom_marker",
+    "telecom_rack_front",
+    "patch_panel_row",
+    "ladder_rack_runway",
+    "riser_endpoint",
+    "conduit_pathway",
+    "pull_or_junction_box",
+    "pathway_support_symbol",
+    "unknown_symbol_group"
+  ],
+  "packet_level_targets": {
+    "candidate_symbol_grouping_rate_min": 0.95,
+    "grounded_symbol_provenance_rate": 1.0,
+    "legend_grounding_dictionary_completeness_min": 0.95,
+    "candidate_to_legend_alignment_rate_min": 0.9,
+    "room_device_association_rate_min": 0.9,
+    "connector_topology_candidate_rate_min": 0.85,
+    "dimension_candidate_quality_rate_min": 0.0
+  }
+}

@@ -1,0 +1,5 @@
+--- a/src/orbitbrief_core/parser/site_schematic/symbols/linker.py
++++ b/src/orbitbrief_core/parser/site_schematic/symbols/linker.py
+@@
++# Phase V2 integration note:
++# unify vector/raster candidate symbol paths through a common legend-grounded resolver seam.

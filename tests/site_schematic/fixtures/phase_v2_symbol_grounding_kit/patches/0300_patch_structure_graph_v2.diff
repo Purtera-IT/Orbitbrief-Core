@@ -1,0 +1,8 @@
+--- a/src/orbitbrief_core/parser/site_schematic/structure_graph.py
++++ b/src/orbitbrief_core/parser/site_schematic/structure_graph.py
+@@
+ def build_page_structure_graph(...):
+@@
++    # Phase V2 starter:
++    # add candidate/grounded symbol nodes and associations in a future patch;
++    # keep additive and diagnostics-first for now.

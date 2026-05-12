@@ -1,0 +1,303 @@
+{
+  "definition": "Counts of expected family from directly-evidenced aliases versus final predicted family on alias-token instances.",
+  "matrix": {
+    "telephone_outlet": {
+      "telephone_outlet": 154,
+      "UNRESOLVED": 35
+    },
+    "communications_outlet": {
+      "communications_outlet": 286,
+      "port_data_box_outlet_number": 7,
+      "UNRESOLVED": 7
+    },
+    "port_data_box_outlet_number": {
+      "port_data_box_outlet_number": 7,
+      "communications_outlet": 177
+    },
+    "fiber_outlet": {
+      "fiber_outlet": 31
+    },
+    "television_data_combo_outlet": {
+      "television_data_combo_outlet": 67
+    },
+    "custom_camera_see_camera_schedule": {
+      "custom_camera_see_camera_schedule": 32
+    },
+    "data_voice_combination_outlet_v": {
+      "data_voice_combination_outlet_v": 14
+    },
+    "fire_alarm_control_panel": {
+      "fire_alarm_control_panel": 1
+    },
+    "zigbee_node_outlet": {
+      "zigbee_node_outlet": 18
+    },
+    "door_contact": {
+      "door_contact": 10
+    },
+    "duress_alarm_button": {
+      "UNRESOLVED": 121,
+      "duress_alarm_button": 39
+    },
+    "elevator_remote_access_reader": {
+      "elevator_remote_access_reader": 1
+    },
+    "single_button_emergency_phone_system": {
+      "single_button_emergency_phone_system": 1
+    },
+    "wireless_access_point": {
+      "wireless_access_point": 63,
+      "UNRESOLVED": 43,
+      "communications_outlet": 37
+    },
+    "outlet_in_accessible": {
+      "UNRESOLVED": 183,
+      "outlet_in_accessible": 89
+    },
+    "card_reader": {
+      "UNRESOLVED": 1,
+      "card_reader": 2
+    },
+    "telecommunications_panel": {
+      "telecommunications_panel": 3
+    },
+    "leviton_sst_indoor_plenum_rated": {
+      "leviton_sst_indoor_plenum_rated": 684
+    },
+    "security_camera": {
+      "UNRESOLVED": 7,
+      "communications_outlet": 37
+    },
+    "hws_glycol_fill_station_pump": {
+      "hws_glycol_fill_station_pump": 130
+    },
+    "power_ddc_panel": {
+      "power_ddc_panel": 8
+    },
+    "4_11_16_square_2": {
+      "4_11_16_square_2": 82,
+      "UNRESOLVED": 33
+    },
+    "marion_franklin_camera_schedule_number": {
+      "marion_franklin_camera_schedule_number": 32
+    },
+    "keypad": {
+      "UNRESOLVED": 1,
+      "keypad": 11
+    },
+    "communications_plenum": {
+      "communications_plenum": 1
+    },
+    "communications_riser": {
+      "communications_riser": 1
+    },
+    "speaker": {
+      "speaker": 45
+    },
+    "junction_box": {
+      "junction_box": 6
+    },
+    "multimode_fiber": {
+      "multimode_fiber": 1
+    },
+    "parking_lot_t002_p2_outdoor": {
+      "parking_lot_t002_p2_outdoor": 2
+    },
+    "corner_t101_5_outdoor_360": {
+      "corner_t101_5_outdoor_360": 2
+    },
+    "parking_lot_t002_1_outdoor": {
+      "corner_t101_5_outdoor_360": 2
+    },
+    "single_mode_fiber": {
+      "single_mode_fiber": 1
+    },
+    "telecommunications_backbone_bonding_conductor": {
+      "telecommunications_backbone_bonding_conductor": 1
+    },
+    "telecommunications_equipment_bonding_conductor": {
+      "telecommunications_equipment_bonding_conductor": 1
+    },
+    "corner_t101_6_outdoor_360": {
+      "corner_t101_6_outdoor_360": 1
+    },
+    "telecommunications_ground_busbar": {
+      "telecommunications_ground_busbar": 6
+    },
+    "marion_franklin_branch_2800_lockbourne": {
+      "UNRESOLVED": 3,
+      "marion_franklin_branch_2800_lockbourne": 5
+    }
+  },
+  "packet_matrices": {
+    "wireless_current_pair": {},
+    "low_voltage_current_pair": {
+      "telephone_outlet": {
+        "telephone_outlet": 88
+      },
+      "communications_outlet": {
+        "communications_outlet": 228,
+        "port_data_box_outlet_number": 7
+      },
+      "port_data_box_outlet_number": {
+        "port_data_box_outlet_number": 7,
+        "communications_outlet": 177
+      },
+      "fiber_outlet": {
+        "fiber_outlet": 31
+      },
+      "television_data_combo_outlet": {
+        "television_data_combo_outlet": 67
+      },
+      "custom_camera_see_camera_schedule": {
+        "custom_camera_see_camera_schedule": 32
+      },
+      "data_voice_combination_outlet_v": {
+        "data_voice_combination_outlet_v": 14
+      },
+      "fire_alarm_control_panel": {
+        "fire_alarm_control_panel": 1
+      },
+      "zigbee_node_outlet": {
+        "zigbee_node_outlet": 18
+      },
+      "door_contact": {
+        "door_contact": 10
+      },
+      "duress_alarm_button": {
+        "UNRESOLVED": 1,
+        "duress_alarm_button": 3
+      },
+      "elevator_remote_access_reader": {
+        "elevator_remote_access_reader": 1
+      },
+      "single_button_emergency_phone_system": {
+        "single_button_emergency_phone_system": 1
+      }
+    },
+    "tc_a_4cd_science_building_asbuilts": {},
+    "tc_b_seele_es_refresh_dwgs": {
+      "wireless_access_point": {
+        "wireless_access_point": 7,
+        "UNRESOLVED": 12
+      },
+      "outlet_in_accessible": {
+        "UNRESOLVED": 183,
+        "outlet_in_accessible": 89
+      },
+      "duress_alarm_button": {
+        "UNRESOLVED": 120,
+        "duress_alarm_button": 36
+      },
+      "telephone_outlet": {
+        "UNRESOLVED": 35,
+        "telephone_outlet": 66
+      },
+      "communications_outlet": {
+        "communications_outlet": 21
+      },
+      "card_reader": {
+        "UNRESOLVED": 1,
+        "card_reader": 2
+      },
+      "telecommunications_panel": {
+        "telecommunications_panel": 3
+      }
+    },
+    "tc_c_ventura_admin_comms": {
+      "leviton_sst_indoor_plenum_rated": {
+        "leviton_sst_indoor_plenum_rated": 684
+      }
+    },
+    "tc_d_appalachian_gym_comms": {
+      "wireless_access_point": {
+        "wireless_access_point": 52,
+        "UNRESOLVED": 24
+      }
+    },
+    "tc_e_red_bay_admin_comms": {
+      "wireless_access_point": {
+        "UNRESOLVED": 7,
+        "communications_outlet": 37
+      },
+      "communications_outlet": {
+        "UNRESOLVED": 7,
+        "communications_outlet": 37
+      },
+      "security_camera": {
+        "UNRESOLVED": 7,
+        "communications_outlet": 37
+      }
+    },
+    "lv_a_aspen_house_telecom_intercom_risers": {},
+    "lv_b_300_progress_communications": {},
+    "lv_c_union_street_telecom_grounding_intercom": {},
+    "lv_d_iqaluit_operations_centre": {
+      "hws_glycol_fill_station_pump": {
+        "hws_glycol_fill_station_pump": 130
+      },
+      "power_ddc_panel": {
+        "power_ddc_panel": 8
+      }
+    },
+    "lv_e_columbus_library_technology_security": {
+      "4_11_16_square_2": {
+        "4_11_16_square_2": 82,
+        "UNRESOLVED": 33
+      },
+      "marion_franklin_camera_schedule_number": {
+        "marion_franklin_camera_schedule_number": 32
+      },
+      "keypad": {
+        "UNRESOLVED": 1,
+        "keypad": 11
+      },
+      "communications_plenum": {
+        "communications_plenum": 1
+      },
+      "communications_riser": {
+        "communications_riser": 1
+      },
+      "wireless_access_point": {
+        "wireless_access_point": 4
+      },
+      "speaker": {
+        "speaker": 45
+      },
+      "junction_box": {
+        "junction_box": 6
+      },
+      "multimode_fiber": {
+        "multimode_fiber": 1
+      },
+      "parking_lot_t002_p2_outdoor": {
+        "parking_lot_t002_p2_outdoor": 2
+      },
+      "corner_t101_5_outdoor_360": {
+        "corner_t101_5_outdoor_360": 2
+      },
+      "parking_lot_t002_1_outdoor": {
+        "corner_t101_5_outdoor_360": 2
+      },
+      "single_mode_fiber": {
+        "single_mode_fiber": 1
+      },
+      "telecommunications_backbone_bonding_conductor": {
+        "telecommunications_backbone_bonding_conductor": 1
+      },
+      "telecommunications_equipment_bonding_conductor": {
+        "telecommunications_equipment_bonding_conductor": 1
+      },
+      "corner_t101_6_outdoor_360": {
+        "corner_t101_6_outdoor_360": 1
+      },
+      "telecommunications_ground_busbar": {
+        "telecommunications_ground_busbar": 6
+      },
+      "marion_franklin_branch_2800_lockbourne": {
+        "UNRESOLVED": 3,
+        "marion_franklin_branch_2800_lockbourne": 5
+      }
+    }
+  }
+}

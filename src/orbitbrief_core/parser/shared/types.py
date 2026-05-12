@@ -101,6 +101,51 @@ class NodeKind(str, Enum):
     DOCUMENT = "document"
 
 
+class RegionKind(str, Enum):
+    TITLE_BLOCK = "title_block"
+    REVISION_BLOCK = "revision_block"
+    NOTE_BLOCK = "note_block"
+    CALLOUT = "callout"
+    ROOM_LABEL = "room_label"
+    CLOSET_LABEL = "closet_label"
+    EQUIPMENT_LABEL = "equipment_label"
+    DIMENSION_TEXT = "dimension_text"
+    LEGEND = "legend"
+    UNKNOWN = "unknown"
+
+
+class DrawingKind(str, Enum):
+    FLOORPLAN = "floorplan"
+    RACK_DIAGRAM = "rack_diagram"
+    ONE_LINE = "one_line"
+    WIRELESS_LAYOUT = "wireless_layout"
+    ELEVATION = "elevation"
+    UNKNOWN = "unknown"
+
+
+class ComponentKind(str, Enum):
+    AP = "ap"
+    RACK = "rack"
+    SWITCH = "switch"
+    PANEL = "panel"
+    CABINET = "cabinet"
+    PRINTER = "printer"
+    CONFERENCE_ROOM = "conference_room"
+    WORKSTATION_AREA = "workstation_area"
+    UNKNOWN = "unknown"
+
+
+class RelationHintKind(str, Enum):
+    INSIDE_ZONE = "inside_zone"
+    NEAR = "near"
+    CALLOUT_FOR = "callout_for"
+    NOTE_ATTACHED_TO = "note_attached_to"
+    SAME_REVISION_BLOCK = "same_revision_block"
+    SAME_TITLE_BLOCK = "same_title_block"
+    COMPONENT_IN_ZONE = "component_in_zone"
+    POSSIBLE_TOPOLOGY_NEIGHBOR = "possible_topology_neighbor"
+
+
 @dataclass(frozen=True, slots=True)
 class CharRange:
     start: int
@@ -120,6 +165,7 @@ class BBox:
     x1: float
     y1: float
     page_index: int | None = None
+    units: str | None = None
 
     def __post_init__(self) -> None:
         if self.x1 < self.x0 or self.y1 < self.y0:
@@ -131,6 +177,294 @@ class PageRef:
     page_index: int
     page_label: str | None = None
     source_uri: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class VisualRegion:
+    region_id: str
+    sheet_id: str
+    region_kind: RegionKind = RegionKind.UNKNOWN
+    page_ref: PageRef | None = None
+    page_index: int | None = None
+    bbox: BBox | None = None
+    raw_text: str = ""
+    normalized_text: str = ""
+    source_ref: str | None = None
+    parent_region_id: str | None = None
+    zone_id: str | None = None
+    nearby_region_ids: tuple[str, ...] = ()
+    source_span_ids: tuple[str, ...] = ()
+    confidence: float = 0.0
+    review_flag_ids: tuple[str, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.confidence < 0.0 or self.confidence > 1.0:
+            raise ValueError("VisualRegion.confidence must be in [0.0, 1.0]")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "region_id": self.region_id,
+            "sheet_id": self.sheet_id,
+            "region_kind": self.region_kind.value,
+            "page_ref": asdict(self.page_ref) if self.page_ref is not None else None,
+            "page_index": self.page_index,
+            "bbox": asdict(self.bbox) if self.bbox is not None else None,
+            "raw_text": self.raw_text,
+            "normalized_text": self.normalized_text,
+            "source_ref": self.source_ref,
+            "parent_region_id": self.parent_region_id,
+            "zone_id": self.zone_id,
+            "nearby_region_ids": list(self.nearby_region_ids),
+            "source_span_ids": list(self.source_span_ids),
+            "confidence": self.confidence,
+            "review_flag_ids": list(self.review_flag_ids),
+            "metadata": dict(self.metadata),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class SheetRef:
+    sheet_id: str
+    sheet_number: str | None = None
+    sheet_title: str | None = None
+    drawing_kind: DrawingKind = DrawingKind.UNKNOWN
+    page_ref: PageRef | None = None
+    page_index: int | None = None
+    source_ref: str | None = None
+    confidence: float = 0.0
+    review_flag_ids: tuple[str, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.confidence < 0.0 or self.confidence > 1.0:
+            raise ValueError("SheetRef.confidence must be in [0.0, 1.0]")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "sheet_id": self.sheet_id,
+            "sheet_number": self.sheet_number,
+            "sheet_title": self.sheet_title,
+            "drawing_kind": self.drawing_kind.value,
+            "page_ref": asdict(self.page_ref) if self.page_ref is not None else None,
+            "page_index": self.page_index,
+            "source_ref": self.source_ref,
+            "confidence": self.confidence,
+            "review_flag_ids": list(self.review_flag_ids),
+            "metadata": dict(self.metadata),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class TitleBlockField:
+    field_name: str
+    field_value: str
+    sheet_id: str = ""
+    page_index: int | None = None
+    bbox: BBox | None = None
+    raw_text: str = ""
+    normalized_text: str = ""
+    source_ref: str | None = None
+    region_id: str | None = None
+    confidence: float = 0.0
+    review_flag_ids: tuple[str, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.confidence < 0.0 or self.confidence > 1.0:
+            raise ValueError("TitleBlockField.confidence must be in [0.0, 1.0]")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "field_name": self.field_name,
+            "field_value": self.field_value,
+            "sheet_id": self.sheet_id,
+            "page_index": self.page_index,
+            "bbox": asdict(self.bbox) if self.bbox is not None else None,
+            "raw_text": self.raw_text,
+            "normalized_text": self.normalized_text,
+            "source_ref": self.source_ref,
+            "region_id": self.region_id,
+            "confidence": self.confidence,
+            "review_flag_ids": list(self.review_flag_ids),
+            "metadata": dict(self.metadata),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class RevisionEntry:
+    revision_code: str
+    revision_note: str
+    revision_id: str = ""
+    sheet_id: str = ""
+    revision_date: str | None = None
+    page_index: int | None = None
+    bbox: BBox | None = None
+    source_ref: str | None = None
+    region_id: str | None = None
+    confidence: float = 0.0
+    review_flag_ids: tuple[str, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.confidence < 0.0 or self.confidence > 1.0:
+            raise ValueError("RevisionEntry.confidence must be in [0.0, 1.0]")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "revision_id": self.revision_id,
+            "sheet_id": self.sheet_id,
+            "revision_code": self.revision_code,
+            "revision_note": self.revision_note,
+            "revision_date": self.revision_date,
+            "page_index": self.page_index,
+            "bbox": asdict(self.bbox) if self.bbox is not None else None,
+            "source_ref": self.source_ref,
+            "region_id": self.region_id,
+            "confidence": self.confidence,
+            "review_flag_ids": list(self.review_flag_ids),
+            "metadata": dict(self.metadata),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class CalloutRef:
+    callout_id: str
+    label: str
+    sheet_id: str = ""
+    page_index: int | None = None
+    bbox: BBox | None = None
+    source_ref: str | None = None
+    region_id: str | None = None
+    target_region_id: str | None = None
+    confidence: float = 0.0
+    review_flag_ids: tuple[str, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.confidence < 0.0 or self.confidence > 1.0:
+            raise ValueError("CalloutRef.confidence must be in [0.0, 1.0]")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "callout_id": self.callout_id,
+            "sheet_id": self.sheet_id,
+            "label": self.label,
+            "page_index": self.page_index,
+            "bbox": asdict(self.bbox) if self.bbox is not None else None,
+            "source_ref": self.source_ref,
+            "region_id": self.region_id,
+            "target_region_id": self.target_region_id,
+            "confidence": self.confidence,
+            "review_flag_ids": list(self.review_flag_ids),
+            "metadata": dict(self.metadata),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ComponentLabel:
+    component_id: str
+    label: str
+    sheet_id: str = ""
+    component_kind: ComponentKind = ComponentKind.UNKNOWN
+    page_index: int | None = None
+    bbox: BBox | None = None
+    raw_text: str = ""
+    normalized_text: str = ""
+    source_ref: str | None = None
+    region_id: str | None = None
+    zone_id: str | None = None
+    confidence: float = 0.0
+    review_flag_ids: tuple[str, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.confidence < 0.0 or self.confidence > 1.0:
+            raise ValueError("ComponentLabel.confidence must be in [0.0, 1.0]")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "component_id": self.component_id,
+            "sheet_id": self.sheet_id,
+            "label": self.label,
+            "component_kind": self.component_kind.value,
+            "page_index": self.page_index,
+            "bbox": asdict(self.bbox) if self.bbox is not None else None,
+            "raw_text": self.raw_text,
+            "normalized_text": self.normalized_text,
+            "source_ref": self.source_ref,
+            "region_id": self.region_id,
+            "zone_id": self.zone_id,
+            "confidence": self.confidence,
+            "review_flag_ids": list(self.review_flag_ids),
+            "metadata": dict(self.metadata),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class SpatialZone:
+    zone_id: str
+    zone_name: str
+    sheet_id: str = ""
+    zone_kind: RegionKind = RegionKind.UNKNOWN
+    page_index: int | None = None
+    bbox: BBox | None = None
+    source_ref: str | None = None
+    region_ids: tuple[str, ...] = ()
+    confidence: float = 0.0
+    review_flag_ids: tuple[str, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.confidence < 0.0 or self.confidence > 1.0:
+            raise ValueError("SpatialZone.confidence must be in [0.0, 1.0]")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "zone_id": self.zone_id,
+            "sheet_id": self.sheet_id,
+            "zone_name": self.zone_name,
+            "zone_kind": self.zone_kind.value,
+            "page_index": self.page_index,
+            "bbox": asdict(self.bbox) if self.bbox is not None else None,
+            "source_ref": self.source_ref,
+            "region_ids": list(self.region_ids),
+            "confidence": self.confidence,
+            "review_flag_ids": list(self.review_flag_ids),
+            "metadata": dict(self.metadata),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class DiagramRelationHint:
+    hint_id: str
+    sheet_id: str
+    source_region_id: str
+    target_region_id: str
+    relation_kind: RelationHintKind = RelationHintKind.NEAR
+    confidence: float = 0.0
+    reason: str = ""
+    source_ref: str | None = None
+    review_flag_ids: tuple[str, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.confidence < 0.0 or self.confidence > 1.0:
+            raise ValueError("DiagramRelationHint.confidence must be in [0.0, 1.0]")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "hint_id": self.hint_id,
+            "sheet_id": self.sheet_id,
+            "source_region_id": self.source_region_id,
+            "target_region_id": self.target_region_id,
+            "relation_kind": self.relation_kind.value,
+            "confidence": self.confidence,
+            "reason": self.reason,
+            "source_ref": self.source_ref,
+            "review_flag_ids": list(self.review_flag_ids),
+            "metadata": dict(self.metadata),
+        }
 
 
 # -----------------------------

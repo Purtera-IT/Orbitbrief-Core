@@ -1,0 +1,44 @@
+[
+  {
+    "packet_id": "lv_a_aspen_house_telecom_intercom_risers",
+    "page_index": 59,
+    "sheet_type": "schedule_sheet",
+    "sheet_title": "SCHEDULES & MISCELLANEOUS",
+    "table_count": 8,
+    "room_label_count": 2,
+    "profile": "schedule_with_note_sidecar",
+    "root_cause": "Schedule-like page has note/spec cues but promoter did not emit note clauses; likely sidecar note header or long spec paragraph adjacent to tables is below current promotion threshold."
+  },
+  {
+    "packet_id": "tc_b_seele_es_refresh_dwgs",
+    "page_index": 54,
+    "sheet_type": "legend_symbol",
+    "sheet_title": "",
+    "table_count": 2,
+    "room_label_count": 0,
+    "profile": "legend_with_note_sidecar",
+    "root_cause": "Legend page has sidecar notes/spec text but note promotion currently favors obvious numbered notes and misses legend-adjacent narrative note blocks."
+  },
+  {
+    "packet_id": "tc_b_seele_es_refresh_dwgs",
+    "page_index": 99,
+    "sheet_type": "floorplan_overall",
+    "sheet_title": "",
+    "sheet_number": "A300",
+    "table_count": 2,
+    "room_label_count": 5,
+    "profile": "floorplan_with_note_sidecar",
+    "root_cause": "Floorplan page includes explicit note/spec sidecar or table-adjacent narrative, but floorplan pages are currently under-promoted because the promoter avoids plan-label noise."
+  },
+  {
+    "packet_id": "tc_b_seele_es_refresh_dwgs",
+    "page_index": 100,
+    "sheet_type": "schedule_sheet",
+    "sheet_title": "",
+    "sheet_number": "A300",
+    "table_count": 2,
+    "room_label_count": 0,
+    "profile": "schedule_with_note_sidecar",
+    "root_cause": "Small schedule page with notes/spec text, but current deterministic note promotion likely needs table-adjacent schedule-note fallback."
+  }
+]

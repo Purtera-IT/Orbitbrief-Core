@@ -1,0 +1,138 @@
+You are working in the latest OrbitBrief Core repo on the `site_schematic` lane.
+
+This is the Phase V0/V1 graphics integration pass.
+
+CURRENT STATE
+
+Parser-only text/legend/table/note extraction is effectively complete enough to hand off to graphics.
+The next bottleneck is graphics/schematic interpretation.
+
+The required starting architecture is:
+
+V0 — Page modality router
+Classify every page into:
+- vector_rich
+- hybrid
+- raster_heavy
+
+Use:
+- PDF text density
+- vector path count
+- image count
+- line-art density
+- table/legend presence
+- sheet type
+
+V1 — Vector-native geometry extraction
+For vector-rich/hybrid pages, extract:
+- lines
+- polylines
+- boxes
+- circles
+- arrows
+- callout leaders
+- connectors
+- room/device marker geometry
+- dimension lines where present
+
+Output a geometric primitive graph:
+- line segments
+- junctions
+- boxes
+- candidate symbols
+- candidate leaders
+- candidate dimensions
+- candidate arrows
+
+IMPORTANT
+
+This pass is ONLY V0 and V1.
+Do NOT build the full raster vision fallback yet.
+Do NOT work on OrbitBrief.
+Do NOT weaken the current parser truth path.
+
+MISSION
+
+Use the included starter modules and integration plan to implement:
+1. V0 page modality routing
+2. V1 vector-native geometry extraction
+3. primitive graph integration
+4. evaluation scaffolding against the 12-packet corpus
+
+WORK ORDER
+
+## 1. Add new helper modules from the kit
+- `page_modality_router.py`
+- `vector_primitives.py`
+- `vector_primitive_graph.py`
+- `vector_measurement.py`
+
+## 2. Patch models
+Introduce first-class contracts for:
+- page modality decisions
+- vector primitives
+- vector primitive graph
+- vector junctions
+- measurement candidates
+
+## 3. Patch core
+- compute V0 modality decisions per page
+- store them in model registry / diagnostics
+- pass routing into the observation layer
+
+## 4. Patch observations
+- on vector-rich/hybrid pages, ingest PDF-native drawings
+- normalize to vector primitives
+- attach primitives to per-page observations
+
+## 5. Patch structure graph
+- add vector primitive nodes/edges
+- add junctions / leader / connector edges
+- keep existing region/table graph behavior intact
+
+## 6. Patch topology extract
+- consume vector primitive hints conservatively
+- additive only
+- no regressions to current pair parser behavior
+
+## 7. Add tests
+Run and/or add:
+- `tests/site_schematic/test_phase_v0_v1_helpers.py`
+- existing parser regression suite
+- a V0/V1 corpus eval harness
+
+## 8. Evaluate on all 12 packets
+For each packet, report:
+- modality distribution
+- vector primitive counts
+- primitive graph counts
+- leader/dimension detection counts
+- pages with no vector content
+- pages routed to raster-heavy
+- pages ready for next graphics layer
+
+GOLD TARGETS
+
+V0:
+- modality_honesty_rate >= 0.98
+- current-pair hard-page modality consistency = 1.0
+- holdout routing completeness = 1.0
+
+V1:
+- vector_bbox_presence_rate = 1.0
+- primitive_provenance_rate = 1.0
+- primitive_graph_construction_rate >= 0.95
+- leader_candidate_presence_on_expected_pages >= 0.9
+- dimension_candidate_presence_on_expected_pages >= 0.8
+- no production parser regressions
+
+OUTPUT I WANT
+
+1. exact files changed
+2. exact V0 routing logic added
+3. exact V1 primitive extraction logic added
+4. before/after parser regression status
+5. 12-packet V0/V1 eval report
+6. packet-by-packet pages routed as vector_rich/hybrid/raster_heavy
+7. primitive graph summaries
+8. what the next graphics layer should be after V0/V1

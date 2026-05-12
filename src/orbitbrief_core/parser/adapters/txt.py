@@ -75,7 +75,7 @@ class TxtAdapter(AbstractAdapter):
                 title=heading.title,
                 section_path=section_path,
                 parent_section_id=parent_id,
-                metadata={"style": heading.style, "level": heading.level, "adapter": "txt"},
+                metadata={"style": heading.style, "level": heading.level, "adapter": "txt", **dict(heading.metadata)},
             )
             heading_sections[heading.heading_id] = (section_id, section_path)
             stack.append((heading.level, section_id, section_path))
@@ -87,7 +87,7 @@ class TxtAdapter(AbstractAdapter):
                     section_path=section_path,
                     chronology_rank=heading.heading_index,
                     authority_score=0.82,
-                    metadata={"kind": "heading", "style": heading.style, "heading_id": heading.heading_id},
+                    metadata={"kind": "heading", "style": heading.style, "heading_id": heading.heading_id, **dict(heading.metadata)},
                 )
                 builder.attach_span_to_section(span_id, section_id)
         return root_section_id, heading_sections
@@ -168,7 +168,13 @@ class TxtAdapter(AbstractAdapter):
                 section_path=current_path,
                 chronology_rank=chronology_rank,
                 authority_score=0.78,
-                metadata={"kind": "bullet", "level": bullet.level, "marker": bullet.marker, "bullet_id": bullet.bullet_id},
+                metadata={
+                    "kind": "bullet",
+                    "level": bullet.level,
+                    "marker": bullet.marker,
+                    "bullet_id": bullet.bullet_id,
+                    **dict(bullet.metadata),
+                },
             )
             if current_section_id is not None:
                 builder.attach_span_to_section(span_id, current_section_id)

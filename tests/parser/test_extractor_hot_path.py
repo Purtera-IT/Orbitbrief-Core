@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from orbitbrief_core.compiler.packs.professional_services_text.load_compiled_pack import load_compiled_pack
 from orbitbrief_core.parser.router import RouterInput
 from orbitbrief_core.parser.runtime import parse_extract_and_postprocess
 from orbitbrief_core.runtime_spine.extractors.registry import load_extractor_registry
@@ -178,3 +179,34 @@ extractors:
     assert "ambiguous_extractor_resolution" in result.reason_codes
     assert result.emits_business_claims is False
     assert result.postprocess_result["summary"]["claims_emitted_count"] == 0
+
+
+
+def test_parse_extract_and_postprocess_real_compiled_pack_accepts_canonical_field_paths() -> None:
+    compiled_pack = load_compiled_pack(
+        "professional_services_text",
+        compiled_root=Path(__file__).resolve().parents[2] / "compiled_artifacts",
+    )
+    text = (
+        "Alice: Scope includes AP installation at Dallas HQ and Austin branch.\n"
+        "Alice: Assumption is customer will provide after-hours access.\n"
+        "Bob: Risk is permit delay for rooftop work.\n"
+        "Alice: Deliverable is a migration runbook."
+    )
+    router_input = RouterInput(
+        doc_id="extractor_hot_path_real_pack_001",
+        filename="notes.txt",
+        raw_text_preview=text,
+        metadata={"raw_text": text},
+    )
+    result = parse_extract_and_postprocess(router_input=router_input, compiled_pack=compiled_pack)
+    summary = result.postprocess_result["summary"]
+    rejected_reason_codes = {row["reason_code"] for row in result.postprocess_result["rejected_claims"]}
+    emitted_values = [str(row["candidate_value"]) for row in result.postprocess_result["normalized_output"]["field_claims"]]
+
+    assert result.pipeline_state == "extract"
+    assert summary["claims_emitted_count"] >= 4
+    assert "illegal_field_path" not in rejected_reason_codes
+    assert all("anchor=" not in value for value in emitted_values)
+    assert any("after-hours access" in value for value in emitted_values)
+    assert any("migration runbook" in value for value in emitted_values)

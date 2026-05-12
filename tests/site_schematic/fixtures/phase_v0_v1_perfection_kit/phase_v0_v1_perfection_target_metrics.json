@@ -1,0 +1,21 @@
+{
+  "must_preserve": {
+    "production_kpi_regression_count": 0.0,
+    "contradiction_lane_separation_rate": 1.0,
+    "parser_text_coverage_stable": true
+  },
+  "v0_targets": {
+    "modality_honesty_rate": 1.0,
+    "current_pair_hard_page_modality_consistency": 1.0,
+    "holdout_routing_completeness": 1.0,
+    "packet_level_modality_failures": 0
+  },
+  "v1_targets": {
+    "vector_bbox_presence_rate": 1.0,
+    "primitive_provenance_rate": 1.0,
+    "primitive_graph_construction_rate": 1.0,
+    "leader_candidate_presence_on_expected_pages_min": 0.95,
+    "dimension_candidate_presence_on_expected_pages_min": 0.9,
+    "packet_level_primitive_graph_failures": 0
+  }
+}

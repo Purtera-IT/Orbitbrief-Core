@@ -1,0 +1,13 @@
+id: runtime.extractors.site_schematic.wireless
+version: 0.1.0
+owner: Orbitbrief-Core
+status: experimental
+
+overlay: wireless
+expected_fact_families:
+  - access_point_location
+  - wap_slack_requirement
+  - patch_panel_termination
+  - far_end_closet
+  - jack_color_convention
+  - site_survey_requirement

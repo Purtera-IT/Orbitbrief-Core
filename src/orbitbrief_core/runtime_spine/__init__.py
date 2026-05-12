@@ -9,6 +9,7 @@ from __future__ import annotations
 
 __all__ = [
     "run_pipeline",
+    "run_package_pipeline",
     "parse_extract_and_postprocess",
     "ParserRegistry",
     "load_parser_registry",
@@ -28,6 +29,10 @@ def __getattr__(name: str):
         from .pipeline import parse_extract_and_postprocess  # type: ignore
 
         return parse_extract_and_postprocess
+    if name == "run_package_pipeline":
+        from .package_pipeline import run_package_pipeline  # type: ignore
+
+        return run_package_pipeline
     if name == "ParserRegistry":
         from orbitbrief_core.parser.registry import ParserRegistry
 

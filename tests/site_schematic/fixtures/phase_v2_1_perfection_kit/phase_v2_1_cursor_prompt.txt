@@ -1,0 +1,143 @@
+You are working in the latest OrbitBrief Core repo on the `site_schematic` lane.
+
+This is the V2.1 HARDENING / PERFECTION PASS.
+
+CURRENT STATE
+
+The first V2 pass is already strong:
+- candidate_symbol_grouping_rate = 1.0
+- grounded_symbol_provenance_rate = 1.0
+- legend_grounding_dictionary_completeness = 1.0
+- candidate_to_legend_alignment_rate = 1.0
+- room_device_association_rate = 1.0
+- packet_level_v2_failures = 0
+
+But there are three trust gaps:
+1. unresolved vs ambiguous discipline
+2. connector / linework-aware grounding
+3. packet-level hard-page semantics gates
+
+PRIMARY GOAL
+
+Make V2 more universal and trustworthy by:
+- restoring honest fail-closed grounding states
+- improving connector/linework-aware grounding
+- forcing packet-level hard-page semantic success
+- preserving current pair and V0/V1 stability
+
+DO NOT:
+- touch OrbitBrief
+- implement full raster fallback
+- implement segmentation-heavy image parsing
+- weaken current parser or V0/V1 truth paths
+- hide unresolved cases by converting everything to ambiguous
+
+IMPLEMENT IN THIS ORDER
+
+## 1. Grounding-state policy
+Add deterministic state policy so that candidates can end as:
+- grounded
+- ambiguous
+- unresolved
+- candidate_requires_review
+
+Use:
+- legend match strength
+- semantic text association strength
+- connector evidence
+- room/device association
+- page/sheet-type compatibility
+
+Weakly supported candidates should remain unresolved rather than being over-resolved into ambiguous.
+
+## 2. Connector / linework-aware grounding refinement
+Improve grounding where symbol meaning depends on:
+- connector continuity
+- leader attachment
+- riser path role
+- rack/runway/pathway relation
+- equipment detail linework
+
+This should be additive and bounded.
+Do not rewrite the whole symbol system.
+
+## 3. Legend text association
+Strengthen local legend semantics by combining:
+- legend entry text
+- abbreviation text
+- outlet definition text
+- nearby note text
+- page title / sheet-type priors
+
+The goal is to support packets with different glyph styles but semantically similar local legends.
+
+## 4. Packet hard-page semantics gates
+For every packet, enforce V2 success on hard pages:
+- one control/legend page if present
+- one riser page if present
+- one equipment/rack page if present
+- one installation/detail page if present
+- one plan page with real symbol/linework interaction if present
+
+Do not let a packet pass V2 purely on easy legend pages.
+
+## 5. Add packet-level V2 summaries
+Per packet, report:
+- grounded count
+- ambiguous count
+- unresolved count
+- connector-grounding quality
+- hard-page semantic pass/fail
+- packet-level V2 fail/pass
+
+FILES MOST LIKELY TO CHANGE
+- `src/orbitbrief_core/parser/site_schematic/models.py`
+- `src/orbitbrief_core/parser/site_schematic/core.py`
+- `src/orbitbrief_core/parser/site_schematic/semantic_mapper.py`
+- `src/orbitbrief_core/parser/site_schematic/grounding_resolver.py`
+- `src/orbitbrief_core/parser/site_schematic/structure_graph.py`
+- `tests/site_schematic/phase_v2_eval.py`
+
+USE THE HELPER MODULES FROM THIS KIT
+- `grounding_state_policy.py`
+- `connector_grounding_refinement.py`
+- `legend_text_association.py`
+- `packet_hardpage_semantics.py`
+
+VALIDATION REQUIRED
+
+Run:
+- `pytest tests/site_schematic/test_phase_v2_helpers.py -q`
+- new helper tests from this kit
+- V2 eval across all 12 packets
+- V0/V1 regression spot checks:
+  - `test_phase_v0_v1_eval.py`
+  - `test_phase_v0_v1_gap_closure_helpers.py`
+- parser spot checks:
+  - `test_gold_pdf_eval.py`
+  - `test_phasec_region_fidelity.py`
+
+TARGETS
+
+Preserve:
+- production_kpi_regression_count = 0
+- contradiction_lane_separation_rate = 1.0
+- V0/V1 behavior remains stable
+
+V2.1 targets:
+- grounding_state_honesty_rate >= 0.95
+- connector_grounding_quality_rate >= 0.9
+- packet_hardpage_semantics_rate >= 0.9
+- packet_level_v2_failures = 0
+
+OUTPUT I WANT
+
+1. exact files changed
+2. what changed in grounding-state policy
+3. what changed in connector / linework-aware grounding
+4. what changed in legend text association
+5. packet-by-packet V2.1 summaries
+6. before/after ambiguous vs unresolved totals
+7. before/after connector-grounding quality
+8. before/after hard-page semantic rates
+9. whether V2 is now truly good enough to move toward V3

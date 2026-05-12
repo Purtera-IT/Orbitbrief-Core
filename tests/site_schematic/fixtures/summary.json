@@ -1,0 +1,1591 @@
+{
+  "seed_inspection": {
+    "zip_path": "/mnt/data/v2_6_validation_seed_12pdf.zip",
+    "seed_dir": "/mnt/data/seed_unzipped/v2_6_validation_seed_12pdf",
+    "files": [
+      "README.md",
+      "labels_template.json",
+      "manifest.csv",
+      "manifest.json",
+      "pdfs/01_wireless_current_pair.pdf",
+      "pdfs/02_low_voltage_current_pair.pdf",
+      "pdfs/03_tc_a_4cd_science_building_asbuilts.pdf",
+      "pdfs/04_tc_b_seele_es_refresh_dwgs.pdf",
+      "pdfs/05_tc_c_ventura_admin_comms.pdf",
+      "pdfs/06_tc_d_appalachian_gym_comms.pdf",
+      "pdfs/07_tc_e_red_bay_admin_comms.pdf",
+      "pdfs/08_lv_a_aspen_house_telecom_intercom_risers.pdf",
+      "pdfs/09_lv_b_300_progress_communications.pdf",
+      "pdfs/10_lv_c_union_street_telecom_grounding_intercom.pdf",
+      "pdfs/11_lv_d_iqaluit_operations_centre.pdf",
+      "pdfs/12_lv_e_columbus_library_technology_security.pdf"
+    ],
+    "files_inspected_total": 16,
+    "pdf_count": 12,
+    "checksums_verified": 12,
+    "packet_count": 12,
+    "packets": [
+      {
+        "packet_id": "wireless_current_pair",
+        "pdf_path": "pdfs/01_wireless_current_pair.pdf",
+        "sha256_verified": true,
+        "page_count": 32,
+        "relevant_pages": 32,
+        "legend_pages": [
+          1
+        ],
+        "page_type_counts": {
+          "legend": 1,
+          "other": 23,
+          "floor_plan": 4,
+          "telecom": 1,
+          "detail": 2,
+          "riser": 1
+        },
+        "definition_count": 0
+      },
+      {
+        "packet_id": "low_voltage_current_pair",
+        "pdf_path": "pdfs/02_low_voltage_current_pair.pdf",
+        "sha256_verified": true,
+        "page_count": 18,
+        "relevant_pages": 18,
+        "legend_pages": [
+          1,
+          2,
+          12,
+          14,
+          15
+        ],
+        "page_type_counts": {
+          "legend": 5,
+          "telecom": 1,
+          "floor_plan": 6,
+          "riser": 5,
+          "detail": 1
+        },
+        "definition_count": 21
+      },
+      {
+        "packet_id": "tc_a_4cd_science_building_asbuilts",
+        "pdf_path": "pdfs/03_tc_a_4cd_science_building_asbuilts.pdf",
+        "sha256_verified": true,
+        "page_count": 94,
+        "relevant_pages": 78,
+        "legend_pages": [
+          2,
+          17,
+          39,
+          50,
+          69,
+          94
+        ],
+        "page_type_counts": {
+          "other": 20,
+          "legend": 6,
+          "site_plan": 2,
+          "detail": 18,
+          "floor_plan": 33,
+          "telecom": 5,
+          "cover": 1,
+          "fire_alarm": 4,
+          "riser": 5
+        },
+        "definition_count": 0
+      },
+      {
+        "packet_id": "tc_b_seele_es_refresh_dwgs",
+        "pdf_path": "pdfs/04_tc_b_seele_es_refresh_dwgs.pdf",
+        "sha256_verified": true,
+        "page_count": 102,
+        "relevant_pages": 68,
+        "legend_pages": [
+          2,
+          3,
+          14,
+          15,
+          17,
+          18,
+          19,
+          20,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          45,
+          46,
+          47,
+          48,
+          49,
+          61,
+          62,
+          77,
+          83,
+          84,
+          86,
+          87,
+          91,
+          97,
+          101
+        ],
+        "page_type_counts": {
+          "cover": 9,
+          "legend": 31,
+          "other": 34,
+          "site_plan": 5,
+          "detail": 10,
+          "floor_plan": 11,
+          "schedule": 2
+        },
+        "definition_count": 8
+      },
+      {
+        "packet_id": "tc_c_ventura_admin_comms",
+        "pdf_path": "pdfs/05_tc_c_ventura_admin_comms.pdf",
+        "sha256_verified": true,
+        "page_count": 39,
+        "relevant_pages": 33,
+        "legend_pages": [
+          1,
+          2,
+          5,
+          6,
+          9,
+          19,
+          26,
+          28,
+          37
+        ],
+        "page_type_counts": {
+          "legend": 9,
+          "detail": 8,
+          "floor_plan": 12,
+          "other": 6,
+          "riser": 3,
+          "site_plan": 1
+        },
+        "definition_count": 1
+      },
+      {
+        "packet_id": "tc_d_appalachian_gym_comms",
+        "pdf_path": "pdfs/06_tc_d_appalachian_gym_comms.pdf",
+        "sha256_verified": true,
+        "page_count": 92,
+        "relevant_pages": 53,
+        "legend_pages": [
+          26,
+          33,
+          49,
+          50,
+          65,
+          68,
+          69
+        ],
+        "page_type_counts": {
+          "other": 35,
+          "detail": 16,
+          "site_plan": 7,
+          "legend": 7,
+          "cover": 4,
+          "floor_plan": 19,
+          "riser": 4
+        },
+        "definition_count": 2
+      },
+      {
+        "packet_id": "tc_e_red_bay_admin_comms",
+        "pdf_path": "pdfs/07_tc_e_red_bay_admin_comms.pdf",
+        "sha256_verified": true,
+        "page_count": 48,
+        "relevant_pages": 33,
+        "legend_pages": [
+          1,
+          18,
+          29,
+          32
+        ],
+        "page_type_counts": {
+          "legend": 4,
+          "cover": 1,
+          "other": 14,
+          "detail": 15,
+          "site_plan": 3,
+          "floor_plan": 6,
+          "riser": 5
+        },
+        "definition_count": 4
+      },
+      {
+        "packet_id": "lv_a_aspen_house_telecom_intercom_risers",
+        "pdf_path": "pdfs/08_lv_a_aspen_house_telecom_intercom_risers.pdf",
+        "sha256_verified": true,
+        "page_count": 76,
+        "relevant_pages": 32,
+        "legend_pages": [
+          5,
+          33,
+          60
+        ],
+        "page_type_counts": {
+          "cover": 9,
+          "legend": 3,
+          "detail": 11,
+          "other": 37,
+          "floor_plan": 5,
+          "schedule": 2,
+          "riser": 8,
+          "site_plan": 1
+        },
+        "definition_count": 0
+      },
+      {
+        "packet_id": "lv_b_300_progress_communications",
+        "pdf_path": "pdfs/09_lv_b_300_progress_communications.pdf",
+        "sha256_verified": true,
+        "page_count": 7,
+        "relevant_pages": 7,
+        "legend_pages": [
+          1
+        ],
+        "page_type_counts": {
+          "legend": 1,
+          "floor_plan": 4,
+          "riser": 1,
+          "detail": 1
+        },
+        "definition_count": 0
+      },
+      {
+        "packet_id": "lv_c_union_street_telecom_grounding_intercom",
+        "pdf_path": "pdfs/10_lv_c_union_street_telecom_grounding_intercom.pdf",
+        "sha256_verified": true,
+        "page_count": 31,
+        "relevant_pages": 25,
+        "legend_pages": [
+          3,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          25,
+          26,
+          29,
+          30,
+          31
+        ],
+        "page_type_counts": {
+          "floor_plan": 9,
+          "legend": 13,
+          "site_plan": 1,
+          "other": 6,
+          "fire_alarm": 1,
+          "riser": 1
+        },
+        "definition_count": 0
+      },
+      {
+        "packet_id": "lv_d_iqaluit_operations_centre",
+        "pdf_path": "pdfs/11_lv_d_iqaluit_operations_centre.pdf",
+        "sha256_verified": true,
+        "page_count": 78,
+        "relevant_pages": 61,
+        "legend_pages": [
+          1,
+          2,
+          6,
+          7,
+          8,
+          51
+        ],
+        "page_type_counts": {
+          "legend": 6,
+          "site_plan": 5,
+          "floor_plan": 13,
+          "detail": 21,
+          "other": 18,
+          "cover": 1,
+          "riser": 3,
+          "schedule": 1,
+          "fire_alarm": 1,
+          "telecom": 4,
+          "security": 5
+        },
+        "definition_count": 2
+      },
+      {
+        "packet_id": "lv_e_columbus_library_technology_security",
+        "pdf_path": "pdfs/12_lv_e_columbus_library_technology_security.pdf",
+        "sha256_verified": true,
+        "page_count": 6,
+        "relevant_pages": 6,
+        "legend_pages": [
+          1,
+          5
+        ],
+        "page_type_counts": {
+          "legend": 2,
+          "riser": 1,
+          "floor_plan": 3
+        },
+        "definition_count": 28
+      }
+    ]
+  },
+  "targets": {
+    "expected_family_grounded_coverage_rate": 0.75,
+    "hardpage_family_grounded_coverage_rate": 0.8,
+    "hardpage_requirement_truth_rate": 1.0,
+    "hardpage_grounded_symbol_yield_rate": 0.65,
+    "packet_level_v2_failures": 0,
+    "truth_audit_failures_total": 0
+  },
+  "baseline_corpus_metrics": {
+    "expected_family_grounded_coverage_rate": 0.6903,
+    "hardpage_family_grounded_coverage_rate": 0.6968,
+    "hardpage_requirement_truth_rate": 1.0,
+    "hardpage_grounded_symbol_yield_rate": 0.643,
+    "room_device_truth_rate": 1.0,
+    "connector_truth_rate": 1.0,
+    "contradiction_lane_separation": 1.0,
+    "packet_level_v2_failures": 6,
+    "truth_audit_failures_total": 0,
+    "packets_passed": 6,
+    "packet_count": 12,
+    "target_pass": false
+  },
+  "v2_6_corpus_metrics": {
+    "expected_family_grounded_coverage_rate": 0.7694,
+    "hardpage_family_grounded_coverage_rate": 0.7778,
+    "hardpage_requirement_truth_rate": 1.0,
+    "hardpage_grounded_symbol_yield_rate": 0.7498,
+    "room_device_truth_rate": 0.9499,
+    "connector_truth_rate": 1.0,
+    "contradiction_lane_separation": 1.0,
+    "packet_level_v2_failures": 6,
+    "truth_audit_failures_total": 168,
+    "packets_passed": 6,
+    "packet_count": 12,
+    "target_pass": false
+  },
+  "baseline_packet_metrics": [
+    {
+      "packet_id": "wireless_current_pair",
+      "category": "telecom_wireless",
+      "role": "current_pair_benchmark",
+      "page_count": 0,
+      "expected_family_universe": [],
+      "grounded_family_set": [],
+      "hardpage_expected_family_set": [],
+      "hardpage_grounded_family_set": [],
+      "required_page_types": [],
+      "expected_family_grounded_coverage_rate": 1.0,
+      "hardpage_family_grounded_coverage_rate": 1.0,
+      "hardpage_grounded_symbol_yield_rate": 1.0,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 0,
+      "ambiguous_symbol_instances": 0,
+      "unresolved_symbol_instances": 0,
+      "total_symbol_instances": 0,
+      "packet_level_v2_failure": []
+    },
+    {
+      "packet_id": "low_voltage_current_pair",
+      "category": "low_voltage_security",
+      "role": "current_pair_benchmark",
+      "page_count": 18,
+      "expected_family_universe": [
+        "communications_outlet",
+        "custom_camera_see_camera_schedule",
+        "data_voice_combination_outlet_v",
+        "door_contact",
+        "duress_alarm_button",
+        "fiber_outlet",
+        "port_data_box_outlet_number",
+        "telephone_outlet",
+        "television_data_combo_outlet",
+        "zigbee_node_outlet"
+      ],
+      "grounded_family_set": [
+        "communications_outlet",
+        "custom_camera_see_camera_schedule",
+        "data_voice_combination_outlet_v",
+        "fiber_outlet",
+        "telephone_outlet",
+        "television_data_combo_outlet",
+        "zigbee_node_outlet"
+      ],
+      "hardpage_expected_family_set": [
+        "communications_outlet",
+        "custom_camera_see_camera_schedule",
+        "data_voice_combination_outlet_v",
+        "door_contact",
+        "duress_alarm_button",
+        "fiber_outlet",
+        "telephone_outlet",
+        "television_data_combo_outlet",
+        "zigbee_node_outlet"
+      ],
+      "hardpage_grounded_family_set": [
+        "communications_outlet",
+        "custom_camera_see_camera_schedule",
+        "data_voice_combination_outlet_v",
+        "fiber_outlet",
+        "telephone_outlet",
+        "television_data_combo_outlet",
+        "zigbee_node_outlet"
+      ],
+      "required_page_types": [
+        "floor_plan",
+        "riser",
+        "detail",
+        "telecom"
+      ],
+      "expected_family_grounded_coverage_rate": 0.7,
+      "hardpage_family_grounded_coverage_rate": 0.7778,
+      "hardpage_grounded_symbol_yield_rate": 0.5869,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 206,
+      "ambiguous_symbol_instances": 302,
+      "unresolved_symbol_instances": 1,
+      "total_symbol_instances": 509,
+      "packet_level_v2_failure": [
+        "expected_family_grounded_coverage_rate",
+        "hardpage_family_grounded_coverage_rate",
+        "hardpage_grounded_symbol_yield_rate"
+      ]
+    },
+    {
+      "packet_id": "tc_a_4cd_science_building_asbuilts",
+      "category": "telecom_wireless",
+      "role": "holdout",
+      "page_count": 0,
+      "expected_family_universe": [],
+      "grounded_family_set": [],
+      "hardpage_expected_family_set": [],
+      "hardpage_grounded_family_set": [],
+      "required_page_types": [],
+      "expected_family_grounded_coverage_rate": 1.0,
+      "hardpage_family_grounded_coverage_rate": 1.0,
+      "hardpage_grounded_symbol_yield_rate": 1.0,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 0,
+      "ambiguous_symbol_instances": 0,
+      "unresolved_symbol_instances": 0,
+      "total_symbol_instances": 0,
+      "packet_level_v2_failure": []
+    },
+    {
+      "packet_id": "tc_b_seele_es_refresh_dwgs",
+      "category": "telecom_wireless",
+      "role": "holdout",
+      "page_count": 47,
+      "expected_family_universe": [
+        "card_reader",
+        "communications_outlet",
+        "duress_alarm_button",
+        "outlet_in_accessible",
+        "telecommunications_panel",
+        "telephone_outlet"
+      ],
+      "grounded_family_set": [
+        "communications_outlet",
+        "telecommunications_panel"
+      ],
+      "hardpage_expected_family_set": [
+        "card_reader",
+        "communications_outlet",
+        "duress_alarm_button",
+        "outlet_in_accessible",
+        "telecommunications_panel",
+        "telephone_outlet"
+      ],
+      "hardpage_grounded_family_set": [
+        "communications_outlet",
+        "telecommunications_panel"
+      ],
+      "required_page_types": [
+        "floor_plan",
+        "detail",
+        "schedule"
+      ],
+      "expected_family_grounded_coverage_rate": 0.3333,
+      "hardpage_family_grounded_coverage_rate": 0.3333,
+      "hardpage_grounded_symbol_yield_rate": 0.0773,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 17,
+      "ambiguous_symbol_instances": 167,
+      "unresolved_symbol_instances": 394,
+      "total_symbol_instances": 578,
+      "packet_level_v2_failure": [
+        "expected_family_grounded_coverage_rate",
+        "hardpage_family_grounded_coverage_rate",
+        "hardpage_grounded_symbol_yield_rate"
+      ]
+    },
+    {
+      "packet_id": "tc_c_ventura_admin_comms",
+      "category": "telecom_wireless",
+      "role": "holdout",
+      "page_count": 33,
+      "expected_family_universe": [
+        "leviton_sst_indoor_plenum_rated"
+      ],
+      "grounded_family_set": [
+        "leviton_sst_indoor_plenum_rated"
+      ],
+      "hardpage_expected_family_set": [
+        "leviton_sst_indoor_plenum_rated"
+      ],
+      "hardpage_grounded_family_set": [
+        "leviton_sst_indoor_plenum_rated"
+      ],
+      "required_page_types": [
+        "floor_plan",
+        "site_plan",
+        "riser",
+        "detail"
+      ],
+      "expected_family_grounded_coverage_rate": 1.0,
+      "hardpage_family_grounded_coverage_rate": 1.0,
+      "hardpage_grounded_symbol_yield_rate": 0.8633,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 423,
+      "ambiguous_symbol_instances": 261,
+      "unresolved_symbol_instances": 0,
+      "total_symbol_instances": 684,
+      "packet_level_v2_failure": []
+    },
+    {
+      "packet_id": "tc_d_appalachian_gym_comms",
+      "category": "telecom_wireless",
+      "role": "holdout",
+      "page_count": 30,
+      "expected_family_universe": [
+        "equipment_rack",
+        "wireless_access_point"
+      ],
+      "grounded_family_set": [],
+      "hardpage_expected_family_set": [
+        "equipment_rack",
+        "wireless_access_point"
+      ],
+      "hardpage_grounded_family_set": [],
+      "required_page_types": [
+        "floor_plan",
+        "riser",
+        "detail"
+      ],
+      "expected_family_grounded_coverage_rate": 0.0,
+      "hardpage_family_grounded_coverage_rate": 0.0,
+      "hardpage_grounded_symbol_yield_rate": 0.0,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 0,
+      "ambiguous_symbol_instances": 54,
+      "unresolved_symbol_instances": 26,
+      "total_symbol_instances": 80,
+      "packet_level_v2_failure": [
+        "expected_family_grounded_coverage_rate",
+        "hardpage_family_grounded_coverage_rate",
+        "hardpage_grounded_symbol_yield_rate"
+      ]
+    },
+    {
+      "packet_id": "tc_e_red_bay_admin_comms",
+      "category": "telecom_wireless",
+      "role": "holdout",
+      "page_count": 20,
+      "expected_family_universe": [
+        "communications_outlet",
+        "equipment_rack",
+        "security_camera",
+        "wireless_access_point"
+      ],
+      "grounded_family_set": [],
+      "hardpage_expected_family_set": [
+        "communications_outlet",
+        "equipment_rack"
+      ],
+      "hardpage_grounded_family_set": [],
+      "required_page_types": [
+        "floor_plan",
+        "riser",
+        "detail"
+      ],
+      "expected_family_grounded_coverage_rate": 0.0,
+      "hardpage_family_grounded_coverage_rate": 0.0,
+      "hardpage_grounded_symbol_yield_rate": 0.0,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 0,
+      "ambiguous_symbol_instances": 38,
+      "unresolved_symbol_instances": 10,
+      "total_symbol_instances": 48,
+      "packet_level_v2_failure": [
+        "expected_family_grounded_coverage_rate",
+        "hardpage_family_grounded_coverage_rate",
+        "hardpage_grounded_symbol_yield_rate"
+      ]
+    },
+    {
+      "packet_id": "lv_a_aspen_house_telecom_intercom_risers",
+      "category": "low_voltage_security",
+      "role": "holdout",
+      "page_count": 0,
+      "expected_family_universe": [],
+      "grounded_family_set": [],
+      "hardpage_expected_family_set": [],
+      "hardpage_grounded_family_set": [],
+      "required_page_types": [],
+      "expected_family_grounded_coverage_rate": 1.0,
+      "hardpage_family_grounded_coverage_rate": 1.0,
+      "hardpage_grounded_symbol_yield_rate": 1.0,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 0,
+      "ambiguous_symbol_instances": 0,
+      "unresolved_symbol_instances": 0,
+      "total_symbol_instances": 0,
+      "packet_level_v2_failure": []
+    },
+    {
+      "packet_id": "lv_b_300_progress_communications",
+      "category": "low_voltage_security",
+      "role": "holdout",
+      "page_count": 0,
+      "expected_family_universe": [],
+      "grounded_family_set": [],
+      "hardpage_expected_family_set": [],
+      "hardpage_grounded_family_set": [],
+      "required_page_types": [],
+      "expected_family_grounded_coverage_rate": 1.0,
+      "hardpage_family_grounded_coverage_rate": 1.0,
+      "hardpage_grounded_symbol_yield_rate": 1.0,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 0,
+      "ambiguous_symbol_instances": 0,
+      "unresolved_symbol_instances": 0,
+      "total_symbol_instances": 0,
+      "packet_level_v2_failure": []
+    },
+    {
+      "packet_id": "lv_c_union_street_telecom_grounding_intercom",
+      "category": "low_voltage_security",
+      "role": "holdout",
+      "page_count": 0,
+      "expected_family_universe": [],
+      "grounded_family_set": [],
+      "hardpage_expected_family_set": [],
+      "hardpage_grounded_family_set": [],
+      "required_page_types": [],
+      "expected_family_grounded_coverage_rate": 1.0,
+      "hardpage_family_grounded_coverage_rate": 1.0,
+      "hardpage_grounded_symbol_yield_rate": 1.0,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 0,
+      "ambiguous_symbol_instances": 0,
+      "unresolved_symbol_instances": 0,
+      "total_symbol_instances": 0,
+      "packet_level_v2_failure": []
+    },
+    {
+      "packet_id": "lv_d_iqaluit_operations_centre",
+      "category": "low_voltage_security",
+      "role": "holdout",
+      "page_count": 16,
+      "expected_family_universe": [
+        "hws_glycol_fill_station_pump",
+        "power_ddc_panel"
+      ],
+      "grounded_family_set": [
+        "hws_glycol_fill_station_pump"
+      ],
+      "hardpage_expected_family_set": [
+        "hws_glycol_fill_station_pump",
+        "power_ddc_panel"
+      ],
+      "hardpage_grounded_family_set": [
+        "hws_glycol_fill_station_pump"
+      ],
+      "required_page_types": [
+        "floor_plan",
+        "site_plan",
+        "detail",
+        "telecom",
+        "fire_alarm",
+        "schedule"
+      ],
+      "expected_family_grounded_coverage_rate": 0.5,
+      "hardpage_family_grounded_coverage_rate": 0.5,
+      "hardpage_grounded_symbol_yield_rate": 0.6762,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 71,
+      "ambiguous_symbol_instances": 69,
+      "unresolved_symbol_instances": 0,
+      "total_symbol_instances": 140,
+      "packet_level_v2_failure": [
+        "expected_family_grounded_coverage_rate",
+        "hardpage_family_grounded_coverage_rate"
+      ]
+    },
+    {
+      "packet_id": "lv_e_columbus_library_technology_security",
+      "category": "low_voltage_security",
+      "role": "holdout",
+      "page_count": 6,
+      "expected_family_universe": [
+        "4_11_16_square_2",
+        "junction_box",
+        "keypad",
+        "marion_franklin_branch_2800_lockbourne",
+        "marion_franklin_camera_schedule_number",
+        "speaker",
+        "telecommunications_ground_busbar",
+        "wireless_access_point"
+      ],
+      "grounded_family_set": [
+        "4_11_16_square_2",
+        "junction_box",
+        "marion_franklin_camera_schedule_number",
+        "speaker",
+        "telecommunications_ground_busbar",
+        "wireless_access_point"
+      ],
+      "hardpage_expected_family_set": [
+        "4_11_16_square_2",
+        "junction_box",
+        "keypad",
+        "marion_franklin_branch_2800_lockbourne",
+        "marion_franklin_camera_schedule_number",
+        "speaker",
+        "telecommunications_ground_busbar",
+        "wireless_access_point"
+      ],
+      "hardpage_grounded_family_set": [
+        "4_11_16_square_2",
+        "junction_box",
+        "marion_franklin_camera_schedule_number",
+        "speaker",
+        "telecommunications_ground_busbar",
+        "wireless_access_point"
+      ],
+      "required_page_types": [
+        "floor_plan",
+        "riser"
+      ],
+      "expected_family_grounded_coverage_rate": 0.75,
+      "hardpage_family_grounded_coverage_rate": 0.75,
+      "hardpage_grounded_symbol_yield_rate": 0.5118,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 87,
+      "ambiguous_symbol_instances": 135,
+      "unresolved_symbol_instances": 38,
+      "total_symbol_instances": 260,
+      "packet_level_v2_failure": [
+        "hardpage_family_grounded_coverage_rate",
+        "hardpage_grounded_symbol_yield_rate"
+      ]
+    }
+  ],
+  "v2_6_packet_metrics": [
+    {
+      "packet_id": "wireless_current_pair",
+      "category": "telecom_wireless",
+      "role": "current_pair_benchmark",
+      "page_count": 0,
+      "expected_family_universe": [],
+      "grounded_family_set": [],
+      "hardpage_expected_family_set": [],
+      "hardpage_grounded_family_set": [],
+      "required_page_types": [],
+      "expected_family_grounded_coverage_rate": 1.0,
+      "hardpage_family_grounded_coverage_rate": 1.0,
+      "hardpage_grounded_symbol_yield_rate": 1.0,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 0,
+      "ambiguous_symbol_instances": 0,
+      "unresolved_symbol_instances": 0,
+      "total_symbol_instances": 0,
+      "packet_level_v2_failure": []
+    },
+    {
+      "packet_id": "low_voltage_current_pair",
+      "category": "low_voltage_security",
+      "role": "current_pair_benchmark",
+      "page_count": 18,
+      "expected_family_universe": [
+        "communications_outlet",
+        "custom_camera_see_camera_schedule",
+        "data_voice_combination_outlet_v",
+        "door_contact",
+        "duress_alarm_button",
+        "fiber_outlet",
+        "port_data_box_outlet_number",
+        "telephone_outlet",
+        "television_data_combo_outlet",
+        "zigbee_node_outlet"
+      ],
+      "grounded_family_set": [
+        "communications_outlet",
+        "custom_camera_see_camera_schedule",
+        "data_voice_combination_outlet_v",
+        "door_contact",
+        "duress_alarm_button",
+        "fiber_outlet",
+        "fire_alarm_control_panel",
+        "telephone_outlet",
+        "television_data_combo_outlet",
+        "zigbee_node_outlet"
+      ],
+      "hardpage_expected_family_set": [
+        "communications_outlet",
+        "custom_camera_see_camera_schedule",
+        "data_voice_combination_outlet_v",
+        "door_contact",
+        "duress_alarm_button",
+        "fiber_outlet",
+        "telephone_outlet",
+        "television_data_combo_outlet",
+        "zigbee_node_outlet"
+      ],
+      "hardpage_grounded_family_set": [
+        "communications_outlet",
+        "custom_camera_see_camera_schedule",
+        "data_voice_combination_outlet_v",
+        "door_contact",
+        "duress_alarm_button",
+        "fiber_outlet",
+        "telephone_outlet",
+        "television_data_combo_outlet",
+        "zigbee_node_outlet"
+      ],
+      "required_page_types": [
+        "floor_plan",
+        "riser",
+        "detail",
+        "telecom"
+      ],
+      "expected_family_grounded_coverage_rate": 0.9,
+      "hardpage_family_grounded_coverage_rate": 1.0,
+      "hardpage_grounded_symbol_yield_rate": 0.9687,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 0.758,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [
+          "low_voltage_current_pair:p3:L:9a060002f1e7c0f5:1142:2956",
+          "low_voltage_current_pair:p10:A:9a4284cc2cab8e71:2068:436",
+          "low_voltage_current_pair:p10:A:9a173334a1feed2a:2042:2420",
+          "low_voltage_current_pair:p10:A:7d97b2a442d43b7e:1196:2876",
+          "low_voltage_current_pair:p10:A:e620aa7c45eb1817:1142:2918",
+          "low_voltage_current_pair:p10:A:e620aa7c45eb1817:1142:2949",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:1840:224",
+          "low_voltage_current_pair:p11:TV:9e6e792be65a401c:456:338",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:1245:362",
+          "low_voltage_current_pair:p11:TV:9e6e792be65a401c:1082:430",
+          "low_voltage_current_pair:p11:TV:9e6e792be65a401c:1909:516",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:451:522",
+          "low_voltage_current_pair:p11:TV:9e6e792be65a401c:1869:861",
+          "low_voltage_current_pair:p11:TV:9e6e792be65a401c:1033:887",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:1259:963",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:1793:1046",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:164:1183",
+          "low_voltage_current_pair:p11:TV:9e6e792be65a401c:347:1251",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:564:1292",
+          "low_voltage_current_pair:p11:TV:9e6e792be65a401c:747:1299",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:1808:1370",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:1197:1401",
+          "low_voltage_current_pair:p11:TV:9e6e792be65a401c:1881:1548",
+          "low_voltage_current_pair:p11:TV:9e6e792be65a401c:1118:1666",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:505:1834",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:1857:1863",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:1255:1953",
+          "low_voltage_current_pair:p11:TV:9e6e792be65a401c:1097:2008",
+          "low_voltage_current_pair:p11:TV:9e6e792be65a401c:528:2013",
+          "low_voltage_current_pair:p11:TV:9e6e792be65a401c:1933:2024",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:1873:2078",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:1210:2083",
+          "low_voltage_current_pair:p11:TV:9e6e792be65a401c:1319:2218",
+          "low_voltage_current_pair:p11:TV:9e6e792be65a401c:1981:2280",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:493:2350",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:564:2351",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:2036:2397",
+          "low_voltage_current_pair:p11:TV:9e6e792be65a401c:355:2412",
+          "low_voltage_current_pair:p11:B:ff5935d5554a4644:1238:2461",
+          "low_voltage_current_pair:p11:TV:9e6e792be65a401c:604:2617",
+          "low_voltage_current_pair:p11:TV:9e6e792be65a401c:1259:2635",
+          "low_voltage_current_pair:p11:A:e5c9171252b6a016:1196:2876",
+          "low_voltage_current_pair:p11:E:83e03dc03ce13eb9:1142:2897",
+          "low_voltage_current_pair:p11:A:fcdfb641645d8a5d:1142:2918",
+          "low_voltage_current_pair:p11:A:fcdfb641645d8a5d:1142:2949",
+          "low_voltage_current_pair:p13:TV:1ec0111d8d8c46a6:1191:2424",
+          "low_voltage_current_pair:p13:A:728fa364e19a4ba8:1991:2551",
+          "low_voltage_current_pair:p13:B:b5c38dd360a2569c:1253:2600",
+          "low_voltage_current_pair:p13:A:f3d3c918e0a96d4d:1196:2876",
+          "low_voltage_current_pair:p13:E:4cf52e0e21f36684:1142:2897",
+          "low_voltage_current_pair:p13:A:851b6cc52c3751db:1142:2918",
+          "low_voltage_current_pair:p13:A:851b6cc52c3751db:1142:2949",
+          "low_voltage_current_pair:p13:L:a10c0047785c0823:1142:2956",
+          "low_voltage_current_pair:p17:DC:1b12f3c8048cf1b4:1316:1265",
+          "low_voltage_current_pair:p17:DC:1b12f3c8048cf1b4:1712:1265",
+          "low_voltage_current_pair:p17:DC:1b12f3c8048cf1b4:1279:1265",
+          "low_voltage_current_pair:p17:DC:1b12f3c8048cf1b4:1666:1265",
+          "low_voltage_current_pair:p17:DC:1b12f3c8048cf1b4:1365:1265",
+          "low_voltage_current_pair:p17:DC:1b12f3c8048cf1b4:1411:1265",
+          "low_voltage_current_pair:p17:DC:1b12f3c8048cf1b4:1493:1265",
+          "low_voltage_current_pair:p17:DC:1b12f3c8048cf1b4:1761:1265",
+          "low_voltage_current_pair:p17:DC:1b12f3c8048cf1b4:1798:1265",
+          "low_voltage_current_pair:p17:B:a9929fd85eacaca7:1437:2413",
+          "low_voltage_current_pair:p17:B:a9929fd85eacaca7:1528:2413",
+          "low_voltage_current_pair:p17:B:a9929fd85eacaca7:1747:2413",
+          "low_voltage_current_pair:p17:A:3c5c86b20e0b7cc7:1551:2414",
+          "low_voltage_current_pair:p17:A:3c5c86b20e0b7cc7:1770:2414",
+          "low_voltage_current_pair:p17:A:eb212a7626f1539e:1804:2502",
+          "low_voltage_current_pair:p17:A:eb212a7626f1539e:943:2637",
+          "low_voltage_current_pair:p17:A:c89b6ddbbad9c6a8:1196:2876",
+          "low_voltage_current_pair:p17:E:7d691ff4a1375b23:1142:2897",
+          "low_voltage_current_pair:p17:A:615085dc1d78c237:1142:2918",
+          "low_voltage_current_pair:p17:A:615085dc1d78c237:1142:2949",
+          "low_voltage_current_pair:p17:L:cc601e3208a98351:1142:2956",
+          "low_voltage_current_pair:p18:F:8a755300af6e9570:1500:544",
+          "low_voltage_current_pair:p18:A:212e3ac039ad4b37:243:653",
+          "low_voltage_current_pair:p18:A:212e3ac039ad4b37:197:658",
+          "low_voltage_current_pair:p18:F:8a755300af6e9570:1516:918",
+          "low_voltage_current_pair:p18:A:f8029b9fb1a17253:1196:2876",
+          "low_voltage_current_pair:p18:E:7698d75fcea876d0:1142:2897",
+          "low_voltage_current_pair:p18:A:2cfcb6cf336ba558:1142:2918",
+          "low_voltage_current_pair:p18:A:2cfcb6cf336ba558:1142:2949",
+          "low_voltage_current_pair:p18:L:517c303e2cabb5b4:1142:2956"
+        ],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 343,
+      "ambiguous_symbol_instances": 165,
+      "unresolved_symbol_instances": 1,
+      "total_symbol_instances": 509,
+      "packet_level_v2_failure": [
+        "room_device_truth"
+      ]
+    },
+    {
+      "packet_id": "tc_a_4cd_science_building_asbuilts",
+      "category": "telecom_wireless",
+      "role": "holdout",
+      "page_count": 0,
+      "expected_family_universe": [],
+      "grounded_family_set": [],
+      "hardpage_expected_family_set": [],
+      "hardpage_grounded_family_set": [],
+      "required_page_types": [],
+      "expected_family_grounded_coverage_rate": 1.0,
+      "hardpage_family_grounded_coverage_rate": 1.0,
+      "hardpage_grounded_symbol_yield_rate": 1.0,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 0,
+      "ambiguous_symbol_instances": 0,
+      "unresolved_symbol_instances": 0,
+      "total_symbol_instances": 0,
+      "packet_level_v2_failure": []
+    },
+    {
+      "packet_id": "tc_b_seele_es_refresh_dwgs",
+      "category": "telecom_wireless",
+      "role": "holdout",
+      "page_count": 47,
+      "expected_family_universe": [
+        "card_reader",
+        "communications_outlet",
+        "duress_alarm_button",
+        "outlet_in_accessible",
+        "telecommunications_panel",
+        "telephone_outlet"
+      ],
+      "grounded_family_set": [
+        "communications_outlet",
+        "telecommunications_panel",
+        "wireless_access_point"
+      ],
+      "hardpage_expected_family_set": [
+        "card_reader",
+        "communications_outlet",
+        "duress_alarm_button",
+        "outlet_in_accessible",
+        "telecommunications_panel",
+        "telephone_outlet"
+      ],
+      "hardpage_grounded_family_set": [
+        "communications_outlet",
+        "telecommunications_panel"
+      ],
+      "required_page_types": [
+        "floor_plan",
+        "detail",
+        "schedule"
+      ],
+      "expected_family_grounded_coverage_rate": 0.3333,
+      "hardpage_family_grounded_coverage_rate": 0.3333,
+      "hardpage_grounded_symbol_yield_rate": 0.0955,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 0.9545,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [
+          "tc_b_seele_es_refresh_dwgs:p63:DB:b6bf383bf095a65c:508:1083"
+        ],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 22,
+      "ambiguous_symbol_instances": 205,
+      "unresolved_symbol_instances": 351,
+      "total_symbol_instances": 578,
+      "packet_level_v2_failure": [
+        "expected_family_grounded_coverage_rate",
+        "hardpage_family_grounded_coverage_rate",
+        "hardpage_grounded_symbol_yield_rate",
+        "room_device_truth"
+      ]
+    },
+    {
+      "packet_id": "tc_c_ventura_admin_comms",
+      "category": "telecom_wireless",
+      "role": "holdout",
+      "page_count": 33,
+      "expected_family_universe": [
+        "leviton_sst_indoor_plenum_rated"
+      ],
+      "grounded_family_set": [
+        "leviton_sst_indoor_plenum_rated"
+      ],
+      "hardpage_expected_family_set": [
+        "leviton_sst_indoor_plenum_rated"
+      ],
+      "hardpage_grounded_family_set": [
+        "leviton_sst_indoor_plenum_rated"
+      ],
+      "required_page_types": [
+        "floor_plan",
+        "site_plan",
+        "riser",
+        "detail"
+      ],
+      "expected_family_grounded_coverage_rate": 1.0,
+      "hardpage_family_grounded_coverage_rate": 1.0,
+      "hardpage_grounded_symbol_yield_rate": 0.9939,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 0.8789,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:398:1103",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:524:1104",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:555:1167",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:323:1185",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:396:1203",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:417:1203",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:378:1265",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:389:1306",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:1205:1365",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:323:1375",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:550:1381",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:417:1387",
+          "tc_c_ventura_admin_comms:p33:A:c7205793088ab335:454:1459",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:1418:1523",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:602:1776",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:796:1845",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:817:1845",
+          "tc_c_ventura_admin_comms:p33:A:d9e3293265176692:602:1904",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:1248:1944",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:1426:1944",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:794:1949",
+          "tc_c_ventura_admin_comms:p33:A:9895df7e5ef06288:930:1949",
+          "tc_c_ventura_admin_comms:p33:A:fe3635d28ba2030b:800:2310",
+          "tc_c_ventura_admin_comms:p33:A:a25606aff84933f4:412:2357",
+          "tc_c_ventura_admin_comms:p33:A:a25606aff84933f4:509:2480",
+          "tc_c_ventura_admin_comms:p33:A:a25606aff84933f4:1002:2511",
+          "tc_c_ventura_admin_comms:p33:A:a25606aff84933f4:954:2581",
+          "tc_c_ventura_admin_comms:p33:A:a25606aff84933f4:929:2671",
+          "tc_c_ventura_admin_comms:p33:A:2dc0d457d8bcb8c9:1643:2785",
+          "tc_c_ventura_admin_comms:p33:A:b43d33be50408ed6:1675:2861",
+          "tc_c_ventura_admin_comms:p35:A:c14dcf6b61ed591e:1245:207",
+          "tc_c_ventura_admin_comms:p35:A:c14dcf6b61ed591e:1919:207",
+          "tc_c_ventura_admin_comms:p35:A:c14dcf6b61ed591e:1222:235",
+          "tc_c_ventura_admin_comms:p35:A:c14dcf6b61ed591e:1333:332",
+          "tc_c_ventura_admin_comms:p35:A:c14dcf6b61ed591e:1184:438",
+          "tc_c_ventura_admin_comms:p35:A:c14dcf6b61ed591e:1547:445",
+          "tc_c_ventura_admin_comms:p35:A:c14dcf6b61ed591e:992:462",
+          "tc_c_ventura_admin_comms:p35:A:c14dcf6b61ed591e:1849:502",
+          "tc_c_ventura_admin_comms:p35:A:c14dcf6b61ed591e:1710:510",
+          "tc_c_ventura_admin_comms:p35:A:c14dcf6b61ed591e:1675:604",
+          "tc_c_ventura_admin_comms:p35:A:c14dcf6b61ed591e:1814:755",
+          "tc_c_ventura_admin_comms:p35:A:4d882ee28f9ac633:508:1149",
+          "tc_c_ventura_admin_comms:p35:A:8a6682cb334620b1:1165:1289",
+          "tc_c_ventura_admin_comms:p35:A:4d882ee28f9ac633:518:1324",
+          "tc_c_ventura_admin_comms:p35:A:44df3b4bee4e713e:1798:2314",
+          "tc_c_ventura_admin_comms:p35:A:858a2ac4bb279334:1995:2315",
+          "tc_c_ventura_admin_comms:p35:A:c14dcf6b61ed591e:1867:2351",
+          "tc_c_ventura_admin_comms:p35:A:83cb4ea9c4b936fd:1670:2435",
+          "tc_c_ventura_admin_comms:p35:A:4d882ee28f9ac633:1144:2446",
+          "tc_c_ventura_admin_comms:p35:A:83cb4ea9c4b936fd:1856:2461",
+          "tc_c_ventura_admin_comms:p35:A:c14dcf6b61ed591e:2030:2550",
+          "tc_c_ventura_admin_comms:p35:A:0719085f38adfa71:1643:2785",
+          "tc_c_ventura_admin_comms:p35:A:ca3f6dc8170f999e:1675:2861",
+          "tc_c_ventura_admin_comms:p36:A:8e4a821615478f5d:619:708",
+          "tc_c_ventura_admin_comms:p36:A:2583171724469d11:291:2363",
+          "tc_c_ventura_admin_comms:p36:A:2583171724469d11:897:2418",
+          "tc_c_ventura_admin_comms:p36:A:2583171724469d11:350:2422",
+          "tc_c_ventura_admin_comms:p36:A:4011c788f59759da:1643:2785",
+          "tc_c_ventura_admin_comms:p36:A:dd4f337c2b03ddfe:1675:2861"
+        ],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 487,
+      "ambiguous_symbol_instances": 197,
+      "unresolved_symbol_instances": 0,
+      "total_symbol_instances": 684,
+      "packet_level_v2_failure": [
+        "room_device_truth"
+      ]
+    },
+    {
+      "packet_id": "tc_d_appalachian_gym_comms",
+      "category": "telecom_wireless",
+      "role": "holdout",
+      "page_count": 30,
+      "expected_family_universe": [
+        "equipment_rack",
+        "wireless_access_point"
+      ],
+      "grounded_family_set": [],
+      "hardpage_expected_family_set": [
+        "equipment_rack",
+        "wireless_access_point"
+      ],
+      "hardpage_grounded_family_set": [],
+      "required_page_types": [
+        "floor_plan",
+        "riser",
+        "detail"
+      ],
+      "expected_family_grounded_coverage_rate": 0.0,
+      "hardpage_family_grounded_coverage_rate": 0.0,
+      "hardpage_grounded_symbol_yield_rate": 0.0,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 0,
+      "ambiguous_symbol_instances": 54,
+      "unresolved_symbol_instances": 26,
+      "total_symbol_instances": 80,
+      "packet_level_v2_failure": [
+        "expected_family_grounded_coverage_rate",
+        "hardpage_family_grounded_coverage_rate",
+        "hardpage_grounded_symbol_yield_rate"
+      ]
+    },
+    {
+      "packet_id": "tc_e_red_bay_admin_comms",
+      "category": "telecom_wireless",
+      "role": "holdout",
+      "page_count": 20,
+      "expected_family_universe": [
+        "communications_outlet",
+        "equipment_rack",
+        "security_camera",
+        "wireless_access_point"
+      ],
+      "grounded_family_set": [],
+      "hardpage_expected_family_set": [
+        "communications_outlet",
+        "equipment_rack"
+      ],
+      "hardpage_grounded_family_set": [],
+      "required_page_types": [
+        "floor_plan",
+        "riser",
+        "detail"
+      ],
+      "expected_family_grounded_coverage_rate": 0.0,
+      "hardpage_family_grounded_coverage_rate": 0.0,
+      "hardpage_grounded_symbol_yield_rate": 0.0,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 0,
+      "ambiguous_symbol_instances": 38,
+      "unresolved_symbol_instances": 10,
+      "total_symbol_instances": 48,
+      "packet_level_v2_failure": [
+        "expected_family_grounded_coverage_rate",
+        "hardpage_family_grounded_coverage_rate",
+        "hardpage_grounded_symbol_yield_rate"
+      ]
+    },
+    {
+      "packet_id": "lv_a_aspen_house_telecom_intercom_risers",
+      "category": "low_voltage_security",
+      "role": "holdout",
+      "page_count": 0,
+      "expected_family_universe": [],
+      "grounded_family_set": [],
+      "hardpage_expected_family_set": [],
+      "hardpage_grounded_family_set": [],
+      "required_page_types": [],
+      "expected_family_grounded_coverage_rate": 1.0,
+      "hardpage_family_grounded_coverage_rate": 1.0,
+      "hardpage_grounded_symbol_yield_rate": 1.0,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 0,
+      "ambiguous_symbol_instances": 0,
+      "unresolved_symbol_instances": 0,
+      "total_symbol_instances": 0,
+      "packet_level_v2_failure": []
+    },
+    {
+      "packet_id": "lv_b_300_progress_communications",
+      "category": "low_voltage_security",
+      "role": "holdout",
+      "page_count": 0,
+      "expected_family_universe": [],
+      "grounded_family_set": [],
+      "hardpage_expected_family_set": [],
+      "hardpage_grounded_family_set": [],
+      "required_page_types": [],
+      "expected_family_grounded_coverage_rate": 1.0,
+      "hardpage_family_grounded_coverage_rate": 1.0,
+      "hardpage_grounded_symbol_yield_rate": 1.0,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 0,
+      "ambiguous_symbol_instances": 0,
+      "unresolved_symbol_instances": 0,
+      "total_symbol_instances": 0,
+      "packet_level_v2_failure": []
+    },
+    {
+      "packet_id": "lv_c_union_street_telecom_grounding_intercom",
+      "category": "low_voltage_security",
+      "role": "holdout",
+      "page_count": 0,
+      "expected_family_universe": [],
+      "grounded_family_set": [],
+      "hardpage_expected_family_set": [],
+      "hardpage_grounded_family_set": [],
+      "required_page_types": [],
+      "expected_family_grounded_coverage_rate": 1.0,
+      "hardpage_family_grounded_coverage_rate": 1.0,
+      "hardpage_grounded_symbol_yield_rate": 1.0,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 0,
+      "ambiguous_symbol_instances": 0,
+      "unresolved_symbol_instances": 0,
+      "total_symbol_instances": 0,
+      "packet_level_v2_failure": []
+    },
+    {
+      "packet_id": "lv_d_iqaluit_operations_centre",
+      "category": "low_voltage_security",
+      "role": "holdout",
+      "page_count": 16,
+      "expected_family_universe": [
+        "hws_glycol_fill_station_pump",
+        "power_ddc_panel"
+      ],
+      "grounded_family_set": [
+        "hws_glycol_fill_station_pump",
+        "power_ddc_panel"
+      ],
+      "hardpage_expected_family_set": [
+        "hws_glycol_fill_station_pump",
+        "power_ddc_panel"
+      ],
+      "hardpage_grounded_family_set": [
+        "hws_glycol_fill_station_pump",
+        "power_ddc_panel"
+      ],
+      "required_page_types": [
+        "floor_plan",
+        "site_plan",
+        "detail",
+        "telecom",
+        "fire_alarm",
+        "schedule"
+      ],
+      "expected_family_grounded_coverage_rate": 1.0,
+      "hardpage_family_grounded_coverage_rate": 1.0,
+      "hardpage_grounded_symbol_yield_rate": 0.981,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 0.8077,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [
+          "lv_d_iqaluit_operations_centre:p61:P:0196466553f384ac:919:844",
+          "lv_d_iqaluit_operations_centre:p61:P:0196466553f384ac:919:859",
+          "lv_d_iqaluit_operations_centre:p61:P:0196466553f384ac:919:874",
+          "lv_d_iqaluit_operations_centre:p61:P:0196466553f384ac:919:889",
+          "lv_d_iqaluit_operations_centre:p61:P:0196466553f384ac:919:904",
+          "lv_d_iqaluit_operations_centre:p61:P:0196466553f384ac:919:919",
+          "lv_d_iqaluit_operations_centre:p61:P:a667c360ef96fc7e:967:1219",
+          "lv_d_iqaluit_operations_centre:p61:P:a667c360ef96fc7e:966:1249",
+          "lv_d_iqaluit_operations_centre:p61:P:0196466553f384ac:1651:1261",
+          "lv_d_iqaluit_operations_centre:p61:P:a667c360ef96fc7e:2171:1275",
+          "lv_d_iqaluit_operations_centre:p61:P:a667c360ef96fc7e:2171:1291",
+          "lv_d_iqaluit_operations_centre:p61:DDC:4a0b9a81b3b7d052:936:1295",
+          "lv_d_iqaluit_operations_centre:p61:P:408a8dceff5c02b3:1654:1306",
+          "lv_d_iqaluit_operations_centre:p61:P:0196466553f384ac:2170:1306",
+          "lv_d_iqaluit_operations_centre:p61:P:0196466553f384ac:2170:1321",
+          "lv_d_iqaluit_operations_centre:p61:P:a667c360ef96fc7e:1653:1351",
+          "lv_d_iqaluit_operations_centre:p61:P:a667c360ef96fc7e:1653:1411",
+          "lv_d_iqaluit_operations_centre:p61:P:a667c360ef96fc7e:1653:1426",
+          "lv_d_iqaluit_operations_centre:p61:DDC:4a0b9a81b3b7d052:2141:1441",
+          "lv_d_iqaluit_operations_centre:p61:P:a667c360ef96fc7e:1653:1441",
+          "lv_d_iqaluit_operations_centre:p61:P:0196466553f384ac:2170:1486",
+          "lv_d_iqaluit_operations_centre:p61:P:0196466553f384ac:2170:1502",
+          "lv_d_iqaluit_operations_centre:p61:P:0196466553f384ac:2170:1517",
+          "lv_d_iqaluit_operations_centre:p61:P:0196466553f384ac:2170:1532",
+          "lv_d_iqaluit_operations_centre:p64:P:3dbc43efa7f13903:1913:742"
+        ],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 130,
+      "ambiguous_symbol_instances": 10,
+      "unresolved_symbol_instances": 0,
+      "total_symbol_instances": 140,
+      "packet_level_v2_failure": [
+        "room_device_truth"
+      ]
+    },
+    {
+      "packet_id": "lv_e_columbus_library_technology_security",
+      "category": "low_voltage_security",
+      "role": "holdout",
+      "page_count": 6,
+      "expected_family_universe": [
+        "4_11_16_square_2",
+        "junction_box",
+        "keypad",
+        "marion_franklin_branch_2800_lockbourne",
+        "marion_franklin_camera_schedule_number",
+        "speaker",
+        "telecommunications_ground_busbar",
+        "wireless_access_point"
+      ],
+      "grounded_family_set": [
+        "4_11_16_square_2",
+        "junction_box",
+        "keypad",
+        "marion_franklin_branch_2800_lockbourne",
+        "marion_franklin_camera_schedule_number",
+        "multimode_fiber",
+        "single_mode_fiber",
+        "speaker",
+        "telecommunications_ground_busbar",
+        "wireless_access_point"
+      ],
+      "hardpage_expected_family_set": [
+        "4_11_16_square_2",
+        "junction_box",
+        "keypad",
+        "marion_franklin_branch_2800_lockbourne",
+        "marion_franklin_camera_schedule_number",
+        "speaker",
+        "telecommunications_ground_busbar",
+        "wireless_access_point"
+      ],
+      "hardpage_grounded_family_set": [
+        "4_11_16_square_2",
+        "junction_box",
+        "keypad",
+        "marion_franklin_branch_2800_lockbourne",
+        "marion_franklin_camera_schedule_number",
+        "speaker",
+        "telecommunications_ground_busbar",
+        "wireless_access_point"
+      ],
+      "required_page_types": [
+        "floor_plan",
+        "riser"
+      ],
+      "expected_family_grounded_coverage_rate": 1.0,
+      "hardpage_family_grounded_coverage_rate": 1.0,
+      "hardpage_grounded_symbol_yield_rate": 0.9588,
+      "hardpage_requirement_truth_rate": 1.0,
+      "room_device_truth_rate": 1.0,
+      "connector_truth_rate": 1.0,
+      "truth_audit_failures": {
+        "room_device": [],
+        "connector": [],
+        "hardpage": []
+      },
+      "contradiction_lane_separation": 1.0,
+      "grounded_symbol_instances": 165,
+      "ambiguous_symbol_instances": 58,
+      "unresolved_symbol_instances": 37,
+      "total_symbol_instances": 260,
+      "packet_level_v2_failure": []
+    }
+  ],
+  "quality_status": {
+    "all_targets_met": false,
+    "dictionary_status": "production_usable_text_coded_and_legend_supported_symbols",
+    "notes": "Pipeline remains fail-closed on weak / ambiguous evidence and does not claim full pure-graphics-only symbol coverage."
+  }
+}

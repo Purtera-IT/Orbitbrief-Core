@@ -7,11 +7,30 @@ from ..postprocess import ClaimCandidate, ExtractorOutput, PostprocessPolicy, ru
 
 
 def _candidate_from_mapping(item: Mapping[str, Any], idx: int) -> ClaimCandidate | None:
-    required = ("claim_family", "target_field", "target_field_path", "candidate_value", "confidence")
-    if any(key not in item for key in required):
-        return None
-    claim_id = str(item.get("claim_id", f"candidate:{idx:04d}"))
-    evidence_span_ids_raw = item.get("evidence_span_ids", ())
+    # New 6.2/6.3 field-claim IR shape.
+    if "field_path" in item and "value" in item:
+        source_claim_id = str(item.get("source_claim_id", "")).strip()
+        if not source_claim_id:
+            return None
+        claim_family = str(item.get("claim_family", "")).strip()
+        field_path = str(item.get("field_path", "")).strip()
+        if not claim_family or not field_path:
+            return None
+        target_field = field_path.split(".")[0].split("[")[0] if field_path else ""
+        evidence_payload = item.get("evidence", {})
+        evidence_span_ids_raw: Any = ()
+        if isinstance(evidence_payload, Mapping):
+            evidence_span_ids_raw = evidence_payload.get("all_span_ids", ())
+    else:
+        required = ("claim_family", "target_field", "target_field_path", "candidate_value", "confidence")
+        if any(key not in item for key in required):
+            return None
+        source_claim_id = str(item.get("claim_id", f"candidate:{idx:04d}"))
+        claim_family = str(item.get("claim_family", "")).strip()
+        target_field = str(item.get("target_field", "")).strip()
+        field_path = str(item.get("target_field_path", "")).strip()
+        evidence_span_ids_raw = item.get("evidence_span_ids", ())
+
     if isinstance(evidence_span_ids_raw, list):
         evidence_span_ids = tuple(str(value) for value in evidence_span_ids_raw)
     elif isinstance(evidence_span_ids_raw, tuple):
@@ -21,15 +40,19 @@ def _candidate_from_mapping(item: Mapping[str, Any], idx: int) -> ClaimCandidate
     confidence = item.get("confidence", 0.0)
     if not isinstance(confidence, (int, float)):
         confidence = 0.0
+    candidate_value = item.get("value") if "value" in item else item.get("candidate_value")
+    metadata = dict(item.get("metadata", {})) if isinstance(item.get("metadata", {}), Mapping) else {}
+    metadata.setdefault("source_claim_id", source_claim_id)
+
     return ClaimCandidate(
-        claim_id=claim_id,
-        claim_family=str(item["claim_family"]).strip(),
-        target_field=str(item["target_field"]).strip(),
-        target_field_path=str(item["target_field_path"]).strip(),
-        candidate_value=item["candidate_value"],
+        claim_id=source_claim_id,
+        claim_family=claim_family,
+        target_field=target_field,
+        target_field_path=field_path,
+        candidate_value=candidate_value,
         confidence=float(confidence),
         evidence_span_ids=evidence_span_ids,
-        metadata=dict(item.get("metadata", {})) if isinstance(item.get("metadata", {}), Mapping) else {},
+        metadata=metadata,
     )
 
 

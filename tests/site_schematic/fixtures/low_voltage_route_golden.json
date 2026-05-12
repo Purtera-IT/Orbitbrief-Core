@@ -1,0 +1,130 @@
+{
+  "route_id": "low_voltage_hospitality_packet",
+  "source_file": "2026-01-19 CONSOLIDATED SET - SOUTHERN POST - T (1) (1) (1).pdf",
+  "overlay_profile": ["low_voltage", "wireless", "security", "matv"],
+  "packet_expectations": {
+    "page_count": 18,
+    "sheet_type_counts": {
+      "notes_spec": 1,
+      "legend_symbol": 1,
+      "schedule_sheet": 1,
+      "floorplan_overall": 7,
+      "floorplan_detail": 1,
+      "equipment_room_layout": 1,
+      "riser_diagram": 3,
+      "rack_detail": 1,
+      "installation_detail": 2
+    },
+    "minimum_outputs": [
+      "typed_pages",
+      "page_regions",
+      "drawing_index_rows",
+      "legend_entries",
+      "device_definition_rows",
+      "outlet_type_definitions",
+      "plan_symbol_instances",
+      "symbol_links",
+      "equipment_room_objects",
+      "riser_topology",
+      "grounding_objects",
+      "installation_detail_objects"
+    ]
+  },
+  "critical_page_1_facts": [
+    "all MDF, IDF and AV rooms maintain 70F and less than 60 percent RH",
+    "TGB 2x12 busbar in IDF",
+    "TMGB 4x12 busbar in MDF",
+    "install ground busbar minimum 18 inches AFF with 6 inches clear all sides",
+    "minimum #6 AWG green grounding conductor to each equipment rack and bonded ladder rack",
+    "pull box for every 100 feet of straight conduit run and every two 90 degree bends",
+    "provide pull string in all conduits",
+    "all conduits EMT unless otherwise noted",
+    "Wi-Fi vendor responsible for wireless site survey before ceiling closure",
+    "structured cabling warranty 15 years",
+    "SC fiber connectors unless otherwise noted",
+    "multimode visible portion aqua and singlemode visible portion yellow",
+    "drawing index includes T000 through T906"
+  ],
+  "critical_page_2_symbol_tables": [
+    "structured cabling symbol legend",
+    "intrusion detection symbol legend",
+    "access control and intercom symbol legend",
+    "CCTV symbol legend",
+    "legend notes",
+    "general notes for symbol legends"
+  ],
+  "critical_device_and_outlet_types": [
+    "door contact",
+    "duress alarm push button",
+    "motion detector ceiling mounted",
+    "keypad",
+    "security control panel",
+    "card reader",
+    "intercom remote station",
+    "telephone entry system station",
+    "proximity reader",
+    "single button emergency phone system station",
+    "mini dome single lens camera ceiling mounted",
+    "mini dome single lens camera wall mounted",
+    "fixed bullet style camera wall mounted",
+    "mini dome 180 degree camera",
+    "mini dome 360 degree camera",
+    "admin outlet",
+    "POS terminal outlet",
+    "POS printer outlet",
+    "wireless node outlet wall mounted",
+    "wireless node outlet ceiling mounted",
+    "Zigbee node outlet ceiling mounted",
+    "guestroom desk data outlet",
+    "bed phone outlet VOIP",
+    "house phone outlet VOIP",
+    "phone outlet analog",
+    "IPTV outlet",
+    "coax TV outlet",
+    "coax plus data outlet",
+    "coax plus data plus fiber outlet"
+  ],
+  "critical_color_and_termination_facts": [
+    "all data system cable blue",
+    "guestroom voice cable gray",
+    "wireless node cable yellow",
+    "telephone and data jacks category 6 RJ-45 terminated T568B",
+    "admin outlet cables terminate on dedicated admin patch panels",
+    "POS outlet cables terminate on dedicated POS patch panels"
+  ],
+  "critical_floorplan_facts": [
+    "wireless nodes have 15 foot service loop and mount within reach of accessible ceiling or behind access panel",
+    "wireless nodes surface mounted on some sheets",
+    "zigbee hub access point location mounted above ceiling next to access panel",
+    "homerun all cables on each level to designated MDF or IDF room",
+    "from MDF below to IDF-2 above relation",
+    "key card reader shown for coordination only, final by door hardware schedule",
+    "roof plan has proposed satellite dish location with weatherhead and pull string"
+  ],
+  "critical_riser_facts": [
+    "T901 conduit riser includes conduit rules, meet-me box, sleeves, conduits, pull box, weatherhead",
+    "T902 cabling riser includes PP, FIC, 110 blocks, 12-count fiber, CAT-6 cables per IDF, patch-to-punch cross connect",
+    "T903 MATV riser includes 7 RG-11, pull box, weatherhead, 10 foot slack, outdoor rated cable, public area TV note"
+  ],
+  "critical_equipment_room_and_detail_facts": [
+    "T900 includes MDF/Data room layout, 110 block elevation, chase backboard elevation, rack elevation, rack interconnectivity, grounding riser diagram, IDF-2 and IDF-4 layouts",
+    "T904 patch panels 48-port density 2U and admin outlet data cables on dedicated patch panels",
+    "T904 racks supported overhead with 18x6 cable tray, ladder rack allowed in low ceilings",
+    "T904 all IDF and MDF cross-connect fields use 110 blocks",
+    "T904 UPS minimum 15 minutes for all IT equipment in IDF and MDF rooms",
+    "T905 CCTV system has complete separate dedicated network with UPS-powered edge/core switching",
+    "T905 cameras record on motion with storage retention requirements",
+    "T906 includes above-ceiling outlet, grounding detail, POS/admin/wireless node installation details",
+    "T906 includes category cable home run to IDF detail semantics"
+  ],
+  "graph_expectations": [
+    "wireless_node_instance matches_legend wireless_node_outlet",
+    "zigbee_instance matches_legend zigbee_node_outlet",
+    "admin_outlet terminates_at dedicated_admin_patch_panel",
+    "pos_outlet terminates_at dedicated_pos_patch_panel",
+    "floor routes_to MDF_or_IDF",
+    "camera_instance matches_legend cctv_symbol and constrained_by dedicated_cctv_network",
+    "rack grounded_by tgb_tmgb_and_6awg",
+    "satellite_dish related_note weatherhead_pull_string_roof_approval"
+  ]
+}

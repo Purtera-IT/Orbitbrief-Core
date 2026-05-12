@@ -1,0 +1,111 @@
+You are working in the latest OrbitBrief Core repo on the `site_schematic` lane.
+
+This is the Phase V2 implementation pass.
+
+CURRENT STATE
+
+Parser-only non-graphics extraction is effectively complete.
+V0/V1 are now good enough to trust for:
+- page modality routing
+- vector primitive extraction
+- primitive graph construction
+
+The next bottleneck is:
+- universal primitive symbol grounding
+- legend-grounded packet-local symbol semantics
+- candidate symbol grouping on schematic pages
+- graph/topology hints from grounded symbols
+
+PRIMARY GOAL
+
+Implement V2 so that every schematic page in the 12-packet corpus can produce:
+1. candidate symbol groups
+2. universal primitive family assignments
+3. packet-local legend-grounded semantic meanings
+4. grounded symbol outputs with provenance
+5. graph/topology hint outputs
+
+DO NOT
+- touch OrbitBrief
+- add full raster fallback yet
+- weaken current parser or V0/V1 truth paths
+- hardcode final meanings as a single fixed icon dictionary
+
+IMPLEMENT IN THIS ORDER
+
+## 1. Add helper modules from this kit
+- `primitive_symbol_ontology.py`
+- `symbol_candidate_grouping.py`
+- `legend_grounding_models.py`
+- `semantic_mapper.py`
+- `grounding_resolver.py`
+
+## 2. Patch models
+Add first-class contracts for:
+- candidate symbol groups
+- legend grounding entries
+- grounded symbols
+- packet-level V2 summaries
+
+## 3. Patch core
+After parser + V0/V1 outputs exist, build:
+- candidate symbol groups
+- legend grounding dictionaries
+- grounded symbol outputs
+- packet-level V2 diagnostics
+
+## 4. Patch structure graph
+Add:
+- candidate symbol nodes
+- grounded symbol nodes
+- candidate->legend edges
+- candidate->text edges
+- grounded symbol -> locality/topology hint edges
+
+## 5. Patch symbol-linking seams
+Use:
+- `symbols/model_output_adapter.py`
+- `symbols/linker.py`
+to keep a future-compatible unified symbol candidate path
+
+## 6. Add V2 eval harness
+Evaluate all 12 packets against the included per-packet gold schemas.
+
+For each packet, report:
+- candidate symbol grouping
+- legend grounding dictionary completeness
+- candidate_to_legend alignment
+- grounded symbol provenance
+- unresolved / ambiguous grounded symbol count
+- room/device association
+- connector/topology candidate coverage
+
+## 7. Run the full 12-packet V2 suite
+Keep parser + V0/V1 spot checks green.
+
+TARGETS
+
+Preserve:
+- parser text/table coverage unchanged
+- V0/V1 metrics unchanged
+- production_kpi_regression_count = 0
+- contradiction_lane_separation_rate = 1.0
+
+V2 starter targets:
+- candidate_symbol_grouping_rate >= 0.95
+- grounded_symbol_provenance_rate = 1.0
+- legend_grounding_dictionary_completeness >= 0.95 where applicable
+- candidate_to_legend_alignment_rate >= 0.9
+- room_device_association_rate >= 0.9 where applicable
+- connector_topology_candidate_rate >= 0.85 where applicable
+- packet_level_v2_failures <= 2
+
+OUTPUT I WANT
+
+1. exact files changed
+2. V2 ontology and grounding contracts added
+3. packet-level V2 results for all 12 PDFs
+4. page-type-specific V2 results
+5. unresolved / ambiguous grounded symbol summary
+6. whether V2 is good enough for the next graphics phase
+7. what the next graphics phase should be

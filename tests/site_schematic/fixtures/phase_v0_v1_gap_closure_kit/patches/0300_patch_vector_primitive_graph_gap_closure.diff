@@ -1,0 +1,41 @@
+--- a/src/orbitbrief_core/parser/site_schematic/vector_primitive_graph.py
++++ b/src/orbitbrief_core/parser/site_schematic/vector_primitive_graph.py
+@@
+-from orbitbrief_core.parser.site_schematic.vector_primitives import VectorPrimitive
++from orbitbrief_core.parser.site_schematic.vector_primitives import VectorPrimitive
++from orbitbrief_core.parser.site_schematic.leader_dimension_quality import (
++    score_dimension_semantic_quality,
++    score_leader_semantic_quality,
++)
+@@
+ def build_vector_primitive_graph(primitives: Iterable[VectorPrimitive], *, page_index: int) -> VectorPrimitiveGraph:
+@@
+     leader_count = 0
+     connector_count = 0
+     dimension_count = 0
++    leader_quality_hits = 0
++    dimension_quality_hits = 0
+     for p in primitives:
+@@
+         if p.primitive_kind == "line" and long_ratio >= 6:
+             g.leader_candidate_ids.append(p.primitive_id)
+             leader_count += 1
++            if score_leader_semantic_quality(p, nearby_text_hint=False).valid:
++                leader_quality_hits += 1
+         if p.primitive_kind in {"line", "polyline"} and long_ratio >= 3:
+             g.connector_candidate_ids.append(p.primitive_id)
+             connector_count += 1
+         if p.primitive_kind == "line" and 20 <= max(w, h) <= 300:
+             g.dimension_candidate_ids.append(p.primitive_id)
+             dimension_count += 1
++            if score_dimension_semantic_quality(p, nearby_numeric_text=False, witness_line_hint=False).valid:
++                dimension_quality_hits += 1
+
+     g.diagnostics = {
+         "primitive_count": float(len(primitives)),
+         "leader_candidate_count": float(leader_count),
+         "connector_candidate_count": float(connector_count),
+         "dimension_candidate_count": float(dimension_count),
++        "leader_semantic_quality_hits": float(leader_quality_hits),
++        "dimension_semantic_quality_hits": float(dimension_quality_hits),
+     }

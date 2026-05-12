@@ -1,0 +1,140 @@
+{
+  "benchmark_id": "contradiction_manifest::detail_installation_conflict_packet_01_v1",
+  "packet_id": "detail_installation_conflict_packet_01",
+  "packet_label": "Detail Installation Conflict Packet 01",
+  "packet_level_expected": "contradiction",
+  "packet_type": "detail_installation_conflict",
+  "expected_contradiction_families": [
+    "telecomm_jack_tag",
+    "data_outlet",
+    "patch_panel_row"
+  ],
+  "expected_review_only_families": [
+    "riser_endpoint",
+    "ladder_rack_cable_runway",
+    "j_hook_pathway_symbol"
+  ],
+  "expected_safe_families": [
+    "door_contact_marker"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "di01-legend-vs-detail-family-mismatch",
+      "taxonomy": "legend_vs_detail_conflict",
+      "expected_outcome": "contradiction",
+      "families": [
+        "telecomm_jack_tag",
+        "data_outlet"
+      ],
+      "profiles": [
+        "detail_installation_profile"
+      ],
+      "page_indices": [
+        3
+      ],
+      "required_evidence_fields": [
+        "evidence_symbol_instance_ids",
+        "evidence_topology_ids",
+        "metadata.contradiction_reasons",
+        "profile_ids"
+      ],
+      "notes": "Local legend declares one endpoint family while detail-local inferred pathway attachment supports an incompatible grounded family."
+    },
+    {
+      "scenario_id": "di01-pathway-support-role-incompatibility",
+      "taxonomy": "topology_backed_family_incompatibility",
+      "expected_outcome": "contradiction",
+      "families": [
+        "patch_panel_row",
+        "ladder_rack_cable_runway"
+      ],
+      "profiles": [
+        "detail_installation_profile",
+        "rack_detail_profile"
+      ],
+      "page_indices": [
+        4
+      ],
+      "required_evidence_fields": [
+        "evidence_symbol_instance_ids",
+        "evidence_topology_ids",
+        "metadata.contradiction_reasons",
+        "page_indices"
+      ],
+      "notes": "Pathway/support relation indicates incompatible role assignment between rack-facing and pathway-facing families."
+    },
+    {
+      "scenario_id": "di01-termination-attachment-mismatch",
+      "taxonomy": "grounding_vs_requirement_conflict",
+      "expected_outcome": "contradiction",
+      "families": [
+        "data_outlet",
+        "telecomm_jack_tag"
+      ],
+      "profiles": [
+        "detail_installation_profile"
+      ],
+      "page_indices": [
+        5
+      ],
+      "required_evidence_fields": [
+        "evidence_symbol_instance_ids",
+        "evidence_topology_ids",
+        "metadata.contradiction_reasons"
+      ],
+      "notes": "Termination requirement from detail note conflicts with grounded family attached to inferred termination relation."
+    },
+    {
+      "scenario_id": "di01-cross-page-riser-review",
+      "taxonomy": "cross_page_family_mismatch",
+      "expected_outcome": "high_priority_review",
+      "families": [
+        "riser_endpoint",
+        "ladder_rack_cable_runway"
+      ],
+      "profiles": [
+        "riser_profile",
+        "mixed_detail_profile"
+      ],
+      "page_indices": [
+        2,
+        6
+      ],
+      "required_evidence_fields": [
+        "evidence_symbol_instance_ids",
+        "profile_ids",
+        "page_indices"
+      ],
+      "notes": "Cross-page mismatch is structurally concerning but may remain review-grade if contradiction certainty is insufficient."
+    },
+    {
+      "scenario_id": "di01-jhook-pathway-ambiguity",
+      "taxonomy": "review_only_structural_ambiguity",
+      "expected_outcome": "ambiguous",
+      "families": [
+        "j_hook_pathway_symbol",
+        "ladder_rack_cable_runway"
+      ],
+      "profiles": [
+        "detail_installation_profile"
+      ],
+      "page_indices": [
+        4
+      ],
+      "required_evidence_fields": [
+        "evidence_symbol_instance_ids",
+        "profile_ids"
+      ],
+      "notes": "Pathway-support symbols imply multiple plausible interpretations in the same local detail frame."
+    },
+    {
+      "scenario_id": "di01-door-contact-safe-baseline",
+      "taxonomy": "safe_no_issue",
+      "expected_outcome": "safe",
+      "families": [
+        "door_contact_marker"
+      ],
+      "notes": "Control family expected to remain stable and non-contradictory."
+    }
+  ]
+}

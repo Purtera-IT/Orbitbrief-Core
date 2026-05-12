@@ -1,0 +1,13 @@
+Use this kit in the live repo.
+
+Implementation order:
+1. Add helper modules under `src/orbitbrief_core/parser/site_schematic/`
+2. Integrate titleblock profiles into `classification/sheet_type.py`
+3. Integrate column fusion into `zoning/page_zones.py`
+4. Integrate holdout table router into `universal_table_spine.py`
+5. Re-run current-pair canonical + full holdout Phase D
+6. If plateau remains, integrate bounded layout-native escalation into `core.py`
+7. Re-run again
+8. Report exact before/after deltas
+
+Keep current-pair canonical lanes frozen the whole time.

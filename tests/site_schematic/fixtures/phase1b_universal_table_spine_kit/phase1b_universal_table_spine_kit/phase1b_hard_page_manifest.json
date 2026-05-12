@@ -1,0 +1,84 @@
+{
+  "version": "2026-04-12.phase1b_hard_pages_v1",
+  "source_packets": {
+    "wireless_packet": "/mnt/data/100643PLANSD-4(2).pdf",
+    "southern_post_packet": "/mnt/data/2026-01-19 CONSOLIDATED SET - SOUTHERN POST - T (1) (1) (1)(2).pdf"
+  },
+  "hard_pages": [
+    {
+      "gold_page_id": "wireless_tc001_page1",
+      "pdf_id": "wireless_packet",
+      "page_index_1_based": 1,
+      "sheet_id": "TC001",
+      "page_role": "hybrid_control_legend",
+      "required_table_kinds": [
+        "drawing_index",
+        "abbreviation_matrix",
+        "symbol_legend",
+        "outlet_definition",
+        "generic_grid"
+      ],
+      "notes": "Hybrid control page containing abbreviations, drawing list, telecom symbol sections, outlet type description sections, and notes."
+    },
+    {
+      "gold_page_id": "southern_t000_page1",
+      "pdf_id": "southern_post_packet",
+      "page_index_1_based": 1,
+      "sheet_id": "T000",
+      "page_role": "notes_specs_with_index",
+      "required_table_kinds": [
+        "drawing_index"
+      ],
+      "notes": "Multi-column notes/spec page with drawing index table from T000-T906."
+    },
+    {
+      "gold_page_id": "southern_t001_page2",
+      "pdf_id": "southern_post_packet",
+      "page_index_1_based": 2,
+      "sheet_id": "T001",
+      "page_role": "multi_legend_matrix",
+      "required_table_kinds": [
+        "symbol_legend",
+        "responsibility_matrix",
+        "generic_grid"
+      ],
+      "notes": "Responsibility matrix plus multiple structured legend tables on one page."
+    },
+    {
+      "gold_page_id": "southern_t002_page3",
+      "pdf_id": "southern_post_packet",
+      "page_index_1_based": 3,
+      "sheet_id": "T002",
+      "page_role": "schedule_specs",
+      "required_table_kinds": [
+        "component_spec",
+        "schedule",
+        "manufacturer_part_table"
+      ],
+      "notes": "Component/spec table page with description/manufacturer/part number/comments structure."
+    },
+    {
+      "gold_page_id": "southern_t900_page12",
+      "pdf_id": "southern_post_packet",
+      "page_index_1_based": 12,
+      "sheet_id": "T900",
+      "page_role": "mixed_detail_equipment",
+      "required_table_kinds": [
+        "embedded_detail_schedule",
+        "generic_grid"
+      ],
+      "notes": "Mixed equipment/detail page expected to contain embedded boxed schedule-like regions."
+    },
+    {
+      "gold_page_id": "southern_t905_page17",
+      "pdf_id": "southern_post_packet",
+      "page_index_1_based": 17,
+      "sheet_id": "T905",
+      "page_role": "security_installation_details",
+      "required_table_kinds": [
+        "embedded_detail_schedule"
+      ],
+      "notes": "Detail page with small embedded schedule/component table."
+    }
+  ]
+}

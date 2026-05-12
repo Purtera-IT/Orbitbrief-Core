@@ -1,0 +1,16 @@
+{
+  "must_preserve": {
+    "current_pair_phase_b_perfect": true,
+    "current_pair_phase_c_perfect": true,
+    "production_kpi_regression_count": 0.0,
+    "contradiction_lane_separation_rate": 1.0
+  },
+  "text_perfection_targets": {
+    "visible_text_coverage_estimate_avg_min": 0.995,
+    "note_spec_coverage_rate_avg_min": 0.995,
+    "unresolved_text_only_gap_rate_avg_max": 0.002,
+    "legend_table_coverage_rate_avg": 1.0,
+    "semantic_lineage_coverage_rate_avg": 1.0,
+    "parser_ready_for_vision_handoff_rate": 1.0
+  }
+}

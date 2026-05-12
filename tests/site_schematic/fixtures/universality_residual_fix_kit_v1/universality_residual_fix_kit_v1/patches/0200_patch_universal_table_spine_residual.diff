@@ -1,0 +1,26 @@
+--- a/src/orbitbrief_core/parser/site_schematic/universal_table_spine.py
++++ b/src/orbitbrief_core/parser/site_schematic/universal_table_spine.py
+@@
+ from orbitbrief_core.parser.site_schematic.models import (
+@@
+     SiteSchematicUniversalTableRow,
+ )
++from orbitbrief_core.parser.site_schematic.table_kind_aliases_residual import (
++    score_residual_holdout_table_aliases,
++)
+@@
+ def _infer_table_kind(*, sheet_type: str, sheet_number: str, table_text: str, header_text: str, sheet_title: str) -> str:
+     scores = _kind_scores(
+         sheet_type=sheet_type,
+         sheet_number=sheet_number,
+         table_text=table_text,
+         header_text=header_text,
+         sheet_title=sheet_title,
+     )
++    residual_scores = score_residual_holdout_table_aliases(
++        header_text or (table_text.splitlines()[0] if table_text else ""),
++        [row for row in table_text.splitlines()[:12] if row.strip()],
++    )
++    for kind, value in residual_scores.items():
++        scores[kind] = max(scores.get(kind, 0.0), value + 0.2)
+     return max(scores.items(), key=lambda item: item[1])[0]

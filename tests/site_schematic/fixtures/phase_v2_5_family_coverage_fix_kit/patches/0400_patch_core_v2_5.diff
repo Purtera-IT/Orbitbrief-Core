@@ -1,0 +1,53 @@
+--- a/src/orbitbrief_core/parser/site_schematic/core.py
++++ b/src/orbitbrief_core/parser/site_schematic/core.py
+@@
++from orbitbrief_core.parser.site_schematic.packet_expected_family_deriver import derive_expected_families_from_packet_local_text
++from orbitbrief_core.parser.site_schematic.hardpage_requirement_repair import derive_required_hardpages
++from orbitbrief_core.parser.site_schematic.family_coverage_truth import compute_family_coverage_truth
++from orbitbrief_core.parser.site_schematic.hardpage_semantic_gate_v2_5 import enforce_v2_5_hardpage_gate
+@@
+ def build_site_schematic_bundle_from_router_input(...):
+@@
++    try:
++        packet_row = model_registry.get("phase_v2", {}).get("packet_row", {})
++        page_rows = model_registry.get("phase_v2", {}).get("page_rows", [])
++        domain_default_families = packet_row.get("domain_default_families", [])
++        packet_expected_families = derive_expected_families_from_packet_local_text(
++            legend_texts=packet_row.get("legend_texts", []),
++            outlet_definition_texts=packet_row.get("outlet_definition_texts", []),
++            abbreviation_texts=packet_row.get("abbreviation_texts", []),
++            page_titles=[row.get("sheet_title", "") for row in page_rows],
++            domain_default_families=domain_default_families,
++        )
++        required_page_types = derive_required_hardpages(
++            page_rows=page_rows,
++            schema_required_types=packet_row.get("schema_required_types", []),
++        )
++        grounded_rows = packet_row.get("grounded_symbol_rows", [])
++        grounded_families = [row.get("grounded_family", "") for row in grounded_rows if row.get("grounded_family")]
++        hardpage_grounded_rows = [row for row in grounded_rows if row.get("hardpage_page", False)]
++        hardpage_grounded_families = [row.get("grounded_family", "") for row in hardpage_grounded_rows if row.get("grounded_family")]
++        cov = compute_family_coverage_truth(
++            packet_expected_families=packet_expected_families,
++            grounded_families=grounded_families,
++            hardpage_expected_families=packet_expected_families,
++            hardpage_grounded_families=hardpage_grounded_families,
++        )
++        gate = enforce_v2_5_hardpage_gate(
++            required_page_types=required_page_types,
++            hardpage_grounded_symbol_yield_rate=float(packet_row.get("hardpage_grounded_symbol_yield_rate", 0.0)),
++            hardpage_family_grounded_coverage_rate=cov.hardpage_family_grounded_coverage_rate,
++        )
++        model_registry.setdefault("phase_v2_5", {})["family_coverage_summary"] = {
++            "packet_expected_families": sorted(list(cov.packet_expected_families)),
++            "grounded_families": sorted(list(cov.grounded_families)),
++            "hardpage_expected_families": sorted(list(cov.hardpage_expected_families)),
++            "hardpage_grounded_families": sorted(list(cov.hardpage_grounded_families)),
++            "expected_family_grounded_coverage_rate": cov.expected_family_grounded_coverage_rate,
++            "hardpage_family_grounded_coverage_rate": cov.hardpage_family_grounded_coverage_rate,
++            "required_page_types": required_page_types,
++            "hardpage_gate_ok": gate.ok,
++            "hardpage_gate_reasons": gate.reasons,
++        }
++    except Exception:
++        pass

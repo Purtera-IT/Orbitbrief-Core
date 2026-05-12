@@ -1,0 +1,29 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Iterable, List
+
+
+@dataclass
+class ConnectorTruthAudit:
+    evidence_truth_ok: bool
+    reasons: List[str]
+
+
+def audit_connector_truth(
+    *,
+    connector_quality_rate: float,
+    connector_candidate_rate: float,
+    connector_scores: Iterable[float],
+    leader_attachment_hits: int,
+) -> ConnectorTruthAudit:
+    reasons: List[str] = []
+    evidence_truth_ok = True
+    max_score = max([float(s) for s in connector_scores], default=0.0)
+    if connector_quality_rate >= 0.95 and connector_candidate_rate < 0.1 and leader_attachment_hits == 0:
+        evidence_truth_ok = False
+        reasons.append("connector_quality_too_high_for_low_evidence")
+    if connector_quality_rate >= 0.95 and max_score < 0.55:
+        evidence_truth_ok = False
+        reasons.append("connector_quality_too_high_for_low_scores")
+    return ConnectorTruthAudit(evidence_truth_ok, reasons)

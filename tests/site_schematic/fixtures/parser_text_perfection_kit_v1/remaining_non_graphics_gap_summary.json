@@ -1,0 +1,42 @@
+{
+  "corpus_metrics": {
+    "visible_text_coverage_estimate_avg": 0.9891,
+    "note_spec_coverage_rate_avg": 0.9715,
+    "unresolved_text_only_gap_rate_avg": 0.0215,
+    "graphics_only_gap_rate_avg": 0.1319,
+    "parser_ready_for_vision_handoff_rate": 1.0
+  },
+  "dominant_remaining_non_graphics_gaps": {
+    "multiple detail-local scoped note links remain unresolved": 33,
+    "note/spec cues present but no structured note clause emitted": 21,
+    "both parser text and graphics-related unresolved items exist": 6
+  },
+  "dominant_sheet_types": {
+    "schedule_sheet": {
+      "locality_scope_gap": 12,
+      "text_only_gap": 12
+    },
+    "notes_spec": {
+      "locality_scope_gap": 12,
+      "text_only_gap": 1
+    },
+    "riser_diagram": {
+      "locality_scope_gap": 5,
+      "text_only_gap": 1
+    },
+    "legend_symbol": {
+      "locality_scope_gap": 1,
+      "text_only_gap": 1
+    },
+    "installation_detail": {
+      "locality_scope_gap": 1
+    }
+  },
+  "lowest_note_spec_coverage_docs": {
+    "tc_b_seele_es_refresh_dwgs": 0.907,
+    "tc_e_red_bay_admin_comms": 0.9062,
+    "lv_a_aspen_house_telecom_intercom_risers": 0.9474,
+    "tc_d_appalachian_gym_comms": 0.9474,
+    "tc_a_4cd_science_building_asbuilts": 0.9639
+  }
+}

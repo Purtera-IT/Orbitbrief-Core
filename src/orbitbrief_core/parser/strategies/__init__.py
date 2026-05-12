@@ -7,6 +7,8 @@ from .email_thread import EmailThreadStrategy
 from .hybrid import HybridStrategy
 from .meeting_notes import MeetingNotesStrategy
 from .project_memo import ProjectMemoStrategy
+from .site_package import SitePackageStrategy
+from .spreadsheet_roster import SpreadsheetRosterStrategy
 
 __all__ = [
     "BaseStrategy",
@@ -18,4 +20,6 @@ __all__ = [
     "EmailThreadStrategy",
     "ProjectMemoStrategy",
     "HybridStrategy",
+    "SitePackageStrategy",
+    "SpreadsheetRosterStrategy",
 ]

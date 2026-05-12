@@ -1,0 +1,154 @@
+You are working in the latest OrbitBrief Core repo on the `site_schematic` lane.
+
+This is the V2.3 TRUTH-AUDIT / ANTI-FAKE-SUCCESS PASS.
+
+CURRENT STATE
+
+The latest V2.2 run is not trustworthy enough because:
+- every candidate became grounded on many packets
+- unresolved went to zero
+- room/device association became 1.0
+- connector grounding quality became 1.0
+- at least one packet still had `required_page_types = []` with `hardpage_rate = 1.0`
+
+That means the architecture is right, but the evaluation and/or grounding outputs are still too optimistic.
+
+PRIMARY GOAL
+
+Make V2 honest and evidence-backed, even if the metrics become less perfect.
+
+DO NOT:
+- touch OrbitBrief
+- start V3
+- weaken parser or V0/V1 truth paths
+- accept empty required hard-page sets
+- default booleans to success
+- accept uniform grounded rows without evidence
+
+IMPLEMENT IN THIS ORDER
+
+## 1. Hard-page requirement enforcement
+Add strict required-page derivation:
+- derive from actual packet page rows
+- intersect with packet schema
+- if legend/riser/equipment/detail/floorplan pages exist, required set must not be empty
+- packet hard-page success must fail when requirements are empty but should exist
+
+## 2. Evidence-backed booleans only
+For every grounded symbol row:
+- `connector_required`
+- `connector_grounding_ok`
+- `room_device_association_ok`
+- `grounding_state`
+must be computed from actual evidence scores
+
+No blanket defaults.
+No "fill true if missing."
+
+## 3. Re-open honest unresolved states
+If support is weak, keep:
+- `unresolved`
+or
+- `ambiguous`
+Do not auto-promote to `grounded`.
+
+## 4. Add truth-audit sanity checks
+Fail the run if:
+- all or nearly all packets have `grounded_symbol_count == candidate_symbol_count`
+- packets have empty required hard-page sets but still pass
+- connector quality is perfect while connector evidence is near zero
+- room/device association is perfect without real association evidence
+- grounded rows share suspiciously uniform success fields
+
+## 5. Add sample-row audit outputs
+For each packet, emit a sample of grounded rows with raw evidence:
+- legend_match_score
+- legend_text_association_score
+- room_device_association_score
+- connector_context_score
+- page_type_compatibility
+- grounding_state
+- connector_grounding_ok
+- room_device_association_ok
+
+These must be saved into artifacts for inspection.
+
+## 6. Recompute evaluation with stricter gates
+Keep or add these metrics:
+- grounding_state_honesty_rate
+- grounded_symbol_yield_rate
+- hardpage_grounded_symbol_yield_rate
+- unresolved_symbol_ratio
+- room_device_association_rate
+- connector_grounding_quality_rate
+- expected_family_grounded_coverage_rate
+- packet_hardpage_semantics_rate
+
+But also add:
+- suspicious_uniform_grounding_packet_failures
+- empty_required_hardpage_packet_failures
+- impossible_connector_success_packet_failures
+- impossible_room_assoc_packet_failures
+- truth_audit_failures_total
+
+FILES MOST LIKELY TO CHANGE
+- `src/orbitbrief_core/parser/site_schematic/models.py`
+- `src/orbitbrief_core/parser/site_schematic/semantic_mapper.py`
+- `src/orbitbrief_core/parser/site_schematic/grounding_resolver.py`
+- `src/orbitbrief_core/parser/site_schematic/core.py`
+- `tests/site_schematic/phase_v2_eval.py`
+
+USE THE HELPER MODULES FROM THIS KIT
+- `grounding_truth_audit.py`
+- `evidence_backed_flags.py`
+- `hardpage_truth_enforcer.py`
+- `grounded_yield_sanity.py`
+
+VALIDATION REQUIRED
+
+Run:
+- `pytest tests/site_schematic/test_phase_v2_helpers.py -q`
+- `pytest tests/site_schematic/test_phase_v2_1_helpers.py -q`
+- new helper tests from this kit
+- `python -m tests.site_schematic.phase_v2_eval`
+- V0/V1 regression spot checks:
+  - `pytest tests/site_schematic/test_phase_v0_v1_eval.py -q`
+  - `pytest tests/site_schematic/test_phase_v0_v1_gap_closure_helpers.py -q`
+- parser spot checks:
+  - `pytest tests/site_schematic/test_gold_pdf_eval.py -q`
+  - `pytest tests/site_schematic/test_phasec_region_fidelity.py -q`
+
+TARGETS
+
+Preserve:
+- production_kpi_regression_count = 0
+- contradiction_lane_separation_rate = 1.0
+- V0/V1 stable
+- parser text/table coverage stable
+
+Truth targets:
+- empty_required_hardpage_packet_failures = 0
+- suspicious_uniform_grounding_packet_failures = 0
+- impossible_connector_success_packet_failures = 0
+- impossible_room_assoc_packet_failures = 0
+- truth_audit_failures_total = 0
+
+And still aim for strong V2 metrics:
+- grounding_state_honesty_rate >= 0.95
+- grounded_symbol_yield_rate >= 0.35
+- hardpage_grounded_symbol_yield_rate >= 0.5
+- room_device_association_rate >= 0.4
+- connector_grounding_quality_rate >= 0.6
+- packet_hardpage_semantics_rate >= 0.75
+- packet_level_v2_failures = 0 or honestly explained
+
+OUTPUT I WANT
+
+1. exact files changed
+2. what caused the fake-success pattern
+3. what changed in hard-page truth enforcement
+4. what changed in evidence-backed flag logic
+5. before/after summary metrics
+6. before/after packet rows on the previously suspicious packets
+7. truth-audit failure counts
+8. whether V2 is now finally trustworthy enough to continue

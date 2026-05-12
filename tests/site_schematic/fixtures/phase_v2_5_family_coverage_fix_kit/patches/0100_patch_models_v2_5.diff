@@ -1,0 +1,15 @@
+--- a/src/orbitbrief_core/parser/site_schematic/models.py
++++ b/src/orbitbrief_core/parser/site_schematic/models.py
+@@
+ from dataclasses import dataclass, field
+ from typing import Any, Dict, List, Optional, Tuple
+@@
++@dataclass
++class SiteSchematicPacketV2FamilyCoverageSummary:
++    packet_id: str
++    packet_expected_families: List[str] = field(default_factory=list)
++    grounded_families: List[str] = field(default_factory=list)
++    hardpage_expected_families: List[str] = field(default_factory=list)
++    hardpage_grounded_families: List[str] = field(default_factory=list)
++    expected_family_grounded_coverage_rate: float = 0.0
++    hardpage_family_grounded_coverage_rate: float = 0.0

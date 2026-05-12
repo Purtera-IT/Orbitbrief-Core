@@ -1,0 +1,19 @@
+--- /dev/null
++++ b/src/orbitbrief_core/parser/site_schematic/hardpage_requirement_registry.py
+@@
++from __future__ import annotations
++
++from dataclasses import dataclass, field
++from typing import Dict, Iterable, List
++
++
++@dataclass
++class HardpageRequirement:
++    packet_id: str
++    required_page_types: List[str] = field(default_factory=list)
++
++
++def derive_required_hardpage_types(page_rows: Iterable[Dict[str, object]]) -> List[str]:
++    present = {str(r.get("sheet_type", "")) for r in page_rows}
++    ordered = ["legend_symbol", "riser_diagram", "equipment_room_layout", "installation_detail", "floorplan_overall"]
++    return [t for t in ordered if t in present]

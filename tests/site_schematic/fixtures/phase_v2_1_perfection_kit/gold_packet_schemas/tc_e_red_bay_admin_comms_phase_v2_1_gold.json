@@ -1,0 +1,32 @@
+{
+  "packet_id": "tc_e_red_bay_admin_comms",
+  "domain": "telecom",
+  "required_hardpage_types": [
+    "legend_symbol",
+    "riser_diagram",
+    "equipment_room_layout",
+    "installation_detail",
+    "floorplan_overall"
+  ],
+  "expected_symbol_families": [
+    "wireless_access_point",
+    "telecom_data_outlet",
+    "telecom_voice_outlet",
+    "av_device_outlet",
+    "telecom_outlet_wall",
+    "telecom_outlet_floor",
+    "patch_panel_row",
+    "equipment_rack_front",
+    "ladder_rack_cable_runway",
+    "riser_endpoint",
+    "junction_box",
+    "pull_box"
+  ],
+  "state_policy_required": true,
+  "connector_grounding_required_on": [
+    "riser_diagram",
+    "equipment_room_layout",
+    "installation_detail",
+    "floorplan_overall"
+  ]
+}

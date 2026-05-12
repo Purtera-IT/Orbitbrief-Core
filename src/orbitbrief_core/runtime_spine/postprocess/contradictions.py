@@ -13,6 +13,8 @@ def group_contradictions(claims: tuple[ProcessedClaim, ...]) -> tuple[Contradict
     groups: list[ContradictionGroup] = []
     counter = 0
     for field_path, members in sorted(by_field_path.items()):
+        if "[]" in field_path:
+            continue
         distinct_values = {str(member.normalized_value) for member in members}
         if len(distinct_values) <= 1:
             continue

@@ -1,0 +1,8 @@
+{
+  "bundle_version": "phase_d_universality_bundle_v3",
+  "embedded_current_pair_pdfs": true,
+  "embedded_holdout_public_pdfs": false,
+  "why_holdouts_not_embedded": "External public PDFs could not be fetched from this environment. Included fetch scripts and manifest instead.",
+  "holdout_packet_count": 10,
+  "next_step": "Run fetch_public_holdouts locally, validate presence, hydrate gold schemas, then run Phase D prompt."
+}
