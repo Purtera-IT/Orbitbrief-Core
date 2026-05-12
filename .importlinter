@@ -7,13 +7,12 @@ include_external_packages = True
 # Phase 0 — parser-os ↔ OrbitBrief seam
 # ---------------------------------------------------------------------------
 # OrbitBrief consumes the orbitbrief.input.v2 envelope from parser-os.
-# The runtime spine and any new modules MUST NOT pull raw PDF/OCR libs
-# directly — they must read what parser-os already produced.
+# Nothing in orbitbrief_core may pull raw PDF/OCR libs directly — read
+# what parser-os already produced.
 #
-# Phase 0 baseline: the legacy ``orbitbrief_core.parser.*`` subtree (an
-# older inline parser stack that predates the parser-os seam) is pinned
-# in ``ignore_imports`` below. Phase 1+ work is to delete it in favour
-# of consuming the envelope.
+# The Phase-0 ignore_imports list (legacy ``orbitbrief_core.parser.*``)
+# is GONE as of Phase 1: that subtree was deleted from main and lives
+# on the ``legacy_parser_runtime`` git branch for archaeology only.
 #
 # Parser-os internals (``app.parsers.*``, ``app.segmentation.*``) are
 # enforced separately by ``tools/check_no_raw_open.py`` because
@@ -31,19 +30,3 @@ forbidden_modules =
     pymupdf
     fitz
     pytesseract
-ignore_imports =
-    # ---- Phase-0 baseline: legacy inline-parser subtree ------------------
-    # These modules predate the parser-os seam and will be removed in
-    # Phase 1 once OrbitBrief consumes the envelope. Do NOT add new
-    # entries here — migrate the caller instead.
-    orbitbrief_core.parser.adapters.pdf_common -> pdfplumber
-    orbitbrief_core.parser.adapters.pdf_common -> fitz
-    orbitbrief_core.parser.adapters.providers.paddleocr_vl_provider -> fitz
-    orbitbrief_core.parser.adapters.providers.pp_structure_provider -> fitz
-    orbitbrief_core.parser.adapters.providers.tesseract_provider -> fitz
-    orbitbrief_core.parser.adapters.providers.tesseract_provider -> pytesseract
-    orbitbrief_core.parser.site_schematic.core -> fitz
-    orbitbrief_core.parser.site_schematic.layout_sections -> fitz
-    orbitbrief_core.parser.site_schematic.layout_sections -> pytesseract
-    orbitbrief_core.parser.site_schematic.observations -> fitz
-    orbitbrief_core.parser.site_schematic.symbols.export -> fitz

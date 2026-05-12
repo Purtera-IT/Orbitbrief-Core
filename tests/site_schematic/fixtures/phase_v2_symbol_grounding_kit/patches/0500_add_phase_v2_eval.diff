@@ -1,7 +1,0 @@
---- /dev/null
-+++ b/tests/site_schematic/phase_v2_eval.py
-@@
-+from __future__ import annotations
-+
-+def run_phase_v2_eval():
-+    return {}

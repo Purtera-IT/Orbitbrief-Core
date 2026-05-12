@@ -12,6 +12,9 @@ dependencies = [
   "PyYAML>=6.0.1",
   "openpyxl>=3.1.2",
   "jsonschema>=4.23.0",
+  # Phase-1 evidence_runtime backend: single-file embedded SQL with JSON
+  # support. We pin the major to keep the on-disk file format stable.
+  "duckdb>=1.0,<2.0",
   # parser-os: Phase-0 seam. Source of truth for EvidenceAtom, SourceRef,
   # CompileResult, Manifest, and the orbitbrief.input.v2 envelope.
   # Pin via Git tag in CI; editable local path for dev velocity.
