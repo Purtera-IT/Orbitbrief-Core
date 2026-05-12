@@ -68,6 +68,12 @@ PERMANENT_ALLOWLIST: frozenset[str] = frozenset({
     # in-memory siblings — production callers pick one at construction.
     "review_runtime/queue.py",
     "review_runtime/training_log.py",
+    # Phase 7 orchestrator: writes per-stage artifacts to disk and
+    # reads the input envelope. This module IS the seam between the
+    # in-process pipeline and the operator's filesystem.
+    "orchestrator/artifacts.py",
+    "orchestrator/pipeline.py",
+    "orchestrator/__main__.py",
 })
 
 # Top-level parser-os modules that are the public seam. Anything outside
