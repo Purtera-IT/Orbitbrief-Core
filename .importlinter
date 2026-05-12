@@ -102,3 +102,43 @@ source_modules =
     orbitbrief_core.seam
 forbidden_modules =
     orbitbrief_core.world_model
+
+# ---------------------------------------------------------------------------
+# Phase 5 — Brains layer isolation
+# ---------------------------------------------------------------------------
+# Brains synthesize domain-specific findings from BriefState (Phase 4) plus a
+# typed RetrievalBundle that the orchestrator pre-assembles. A brain MUST
+# NEVER read raw envelopes, walk the runtime, hit the seam loader, or call the
+# retrieval store. Everything it needs flows through the typed inputs.
+#
+# Brains MAY import:
+#   * orbitbrief_core.world_model.planner.schema  (BriefState shape)
+#   * orbitbrief_core.inference                   (chat client)
+#   * orbitbrief_core.brains._retrieval_bundle    (the typed bundle)
+
+[importlinter:contract:brains-no-substrate]
+name = brains must not import the runtime, seam, retrieval store, or world_model engines
+type = forbidden
+source_modules =
+    orbitbrief_core.brains
+forbidden_modules =
+    orbitbrief_core.evidence_runtime
+    orbitbrief_core.seam
+    orbitbrief_core.retrieval
+    orbitbrief_core.world_model.pack_prior
+    orbitbrief_core.world_model.site_reality
+    orbitbrief_core.world_model.refiner
+    orbitbrief_core.world_model.planner.runner
+
+# Substrate stays oblivious to brains too — no upward imports.
+
+[importlinter:contract:substrate-no-brains]
+name = evidence_runtime / retrieval / seam / world_model must not depend on brains
+type = forbidden
+source_modules =
+    orbitbrief_core.evidence_runtime
+    orbitbrief_core.retrieval
+    orbitbrief_core.seam
+    orbitbrief_core.world_model
+forbidden_modules =
+    orbitbrief_core.brains

@@ -59,6 +59,10 @@ PERMANENT_ALLOWLIST: frozenset[str] = frozenset({
     # importlib.resources. That's reading packaged data shipped with
     # the wheel, not user input — semantically distinct from raw I/O.
     "world_model/registry.py",
+    # Phase 5 brains CLI: reads serialized BriefState + RetrievalBundle
+    # JSON paths from argv. Inspection-only; production callers
+    # invoke the brain class directly via the orchestrator.
+    "brains/__main__.py",
 })
 
 # Top-level parser-os modules that are the public seam. Anything outside

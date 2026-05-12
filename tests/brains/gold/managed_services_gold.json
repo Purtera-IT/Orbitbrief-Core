@@ -1,0 +1,117 @@
+{
+  "_doc": "Managed-Services brain gold: PM-reviewed (synthetic) per-packet section assignments. Each packet_id appears in 'expected' under exactly one section. Format mirrors a real PM review export so the same harness can ingest real data later.",
+  "version": "v1",
+  "cases": [
+    {
+      "case_id": "msp_gold_01_endpoint_managed",
+      "project_id": "msp_gold_01",
+      "compile_id": "c1",
+      "active_pack_id": "msp",
+      "packets": [
+        {"packet_id": "p1", "family": "scope_inclusion",   "anchor_key": "endpoint_monitoring", "atom_id": "a1", "atom_text": "24x7 endpoint monitoring across 220 devices."},
+        {"packet_id": "p2", "family": "scope_inclusion",   "anchor_key": "patching",            "atom_id": "a2", "atom_text": "Monthly OS and third-party patching."},
+        {"packet_id": "p3", "family": "scope_exclusion",   "anchor_key": "hw_replacement",      "atom_id": "a3", "atom_text": "Hardware replacement explicitly out of scope."},
+        {"packet_id": "p4", "family": "customer_override", "anchor_key": "approver",            "atom_id": "a4", "atom_text": "Customer to designate change-approval contact within 5 business days."},
+        {"packet_id": "p5", "family": "site_access",       "anchor_key": "hq_dispatch",         "atom_id": "a5", "atom_text": "Onsite dispatch needs prior badge approval; 48-hour lead."},
+        {"packet_id": "p6", "family": "missing_info",      "anchor_key": "third_party_apps",    "atom_id": "a6", "atom_text": "Third-party app patch list not enumerated."}
+      ],
+      "expected": {
+        "scope_items":               ["p1", "p2"],
+        "exclusions":                ["p3"],
+        "customer_responsibilities": ["p4"],
+        "milestones":                [],
+        "assumptions":               [],
+        "dispatch_readiness_flags":  ["p5"],
+        "open_questions":            ["p6"]
+      }
+    },
+    {
+      "case_id": "msp_gold_02_compliance_heavy",
+      "project_id": "msp_gold_02",
+      "compile_id": "c1",
+      "active_pack_id": "msp",
+      "packets": [
+        {"packet_id": "p1", "family": "scope_inclusion",     "anchor_key": "vuln_mgmt",      "atom_id": "a1", "atom_text": "Vulnerability scanning weekly across all endpoints."},
+        {"packet_id": "p2", "family": "compliance_clause",   "anchor_key": "hipaa",          "atom_id": "a2", "atom_text": "All endpoint logs retained 6 years per HIPAA."},
+        {"packet_id": "p3", "family": "compliance_clause",   "anchor_key": "soc2",           "atom_id": "a3", "atom_text": "Quarterly access reviews to satisfy SOC2 CC6.3."},
+        {"packet_id": "p4", "family": "meeting_decision",    "anchor_key": "qbr",            "atom_id": "a4", "atom_text": "QBR on the 3rd Thursday quarterly."},
+        {"packet_id": "p5", "family": "missing_info",        "anchor_key": "deletion_policy","atom_id": "a5", "atom_text": "Data-deletion policy not stated for terminated users."}
+      ],
+      "expected": {
+        "scope_items":               ["p1"],
+        "exclusions":                [],
+        "customer_responsibilities": [],
+        "milestones":                ["p4"],
+        "assumptions":               ["p2", "p3"],
+        "dispatch_readiness_flags":  [],
+        "open_questions":            ["p5"]
+      }
+    },
+    {
+      "case_id": "msp_gold_03_dispatch_critical",
+      "project_id": "msp_gold_03",
+      "compile_id": "c1",
+      "active_pack_id": "msp",
+      "packets": [
+        {"packet_id": "p1", "family": "scope_inclusion",  "anchor_key": "noc_24x7",      "atom_id": "a1", "atom_text": "24x7 NOC monitoring with on-call escalation."},
+        {"packet_id": "p2", "family": "site_access",      "anchor_key": "dc_badging",    "atom_id": "a2", "atom_text": "Datacenter access requires escort; pre-approval 72 hours."},
+        {"packet_id": "p3", "family": "site_access",      "anchor_key": "secure_lab",    "atom_id": "a3", "atom_text": "Secure lab requires Tier-3 clearance for entry."},
+        {"packet_id": "p4", "family": "vendor_mismatch",  "anchor_key": "monitoring_tool","atom_id": "a4", "atom_text": "Customer expects Datadog; proposal cites New Relic."},
+        {"packet_id": "p5", "family": "action_item",      "anchor_key": "cmdb_export",   "atom_id": "a5", "atom_text": "Customer to export CMDB snapshot 5 days before kickoff."}
+      ],
+      "expected": {
+        "scope_items":               ["p1"],
+        "exclusions":                [],
+        "customer_responsibilities": ["p5"],
+        "milestones":                [],
+        "assumptions":               [],
+        "dispatch_readiness_flags":  ["p2", "p3", "p4"],
+        "open_questions":            []
+      }
+    },
+    {
+      "case_id": "msp_gold_04_quantity_conflict",
+      "project_id": "msp_gold_04",
+      "compile_id": "c1",
+      "active_pack_id": "msp",
+      "packets": [
+        {"packet_id": "p1", "family": "scope_inclusion",     "anchor_key": "endpoint_mgmt", "atom_id": "a1", "atom_text": "MDM rollout for laptops across all corporate sites."},
+        {"packet_id": "p2", "family": "quantity_claim",      "anchor_key": "device_count",  "atom_id": "a2", "atom_text": "Approximately 220 in-scope endpoints."},
+        {"packet_id": "p3", "family": "quantity_conflict",   "anchor_key": "device_count_conflict", "atom_id": "a3", "atom_text": "Inventory says 248 active endpoints."},
+        {"packet_id": "p4", "family": "scope_exclusion",     "anchor_key": "byod",          "atom_id": "a4", "atom_text": "BYOD devices explicitly excluded from MDM scope."},
+        {"packet_id": "p5", "family": "missing_info",        "anchor_key": "linux_share",   "atom_id": "a5", "atom_text": "Linux endpoint share unstated."}
+      ],
+      "expected": {
+        "scope_items":               ["p1", "p2"],
+        "exclusions":                ["p4"],
+        "customer_responsibilities": [],
+        "milestones":                [],
+        "assumptions":               [],
+        "dispatch_readiness_flags":  [],
+        "open_questions":            ["p3", "p5"]
+      }
+    },
+    {
+      "case_id": "msp_gold_05_milestones",
+      "project_id": "msp_gold_05",
+      "compile_id": "c1",
+      "active_pack_id": "msp",
+      "packets": [
+        {"packet_id": "p1", "family": "scope_inclusion",  "anchor_key": "patch_lifecycle", "atom_id": "a1", "atom_text": "End-to-end OS patch lifecycle managed by MSP."},
+        {"packet_id": "p2", "family": "meeting_decision", "anchor_key": "weekly_standup",  "atom_id": "a2", "atom_text": "Weekly Tuesday 10:00 standup with customer ops."},
+        {"packet_id": "p3", "family": "meeting_decision", "anchor_key": "monthly_metrics", "atom_id": "a3", "atom_text": "Monthly metrics report on the 1st business day."},
+        {"packet_id": "p4", "family": "action_item",      "anchor_key": "license_audit",   "atom_id": "a4", "atom_text": "Customer to complete license-entitlement audit pre-onboarding."},
+        {"packet_id": "p5", "family": "scope_exclusion",  "anchor_key": "dba_services",    "atom_id": "a5", "atom_text": "Database administration and tuning out of scope."}
+      ],
+      "expected": {
+        "scope_items":               ["p1"],
+        "exclusions":                ["p5"],
+        "customer_responsibilities": ["p4"],
+        "milestones":                ["p2", "p3"],
+        "assumptions":               [],
+        "dispatch_readiness_flags":  [],
+        "open_questions":            []
+      }
+    }
+  ]
+}
