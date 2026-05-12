@@ -85,10 +85,13 @@ source_modules =
     orbitbrief_core.world_model
 forbidden_modules =
     orbitbrief_core.retrieval
-    orbitbrief_core.composers
+    orbitbrief_core.composer
     orbitbrief_core.brains
     orbitbrief_core.validator
     orbitbrief_core.calibrator
+    orbitbrief_core.review_runtime
+    orbitbrief_core.review_ui
+    orbitbrief_core.orchestrator
 
 [importlinter:contract:substrate-no-world-model]
 name = evidence_runtime / retrieval / seam must not depend on world_model

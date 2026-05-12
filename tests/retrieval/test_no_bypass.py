@@ -1,9 +1,9 @@
-"""Phase-2 layering test: future composers/brains can't bypass retrieval.
+"""Phase-2 layering test: composer / brains / validator / calibrator
+can't bypass retrieval.
 
-The actual ``composers`` / ``brains`` packages don't exist yet
-(they're Phase 4). This test verifies the *static guard* is in
-place so the moment those packages appear and accidentally import
-:mod:`orbitbrief_core.retrieval`, ``import-linter`` will trip.
+The actual layers exist as of Phase 5+; this test verifies the
+``no-retrieval-bypass`` lint contract still names every protected
+source layer so a refactor can't silently drop one.
 
 Two complementary checks:
 
@@ -32,7 +32,7 @@ def test_importlinter_contract_exists() -> None:
     # Spot-check the rule by name and the four protected source modules.
     assert "no-retrieval-bypass" in text
     for layer in (
-        "orbitbrief_core.composers",
+        "orbitbrief_core.composer",
         "orbitbrief_core.brains",
         "orbitbrief_core.validator",
         "orbitbrief_core.calibrator",
