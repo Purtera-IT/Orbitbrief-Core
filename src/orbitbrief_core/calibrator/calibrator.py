@@ -6,6 +6,10 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from orbitbrief_core.brains._briefing import (
+    CANONICAL_SECTIONS as _BRIEFING_SECTIONS,
+    BriefingState,
+)
 from orbitbrief_core.brains._retrieval_bundle import RetrievalBundle
 from orbitbrief_core.brains.managed_services.schema import (
     ManagedServicesScopeState,
@@ -72,6 +76,26 @@ class Calibrator:
     auto_accept_threshold: float = 0.80
     review_threshold: float = 0.55
 
+    def calibrate_briefing(
+        self,
+        state: BriefingState,
+        *,
+        validation: ValidationReport,
+        brief: BriefState,
+        bundle: RetrievalBundle,
+        parser_confidence_by_atom: dict[str, float] | None = None,
+    ) -> CalibratorReport:
+        """Calibrate every grounded item in a Phase-7.5 :class:`BriefingState`."""
+        return self._calibrate_grounded(
+            state=state,
+            sections=_BRIEFING_SECTIONS,
+            brain=state.domain_id,
+            validation=validation,
+            brief=brief,
+            bundle=bundle,
+            parser_confidence_by_atom=parser_confidence_by_atom,
+        )
+
     def calibrate_managed_services(
         self,
         state: ManagedServicesScopeState,
@@ -82,16 +106,37 @@ class Calibrator:
         parser_confidence_by_atom: dict[str, float] | None = None,
     ) -> CalibratorReport:
         """Calibrate every grounded item in a :class:`ManagedServicesScopeState`."""
-        # Pre-index validations by composite item id for O(1) lookup.
+        return self._calibrate_grounded(
+            state=state,
+            sections=_SECTIONS,
+            brain="managed_services",
+            validation=validation,
+            brief=brief,
+            bundle=bundle,
+            parser_confidence_by_atom=parser_confidence_by_atom,
+        )
+
+    def _calibrate_grounded(
+        self,
+        *,
+        state: Any,
+        sections: tuple[str, ...],
+        brain: str,
+        validation: ValidationReport,
+        brief: BriefState,
+        bundle: RetrievalBundle,
+        parser_confidence_by_atom: dict[str, float] | None,
+    ) -> CalibratorReport:
+        """Shared per-section calibration loop reused by every brain."""
         val_by_id = {iv.item.composite_id: iv for iv in validation.items}
 
         out: list[CalibratedItem] = []
-        for section in _SECTIONS:
+        for section in sections:
             for item in getattr(state, section):
                 ref = ItemRef(
                     project_id=state.project_id,
                     compile_id=state.compile_id,
-                    brain="managed_services",
+                    brain=brain,
                     section=section,
                     item_id=item.id,
                 )
@@ -127,6 +172,6 @@ class Calibrator:
         return CalibratorReport(
             project_id=state.project_id,
             compile_id=state.compile_id,
-            brain="managed_services",
+            brain=brain,
             items=tuple(out),
         )

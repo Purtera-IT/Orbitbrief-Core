@@ -46,6 +46,7 @@ from orbitbrief_core.orchestrator.artifacts import (
     StageStatus,
 )
 from orbitbrief_core.orchestrator.brain_registry import (
+    BRIEFING_PACK_IDS,
     BrainRegistry,
     default_brain_registry,
 )
@@ -296,10 +297,22 @@ class BriefPipeline:
             result.brain_states[pack_id] = brain_result.state
             records.append(rec)
 
+            is_briefing = pack_id in BRIEFING_PACK_IDS
+            validate_fn = (
+                validator.validate_briefing
+                if is_briefing
+                else validator.validate_managed_services
+            )
+            calibrate_fn = (
+                calibrator.calibrate_briefing
+                if is_briefing
+                else calibrator.calibrate_managed_services
+            )
+
             validation_report, rec = self._run_stage(
                 f"50_validator::{pack_id}",
-                lambda s=brain_result.state, br=refined.state, bd=bundles[pack_id]: (
-                    validator.validate_managed_services(s, brief=br, bundle=bd)
+                lambda s=brain_result.state, br=refined.state, bd=bundles[pack_id], fn=validate_fn: (
+                    fn(s, brief=br, bundle=bd)
                 ),
                 artifact=artifacts.validation_path(pack_id),
                 extra_detail=lambda r: {
@@ -314,10 +327,8 @@ class BriefPipeline:
 
             calibration_report, rec = self._run_stage(
                 f"60_calibrator::{pack_id}",
-                lambda s=brain_result.state, v=validation_report, br=refined.state, bd=bundles[pack_id]: (
-                    calibrator.calibrate_managed_services(
-                        s, validation=v, brief=br, bundle=bd
-                    )
+                lambda s=brain_result.state, v=validation_report, br=refined.state, bd=bundles[pack_id], fn=calibrate_fn: (
+                    fn(s, validation=v, brief=br, bundle=bd)
                 ),
                 artifact=artifacts.calibration_path(pack_id),
                 extra_detail=lambda r: {

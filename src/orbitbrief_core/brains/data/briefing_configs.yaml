@@ -1,0 +1,542 @@
+_doc: OrbitBrief domain briefing configs extracted from AWESOME_CHASE intake workbook v4. Workbook fills override DEFAULT_GUIDANCE;
+  per-domain defaults layer in between.
+version: v4
+canonical_fields:
+- scope_overview
+- detailed_scope_of_services
+- deliverables
+- assumptions
+- customer_responsibilities
+- out_of_scope
+- risks_or_dependencies
+- completion_criteria
+- open_items
+domains:
+  wireless:
+    display_name: Wireless
+    operating_rules:
+      do_not_invent_facts: true
+      use_assumptions_for_supported_gaps_only: true
+      use_open_items_for_missing_or_conflicting_data: true
+      remove_irrelevant_language: true
+      preserve_structured_detail_over_summary: true
+      keep_wording_execution_ready: true
+      limit_output_to_nine_post_fields: true
+      extract_from_headings_paragraphs_lists_and_tables: true
+      record_referenced_but_not_verified_attachments_as_dependencies_or_open_items: true
+      extract_from_markdown_headings_paragraphs_lists_tables_links_and_callouts: true
+      treat_code_blocks_as_content_only_when_they_contain_scope_facts: true
+      extract_from_workbook_tabs_headers_tables_and_repeated_blocks: true
+      remove_irrelevant_language_and_template_noise: true
+      do_not_infer_from_formatting_alone: true
+      treat_blank_template_cells_as_missing_not_negative: true
+      preserve_units_as_shown: true
+      extract_from_bullets_fragments_shorthand_and_pasted_message_content: true
+      remove_irrelevant_language_and_conversational_filler: true
+      treat_unanswered_questions_as_missing_data: false
+      treat_unanswered_questions_as_open_items: true
+      separate_facts_from_internal_brainstorming_or_reminders: true
+      treat_tentative_language_as_lower_confidence_unless_confirmed: true
+      prefer_direct_customer_statements_over_internal_interpretation: true
+      extract_from_subject_body_reply_chain_and_forwarded_content: true
+      remove_irrelevant_language_and_email_noise: true
+      prefer_most_current_authoritative_statement: true
+      separate_customer_facts_from_internal_interpretation: true
+      extract_from_rows_columns_tabs_and_notes: true
+      remove_template_noise_and_formatting_artifacts: true
+      preserve_site_level_detail_with_program_rollup: true
+      treat_blank_cells_as_missing: true
+      record_referenced_files_as_dependencies: true
+      extract_from_columns_rows_notes_and_identifier_fields: true
+      treat_each_site_row_as_a_potential_scoped_entity: true
+      remove_export_noise_and_helper_fields: true
+      separate_current_state_from_target_state: true
+      reconstruct_legacy_table_context_without_inventing_values: true
+      extract_from_title_blocks_legends_room_labels_notes_and_annotations: true
+      convert_visual_and_textual_content_into_execution_ready_scope: true
+      remove_irrelevant_drawing_noise: true
+      record_referenced_but_not_verified_files: true
+      distinguish_visual_indications_from_confirmed_facts: true
+      treat_unreadable_or_missing_content_as_unknown: true
+      extract_from_title_blocks_legends_room_labels_dimension_strings_notes_and_visible_plan_annotations: true
+      record_referenced_but_not_verified_files_as_dependencies_or_open_items: true
+      treat_cad_export_artifacts_and_duplicate_text_as_ambiguity_not_fact: true
+      extract_from_workbook_tabs_headers_tables_schedules_and_notes: true
+      remove_irrelevant_workbook_noise: true
+      treat_blank_cells_as_missing_not_negative: true
+      capture_sheet_level_provenance: true
+      extract_from_visible_title_blocks_legends_room_labels_notes_and_visual_annotations: true
+      remove_irrelevant_image_packet_noise: true
+      treat_scan_quality_limitations_as_source_constraints: true
+    normalization:
+      survey_type_labels:
+      - Passive Validation Survey
+      - Predictive Survey
+      - Passive Survey with Predictive Remediation
+      - Pre Deployment AP on a Stick Survey
+      - Spectrum Analysis
+      - Infrastructure Survey
+      delivery_model_labels:
+      - onsite
+      - remote
+      - hybrid
+      - unspecified
+      common_wireless_terms:
+        AP: access point
+        WLAN: wireless local area network
+        RF: radio frequency
+      facility_type_values:
+      - office
+      - retail
+      - warehouse
+      - manufacturing
+      - production
+      - distribution_center
+      - healthcare
+      - hospital
+      - clinic
+      - hospitality
+      - education
+      - high_rise
+      - mixed_use
+      - industrial
+      - laboratory
+      - data_center
+      - other
+      - unknown
+    fields:
+      scope_overview:
+      - 1–3 sentences describing the engagement at a glance
+      - Describe the high level field service program in customer facing language
+      - Identify the number of sites if known
+      - Identify the site or facility if known
+      - Identify the site, facility, building, floor, or survey area if known
+      - Identify the site, facility, or survey area if known
+      - Include facility type, size, or layout indicators if known
+      - Keep concise and customer facing
+      - Keep customer facing and concise
+      - Keep the language concise and customer facing
+      - Reference the customer site or facility if known
+      - State delivery model (onsite, remote, hybrid) if known
+      - State the business or technical purpose if known
+      - State the geographic scope if known
+      - State whether delivery is remote, onsite, or hybrid if known
+      - State whether work is onsite, remote predictive, or hybrid if supported
+      - Summarize the included multi site service
+      - Summarize the included wireless service
+      - Summarize the wireless engagement based on drawing packet evidence
+      detailed_scope_of_services:
+      - Concrete activities the engagement performs
+      - Differentiate passive, predictive, AP on a stick, spectrum, and infrastructure tasks where applicable
+      - Differentiate site surveys, deployments, MAC work, low voltage work, infrastructure validation, or mixed scope where
+        applicable
+      - Group common activities across sites and capture material site variations where relevant
+      - Include planning, survey execution, modeling, validation, and analysis as applicable
+      - Include planning, survey, analysis, validation, design, remediation review, and reporting activities only if supported
+        by the DOCX source
+      - Include planning, survey, analysis, validation, design, remediation review, and reporting activities only if supported
+        by the DWG export PDF source
+      - Include planning, survey, analysis, validation, design, remediation review, and reporting activities only if supported
+        by the XLSX source
+      - Include planning, survey, analysis, validation, design, remediation review, and reporting activities only if supported
+        by the email export source
+      - Include planning, survey, analysis, validation, design, remediation review, and reporting activities only if supported
+        by the image PDF source
+      - Include planning, survey, analysis, validation, design, remediation review, and reporting activities only if supported
+        by the markdown source
+      - Include planning, survey, analysis, validation, design, remediation review, and reporting activities only if supported
+        by the pasted notes source
+      - Include planning, survey, analysis, validation, design, remediation review, and reporting activities only if supported
+        by the workbook source
+      - Include planning, survey, analysis, validation, design, remediation review, and reporting tasks only if supported
+        by source material
+      - Incorporate site complexity such as multi floor, warehouse, healthcare, or high density areas
+      - List execution activities supported by the drawing packet
+      - List only included PurTera service activities
+      - One bullet per executable activity, no nested prose
+      - Reference telecom spaces, ceiling conditions, and mounting constraints where relevant
+      - Use execution ready statements
+      - Use execution-ready statements that a PM can sequence
+      - Use floor, zone, building, or site level detail when available
+      - Use floor, zone, building, or site level detail when available and commercially relevant
+      - Use floor, zone, building, site, closet, or inventory level detail when available and commercially relevant
+      deliverables:
+      - Customer-facing tangible outputs only
+      - Do not mix services with deliverables
+      - Examples include report, heat maps, remediation recommendations, project files, or findings summaries
+      - Examples include survey reports, heat maps, predictive models, AP placement, or project files
+      - Examples include updated trackers, completion reporting, infrastructure findings, survey outputs, or rollout summaries
+      - If a deliverable is referenced but not fully defined, capture the uncertainty in open_items
+      - If unclear, capture in open_items
+      - List only customer facing outputs
+      assumptions:
+      - Atomic, testable assumptions only
+      - Do not fabricate scope
+      - Do not invent scope; mark gaps as open_items instead
+      - Examples include assumed ceiling types, access, or survey coverage areas
+      - Keep each assumption atomic
+      - Keep each assumption atomic and testable
+      - Use assumptions when the DOCX implies a workable estimate basis but does not fully define it
+      - Use assumptions when the DWG export PDF implies a workable estimate basis but does not fully define it
+      - Use assumptions when the XLSX source implies a workable estimate basis but does not fully define it
+      - Use assumptions when the email export implies a workable estimate basis but does not fully define it
+      - Use assumptions when the image PDF implies a workable estimate basis but does not fully define it
+      - Use assumptions when the markdown source implies a workable estimate basis but does not fully define it
+      - Use assumptions when the pasted notes imply a workable estimate basis but do not fully define it
+      - Use assumptions when the workbook implies a workable estimate basis but does not fully define it
+      - Use for reasonable assumptions derived from incomplete drawings
+      - Use only for reasonable and commercially useful assumptions
+      - Use only reasonable and commercially useful assumptions
+      customer_responsibilities:
+      - Be explicit about timing where it affects sequencing
+      - Include missing appendices, plans, drawings, and referenced attachments when relevant
+      - Include missing attachments, floor plans, drawings, schedules, spreadsheets, or referenced files when relevant
+      - Include missing attachments, linked files, floor plans, drawings, and schedules when relevant
+      - Include missing attachments, spreadsheets, floor plans, drawings, schedules, or referenced files when relevant
+      - Include missing schedules, drawings, legends, referenced files, floor plans, or current state details when relevant
+      - Include missing schedules, legends, referenced files, floor plans, or current state details when relevant
+      - Include missing workbook referenced attachments, floor plans, drawings, schedules, or site files when relevant
+      - Include provision of missing drawings or referenced files
+      - Keep actionable and clear
+      - Keep language operational and clear
+      - Keep operational and clear
+      - List required customer actions, inputs, permissions, access items, and coordination responsibilities
+      - List required customer actions, inputs, permissions, access, files, and coordination items
+      - List required customer inputs such as floor plans, access, contacts, and confirmations
+      - Required customer actions, inputs, permissions, files
+      out_of_scope:
+      - Avoid exclusions unrelated to the opportunity
+      - Avoid generic boilerplate
+      - Avoid unrelated generic boilerplate
+      - Avoid unrelated or generic boilerplate
+      - Do not add exclusions unrelated to the opportunity
+      - Explicit exclusions clarifying scope boundary
+      - List exclusions such as installation, cabling, or configuration unless explicitly included
+      - List exclusions that clarify scope boundaries
+      - List exclusions that clarify the scope boundary
+      - Only include exclusions supported by the engagement type and source context
+      - Only include exclusions supported by the engagement type and workbook context
+      risks_or_dependencies:
+      - Capture risks from incomplete drawings, unknown infrastructure, or layout complexity
+      - Execution risks, dependencies, limiting conditions
+      - Include missing data, site variability, access constraints, safety constraints, and unresolved infrastructure readiness
+        issues when relevant
+      - Include missing dimensions, unclear telecom locations, or restricted areas
+      - Include missing files, incomplete dimensions, restricted access, and unresolved technical inputs when they affect
+        schedule, quality, or quote confidence
+      - Include missing files, incomplete dimensions, restricted access, unresolved infrastructure details, or conflicting
+        CAD export content when they affect schedule, quality, or quote confidence
+      - Include missing files, incomplete dimensions, restricted access, unresolved infrastructure details, or conflicting
+        workbook content when they affect schedule, quality, or quote confidence
+      - Include missing files, incomplete dimensions, restricted access, unresolved infrastructure details, or scan quality
+        limitations when they affect schedule, quality, or quote confidence
+      - Include missing files, incomplete dimensions, restricted access, unresolved technical inputs, or conflicting email
+        content when they affect schedule, quality, or quote confidence
+      - Include missing files, incomplete dimensions, restricted access, unresolved technical inputs, or conflicting note
+        content when they affect schedule, quality, or quote confidence
+      - Include missing files, incomplete dimensions, restricted access, unresolved technical inputs, or conflicting workbook
+        content when they affect schedule, quality, or quote confidence
+      - Include missing links, unavailable files, incomplete dimensions, restricted access, and unresolved technical inputs
+        when they affect schedule, quality, or quote confidence
+      - Include unknowns that may affect schedule, quality, or pricing
+      - Include unknowns that may affect schedule, quality, or pricing certainty
+      - List execution risks, dependencies, and limiting conditions
+      - State dependencies clearly
+      - Use clear dependency statements
+      completion_criteria:
+      - Align directly to included services and deliverables
+      - Align directly to the listed services + deliverables
+      - Avoid business outcome guarantees
+      - Define objective completion conditions
+      - Define objective indicators that the agreed engagement is complete
+      - Do not promise operational outcomes beyond the survey or assessment scope
+      - Objective indicators that the engagement is complete
+      - Tie directly to survey completion, modeling, and deliverables
+      open_items:
+      - Examples include missing floor plans, unclear dimensions, unknown AP models, or survey type confirmation
+      - Keep each item specific and actionable
+      - Keep specific and actionable
+      - List missing or unresolved inputs
+      - List specific unresolved items that block quote finalization or execution ready scope
+      - Specific unresolved items that block quote finalization
+      - Use for missing, conflicting, or unclear DOCX inputs
+      - Use for missing, conflicting, or unclear DWG export PDF inputs
+      - Use for missing, conflicting, or unclear XLSX inputs
+      - Use for missing, conflicting, or unclear intake details
+      - Use for missing, conflicting, or unclear markdown inputs
+      - Use for missing, conflicting, or unclear workbook inputs
+      - Use for missing, conflicting, unclear, or illegible image PDF inputs
+      - Use for missing, conflicting, unclear, or still pending email inputs
+      - Use for missing, conflicting, unclear, or still pending note inputs
+    artifact_labels:
+    - .ESX
+    - CSV
+    - DOCX
+    - DWG export PDF
+    - MD
+    - PDF
+    - TXT
+    - XLS
+    - XLSX
+    - ZIP export
+    - email export
+    - image PDF
+    - pasted notes
+    schemas_extracted: 19
+    subdomain_notes:
+    - test AP availability, mount approach, temporary power/switching, validation outputs
+    - survey scope, floorplan quality, AP model assumptions, RF obstacles, deliverables
+    - post-install validation need, pass/fail thresholds, remediation linkage
+    - scaled plans, material assumptions, ceiling heights, predictive-only limitations
+    - distance / out-of-scope caps, explicit boundary language, exceptions
+    - coverage vs capacity target, voice/scanner density, AP model, controller/cloud
+    - mounting type, lift/safety, ceiling structure, install-by-others boundary
+  low_voltage_cabling:
+    display_name: Low Voltage Cabling
+    operating_rules: {}
+    normalization: {}
+    fields:
+      scope_overview:
+      - 1–3 sentences describing the engagement at a glance
+      - Reference the customer site or facility if known
+      - State delivery model (onsite, remote, hybrid) if known
+      detailed_scope_of_services:
+      - Call out testing / certification standards (BICSI, TIA-568)
+      - Concrete activities the engagement performs
+      - Differentiate copper drops, fiber runs, DMARC extension, IDF homerun
+      - One bullet per executable activity, no nested prose
+      - Use execution-ready statements that a PM can sequence
+      deliverables:
+      - Customer-facing tangible outputs only
+      - Do not mix services with deliverables
+      assumptions:
+      - Atomic, testable assumptions only
+      - Do not invent scope; mark gaps as open_items instead
+      - Pathway availability + ceiling height assumptions
+      - What is assumed existing vs new (drops, pathways, patch panels)
+      customer_responsibilities:
+      - Be explicit about timing where it affects sequencing
+      - Required customer actions, inputs, permissions, files
+      out_of_scope:
+      - Avoid exclusions unrelated to the opportunity
+      - 'Common: existing copper reuse not certified by us'
+      - 'Common: pathway construction (J-hooks vs conduit)'
+      - Explicit exclusions clarifying scope boundary
+      risks_or_dependencies:
+      - Execution risks, dependencies, limiting conditions
+      - Include unknowns that may affect schedule, quality, or pricing
+      completion_criteria:
+      - Align directly to the listed services + deliverables
+      - Objective indicators that the engagement is complete
+      open_items:
+      - 'Missing: as-built reference if reusing existing'
+      - 'Missing: total drop count by room'
+      - Specific unresolved items that block quote finalization
+      - Use for missing, conflicting, or unclear intake details
+    artifact_labels:
+    - CSV
+    - DOCX
+    - DWG export PDF
+    - Excel
+    - MD
+    - PDF
+    - TXT
+    - XLS
+    - XLSX
+    - ZIP
+    - email export
+    - form export
+    - image PDF
+    - pasted notes
+    schemas_extracted: 28
+    subdomain_notes:
+    - what is assumed existing vs new, test/cert expectations, by-others boundaries
+    - AP drops re-use, certification, label / closet mapping
+    - new AP count, pathways, ceiling/height, patch panel termination
+    - existing camera cabling state, reuse assumptions, endpoint mapping
+    - new camera runs, pathway, power/data assumptions
+    - demarc-to-MDF extension path, handoff, constraints
+    - drop counts by room/space, pathway constraints, patching
+    - fiber handoff and extension, strands/connectors, path
+    - new IDF homeruns, riser/pathway, MDF/IDF topology
+    - certification standards, proof artifacts, fail/retest handling
+    - label format, as-built requirements, closeout artifact expectations
+  rack_and_stack:
+    display_name: Rack And Stack
+    operating_rules: {}
+    normalization: {}
+    fields:
+      scope_overview:
+      - 1–3 sentences describing the engagement at a glance
+      - Reference the customer site or facility if known
+      - State delivery model (onsite, remote, hybrid) if known
+      detailed_scope_of_services:
+      - Cable management, dressing, labeling standards
+      - Concrete activities the engagement performs
+      - Device counts/types, rack elevations, in-rack patch matrix
+      - One bullet per executable activity, no nested prose
+      - Use execution-ready statements that a PM can sequence
+      deliverables:
+      - Customer-facing tangible outputs only
+      - Do not mix services with deliverables
+      - Photo set per cabinet if requested
+      - Updated rack elevations, patch matrix, labeling export
+      assumptions:
+      - Atomic, testable assumptions only
+      - Do not invent scope; mark gaps as open_items instead
+      customer_responsibilities:
+      - Be explicit about timing where it affects sequencing
+      - Confirm power whip availability per cabinet
+      - Provide rack elevations, patch matrix, asset tags
+      - Required customer actions, inputs, permissions, files
+      out_of_scope:
+      - Avoid exclusions unrelated to the opportunity
+      - Explicit exclusions clarifying scope boundary
+      risks_or_dependencies:
+      - Execution risks, dependencies, limiting conditions
+      - Include unknowns that may affect schedule, quality, or pricing
+      completion_criteria:
+      - Align directly to the listed services + deliverables
+      - Objective indicators that the engagement is complete
+      open_items:
+      - 'Missing: device weight per RU for floor loading'
+      - 'Missing: per-cabinet power whip type'
+      - Specific unresolved items that block quote finalization
+      - Use for missing, conflicting, or unclear intake details
+    artifact_labels:
+    - CSV
+    - DOCX
+    - DWG export PDF
+    - Excel
+    - MD
+    - PDF
+    - TXT
+    - XLS
+    - XLSX
+    - ZIP
+    - email export
+    - form export
+    - image PDF
+    - pasted notes
+    schemas_extracted: 35
+    subdomain_notes:
+    - device counts/types, rack elevations, patch matrix, power, labeling
+    - de-rack counts, disposal / return path, custody, patch cleanup
+  datacenter:
+    display_name: Datacenter
+    operating_rules: {}
+    normalization: {}
+    fields:
+      scope_overview:
+      - 1–3 sentences describing the engagement at a glance
+      - Reference the customer site or facility if known
+      - State delivery model (onsite, remote, hybrid) if known
+      detailed_scope_of_services:
+      - Concrete activities the engagement performs
+      - Differentiate rack/stack vs power/patching vs decommission
+      - One bullet per executable activity, no nested prose
+      - Power requirements (208V vs 120V), PDU/CDU class, RU constraints
+      - Use execution-ready statements that a PM can sequence
+      deliverables:
+      - Customer-facing tangible outputs only
+      - Do not mix services with deliverables
+      assumptions:
+      - Atomic, testable assumptions only
+      - Do not invent scope; mark gaps as open_items instead
+      - Existing patching matrix is current
+      - Power capacity available at each cabinet
+      customer_responsibilities:
+      - Be explicit about timing where it affects sequencing
+      - Required customer actions, inputs, permissions, files
+      out_of_scope:
+      - Avoid exclusions unrelated to the opportunity
+      - Explicit exclusions clarifying scope boundary
+      risks_or_dependencies:
+      - Execution risks, dependencies, limiting conditions
+      - Include unknowns that may affect schedule, quality, or pricing
+      completion_criteria:
+      - Align directly to the listed services + deliverables
+      - Objective indicators that the engagement is complete
+      open_items:
+      - 'Missing: RU constraints per cabinet'
+      - 'Missing: facility access windows + escort policy'
+      - Specific unresolved items that block quote finalization
+      - Use for missing, conflicting, or unclear intake details
+    artifact_labels:
+    - CSV
+    - DOCX
+    - DWG export PDF
+    - Excel
+    - MD
+    - PDF
+    - TXT
+    - XLS
+    - XLSX
+    - ZIP
+    - email export
+    - form export
+    - image PDF
+    - pasted notes
+    schemas_extracted: 27
+    subdomain_notes:
+    - rack_and_stack_scope, device_counts_by_type, rack_elevation_available, power_requirements
+    - rack_and_stack_scope, device_counts_by_type, rack_elevation_available, power_requirements
+    - rack_and_stack_scope, device_counts_by_type, rack_elevation_available, power_requirements
+  imac:
+    display_name: Imac
+    operating_rules: {}
+    normalization: {}
+    fields:
+      scope_overview:
+      - 1–3 sentences describing the engagement at a glance
+      - Reference the customer site or facility if known
+      - State delivery model (onsite, remote, hybrid) if known
+      detailed_scope_of_services:
+      - Concrete activities the engagement performs
+      - One bullet per executable activity, no nested prose
+      - Refresh / swap / move / add / change counts per device class
+      - Use execution-ready statements that a PM can sequence
+      - User-device mapping, image template, migration dependencies
+      deliverables:
+      - Customer-facing tangible outputs only
+      - Do not mix services with deliverables
+      assumptions:
+      - Atomic, testable assumptions only
+      - Do not invent scope; mark gaps as open_items instead
+      customer_responsibilities:
+      - Be explicit about timing where it affects sequencing
+      - Old asset disposition (return-to-vendor / ITAD)
+      - Required customer actions, inputs, permissions, files
+      - User schedule + cutover availability
+      out_of_scope:
+      - Avoid exclusions unrelated to the opportunity
+      - Explicit exclusions clarifying scope boundary
+      risks_or_dependencies:
+      - Execution risks, dependencies, limiting conditions
+      - Include unknowns that may affect schedule, quality, or pricing
+      completion_criteria:
+      - Align directly to the listed services + deliverables
+      - Objective indicators that the engagement is complete
+      open_items:
+      - 'Missing: device-to-user map'
+      - 'Missing: legacy asset disposition path'
+      - Specific unresolved items that block quote finalization
+      - Use for missing, conflicting, or unclear intake details
+    artifact_labels:
+    - CSV
+    - DOCX
+    - DWG export PDF
+    - Excel
+    - MD
+    - PDF
+    - TXT
+    - XLS
+    - XLSX
+    - ZIP
+    - email export
+    - form export
+    - image PDF
+    - pasted notes
+    schemas_extracted: 28
+    subdomain_notes:
+    - swap counts, user/device mapping, migration dependencies, old asset handling

@@ -33,6 +33,7 @@ from orbitbrief_core.orchestrator.artifacts import (
     StageRecord,
 )
 from orbitbrief_core.orchestrator.brain_registry import (
+    BRIEFING_PACK_IDS,
     BrainFactory,
     BrainRegistry,
     default_brain_registry,
@@ -45,6 +46,7 @@ from orbitbrief_core.orchestrator.pipeline import (
 )
 
 __all__ = [
+    "BRIEFING_PACK_IDS",
     "BrainFactory",
     "BrainRegistry",
     "BriefArtifacts",

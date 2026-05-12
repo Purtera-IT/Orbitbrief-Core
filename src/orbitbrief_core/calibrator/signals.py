@@ -10,6 +10,7 @@ from __future__ import annotations
 import math
 from dataclasses import asdict, dataclass
 
+from orbitbrief_core.brains._briefing import BriefingState
 from orbitbrief_core.brains._retrieval_bundle import RetrievalBundle
 from orbitbrief_core.brains.managed_services.schema import (
     ManagedServicesScopeState,
@@ -44,7 +45,7 @@ def extract_signals(
     *,
     item,
     section: str,
-    state: ManagedServicesScopeState,
+    state: ManagedServicesScopeState | BriefingState,
     bundle: RetrievalBundle,
     brief: BriefState,
     item_validation: ItemValidation | None,

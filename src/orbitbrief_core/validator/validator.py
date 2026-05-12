@@ -37,6 +37,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
+from orbitbrief_core.brains._briefing import (
+    CANONICAL_SECTIONS as _BRIEFING_SECTIONS,
+    BriefingState,
+)
 from orbitbrief_core.brains._retrieval_bundle import RetrievalBundle
 from orbitbrief_core.brains.managed_services.schema import (
     ManagedServicesScopeState,
@@ -57,7 +61,8 @@ from orbitbrief_core.world_model.planner.schema import BriefState
 
 
 # Sections we know how to validate, per brain. Adding a brain →
-# add an entry here (or wire a registry).
+# add an entry here (or wire a registry). All Phase-7.5 briefing
+# brains share the canonical 9-section shape.
 _GROUNDED_SECTIONS_BY_BRAIN: dict[str, tuple[str, ...]] = {
     "managed_services": (
         "scope_items",
@@ -68,6 +73,11 @@ _GROUNDED_SECTIONS_BY_BRAIN: dict[str, tuple[str, ...]] = {
         "dispatch_readiness_flags",
         "open_questions",
     ),
+    "wireless": _BRIEFING_SECTIONS,
+    "low_voltage_cabling": _BRIEFING_SECTIONS,
+    "rack_and_stack": _BRIEFING_SECTIONS,
+    "datacenter": _BRIEFING_SECTIONS,
+    "imac": _BRIEFING_SECTIONS,
 }
 
 # Pack families known to be mutually exclusive in production. ITAD
@@ -105,6 +115,21 @@ class BrainOutputValidator:
     lookup: EvidenceLookup = field(default_factory=NullEvidenceLookup)
     pack_incompatibilities: tuple[tuple[str, str], ...] = _PACK_INCOMPATIBILITIES
 
+    def validate_briefing(
+        self,
+        state: BriefingState,
+        *,
+        brief: BriefState,
+        bundle: RetrievalBundle,
+    ) -> ValidationReport:
+        """Validate one :class:`BriefingState` from a Phase-7.5 briefing brain."""
+        return self._validate_grounded_state(
+            state=state,
+            brief=brief,
+            bundle=bundle,
+            brain=state.domain_id,
+        )
+
     def validate_managed_services(
         self,
         state: ManagedServicesScopeState,
@@ -113,7 +138,28 @@ class BrainOutputValidator:
         bundle: RetrievalBundle,
     ) -> ValidationReport:
         """Validate one :class:`ManagedServicesScopeState`."""
-        sections = _GROUNDED_SECTIONS_BY_BRAIN["managed_services"]
+        return self._validate_grounded_state(
+            state=state,
+            brief=brief,
+            bundle=bundle,
+            brain="managed_services",
+        )
+
+    def _validate_grounded_state(
+        self,
+        *,
+        state: Any,
+        brief: BriefState,
+        bundle: RetrievalBundle,
+        brain: str,
+    ) -> ValidationReport:
+        """Shared rule walk for any brain whose state lists grounded items per section."""
+        sections = _GROUNDED_SECTIONS_BY_BRAIN.get(brain)
+        if sections is None:
+            raise KeyError(
+                f"validator: unknown brain {brain!r}; "
+                f"register sections in _GROUNDED_SECTIONS_BY_BRAIN"
+            )
         items: list[ItemValidation] = []
         # Pre-compute lookup tables for O(1) hits.
         valid_packets = bundle.known_packet_ids()
@@ -132,7 +178,7 @@ class BrainOutputValidator:
                 ref = ItemRef(
                     project_id=state.project_id,
                     compile_id=state.compile_id,
-                    brain="managed_services",
+                    brain=brain,
                     section=section,
                     item_id=item.id,
                 )
@@ -150,8 +196,13 @@ class BrainOutputValidator:
                     failures.extend(
                         self._check_missing_evidence(item, bundle, atoms_by_packet)
                     )
-                # Site-count sanity (only on scope_items / scope-flavored sections).
-                if section in {"scope_items", "milestones"} and site_count is not None:
+                # Site-count sanity (only on scope-flavored sections).
+                if section in {
+                    "scope_items",
+                    "milestones",
+                    "scope_overview",
+                    "detailed_scope_of_services",
+                } and site_count is not None:
                     failures.extend(self._check_site_count(item.statement, site_count))
                 # Impossible state (atoms whose replay failed).
                 failures.extend(
@@ -167,7 +218,7 @@ class BrainOutputValidator:
         return ValidationReport(
             project_id=state.project_id,
             compile_id=state.compile_id,
-            brain="managed_services",
+            brain=brain,
             items=tuple(items),
             project_failures=tuple(project_failures),
         )

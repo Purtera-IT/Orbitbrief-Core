@@ -21,9 +21,34 @@ The first concrete brain is :mod:`orbitbrief_core.brains.managed_services`.
 """
 from __future__ import annotations
 
+from orbitbrief_core.brains._briefing import (
+    CANONICAL_SECTIONS,
+    BriefingItem,
+    BriefingState,
+)
+from orbitbrief_core.brains._briefing_config import (
+    DomainBriefingConfig,
+    known_briefing_domains,
+    load_briefing_config,
+)
+from orbitbrief_core.brains._briefing_runner import (
+    BriefingBrain,
+    BriefingBrainResult,
+)
 from orbitbrief_core.brains._retrieval_bundle import (
     PacketSnippet,
     RetrievalBundle,
 )
 
-__all__ = ["PacketSnippet", "RetrievalBundle"]
+__all__ = [
+    "BriefingBrain",
+    "BriefingBrainResult",
+    "BriefingItem",
+    "BriefingState",
+    "CANONICAL_SECTIONS",
+    "DomainBriefingConfig",
+    "PacketSnippet",
+    "RetrievalBundle",
+    "known_briefing_domains",
+    "load_briefing_config",
+]

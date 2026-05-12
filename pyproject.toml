@@ -36,6 +36,8 @@ where = ["src"]
 [tool.setuptools.package-data]
 # Phase 3 — the world_model registry ships its YAML alongside the code.
 "orbitbrief_core.world_model.data" = ["*.yaml"]
+# Phase 7.5 — the briefing brains ship their per-domain configs.
+"orbitbrief_core.brains.data" = ["*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
