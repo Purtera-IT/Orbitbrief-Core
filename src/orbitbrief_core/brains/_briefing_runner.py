@@ -215,10 +215,17 @@ class BriefingBrain:
 
         section_guidance: dict[str, dict[str, Any]] = {}
         for section in CANONICAL_SECTIONS:
-            section_guidance[section] = {
+            entry: dict[str, Any] = {
                 "guidance": list(cfg.guidance_for(section)),
                 "family_hints": list(SECTION_FAMILY_HINTS.get(section, ())),
             }
+            # Few-shot anchors. Each gold example is a dict of
+            # ``statement`` + ``evidence_pattern`` + ``pitfalls``. We
+            # cap to 3 per section to keep prompt size predictable.
+            gold = list(cfg.gold_for(section))[:3]
+            if gold:
+                entry["gold_examples"] = gold
+            section_guidance[section] = entry
 
         return {
             "brief": brief_summary,
@@ -516,6 +523,12 @@ Notes:
 * DO NOT include `model_used`, `token_cost`, `fallback_used`,
   `unresolved_packet_ids`, or `unresolved_atom_ids`. The runner
   stamps them.
+* `section_guidance.<section>.gold_examples` (when present) are
+  few-shot anchors authored by senior PMs in this domain. Treat
+  them as STYLE + CONTENT exemplars: aim for the same level of
+  specificity, the same `evidence_pattern` mapping, and avoid the
+  listed `pitfalls`. Do NOT copy them verbatim — they are
+  illustrative, not data.
 
 Substrate snapshot:
 {snapshot_json}

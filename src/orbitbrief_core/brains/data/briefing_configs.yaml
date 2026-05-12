@@ -1,6 +1,6 @@
-_doc: OrbitBrief domain briefing configs extracted from AWESOME_CHASE intake workbook v4. Workbook fills override DEFAULT_GUIDANCE;
-  per-domain defaults layer in between.
-version: v4
+_doc: OrbitBrief domain briefing configs v5; wireless preserved from v4 handoff; low_voltage_cabling, rack_and_stack, datacenter,
+  and imac enriched for SOW-ready brain prompting.
+version: v5
 canonical_fields:
 - scope_overview
 - detailed_scope_of_services
@@ -20,54 +20,13 @@ domains:
       use_open_items_for_missing_or_conflicting_data: true
       remove_irrelevant_language: true
       preserve_structured_detail_over_summary: true
+      preserve_units_as_shown: true
       keep_wording_execution_ready: true
       limit_output_to_nine_post_fields: true
-      extract_from_headings_paragraphs_lists_and_tables: true
-      record_referenced_but_not_verified_attachments_as_dependencies_or_open_items: true
-      extract_from_markdown_headings_paragraphs_lists_tables_links_and_callouts: true
-      treat_code_blocks_as_content_only_when_they_contain_scope_facts: true
-      extract_from_workbook_tabs_headers_tables_and_repeated_blocks: true
-      remove_irrelevant_language_and_template_noise: true
-      do_not_infer_from_formatting_alone: true
-      treat_blank_template_cells_as_missing_not_negative: true
-      preserve_units_as_shown: true
-      extract_from_bullets_fragments_shorthand_and_pasted_message_content: true
-      remove_irrelevant_language_and_conversational_filler: true
-      treat_unanswered_questions_as_missing_data: false
       treat_unanswered_questions_as_open_items: true
-      separate_facts_from_internal_brainstorming_or_reminders: true
       treat_tentative_language_as_lower_confidence_unless_confirmed: true
       prefer_direct_customer_statements_over_internal_interpretation: true
-      extract_from_subject_body_reply_chain_and_forwarded_content: true
-      remove_irrelevant_language_and_email_noise: true
-      prefer_most_current_authoritative_statement: true
       separate_customer_facts_from_internal_interpretation: true
-      extract_from_rows_columns_tabs_and_notes: true
-      remove_template_noise_and_formatting_artifacts: true
-      preserve_site_level_detail_with_program_rollup: true
-      treat_blank_cells_as_missing: true
-      record_referenced_files_as_dependencies: true
-      extract_from_columns_rows_notes_and_identifier_fields: true
-      treat_each_site_row_as_a_potential_scoped_entity: true
-      remove_export_noise_and_helper_fields: true
-      separate_current_state_from_target_state: true
-      reconstruct_legacy_table_context_without_inventing_values: true
-      extract_from_title_blocks_legends_room_labels_notes_and_annotations: true
-      convert_visual_and_textual_content_into_execution_ready_scope: true
-      remove_irrelevant_drawing_noise: true
-      record_referenced_but_not_verified_files: true
-      distinguish_visual_indications_from_confirmed_facts: true
-      treat_unreadable_or_missing_content_as_unknown: true
-      extract_from_title_blocks_legends_room_labels_dimension_strings_notes_and_visible_plan_annotations: true
-      record_referenced_but_not_verified_files_as_dependencies_or_open_items: true
-      treat_cad_export_artifacts_and_duplicate_text_as_ambiguity_not_fact: true
-      extract_from_workbook_tabs_headers_tables_schedules_and_notes: true
-      remove_irrelevant_workbook_noise: true
-      treat_blank_cells_as_missing_not_negative: true
-      capture_sheet_level_provenance: true
-      extract_from_visible_title_blocks_legends_room_labels_notes_and_visual_annotations: true
-      remove_irrelevant_image_packet_noise: true
-      treat_scan_quality_limitations_as_source_constraints: true
     normalization:
       survey_type_labels:
       - Passive Validation Survey
@@ -134,22 +93,6 @@ domains:
       - Include planning, survey execution, modeling, validation, and analysis as applicable
       - Include planning, survey, analysis, validation, design, remediation review, and reporting activities only if supported
         by the DOCX source
-      - Include planning, survey, analysis, validation, design, remediation review, and reporting activities only if supported
-        by the DWG export PDF source
-      - Include planning, survey, analysis, validation, design, remediation review, and reporting activities only if supported
-        by the XLSX source
-      - Include planning, survey, analysis, validation, design, remediation review, and reporting activities only if supported
-        by the email export source
-      - Include planning, survey, analysis, validation, design, remediation review, and reporting activities only if supported
-        by the image PDF source
-      - Include planning, survey, analysis, validation, design, remediation review, and reporting activities only if supported
-        by the markdown source
-      - Include planning, survey, analysis, validation, design, remediation review, and reporting activities only if supported
-        by the pasted notes source
-      - Include planning, survey, analysis, validation, design, remediation review, and reporting activities only if supported
-        by the workbook source
-      - Include planning, survey, analysis, validation, design, remediation review, and reporting tasks only if supported
-        by source material
       - Incorporate site complexity such as multi floor, warehouse, healthcare, or high density areas
       - List execution activities supported by the drawing packet
       - List only included PurTera service activities
@@ -158,7 +101,6 @@ domains:
       - Use execution ready statements
       - Use execution-ready statements that a PM can sequence
       - Use floor, zone, building, or site level detail when available
-      - Use floor, zone, building, or site level detail when available and commercially relevant
       - Use floor, zone, building, site, closet, or inventory level detail when available and commercially relevant
       deliverables:
       - Customer-facing tangible outputs only
@@ -215,7 +157,6 @@ domains:
       - List exclusions that clarify scope boundaries
       - List exclusions that clarify the scope boundary
       - Only include exclusions supported by the engagement type and source context
-      - Only include exclusions supported by the engagement type and workbook context
       risks_or_dependencies:
       - Capture risks from incomplete drawings, unknown infrastructure, or layout complexity
       - Execution risks, dependencies, limiting conditions
@@ -224,22 +165,9 @@ domains:
       - Include missing dimensions, unclear telecom locations, or restricted areas
       - Include missing files, incomplete dimensions, restricted access, and unresolved technical inputs when they affect
         schedule, quality, or quote confidence
-      - Include missing files, incomplete dimensions, restricted access, unresolved infrastructure details, or conflicting
-        CAD export content when they affect schedule, quality, or quote confidence
-      - Include missing files, incomplete dimensions, restricted access, unresolved infrastructure details, or conflicting
-        workbook content when they affect schedule, quality, or quote confidence
-      - Include missing files, incomplete dimensions, restricted access, unresolved infrastructure details, or scan quality
-        limitations when they affect schedule, quality, or quote confidence
-      - Include missing files, incomplete dimensions, restricted access, unresolved technical inputs, or conflicting email
-        content when they affect schedule, quality, or quote confidence
-      - Include missing files, incomplete dimensions, restricted access, unresolved technical inputs, or conflicting note
-        content when they affect schedule, quality, or quote confidence
-      - Include missing files, incomplete dimensions, restricted access, unresolved technical inputs, or conflicting workbook
-        content when they affect schedule, quality, or quote confidence
       - Include missing links, unavailable files, incomplete dimensions, restricted access, and unresolved technical inputs
         when they affect schedule, quality, or quote confidence
       - Include unknowns that may affect schedule, quality, or pricing
-      - Include unknowns that may affect schedule, quality, or pricing certainty
       - List execution risks, dependencies, and limiting conditions
       - State dependencies clearly
       - Use clear dependency statements
@@ -291,48 +219,230 @@ domains:
     - distance / out-of-scope caps, explicit boundary language, exceptions
     - coverage vs capacity target, voice/scanner density, AP model, controller/cloud
     - mounting type, lift/safety, ceiling structure, install-by-others boundary
+    gold_examples:
+      scope_overview:
+      - statement: Predictive wireless survey for 12 office buildings with onsite validation of priority areas.
+        evidence_pattern: scope_inclusion packet with survey type + quantity_claim packet with building count
+        pitfalls: Do not infer AP installation or controller configuration unless packets cite those services.
+      detailed_scope_of_services:
+      - statement: Model WLAN coverage from supplied floor plans and validate assumptions during onsite walk-through.
+        evidence_pattern: scope_inclusion packet naming predictive survey + site_access packet for onsite access
+        pitfalls: Do not add spectrum analysis, AP-on-a-stick, or remediation unless specifically supported.
+      deliverables:
+      - statement: Wireless survey report with heat maps, AP placement notes, and remediation recommendations.
+        evidence_pattern: scope_inclusion packet listing report outputs + compliance_clause with coverage targets
+        pitfalls: Do not promise installed APs, controller changes, or CAD files unless named in source packets.
+      assumptions:
+      - statement: Customer-provided floor plans are current enough to support predictive modeling.
+        evidence_pattern: scope_inclusion packet referencing floor plans but no current-state verification packet
+        pitfalls: Use open_items if floor plan availability or accuracy is explicitly missing or disputed.
+      customer_responsibilities:
+      - statement: Provide current floor plans, site escorts, and access to representative survey areas.
+        evidence_pattern: site_access packet + missing_info packet requesting drawings or access details
+        pitfalls: Do not require customer to provide technical outputs that provider scope includes.
+      out_of_scope:
+      - statement: AP mounting, cabling, switch configuration, and production WLAN cutover are excluded.
+        evidence_pattern: scope_exclusion packet naming deployment services or scope limited to survey/design
+        pitfalls: Do not exclude AP work if the BriefState activates wireless deployment or cabling scope.
+      risks_or_dependencies:
+      - statement: Unknown ceiling heights and RF obstructions may affect AP count and remediation accuracy.
+        evidence_pattern: missing_info packet on ceiling height + site_access packet limiting survey areas
+        pitfalls: Do not present unknown site conditions as assumptions when they can change pricing or schedule.
+      completion_criteria:
+      - statement: Survey is complete when modeled findings and agreed report outputs are delivered for scoped areas.
+        evidence_pattern: scope_inclusion packet with survey area + deliverables packet naming final report
+        pitfalls: Do not define completion by end-user WLAN performance unless post-install validation is in scope.
+      open_items:
+      - statement: Confirm whether post-install passive validation is required after AP deployment by others.
+        evidence_pattern: missing_info packet or meeting_decision packet leaving validation timing unresolved
+        pitfalls: Do not convert a missing validation decision into an assumed deliverable.
   low_voltage_cabling:
     display_name: Low Voltage Cabling
-    operating_rules: {}
-    normalization: {}
+    operating_rules:
+      do_not_invent_facts: true
+      use_assumptions_for_supported_gaps_only: true
+      use_open_items_for_missing_or_conflicting_data: true
+      quantify_drops_per_room_when_possible: true
+      prefer_certification_standards_over_vendor_brand_names: true
+      distinguish_existing_reuse_from_new_install: true
+      treat_pathway_power_and_permit_gaps_as_open_items: true
+      limit_output_to_nine_post_fields: true
+    normalization:
+      cable_categories:
+      - Cat3
+      - Cat5e
+      - Cat6
+      - Cat6a
+      - Cat7
+      - Cat8
+      - coax RG6
+      - speaker cable
+      - 18/2
+      - 22/4
+      - OM3
+      - OM4
+      - OM5
+      - OS2
+      termination_types:
+      - RJ45 jack
+      - RJ45 plug
+      - patch panel
+      - biscuit jack
+      - surface box
+      - 110 block
+      - 66 block
+      - fiber LC
+      - fiber SC
+      - fiber ST
+      - fiber MTP/MPO
+      - coax F-connector
+      pathway_types:
+      - J-hook
+      - conduit
+      - EMT
+      - cable tray
+      - ladder rack
+      - surface raceway
+      - innerduct
+      - plenum
+      - riser
+      - poke-through
+      - sleeve
+      - basket tray
+      - underfloor
+      certification_standards:
+      - TIA-568.2-D
+      - TIA-568.3-D
+      - ANSI/TIA-606-C labeling
+      - ANSI/TIA-607-D bonding
+      - BICSI ITSIMM
+      - NEC plenum requirements
+      - UL-listed firestop
+      test_result_formats:
+      - Fluke LinkWare
+      - Versiv PDF
+      - OTDR trace
+      - loss budget table
+      - continuity report
+      - copper certification PDF
+      - fiber certification PDF
+      common_low_voltage_terms:
+        IDF: intermediate distribution frame
+        MDF: main distribution frame
+        DMARC: demarcation point
+        MPOE: minimum point of entry
+        UTP: unshielded twisted pair
+        STP: shielded twisted pair
+        CMP: communications plenum cable
+        CMR: communications riser cable
+        MUTOA: multi-user telecommunications outlet assembly
+        PoE: power over Ethernet
+        AHJ: authority having jurisdiction
+        ICRA: infection control risk assessment
+        JHA: job hazard analysis
+        OTDR: optical time-domain reflectometer
+        MPTL: modular plug terminated link
     fields:
       scope_overview:
-      - 1–3 sentences describing the engagement at a glance
-      - Reference the customer site or facility if known
-      - State delivery model (onsite, remote, hybrid) if known
+      - Summarize cabling scope by site, building, floor, and MDF/IDF areas when supported
+      - State drop counts, strand counts, rooms, zones, and closet counts when evidence provides them
+      - Distinguish new installation, existing-cable reuse, re-termination, re-certification, and remediation work
+      - Use cable_categories and termination_types wording instead of vague network cabling when details exist
+      - Call out ICRA, plenum, firestop, after-hours, or regulated-space work only when supported
+      - State whether pathway work is included, by-others, or unresolved; never assume J-hooks or conduit exist
+      - Identify the intended outcome, such as certified drops, AP/camera cabling, or MDF/IDF extension
+      - Avoid mixing cabling with AP config, camera programming, or switch setup unless included
       detailed_scope_of_services:
-      - Call out testing / certification standards (BICSI, TIA-568)
-      - Concrete activities the engagement performs
-      - Differentiate copper drops, fiber runs, DMARC extension, IDF homerun
-      - One bullet per executable activity, no nested prose
-      - Use execution-ready statements that a PM can sequence
+      - Differentiate copper drops, fiber runs, coax, speaker/security cable, DMARC extension, and IDF/MDF homeruns
+      - List per-site, per-floor, per-room, and per-IDF quantities when packet evidence supports that detail
+      - Identify cable_categories such as Cat6, Cat6a, OM4, or OS2 and preserve strand, pair, and count units
+      - Specify termination_types at both ends, including jack, patch panel, 110 block, LC, SC, or MTP/MPO
+      - State pathway_types per run when known, and separate pathway survey from pathway construction
+      - Include pull, dress, terminate, label, test, certify, remediate, and closeout activities only when scoped
+      - Call out DMARC/MPOE-to-MDF extensions separately from MDF-to-IDF riser or horizontal cabling
+      - Identify firestopping, sleeve use, ladder rack, grounding, bonding, or plenum requirements only when supported
+      - Specify certification_standards, including TIA-568.2-D for copper and TIA-568.3-D for fiber
+      - Differentiate existing cable reuse from new install and state whether re-certification is required
+      - Include ICRA barriers, lift use, ceiling access, or above-ceiling work as separate execution tasks
+      - Avoid adding switch configuration, AP mounting, camera commissioning, or ISP circuit work unless cited
       deliverables:
-      - Customer-facing tangible outputs only
-      - Do not mix services with deliverables
+      - List as-built drawings separately from installation photos, label exports, and certification reports
+      - Differentiate copper certification PDFs, fiber certification PDFs, OTDR traces, and loss budget tables
+      - Use test_result_formats names such as Fluke LinkWare or Versiv PDF only when the source names them
+      - Include label schedule or export when ANSI/TIA-606-C labeling or closet-to-jack mapping is scoped
+      - Include redlined floor plans, riser diagrams, and MDF/IDF maps only when the source requests them
+      - 'Include closeout contents: photos, test results, as-builts, patch maps, and exceptions list'
+      - Avoid calling pulled cable a deliverable; describe the installed, tested cabling plant instead
+      - Flag undefined closeout formats in open_items instead of inventing PDF, CSV, or native CAD files
+      - Separate customer handoff artifacts from internal QA notes, material lists, or installer tickets
       assumptions:
-      - Atomic, testable assumptions only
-      - Do not invent scope; mark gaps as open_items instead
-      - Pathway availability + ceiling height assumptions
-      - What is assumed existing vs new (drops, pathways, patch panels)
+      - Use assumptions only for supported estimating basis, such as accessible ceilings shown in drawings
+      - State pathway availability only when existing pathways are referenced but not validated
+      - State customer-provided access, escorts, badges, and work windows only when context implies dependency
+      - Do not assume riser sleeve capacity, firestop approval, or pathway fill margin without evidence
+      - Do not assume cable_categories, strand counts, or termination_types when quantities conflict or are missing
+      - Treat plenum, ICRA, lift, permit, and AHJ requirements as open_items unless explicitly defined
+      - Separate reusable existing cabling from re-certification assumptions and make both testable
+      - State material lead-time assumptions only when customer or packet context references owner-furnished material
+      - Avoid assuming patch panels, racks, grounding, or closet space exist beyond cited current state
+      - Move contradictions between drawings, spreadsheets, and meeting notes to open_items, not assumptions
       customer_responsibilities:
-      - Be explicit about timing where it affects sequencing
-      - Required customer actions, inputs, permissions, files
+      - List required floor plans, reflected ceiling plans, riser diagrams, rack elevations, and room matrices
+      - Require confirmation of drop counts by room, outlet type, IDF/MDF home closet, and label scheme
+      - Require access to MDF, IDFs, ceilings, risers, shafts, telecom rooms, tenant spaces, and secured areas
+      - Require approval for pathway use, penetrations, coring, sleeves, firestopping, and after-hours work
+      - Require escorts, badges, lifts, infection-control approvals, and parking or loading access
+      - Require outage coordination when terminations, cutovers, or reuse testing may affect live services
+      - Require owner-furnished patch panels, racks, switches, or materials onsite when excluded from provider scope
+      - Require facility confirmation of plenum, ICRA, NEC, AHJ, and site safety constraints before mobilization
+      - Require workspace readiness at rooms, cubicles, ceilings, and telecom closets before technicians arrive
+      - Avoid assigning customer tasks that are clearly provider-owned, such as certification testing if scoped
       out_of_scope:
-      - Avoid exclusions unrelated to the opportunity
-      - 'Common: existing copper reuse not certified by us'
-      - 'Common: pathway construction (J-hooks vs conduit)'
-      - Explicit exclusions clarifying scope boundary
+      - Exclude conduit, coring, trenching, pathway construction, or cable tray unless packet evidence includes it
+      - Exclude electrical power, PoE switch supply, UPS, grounding bars, and bonding unless included
+      - Exclude ISP circuit ordering, carrier coordination, and DMARC handoff changes unless explicitly cited
+      - Exclude AP, camera, phone, access control, AV, or switch configuration unless included
+      - Exclude patching active equipment unless scope includes patch cords, switch ports, or cutover support
+      - Exclude certification of existing cabling when reuse is stated but re-test scope is absent
+      - Exclude hazardous material abatement, fire alarm work, sprinkler work, and structural engineering unless included
+      - Exclude after-hours, lift rental, ICRA barriers, permits, and firestop inspections unless scoped
+      - Do not exclude fiber pulls if fiber is included under another packet or domain; reconcile first
+      - Avoid generic exclusions like anything not stated; write concrete boundaries tied to cited gaps
       risks_or_dependencies:
-      - Execution risks, dependencies, limiting conditions
-      - Include unknowns that may affect schedule, quality, or pricing
+      - Call out missing drop counts, room maps, IDF assignments, pathway routes, or termination details as pricing risk
+      - Identify conflicts between RFP, drawings, room matrix, and meeting decisions as quantity_conflict dependencies
+      - Flag unknown pathway fill, above-ceiling access, riser capacity, sleeve availability, and plenum rating
+      - Flag ICRA, AHJ, permit, firestop, lift, escort, or after-hours requirements that may affect schedule
+      - State risk when existing cabling condition or label accuracy is unverified but reuse is contemplated
+      - Identify supply risks for specialty cable_categories, fiber connectors, patch panels, or firestop materials
+      - Call out dependency on customer network gear when patching, cutover, or live circuit migration is included
+      - Note occupied-space risks affecting productivity, noise limits, cleanup, and room availability
+      - Avoid treating code compliance as guaranteed; list standards only as requirements or dependencies
+      - Use risks_or_dependencies for partial evidence, and open_items for specific missing decisions
+      - Flag healthcare, laboratory, industrial, or secure-site access constraints when evidence supports them
+      - Call out test failure and rework risk when existing cable reuse or failed-test handling is undefined
       completion_criteria:
-      - Align directly to the listed services + deliverables
-      - Objective indicators that the engagement is complete
+      - Define completion as installation, dressing, labeling, and testing of scoped runs by approved count
+      - Require passing certification to cited certification_standards for each scoped copper or fiber link
+      - Require delivery of as-builts, label export, test reports, photos, and exception log when promised
+      - Require remediation or documented exception for any failed cable test covered by provider scope
+      - Tie completion to customer acceptance of closeout package, not business outcomes like app performance
+      - Include closet cleanup, patch panel labeling, faceplate labeling, and cable management when scoped
+      - Include firestop restoration or inspection evidence when penetrations and firestopping are included
+      - Include debris removal only when cleanup, demolition, or material removal is in scope
+      - Avoid declaring completion on device commissioning unless AP, camera, phone, or switch work is included
+      - Use objective counts, locations, labels, and test results instead of vague all work completed wording
       open_items:
-      - 'Missing: as-built reference if reusing existing'
-      - 'Missing: total drop count by room'
-      - Specific unresolved items that block quote finalization
-      - Use for missing, conflicting, or unclear intake details
+      - Ask for final drop count by room, outlet type, cable_categories, and IDF/MDF home closet per location
+      - Ask for pathway responsibility, pathway capacity, ceiling height, plenum rating, and lift requirements
+      - Ask for riser route, sleeve availability, firestop expectations, penetration permits, and AHJ constraints
+      - Ask for termination_types, patch panel capacity, faceplate configuration, and label format
+      - Ask for fiber strand count, connector type, loss budget, OTDR requirement, and handoff point
+      - Ask whether existing cabling reuse requires continuity testing, certification, remediation, or no provider test
+      - Ask for ICRA, infection-control, badging, escort, after-hours, and site safety requirements
+      - Ask for closeout format for as-builts, label export, certification files, and photo set
+      - 'Ask which scopes are by-others: conduit, electrical, switch config, device install, and carrier services'
+      - Ask to resolve conflicts among drawings, spreadsheets, RFP notes, and meeting decisions before final SOW
     artifact_labels:
     - CSV
     - DOCX
@@ -350,59 +460,225 @@ domains:
     - pasted notes
     schemas_extracted: 28
     subdomain_notes:
-    - what is assumed existing vs new, test/cert expectations, by-others boundaries
-    - AP drops re-use, certification, label / closet mapping
-    - new AP count, pathways, ceiling/height, patch panel termination
-    - existing camera cabling state, reuse assumptions, endpoint mapping
-    - new camera runs, pathway, power/data assumptions
-    - demarc-to-MDF extension path, handoff, constraints
-    - drop counts by room/space, pathway constraints, patching
-    - fiber handoff and extension, strands/connectors, path
-    - new IDF homeruns, riser/pathway, MDF/IDF topology
-    - certification standards, proof artifacts, fail/retest handling
-    - label format, as-built requirements, closeout artifact expectations
+    - existing-vs-new drops, reuse testing, recertification, fail/retest responsibility, closeout proof
+    - AP/camera/voice/drop cabling boundaries, device install by-others, switch patching boundary
+    - MDF/IDF topology, homerun counts, riser path, sleeve/firestop/penetration responsibility
+    - fiber strand count, connector types, loss budget, OTDR need, handoff and patching scope
+    - pathway types, ceiling heights, lift needs, plenum/riser rating, accessible vs hard-lid areas
+    - labeling convention, ANSI/TIA-606-C mapping, patch panel/faceplate format, as-built expectations
+    - healthcare/ICRA, safety, escorts, after-hours windows, noise/dust containment, approvals
+    - closeout artifacts, certification standard, test format, exception log, customer acceptance criteria
+    gold_examples:
+      scope_overview:
+      - statement: Structured cabling refresh for 186 Cat6 drops across HQ floors 3-5, tied to MDF-A and IDF-3B.
+        evidence_pattern: quantity_claim packet with drop count + scope_inclusion packet naming Cat6 and closets
+        pitfalls: Do not infer fiber, conduit, or switch patching unless separate packets support them.
+      detailed_scope_of_services:
+      - statement: Pull, terminate, label, and certify 186 Cat6 UTP drops to RJ45 jacks and IDF patch panels.
+        evidence_pattern: scope_inclusion packet with activity list + compliance_clause citing TIA-568.2-D
+        pitfalls: Do not include cable tray or coring when the pathway packet says pathways are by others.
+      deliverables:
+      - statement: Closeout package with as-built markups, ANSI/TIA-606-C label export, and Fluke test PDFs.
+        evidence_pattern: deliverables packet naming as-builts + compliance_clause naming labeling/test standards
+        pitfalls: Do not invent LinkWare, CAD, or CSV formats when the closeout format is not specified.
+      assumptions:
+      - statement: Existing J-hook pathways have usable capacity for the stated Cat6 home runs.
+        evidence_pattern: customer_override packet says existing pathways may be reused + no field validation packet
+        pitfalls: Move to open_items if drawings conflict or pathway availability is explicitly unknown.
+      customer_responsibilities:
+      - statement: Customer to provide after-hours access, ceiling access approvals, and final room-by-room drop list.
+        evidence_pattern: site_access packet on work window + missing_info packet on final drop matrix
+        pitfalls: Do not ask the customer to perform provider certification testing when that is in scope.
+      out_of_scope:
+      - statement: Conduit installation, electrical work, switch configuration, and AP mounting are excluded.
+        evidence_pattern: scope_exclusion packet naming conduit/electrical + active domain limited to cabling
+        pitfalls: Do not exclude AP cabling if AP drops are the reason the cabling scope exists.
+      risks_or_dependencies:
+      - statement: Unknown riser sleeve capacity may affect schedule and material needs for MDF-to-IDF fiber runs.
+        evidence_pattern: missing_info packet on riser capacity + quantity_claim packet with fiber count
+        pitfalls: Do not present riser capacity as assumed available without evidence.
+      completion_criteria:
+      - statement: All approved drops pass TIA-568.2-D certification and are labeled to the accepted closet-room-jack format.
+        evidence_pattern: compliance_clause packet + meeting_decision packet approving label format
+        pitfalls: Do not use application uptime or AP performance as cabling completion criteria.
+      open_items:
+      - statement: Confirm whether existing camera cabling requires certification, continuity-only testing, or no provider
+          test.
+        evidence_pattern: missing_info packet on reuse testing + scope_inclusion packet referencing existing camera drops
+        pitfalls: Do not assume reuse certification when only visual inspection is described.
   rack_and_stack:
-    display_name: Rack And Stack
-    operating_rules: {}
-    normalization: {}
+    display_name: Rack and Stack
+    operating_rules:
+      do_not_invent_facts: true
+      use_assumptions_for_supported_gaps_only: true
+      use_open_items_for_missing_or_conflicting_data: true
+      preserve_ru_cabinet_asset_and_port_detail: true
+      separate_physical_install_from_logical_configuration: true
+      treat_power_weight_and_oob_gaps_as_open_items: true
+      quantify_devices_cabinets_cables_and_ports_when_possible: true
+      limit_output_to_nine_post_fields: true
+    normalization:
+      cabinet_types:
+      - 2-post relay rack
+      - 4-post open rack
+      - enclosed cabinet
+      - seismic cabinet
+      - wall-mount rack
+      - network cabinet
+      - server cabinet
+      - colo cage cabinet
+      - OCP rack
+      power_phases:
+      - single-phase
+      - three-phase
+      - 120V
+      - 208V
+      - 208V 3-phase
+      - 240V
+      - 415V
+      - 480V
+      pdu_classes:
+      - basic PDU
+      - metered PDU
+      - monitored PDU
+      - switched PDU
+      - ATS PDU
+      - A/B redundant PDU
+      - vertical zero-U PDU
+      - horizontal 1U PDU
+      cable_management_styles:
+      - vertical manager
+      - horizontal manager
+      - front-to-rear dressing
+      - rear-only dressing
+      - ladder rack drop
+      - overhead whip
+      - underfloor whip
+      - Velcro bundle
+      - color-coded patching
+      labeling_standards:
+      - cabinet-position-port label
+      - device-hostname label
+      - asset tag
+      - cable-to-cable ID
+      - port-to-port label
+      - ANSI/TIA-606-C labeling
+      - customer label schema
+      common_rack_terms:
+        RU: rack unit
+        U: rack unit
+        PDU: power distribution unit
+        PSU: power supply unit
+        OOB: out-of-band management
+        KVM: keyboard-video-mouse console
+        TOR: top-of-rack switch
+        EOR: end-of-row switch
+        LOM: lights-out management
+        A/B power: redundant power feeds
+        crash cart: mobile console workstation
+        rail kit: rack-mount rail hardware
+        blanking panel: rack airflow blanking panel
     fields:
       scope_overview:
-      - 1–3 sentences describing the engagement at a glance
-      - Reference the customer site or facility if known
-      - State delivery model (onsite, remote, hybrid) if known
+      - Summarize physical rack/cabinet work by site, cage, cabinet, device type, and device count
+      - State cabinet count, RU range, asset count, and patching scope when packet evidence provides them
+      - Distinguish rack-and-stack, in-rack patching, recabling, migration support, and de-rack work
+      - Use cabinet_types, pdu_classes, and cable_management_styles terms when the source provides detail
+      - Identify whether work is onsite smart hands, remote-guided, or hybrid with customer remote validation
+      - Call out rack elevation or patch matrix availability because it controls sequencing and quality
+      - Highlight power, OOB, floor loading, access window, or escort constraints only when supported
+      - Avoid including logical network config, storage zoning, OS work, or application cutover unless cited
       detailed_scope_of_services:
-      - Cable management, dressing, labeling standards
-      - Concrete activities the engagement performs
-      - Device counts/types, rack elevations, in-rack patch matrix
-      - One bullet per executable activity, no nested prose
-      - Use execution-ready statements that a PM can sequence
+      - List unload, inventory, asset tag, rail kit prep, mount, connect, dress, label, photo, and handoff tasks
+      - Differentiate net-new rack/stack, in-rack patching, recabling, migration, and de-rack activities
+      - Preserve RU positions, cabinet IDs, device hostnames, serials, asset tags, and port IDs when provided
+      - Identify cabinet_types and device classes such as server, switch, firewall, storage, PDU, or console gear
+      - State power_phases, pdu_classes, plug types, and A/B feed connection requirements when known
+      - Include rail kits, brackets, cage nuts, blanking panels, airflow, and weight restrictions only when cited
+      - Include OOB, KVM, LOM, crash cart, or serial console connection only when source packets include it
+      - Specify cable_management_styles and labeling_standards for patching, dressing, and cable bundles
+      - List patch matrix work by source/destination port, media type, cable color, and length when available
+      - Include power-on, LED check, remote login handoff, or burn-in only when specifically in scope
+      - Separate staging, shipping, receiving, and chain-of-custody tasks from cabinet installation tasks
+      - Avoid system configuration, VLANs, routing, firmware, zoning, or OS/application work unless cited
       deliverables:
-      - Customer-facing tangible outputs only
-      - Do not mix services with deliverables
-      - Photo set per cabinet if requested
-      - Updated rack elevations, patch matrix, labeling export
+      - List updated rack elevations separately from patch matrices, label exports, and cabinet photo sets
+      - Include asset inventory with serials, hostnames, asset tags, RU positions, and cabinet IDs when scoped
+      - Include power connection map showing PDU, outlet, PSU, A/B feed, and plug type when source requests it
+      - Include OOB or console connection map only when OOB cabling is part of the scope
+      - Include install, move, de-rack, or migration checklists as deliverables only when customer-facing
+      - Include chain-of-custody or decommission manifest when equipment leaves the cabinet or site
+      - Include photo set per cabinet, front and rear, after dressing and labeling when requested
+      - Avoid treating mounted hardware itself as a document deliverable; list it in completion criteria
+      - Flag undefined export formats for rack elevations, patch matrices, or labels in open_items
       assumptions:
-      - Atomic, testable assumptions only
-      - Do not invent scope; mark gaps as open_items instead
+      - Use assumptions only when rack elevations or patch matrices are referenced but not fully verified
+      - Do not assume power whips, PDU capacity, receptacle type, or A/B diversity without evidence
+      - Do not assume rail kits, optics, patch cords, console cables, or cage nuts are provider-supplied
+      - State device weight, depth, airflow, or RU fit assumptions only when source gives enough basis
+      - Treat missing OOB credentials, IPs, console pinouts, or remote contact details as open_items
+      - Use assumptions for customer-provided labels or asset tags only when packets imply customer standard
+      - Do not assume cable colors, lengths, media types, or dressing style when patch matrix omits them
+      - Avoid assuming floor loading, seismic anchoring, or cabinet density compliance without facility input
+      - State maintenance-window assumptions only when the schedule is implied but not fully confirmed
+      - Move conflicting rack elevations, BOMs, or patch matrices to open_items instead of smoothing them over
       customer_responsibilities:
-      - Be explicit about timing where it affects sequencing
-      - Confirm power whip availability per cabinet
-      - Provide rack elevations, patch matrix, asset tags
-      - Required customer actions, inputs, permissions, files
+      - Require final rack elevations, patch matrices, BOM, device inventory, and asset tag scheme before work
+      - Require cage, cabinet, loading dock, staging area, and escort access for the planned work window
+      - Require power whips, circuits, PDUs, plug types, and A/B feed availability to be confirmed by facility
+      - Require customer to provide rail kits, optics, transceivers, cables, labels, and spares when owner-furnished
+      - Require remote technical contacts for power-on validation, OOB handoff, and exception decisions
+      - Require approved maintenance windows, change tickets, outage notices, and rollback contacts when needed
+      - Require labeling_standards and cable colors to be approved before patching or recabling starts
+      - Require receiving, unpacking, disposal, return, or RMA instructions for hardware and packaging materials
+      - Require facility rules for hot/cold aisle work, ladders, lifts, fire suppression, and security checkpoints
+      - Avoid assigning provider tasks such as physical mounting to the customer when they are in scope
       out_of_scope:
-      - Avoid exclusions unrelated to the opportunity
-      - Explicit exclusions clarifying scope boundary
+      - Exclude logical network, firewall, storage, hypervisor, BIOS, firmware, OS, and application configuration
+      - Exclude new electrical circuits, whips, receptacles, PDU procurement, and UPS changes unless cited
+      - Exclude floor loading analysis, seismic engineering, cage construction, and cabinet anchoring unless scoped
+      - Exclude structured cabling outside the cabinet unless cross-rack or overhead work is explicitly included
+      - Exclude data migration, backup, replication, and workload cutover unless packet scope includes them
+      - Exclude cable remediation beyond the stated patch matrix, rack, cabinet, or port list
+      - Exclude monitoring setup, CMDB updates, and service desk onboarding unless listed as deliverables
+      - Exclude hardware procurement, warranty registration, RMA processing, and disposal unless explicitly included
+      - Do not exclude in-rack patching if the patch matrix or rack-and-stack packet includes it
+      - Avoid generic exclusions; tie each exclusion to a physical/logical boundary the PM must preserve
       risks_or_dependencies:
-      - Execution risks, dependencies, limiting conditions
-      - Include unknowns that may affect schedule, quality, or pricing
+      - Call out missing rack elevations, patch matrices, device inventory, or cabinet IDs as execution risk
+      - Flag unknown device weight, depth, power draw, airflow direction, and RU fit as facility risk
+      - Flag mismatched rail kits, optics, cables, plugs, receptacles, or PDU capacity as schedule risk
+      - Identify access window, escort, change control, loading dock, and shipping dependencies
+      - State risk of unlabeled or live production cabling when recabling or decommission work is included
+      - Call out OOB dependency when remote validation, console access, or LOM handoff is needed
+      - Identify A/B power or redundancy risk when source only confirms a single feed or unclear PDU class
+      - Flag asset discrepancies between BOM, shipment, rack elevation, and onsite inventory
+      - Note cabinet density, floor loading, thermal, and airflow constraints when evidence suggests limits
+      - Use risks_or_dependencies for constraints; use open_items for missing decisions that block SOW finalization
+      - Flag de-rack custody, return path, or data-bearing asset handling risks when removal is included
+      - Avoid implying operational acceptance when only physical install validation is in scope
       completion_criteria:
-      - Align directly to the listed services + deliverables
-      - Objective indicators that the engagement is complete
+      - Define completion as devices installed in approved RU positions and secured with required mounting hardware
+      - Require power connected to approved PDU outlets and A/B feeds when redundant power is in scope
+      - Require patching completed according to approved patch matrix and cable_management_styles guidance
+      - Require labels applied to devices, ports, cables, and cabinet positions using approved labeling_standards
+      - Require cabinet photo set, rack elevation update, patch matrix update, and exception log when deliverable
+      - Require inventory reconciliation of serials, asset tags, hostnames, and installed RU positions
+      - Require power-on, link-light, console, or remote validation only when those tests are included
+      - Require de-racked equipment staged, packaged, or handed off according to stated disposition path
+      - Require documented customer acceptance or exception approval for deviations from rack elevations
+      - Avoid defining completion by application availability, network reachability, or OS health unless scoped
       open_items:
-      - 'Missing: device weight per RU for floor loading'
-      - 'Missing: per-cabinet power whip type'
-      - Specific unresolved items that block quote finalization
-      - Use for missing, conflicting, or unclear intake details
+      - Ask for final rack elevations with cabinet IDs, RU positions, device names, and blanking requirements
+      - Ask for device inventory with model, serial, asset tag, weight, depth, power draw, and airflow direction
+      - Ask for PDU class, power_phases, plug type, receptacle type, A/B feed map, and circuit ownership
+      - Ask for patch matrix with source/destination ports, media type, connector type, cable color, and length
+      - Ask who supplies rail kits, optics, transceivers, patch cords, labels, cage nuts, and tools
+      - Ask for OOB, KVM, serial console, LOM, or remote validation requirements and contact information
+      - Ask for access windows, escort policy, loading dock rules, staging area, and change control process
+      - Ask for de-rack disposition, packaging, return shipping, ITAD handoff, and chain-of-custody rules
+      - Ask for labeling_standards, cable_management_styles, and photo requirements before mobilization
+      - Ask to resolve conflicts among BOM, shipment list, rack elevation, patch matrix, and meeting decisions
     artifact_labels:
     - CSV
     - DOCX
@@ -420,48 +696,236 @@ domains:
     - pasted notes
     schemas_extracted: 35
     subdomain_notes:
-    - device counts/types, rack elevations, patch matrix, power, labeling
-    - de-rack counts, disposal / return path, custody, patch cleanup
+    - device counts/types, rack elevations, RU positions, cabinet IDs, rail kits, asset tags
+    - in-rack patch matrix, cable colors/lengths, connector/media types, dressing and labeling standard
+    - PDU class, power phases, A/B feed mapping, plug/receptacle type, power-on validation boundary
+    - OOB/KVM/serial/LOM access, remote handoff contact, console validation and credential boundary
+    - colo/site access, escort rules, maintenance windows, loading dock, staging, packaging cleanup
+    - weight/depth/airflow constraints, floor loading, blanking panels, thermal/cabinet density limits
+    - de-rack counts, custody, return/RMA/ITAD path, packaging, asset reconciliation, patch cleanup
+    - 'deliverables: rack elevation, patch matrix, asset inventory, label export, cabinet photo set'
+    gold_examples:
+      scope_overview:
+      - statement: Rack-and-stack of 42 devices across six colo cabinets with in-rack copper and fiber patching.
+        evidence_pattern: quantity_claim packet with device/cabinet counts + scope_inclusion packet naming patching
+        pitfalls: Do not infer firewall or switch configuration from physical install language.
+      detailed_scope_of_services:
+      - statement: Mount servers per approved rack elevation, connect A/B power, dress cables, and label ports.
+        evidence_pattern: scope_inclusion packet with rack elevation + compliance_clause with labeling standard
+        pitfalls: Do not add power-on validation unless the source says technicians must validate it.
+      deliverables:
+      - statement: Updated rack elevation, patch matrix, asset inventory, and front/rear photo set for each cabinet.
+        evidence_pattern: deliverables packet naming closeout artifacts + quantity_claim packet with cabinet count
+        pitfalls: Do not invent CSV, Visio, or DCIM export formats if the source only asks for closeout package.
+      assumptions:
+      - statement: Customer-provided rack elevation is the governing source for RU placement.
+        evidence_pattern: customer_override packet naming rack elevation as source of truth
+        pitfalls: Do not treat the BOM as governing if it conflicts with a later approved elevation.
+      customer_responsibilities:
+      - statement: Customer to provide rack elevation, patch matrix, rail kits, optics, labels, and colo escort.
+        evidence_pattern: site_access packet + missing_info packet identifying owner-furnished materials
+        pitfalls: Do not assign cable dressing to customer when the scope includes rack-and-stack execution.
+      out_of_scope:
+      - statement: Network configuration, firmware updates, application testing, and new electrical circuits are excluded.
+        evidence_pattern: scope_exclusion packet + scope_inclusion limited to physical install and patching
+        pitfalls: Do not exclude patching if patch matrix work is included in scope_inclusion packets.
+      risks_or_dependencies:
+      - statement: Missing plug and PDU details may delay power connection and validation for installed devices.
+        evidence_pattern: missing_info packet on PDU type + quantity_claim packet for devices needing power
+        pitfalls: Do not assume generic C13/C14 cords fit all devices without source support.
+      completion_criteria:
+      - statement: Devices are installed in approved RUs, labeled, patched per matrix, and photographed for closeout.
+        evidence_pattern: scope_inclusion packet + deliverables packet naming rack elevation, patch matrix, photos
+        pitfalls: Do not require application-level signoff unless the SOW includes logical validation.
+      open_items:
+      - statement: Confirm A/B power feed map, PDU outlet assignments, plug types, and who supplies power cords.
+        evidence_pattern: missing_info packet on power whip/PDU details
+        pitfalls: Do not bury missing power details as a low-confidence assumption.
   datacenter:
     display_name: Datacenter
-    operating_rules: {}
-    normalization: {}
+    operating_rules:
+      do_not_invent_facts: true
+      use_assumptions_for_supported_gaps_only: true
+      use_open_items_for_missing_or_conflicting_data: true
+      separate_facility_scope_from_it_scope: true
+      do_not_assume_power_cooling_or_tier_level: true
+      preserve_site_cage_cabinet_ru_and_circuit_detail: true
+      escalate_access_power_cooling_and_decommission_conflicts: true
+      limit_output_to_nine_post_fields: true
+    normalization:
+      power_classes:
+      - 120V/15A
+      - 120V/20A
+      - 208V/20A
+      - 208V/30A
+      - 208V/60A
+      - 208V three-phase
+      - 240V/30A
+      - 415V three-phase
+      - 480V three-phase
+      - DC -48V
+      cooling_types:
+      - CRAC
+      - CRAH
+      - in-row cooling
+      - rear-door heat exchanger
+      - hot aisle containment
+      - cold aisle containment
+      - liquid cooling
+      - immersion cooling
+      - chilled water loop
+      - air-side economizer
+      tier_levels:
+      - Tier I
+      - Tier II
+      - Tier III
+      - Tier IV
+      - N
+      - N+1
+      - 2N
+      - 2N+1
+      service_types:
+      - rack and stack
+      - cabinet build-out
+      - power turn-up
+      - structured cabling
+      - migration
+      - smart hands
+      - remote hands
+      - decommission
+      - ITAD staging
+      - cross-connect coordination
+      - cage build-out
+      decommission_states:
+      - powered-off in-place
+      - powered down and labeled
+      - de-cabled
+      - de-racked
+      - palletized
+      - ITAD-staged
+      - returned-to-vendor
+      - retained by customer
+      - wiped
+      - destroyed
+      common_dc_terms:
+        RU: rack unit
+        kW: kilowatt
+        kVA: kilovolt-ampere
+        BTU: British thermal unit
+        PDU: power distribution unit
+        RPP: remote power panel
+        UPS: uninterruptible power supply
+        CRAC: computer room air conditioner
+        CRAH: computer room air handler
+        CDU: coolant distribution unit
+        RDHX: rear-door heat exchanger
+        MMR: meet-me room
+        MPOE: minimum point of entry
+        LOA/CFA: letter of authorization and connecting facility assignment
+        A/B feed: redundant power feed pair
+        smart hands: onsite technician assistance
+        remote hands: onsite work directed remotely
     fields:
       scope_overview:
-      - 1–3 sentences describing the engagement at a glance
-      - Reference the customer site or facility if known
-      - State delivery model (onsite, remote, hybrid) if known
+      - Summarize datacenter scope by facility, site, cage, cabinet, room, or row when supported
+      - Identify service_types such as rack and stack, power turn-up, cross-connect, migration, or decommission
+      - State cabinet count, RU count, device count, circuit count, or decommission quantity when known
+      - Use power_classes, cooling_types, tier_levels, and decommission_states only when packets support them
+      - Distinguish customer, provider, carrier, and datacenter facility responsibilities at a high level
+      - Call out access windows, escort policy, change control, or security constraints only when supported
+      - Highlight dependencies on rack elevations, patch matrices, power schedules, or asset inventories
+      - Avoid conflating physical datacenter services with logical network, compute, storage, or app work
       detailed_scope_of_services:
-      - Concrete activities the engagement performs
-      - Differentiate rack/stack vs power/patching vs decommission
-      - One bullet per executable activity, no nested prose
-      - Power requirements (208V vs 120V), PDU/CDU class, RU constraints
-      - Use execution-ready statements that a PM can sequence
+      - Differentiate rack/stack, power turn-up, cross-connect, structured cabling, migration, and decommission work
+      - Map activities to site, cage, cabinet, row, RU range, circuit ID, and device ID when available
+      - State power_classes, PDU, RPP, UPS, whip, receptacle, plug, and A/B feed requirements when known
+      - State cooling_types, containment, blanking, airflow, or thermal checks only when packets cite them
+      - Include circuit verification, labeling, cable tracing, and documentation activities only when scoped
+      - Include cross-connect, carrier coordination, LOA/CFA, or meet-me-room work only when cited
+      - Describe decommission work using decommission_states and separate power-down, de-cable, de-rack, and stage
+      - Include ITAD staging, chain of custody, serial capture, wipe, or destruction only when explicitly included
+      - Include smart-hands or remote-hands validation steps only when customer remote direction is described
+      - Separate facility construction, electrical, and mechanical work from provider IT services
+      - Avoid asserting tier_levels, redundancy, power capacity, or cooling capacity without direct support
+      - Avoid adding migration cutover, logical config, storage zoning, or application testing unless cited
       deliverables:
-      - Customer-facing tangible outputs only
-      - Do not mix services with deliverables
+      - List rack elevations, cabinet inventories, power schedules, and patch matrices as separate deliverables
+      - Include circuit map with PDU, RPP, UPS, breaker, whip, and A/B feed details only when requested
+      - Include cooling, containment, airflow, or blanking panel notes only when included in scope
+      - Include cross-connect matrix, LOA/CFA tracker, or carrier handoff report only when scoped
+      - Include decommission manifest with serials, asset tags, custody, and decommission_states when removal is scoped
+      - Include ITAD certificates, wipe attestations, or destruction records only when source requires them
+      - Include photos by cage, cabinet, device, cable path, or decommission stage when requested
+      - Include exception log for missing assets, failed checks, access issues, or unresolved facility constraints
+      - Avoid promising engineering studies, capacity reports, or tier assessments unless explicitly requested
       assumptions:
-      - Atomic, testable assumptions only
-      - Do not invent scope; mark gaps as open_items instead
-      - Existing patching matrix is current
-      - Power capacity available at each cabinet
+      - Use assumptions only when a facility input is implied but not fully specified and does not block pricing
+      - Do not assume power_classes, circuit capacity, PDU availability, or A/B redundancy beyond source evidence
+      - Do not assume cooling_types, airflow, load capacity, containment, or temperature targets without evidence
+      - Do not infer tier_levels or uptime commitments from datacenter name, colo brand, or generic language
+      - State rack elevation, asset inventory, or patch matrix currency only when customer context supports it
+      - Treat access windows, escort needs, security rules, and change freezes as open_items when unclear
+      - Do not assume tools, lifts, pallet jacks, loading dock access, or staging areas are available
+      - Do not assume data wiping, ITAD, RMA, or disposal path when decommission only says remove equipment
+      - State carrier or colo responsibilities only when packet evidence indicates they are by others
+      - Move conflicts in cabinet IDs, counts, power schedules, or decommission lists to open_items
       customer_responsibilities:
-      - Be explicit about timing where it affects sequencing
-      - Required customer actions, inputs, permissions, files
+      - Require facility authorization, badges, escorts, security clearance, and cage/cabinet access
+      - Require approved maintenance windows, change tickets, freeze exceptions, and outage communications
+      - Require current rack elevations, asset inventory, patch matrix, power schedule, and circuit list
+      - Require confirmation of power_classes, PDU outlets, breaker capacity, redundancy, and load limits
+      - Require customer or facility coordination for carrier cross-connects, LOA/CFA, MMR access, and turn-up
+      - Require shipping, receiving, staging, loading dock, pallet, lift, and packaging instructions
+      - Require remote technical contacts for smart-hands direction, validation, and exception decisions
+      - Require decommission disposition, ITAD path, wipe requirements, return shipping, and custody approvals
+      - Require security, compliance, visitor, photo, tool, ladder, and fire-suppression rules before arrival
+      - Avoid assigning provider-owned physical tasks to the customer when those tasks are explicitly in scope
       out_of_scope:
-      - Avoid exclusions unrelated to the opportunity
-      - Explicit exclusions clarifying scope boundary
+      - Exclude new electrical circuits, breakers, whips, UPS, RPP, PDU procurement, and power engineering unless cited
+      - Exclude mechanical cooling changes, containment construction, CRAC/CRAH service, and load studies unless scoped
+      - Exclude cage construction, ladder rack, seismic anchoring, floor loading analysis, and structural work unless cited
+      - Exclude logical network, firewall, storage, hypervisor, OS, firmware, and application configuration unless included
+      - Exclude data migration, workload cutover, backups, replication, and DR testing unless specifically scoped
+      - Exclude carrier ordering, cross-connect fees, LOA/CFA submission, and circuit turn-up unless included
+      - Exclude data wiping, ITAD, destruction, recycling, RMA, and disposal unless decommission scope includes them
+      - Exclude recurring operations, monitoring, managed services, and break/fix support unless stated
+      - Do not exclude rack-and-stack, patching, or decommission if active domain packets include those services
+      - Avoid generic datacenter boilerplate; write exclusions that protect physical/facility/logical boundaries
       risks_or_dependencies:
-      - Execution risks, dependencies, limiting conditions
-      - Include unknowns that may affect schedule, quality, or pricing
+      - Call out missing facility access windows, escort policy, security rules, or change control as schedule risk
+      - Flag unknown power_classes, circuit capacity, PDU outlets, plug types, and A/B redundancy as execution risk
+      - Flag unknown cooling load, airflow direction, containment, blanking, and thermal constraints when relevant
+      - Identify dependency on colo, carrier, landlord, electrician, or mechanical vendor for facility-owned work
+      - Call out live production risk when power, patching, migration, or decommission touches active equipment
+      - Flag cabinet density, RU fit, device weight, floor loading, and clearance constraints when evidence suggests limits
+      - Flag asset inventory discrepancies between BOM, rack elevation, decommission list, and onsite condition
+      - Identify chain-of-custody, data-bearing asset, wipe, and ITAD risks when equipment is removed
+      - Call out shipping, receiving, staging, loading dock, packaging, and return logistics dependencies
+      - Avoid using tier_levels as risk shorthand unless the tier or redundancy requirement is explicitly stated
+      - Use open_items for missing decisions; use risks_or_dependencies for constraints that may affect delivery
+      - Flag conflicting packet evidence on sites, cabinets, power schedules, or device counts for PM review
       completion_criteria:
-      - Align directly to the listed services + deliverables
-      - Objective indicators that the engagement is complete
+      - Define completion by scoped physical services completed at approved sites, cages, cabinets, RUs, and circuits
+      - Require devices installed, powered, patched, labeled, and documented when rack-and-stack is included
+      - Require power circuits or PDU connections verified only to the level of testing specified in scope
+      - Require cross-connects documented and handed off only when carrier or MMR work is included
+      - Require decommissioned assets to reach the stated decommission_states with custody documented
+      - Require delivery of rack elevations, patch matrices, power maps, photos, manifests, and exception log when scoped
+      - Require customer or remote SME acceptance for smart-hands validation steps named in the SOW
+      - Require unresolved exceptions to be documented with owner, impact, and disposition decision
+      - Avoid defining completion by uptime, redundancy, capacity, or application performance unless included
+      - Tie completion criteria to packet-supported quantities, locations, circuits, assets, and deliverables
       open_items:
-      - 'Missing: RU constraints per cabinet'
-      - 'Missing: facility access windows + escort policy'
-      - Specific unresolved items that block quote finalization
-      - Use for missing, conflicting, or unclear intake details
+      - Ask for final site, facility, cage, cabinet, row, RU, and circuit map for every scoped activity
+      - Ask for power_classes, PDU outlet map, breaker capacity, plug types, load limits, and A/B feed design
+      - Ask for cooling_types, containment, airflow direction, blanking, temperature limits, and thermal constraints
+      - Ask for access windows, escort policy, security requirements, photo rules, and change control process
+      - Ask for cross-connect LOA/CFA, carrier handoff, MMR access, demarc, and circuit turn-up responsibility
+      - Ask for rack elevations, patch matrices, asset inventory, decommission list, and serial capture format
+      - Ask for decommission_states, wipe/ITAD requirements, return shipping, custody, and packaging instructions
+      - Ask which work is provider, customer, colo, carrier, electrician, or mechanical vendor responsibility
+      - Ask for staging area, loading dock, lift, pallet jack, tool, ladder, and disposal constraints
+      - Ask to resolve conflicts among RFP, diagrams, inventories, power schedules, and meeting decisions
     artifact_labels:
     - CSV
     - DOCX
@@ -479,49 +943,243 @@ domains:
     - pasted notes
     schemas_extracted: 27
     subdomain_notes:
-    - rack_and_stack_scope, device_counts_by_type, rack_elevation_available, power_requirements
-    - rack_and_stack_scope, device_counts_by_type, rack_elevation_available, power_requirements
-    - rack_and_stack_scope, device_counts_by_type, rack_elevation_available, power_requirements
+    - site/facility/cage/cabinet/RU scope, rack elevations, patch matrix, asset inventory source of truth
+    - power class, A/B feed, PDU/RPP/UPS/circuit map, plug/receptacle type, power testing boundary
+    - cooling class, containment, airflow, blanking panels, cabinet density, thermal and floor-loading limits
+    - cross-connects, LOA/CFA, carrier/colo/MMR coordination, demarc and handoff responsibilities
+    - access windows, escorts, change control, security, visitor, photo, tool and safety restrictions
+    - migration/cutover boundaries, smart-hands validation, remote SME contacts, rollback ownership
+    - decommission state, asset custody, wipe/ITAD/RMA/return path, packaging and shipping logistics
+    - 'deliverables: rack elevation, power map, patch matrix, manifest, photos, exception log, acceptance'
+    gold_examples:
+      scope_overview:
+      - statement: Datacenter migration support for two cages, 18 cabinets, and 312 assets at the Ashburn colo.
+        evidence_pattern: quantity_claim packet + site_access packet naming colo and cage locations
+        pitfalls: Do not infer workload migration or application cutover unless logical migration is cited.
+      detailed_scope_of_services:
+      - statement: De-cable, de-rack, serialize, palletize, and stage retired servers for customer ITAD pickup.
+        evidence_pattern: scope_inclusion packet on decommission + customer_override on ITAD pickup
+        pitfalls: Do not add data wiping or destruction certificates unless the packets require them.
+      deliverables:
+      - statement: Decommission manifest with serials, asset tags, cabinet/RU source, custody status, and photos.
+        evidence_pattern: deliverables packet naming manifest + quantity_claim packet listing assets
+        pitfalls: Do not promise ITAD certificates if provider only stages equipment for customer vendor.
+      assumptions:
+      - statement: Customer-provided power schedule is current for cabinet PDU outlet assignments.
+        evidence_pattern: customer_override packet identifying power schedule as planning input
+        pitfalls: Do not assume circuit capacity or redundancy from the existence of a schedule alone.
+      customer_responsibilities:
+      - statement: Customer to secure colo access, escort, change window, and approval for any circuit work.
+        evidence_pattern: site_access packet + action_item packet assigning facility coordination to customer
+        pitfalls: Do not assign provider onsite tasks to customer when scope includes smart hands.
+      out_of_scope:
+      - statement: New electrical circuits, cooling modifications, carrier fees, and logical configuration are excluded.
+        evidence_pattern: scope_exclusion packet + scope_inclusion limited to physical datacenter services
+        pitfalls: Do not exclude cross-connect coordination if an LOA/CFA packet names provider responsibility.
+      risks_or_dependencies:
+      - statement: Unconfirmed escort policy and change window may delay access to cages during migration weekend.
+        evidence_pattern: missing_info packet on access + meeting_decision packet with target weekend
+        pitfalls: Do not bury access uncertainty in assumptions when it can block schedule.
+      completion_criteria:
+      - statement: Assets reach the agreed decommission state and closeout manifest/photos are accepted by customer.
+        evidence_pattern: scope_inclusion packet with decommission_state + deliverables packet naming manifest/photos
+        pitfalls: Do not require disposal completion if provider scope ends at customer pickup staging.
+      open_items:
+      - statement: Confirm PDU outlet map, A/B feed design, plug types, and circuit load limits for Cabinet R12.
+        evidence_pattern: missing_info packet on power schedule + quantity_claim packet naming cabinet R12
+        pitfalls: Do not assume power capacity from cabinet count or past deployment history.
   imac:
-    display_name: Imac
-    operating_rules: {}
-    normalization: {}
+    display_name: IMAC
+    operating_rules:
+      do_not_invent_facts: true
+      use_assumptions_for_supported_gaps_only: true
+      use_open_items_for_missing_or_conflicting_data: true
+      separate_endpoint_actions_from_managed_service_support: true
+      preserve_user_device_site_wave_and_asset_detail: true
+      treat_byod_disposition_and_migration_gaps_as_open_items: true
+      differentiate_corporate_owned_from_user_owned_devices: true
+      limit_output_to_nine_post_fields: true
+    normalization:
+      imac_actions:
+      - install
+      - move
+      - add
+      - change
+      - refresh
+      - swap
+      - replace
+      - break-fix
+      - reimage
+      - decommission
+      - dispose
+      - recover
+      device_classes:
+      - laptop
+      - desktop
+      - monitor
+      - dock
+      - keyboard
+      - mouse
+      - headset
+      - printer
+      - scanner
+      - smartphone
+      - tablet
+      - thin client
+      - conference room device
+      - peripheral
+      image_template_types:
+      - Microsoft Intune
+      - Windows Autopilot
+      - SCCM task sequence
+      - MECM task sequence
+      - KACE image
+      - Jamf Composer
+      - Jamf PreStage
+      - macOS DEP
+      - golden image
+      - manual build
+      - vendor image
+      migration_types:
+      - local profile migration
+      - OneDrive Known Folder Move
+      - USMT
+      - manual data copy
+      - no data migration
+      - cloud-only profile
+      - email profile rebuild
+      - browser favorites migration
+      disposition_paths:
+      - user-keep
+      - ITAD
+      - return-to-leasing
+      - return-to-vendor
+      - internal-pool
+      - secure storage
+      - redeploy
+      - recycle
+      - destroy
+      - customer-retained
+      common_imac_terms:
+        IMAC: install, move, add, change
+        MACD: move, add, change, delete
+        RMA: return merchandise authorization
+        BYOD: bring your own device
+        COPE: corporate-owned personally enabled
+        Autopilot: Windows Autopilot device provisioning
+        Intune: Microsoft Intune endpoint management
+        SCCM: System Center Configuration Manager
+        MECM: Microsoft Endpoint Configuration Manager
+        Jamf: Apple device management platform
+        DEP: Apple Device Enrollment Program
+        MDM: mobile device management
+        MFA: multi-factor authentication
+        VPN: virtual private network
+        BitLocker: Windows drive encryption
+        FileVault: macOS drive encryption
+        USMT: User State Migration Tool
+        Entra ID: Microsoft cloud identity directory
     fields:
       scope_overview:
-      - 1–3 sentences describing the engagement at a glance
-      - Reference the customer site or facility if known
-      - State delivery model (onsite, remote, hybrid) if known
+      - Summarize IMAC actions by site, user population, wave, device count, and device_classes when known
+      - State whether work is desk-side, depot, remote-guided, onsite staging, or hybrid when supported
+      - Identify image_template_types, migration_types, MDM enrollment, and asset tagging only when cited
+      - Distinguish corporate-owned, leased, shared, kiosk, loaner, and BYOD devices when evidence supports it
+      - Call out disposition_paths for replaced or recovered assets when scope includes legacy equipment
+      - State scheduling model such as appointment-based, floor walk, cutover wave, or project room pickup
+      - Highlight dependencies on device-to-user map, application list, user availability, and hardware readiness
+      - Avoid including managed service support, procurement, licensing, or app remediation unless included
       detailed_scope_of_services:
-      - Concrete activities the engagement performs
-      - One bullet per executable activity, no nested prose
-      - Refresh / swap / move / add / change counts per device class
-      - Use execution-ready statements that a PM can sequence
-      - User-device mapping, image template, migration dependencies
+      - List imac_actions by device_classes, site, user group, wave, and quantity when evidence supports it
+      - Map each endpoint to user, desk, room, department, asset tag, serial, and legacy device when provided
+      - Include receive, inventory, asset tag, stage, image, enroll, configure, deploy, validate, and handoff tasks
+      - Specify image_template_types such as Autopilot, SCCM, MECM, Intune, Jamf, or KACE only when supported
+      - Include migration_types for profile, data, browser favorites, email, OneDrive, or no-migration paths when cited
+      - Include monitor, dock, keyboard, mouse, headset, printer, scanner, or mobile setup only when scoped
+      - Include application install, VPN, MFA, BitLocker, FileVault, domain join, or MDM enrollment only when cited
+      - Include old asset collection, wipe, package, return, redeploy, ITAD, or customer-retained disposition when scoped
+      - Separate desk-side work from depot imaging, onsite staging, shipping, remote support, and hypercare tasks
+      - Include user appointment, pre-call, cutover, acceptance, and day-one support steps only when supported
+      - Avoid broad help desk support, application remediation, licensing, procurement, or network changes unless cited
+      - Do not treat BYOD devices as in scope unless the source explicitly includes BYOD support or migration
       deliverables:
-      - Customer-facing tangible outputs only
-      - Do not mix services with deliverables
+      - List device-to-user map, deployment tracker, wave status, asset update, and exception log separately
+      - Include imaging, enrollment, MDM, or Autopilot logs only when customer-facing closeout is requested
+      - Include asset tag, serial, model, user, site, disposition_path, and status fields when inventory output is scoped
+      - Include migration checklist or user sign-off form when data or profile migration is in scope
+      - Include old asset manifest, chain of custody, return tracker, or ITAD handoff report when recovery is scoped
+      - Include application validation checklist only for applications explicitly included in service scope
+      - Include user communication, schedule, or appointment report only when requested as a deliverable
+      - Avoid listing internal technician runbooks, staging notes, or troubleshooting logs as deliverables
+      - Flag undefined export format for trackers, asset updates, logs, and sign-off forms in open_items
       assumptions:
-      - Atomic, testable assumptions only
-      - Do not invent scope; mark gaps as open_items instead
+      - Use assumptions only when counts, waves, or hardware readiness are implied by source context
+      - Do not assume BYOD, personal devices, or user-owned peripherals are included without evidence
+      - Do not assume data migration, profile migration, or application migration when refresh only says swap hardware
+      - Do not assume application licenses, installers, packaging, or compatibility are available without evidence
+      - State user availability assumptions only when appointment or wave scheduling is implied but not final
+      - State network, VPN, MDM, or imaging service availability only when customer tooling is referenced
+      - State image readiness only when image_template_types or golden image dependency is referenced
+      - Treat missing admin rights, enrollment permissions, MFA, or break-glass accounts as open_items
+      - Do not assume disposition_paths for legacy devices when collection or return instructions are missing
+      - Move conflicts in device counts, user maps, images, or migration expectations to open_items
       customer_responsibilities:
-      - Be explicit about timing where it affects sequencing
-      - Old asset disposition (return-to-vendor / ITAD)
-      - Required customer actions, inputs, permissions, files
-      - User schedule + cutover availability
+      - Require final device-to-user map with user, site, desk, device_classes, serial, and asset tag details
+      - Require approved images, Autopilot/Intune/Jamf/SCCM/KACE readiness, profiles, and enrollment permissions
+      - Require hardware, peripherals, docks, adapters, chargers, labels, and spares to be available before waves
+      - Require application list, license availability, installers, test accounts, and validation owners when apps are scoped
+      - Require user schedules, appointment windows, communications, desk access, and no-show escalation process
+      - Require site access, badging, parking, staging space, secure storage, network access, and shipping support
+      - Require backup guidance, data retention approval, and migration acceptance criteria before refresh cutover
+      - Require disposition_paths, wipe requirements, chain-of-custody, leasing return, RMA, or ITAD instructions
+      - Require customer technical contacts for image failures, enrollment issues, MFA, VPN, and exception decisions
+      - Avoid asking users to share personal passwords; request approved access and escalation paths instead
       out_of_scope:
-      - Avoid exclusions unrelated to the opportunity
-      - Explicit exclusions clarifying scope boundary
+      - Exclude hardware procurement, lease negotiation, warranty registration, and RMA processing unless cited
+      - Exclude software licensing, SaaS subscriptions, app packaging, and application remediation unless scoped
+      - Exclude custom image development, task sequence engineering, MDM policy design, and tenant remediation unless cited
+      - Exclude network remediation, Wi-Fi troubleshooting, printer server changes, and VPN redesign unless included
+      - Exclude data recovery, forensic recovery, or migration of unsupported local data unless explicitly included
+      - Exclude ongoing help desk, break/fix support, managed endpoint operations, and post-hypercare support unless scoped
+      - Exclude BYOD support, personal device repair, and personal data handling unless customer explicitly includes it
+      - Exclude physical furniture moves, cabling changes, and electrical work unless connected scope includes them
+      - Exclude ITAD, wipe, disposal, return shipping, or lease return unless disposition_paths are included
+      - Do not exclude data migration, apps, or peripherals if they are included by a scope_inclusion packet
       risks_or_dependencies:
-      - Execution risks, dependencies, limiting conditions
-      - Include unknowns that may affect schedule, quality, or pricing
+      - Call out missing device-to-user map, serials, asset tags, site list, or wave schedule as execution risk
+      - Flag user no-shows, inaccessible desks, remote users, after-hours constraints, and appointment churn
+      - Flag image, Autopilot, SCCM, MECM, Intune, Jamf, KACE, or MDM readiness gaps when tooling is referenced
+      - Identify application license, installer, compatibility, test account, or owner dependencies when apps are scoped
+      - Call out data migration volume, local profile state, encryption, backup, and OneDrive sync risks when relevant
+      - Flag hardware shortages, wrong models, missing docks, adapters, chargers, peripherals, and spares
+      - Identify network, VPN, MFA, domain join, Wi-Fi, and enrollment dependencies that may block deployment
+      - Call out BYOD versus corporate-owned ambiguity, personal data handling, and privacy constraints when present
+      - Flag legacy asset custody, wipe, ITAD, lease return, RMA, and secure storage dependencies
+      - Use risks_or_dependencies for delivery constraints; use open_items for missing final decisions
+      - Flag conflicting counts between RFP, spreadsheet, ticket export, asset inventory, and meeting decisions
+      - Avoid claiming productivity or adoption outcomes as guaranteed project results
       completion_criteria:
-      - Align directly to the listed services + deliverables
-      - Objective indicators that the engagement is complete
+      - Define completion by approved imac_actions completed for the stated device count, sites, users, and waves
+      - Require devices imaged, enrolled, asset tagged, physically installed, and handed off when those steps are scoped
+      - Require user sign-off, technician checklist, or customer acceptance only when an acceptance path is defined
+      - Require migrated data or profile elements to meet the agreed migration_types and exception handling path
+      - Require included apps, VPN, MFA, encryption, printers, and peripherals validated to the agreed checklist
+      - Require asset inventory and deployment tracker updated with serial, user, site, status, and disposition_path
+      - Require legacy assets collected, wiped, staged, returned, or handed off according to scoped disposition_paths
+      - Require exceptions documented with owner, impact, next step, and whether they block wave closure
+      - Require hypercare or day-one support closure only if post-deployment support is included
+      - Avoid defining completion by long-term user productivity, app adoption, or managed service SLA performance
       open_items:
-      - 'Missing: device-to-user map'
-      - 'Missing: legacy asset disposition path'
-      - Specific unresolved items that block quote finalization
-      - Use for missing, conflicting, or unclear intake details
+      - Ask for device counts by imac_actions, device_classes, site, department, user group, and wave
+      - Ask for final device-to-user map with serial, asset tag, desk, room, legacy device, and owner
+      - Ask for image_template_types, MDM tooling, tenant readiness, enrollment method, and test plan
+      - Ask for migration_types, data size limits, profile scope, backup rules, and user sign-off method
+      - Ask for application list, licensing, installers, package ownership, validation owners, and exceptions
+      - Ask for user schedule, appointment rules, communications plan, no-show handling, and after-hours needs
+      - Ask for hardware readiness, delivery dates, accessories, docks, adapters, labels, spares, and storage
+      - Ask for disposition_paths, wipe requirements, chain-of-custody, lease return, ITAD, and RMA steps
+      - Ask whether BYOD, shared devices, kiosks, loaners, and personal data handling are included or excluded
+      - Ask for acceptance criteria, hypercare window, escalation contacts, and exception closure process
     artifact_labels:
     - CSV
     - DOCX
@@ -539,4 +1197,48 @@ domains:
     - pasted notes
     schemas_extracted: 28
     subdomain_notes:
-    - swap counts, user/device mapping, migration dependencies, old asset handling
+    - install/move/add/change/refresh counts by site, wave, user, device class, and appointment model
+    - device-to-user map, serial/asset tags, desk/room, legacy asset mapping, owner and exception handling
+    - image type, MDM/enrollment tooling, domain/join method, encryption, VPN, MFA and validation boundary
+    - data/profile migration type, backup expectations, local data limits, user sign-off and rollback path
+    - application list, licensing, installers, package ownership, app validation and remediation exclusions
+    - hardware readiness, docks/adapters/peripherals, staging area, shipping, storage and spare inventory
+    - old asset disposition, wipe/ITAD/lease return/RMA, custody, packaging, user-keep and secure storage
+    - user communications, scheduling, no-shows, desk access, hypercare window, escalation contacts
+    gold_examples:
+      scope_overview:
+      - statement: Laptop refresh for 220 corporate users across HQ and three branches using Autopilot enrollment.
+        evidence_pattern: quantity_claim packet with device count + scope_inclusion packet naming Autopilot
+        pitfalls: Do not include BYOD phones or tablets unless source packets explicitly add them.
+      detailed_scope_of_services:
+      - statement: Stage, image, enroll, asset tag, deploy, migrate OneDrive-backed profiles, and collect old laptops.
+        evidence_pattern: scope_inclusion packet + customer_override packet naming OneDrive and collection path
+        pitfalls: Do not add local data migration or app packaging unless cited.
+      deliverables:
+      - statement: Deployment tracker with user, serial, asset tag, site, wave, status, and legacy disposition path.
+        evidence_pattern: deliverables packet naming tracker + quantity_claim packet with user/device rows
+        pitfalls: Do not invent ServiceNow, CSV, or XLSX export requirements unless the source names them.
+      assumptions:
+      - statement: Customer-provided Autopilot profile and corporate image are approved before the first wave.
+        evidence_pattern: scope_inclusion packet referencing Autopilot + action_item assigning image approval
+        pitfalls: Use open_items if image ownership or approval date is missing.
+      customer_responsibilities:
+      - statement: Customer to provide device-to-user map, user schedule, app list, image access, and disposition rules.
+        evidence_pattern: missing_info packet on user map + action_item packet assigning customer inputs
+        pitfalls: Do not ask users for passwords; request approved admin or enrollment access.
+      out_of_scope:
+      - statement: Hardware procurement, custom app packaging, data recovery, and ongoing help desk support are excluded.
+        evidence_pattern: scope_exclusion packet + scope_inclusion limited to refresh deployment
+        pitfalls: Do not exclude data migration if migration_types are explicitly included elsewhere.
+      risks_or_dependencies:
+      - statement: Missing user schedule and app license confirmation may delay wave deployment and acceptance.
+        evidence_pattern: missing_info packet on schedule + missing_info packet on app licensing
+        pitfalls: Do not convert scheduling gaps into assumptions when users must be present.
+      completion_criteria:
+      - statement: Wave is complete when devices are enrolled, user-accepted, tracker-updated, and old assets collected.
+        evidence_pattern: scope_inclusion packet + deliverables packet naming tracker and disposition update
+        pitfalls: Do not require post-hypercare SLA performance unless support is in scope.
+      open_items:
+      - statement: Confirm whether local profile data outside OneDrive is migrated, skipped, or handled by user backup.
+        evidence_pattern: missing_info packet on data migration boundary
+        pitfalls: Do not assume cloud backup covers all user data.

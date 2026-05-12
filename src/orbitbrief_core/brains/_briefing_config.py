@@ -11,7 +11,7 @@ instances on demand.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from importlib import resources
 from typing import Any, Iterable
@@ -32,9 +32,19 @@ class DomainBriefingConfig:
     fields: dict[str, tuple[str, ...]]  # canonical-field → guidance bullets
     artifact_labels: tuple[str, ...]
     subdomain_notes: tuple[str, ...]
+    # Per-section few-shot anchors. Each entry is a tuple of dicts with
+    # ``statement`` + ``evidence_pattern`` + ``pitfalls`` keys (mirroring
+    # the YAML schema). The runner injects them into the user message
+    # so the LLM has concrete examples of what a senior PM writes per
+    # section. Empty-tuple-friendly: domains without gold_examples
+    # blocks just don't get few-shot anchors.
+    gold_examples: dict[str, tuple[dict[str, Any], ...]] = field(default_factory=dict)
 
     def guidance_for(self, field: str) -> tuple[str, ...]:
         return self.fields.get(field, ())
+
+    def gold_for(self, field: str) -> tuple[dict[str, Any], ...]:
+        return (self.gold_examples or {}).get(field, ())
 
     @property
     def operating_rules_lines(self) -> tuple[str, ...]:
@@ -79,6 +89,13 @@ def load_briefing_config(domain_id: str) -> DomainBriefingConfig:
     for canon in CANONICAL_SECTIONS:
         bullets = fields_raw.get(canon) or ()
         fields[canon] = tuple(bullets)
+    # Per-section few-shot anchors (optional in the YAML).
+    gold_raw = raw.get("gold_examples") or {}
+    gold: dict[str, tuple[dict[str, Any], ...]] = {}
+    for canon in CANONICAL_SECTIONS:
+        items = gold_raw.get(canon) or ()
+        if items:
+            gold[canon] = tuple(dict(item) for item in items if isinstance(item, dict))
     return DomainBriefingConfig(
         domain_id=domain_id,
         display_name=str(raw.get("display_name") or domain_id),
@@ -87,6 +104,7 @@ def load_briefing_config(domain_id: str) -> DomainBriefingConfig:
         fields=fields,
         artifact_labels=tuple(raw.get("artifact_labels") or ()),
         subdomain_notes=tuple(raw.get("subdomain_notes") or ()),
+        gold_examples=gold,
     )
 
 
