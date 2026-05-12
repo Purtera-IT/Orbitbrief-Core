@@ -71,9 +71,11 @@ from orbitbrief_core.world_model.registry import (
 
 _DEFAULT_MODEL = "qwen3:14b"
 _ESCALATED_MODEL = "qwen3:32b"
-# JSON answers for BriefState are dense; allow plenty of headroom
-# for Qwen3's <think> block. Adjust per your serving budget.
-_MAX_OUTPUT_TOKENS = 4096
+# JSON answers for BriefState are dense. Even with the system prompt's
+# ``/no_think`` directive, Qwen3 burns ~100 tokens on empty think
+# markers; the rest is real BriefState JSON. 8192 keeps us comfortable
+# for engagements with 20+ active claims and a chunky escalation log.
+_MAX_OUTPUT_TOKENS = 8192
 # Top-K active packs to include in the retrieval bundle.
 _DEFAULT_ACTIVE_PACKS = 4
 # Top-K atoms per pack in the retrieval bundle.

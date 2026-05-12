@@ -307,6 +307,7 @@ class PackPrior:
             for c in candidates
         ]
         sys = (
+            "/no_think\n"
             "You are a domain router for OrbitBrief. Pick exactly one "
             "pack_id from the candidates that best fits this project. "
             "Reply with only the pack_id, no prose."
@@ -316,13 +317,13 @@ class PackPrior:
             f"Candidates:\n" + "\n".join(candidate_lines) + "\n"
             "Reply with one pack_id from the list."
         )
-        # Generous max_tokens because Qwen3 burns tokens in its
-        # ``<think>`` block before producing the final answer.
+        # Even with ``/no_think`` Qwen3 emits ~110 tokens of empty
+        # think markers before the answer; 1024 leaves comfortable room.
         reply = self.chat_client.complete(
             [ChatMessage("system", sys), ChatMessage("user", usr)],
             model=self.chat_model_id,
             temperature=0.0,
-            max_tokens=512,
+            max_tokens=1024,
         )
         # Strip Qwen3 ``<think>`` block, then scan for a candidate id.
         text = _strip_think(reply).strip().lower()

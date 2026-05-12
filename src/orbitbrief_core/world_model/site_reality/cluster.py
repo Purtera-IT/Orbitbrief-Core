@@ -315,6 +315,7 @@ class SiteRealityEngine:
                 f"aliases={list(aliases)[:5]}"
             )
         sys = (
+            "/no_think\n"
             "You normalize site names for OrbitBrief. From the candidate "
             "names below, return the one that best represents the physical "
             "site. Reply with only the chosen name verbatim, no prose."
@@ -333,13 +334,13 @@ class SiteRealityEngine:
                 "evidence below. Reply with only the proposed name.\n\n"
                 "Evidence:\n" + "\n".join(evidence_lines)
             )
-        # Generous budget for Qwen3's ``<think>`` block; we strip
-        # it out below.
+        # ``/no_think`` keeps overhead bounded; 1024 leaves room for
+        # the empty think markers + the chosen name.
         reply = self.chat_client.complete(
             [ChatMessage("system", sys), ChatMessage("user", usr)],
             model=self.chat_model_id,
             temperature=0.0,
-            max_tokens=512,
+            max_tokens=1024,
         )
         return _last_nonblank_line(reply) if reply else None
 

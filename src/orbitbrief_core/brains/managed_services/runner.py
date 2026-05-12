@@ -44,7 +44,7 @@ from orbitbrief_core.world_model.planner.schema import BriefState
 
 
 _DEFAULT_MODEL = "qwen3:14b"
-_MAX_OUTPUT_TOKENS = 4096
+_MAX_OUTPUT_TOKENS = 8192
 
 
 @dataclass

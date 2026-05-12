@@ -48,7 +48,11 @@ from orbitbrief_core.world_model.planner.schema import BriefState
 
 
 _DEFAULT_MODEL = "qwen3:14b"
-_MAX_OUTPUT_TOKENS = 6144  # 9 grounded sections + reasoning headroom for Qwen3
+# 9 grounded sections × ~10 items × ~120 tokens/item = ~10k upper bound.
+# 8192 covers the typical engagement comfortably; the ``/no_think``
+# directive in the system prompt eliminates the worst Qwen3 thinking
+# overhead.
+_MAX_OUTPUT_TOKENS = 8192
 
 
 # Per-section parser-os PacketFamily hints. Same family can hint
@@ -442,7 +446,7 @@ def _skeleton_state(
 # ───── prompts ─────
 
 
-_SYSTEM_TEMPLATE = """
+_SYSTEM_TEMPLATE = """/no_think
 You are the OrbitBrief {display_name} brain (domain id: {domain_id}).
 You produce a single JSON BriefingState that a project manager will
 review. You DO NOT write prose, Markdown, code fences, or commentary.
@@ -483,11 +487,35 @@ by parser-os PacketFamily, plus per-section guidance and family hints
 mined from the OrbitBrief intake workbook. Synthesize a BriefingState
 JSON object using ONLY this evidence.
 
-Required top-level keys:
-  project_id, compile_id, generated_at, domain_id,
-  scope_overview, detailed_scope_of_services, deliverables,
-  assumptions, customer_responsibilities, out_of_scope,
-  risks_or_dependencies, completion_criteria, open_items
+EXACT JSON SHAPE (use these field names verbatim — extras are rejected):
+
+```
+{{
+  "project_id": "<string>",
+  "compile_id": "<string>",
+  "generated_at": "<ISO-8601 timestamp>",
+  "domain_id": "{domain_id}",
+  "scope_overview":              [{{"id": "scope_overview_001", "statement": "<≤600 chars>", "supporting_packet_ids": ["pkt_…"], "supporting_atom_ids": ["a_…"], "confidence": 0.0-1.0, "metadata": {{}}}}],
+  "detailed_scope_of_services":  [{{"id": "service_001", ...}}],
+  "deliverables":                [],
+  "assumptions":                 [],
+  "customer_responsibilities":   [],
+  "out_of_scope":                [],
+  "risks_or_dependencies":       [],
+  "completion_criteria":         [],
+  "open_items":                  []
+}}
+```
+
+Notes:
+* Every list element MUST include `id` + `statement` + `supporting_packet_ids` (≥1 packet) + `confidence`.
+* `supporting_packet_ids` MUST contain packet ids from `packets_by_family` in the snapshot.
+* `supporting_atom_ids` MUST come from the cited packet's `governing_atom_ids` / `supporting_atom_ids`.
+* `metadata` is a free-form string-string dict for domain extras
+  (severity, deadline, survey_type, …) — keep values ≤600 chars.
+* DO NOT include `model_used`, `token_cost`, `fallback_used`,
+  `unresolved_packet_ids`, or `unresolved_atom_ids`. The runner
+  stamps them.
 
 Substrate snapshot:
 {snapshot_json}

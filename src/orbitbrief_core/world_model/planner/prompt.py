@@ -190,7 +190,7 @@ def _build_snapshot(inputs: PlannerInputs, *, top_k_per_pack: int) -> dict[str, 
     }
 
 
-_SYSTEM = """
+_SYSTEM = """/no_think
 You are the OrbitBrief planner. You synthesize a single JSON BriefState
 that downstream brains and reviewers consume. You DO NOT write prose.
 
@@ -235,10 +235,47 @@ Below is the deterministic substrate (pack prior, site clusters,
 retrieval bundles, contradictions). Synthesize a BriefState JSON
 object using ONLY this evidence.
 
-Required top-level keys:
-  project_id, compile_id, generated_at, pack_activations, sites,
-  claims, contradictions, review_flags, orchestration, model_used,
-  tier, escalation_log, token_cost
+EXACT JSON SHAPE (use these field names verbatim — extras are rejected):
+
+```
+{{
+  "project_id": "<string>",
+  "compile_id": "<string>",
+  "generated_at": "<ISO-8601 timestamp>",
+  "pack_activations": [
+    {{"pack_id": "<id>", "status": "active|inactive|watch", "confidence": 0.0-1.0, "rationale": "<≤400 chars>"}}
+  ],
+  "sites": [
+    {{"cluster_id": "<id from site_clusters>", "canonical_name": "<string>",
+      "role": "primary|secondary|out_of_scope", "confidence": 0.0-1.0,
+      "depends_on_cluster_ids": []}}
+  ],
+  "claims": [
+    {{"id": "claim_001", "statement": "<≤500 chars>",
+      "supporting_atom_ids": ["a1"], "supporting_packet_ids": [],
+      "confidence": 0.0-1.0, "pack_id": "<active pack id or null>"}}
+  ],
+  "contradictions": [],
+  "review_flags": [],
+  "orchestration": [
+    {{"action": "run_brain|request_review|skip_pack|request_clarification",
+      "target": "<brain id or reviewer role>", "payload": {{}}}}
+  ],
+  "model_used": "",
+  "tier": "default",
+  "escalation_log": {{}},
+  "token_cost": {{}}
+}}
+```
+
+Notes:
+* sites uses `cluster_id` (NOT `site_id`); copy ids directly from `site_clusters` in the snapshot.
+* orchestration uses `action` (NOT `directive`).
+* `model_used`, `tier`, `escalation_log`, `token_cost` are stamped by
+  the runner — leave them empty (`""`, `"default"`, `{{}}`, `{{}}`)
+  and do not invent values.
+* Every claim's `supporting_atom_ids` MUST be a non-empty list of atom
+  ids that exist in `retrieval_bundles[*].atom_text`.
 
 Substrate snapshot:
 {snapshot_json}
