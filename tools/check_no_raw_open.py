@@ -42,6 +42,21 @@ FORBIDDEN_ATTRS = {
     "write_bytes",
 }
 
+# Modules where raw filesystem access is *legitimate by design*, not legacy
+# debt. Distinct from the baseline (which is a "to migrate" list); these
+# are permanent. Add sparingly with an inline justification.
+# Paths are relative to ``SOURCE_ROOT``.
+PERMANENT_ALLOWLIST: frozenset[str] = frozenset({
+    # Phase 1A seam: the orbitbrief.input.v2 envelope JSON is the
+    # OrbitBrief input contract. Reading it is the one allowed raw
+    # read in OrbitBrief Core; everything else flows through the
+    # typed envelope.
+    "seam/loader.py",
+    # Phase 1A CLI: writes the summary JSON when --out is passed.
+    # Output is also part of the seam (a downstream artifact).
+    "seam/__main__.py",
+})
+
 # Top-level parser-os modules that are the public seam. Anything outside
 # this set, under the parser-os ``app.*`` namespace, is internal and
 # off-limits.
@@ -171,11 +186,18 @@ def main() -> int:
 
     raw_io_files, parser_internals = _scan(SOURCE_ROOT)
 
+    # Drop allowlisted (permanently legitimate) raw-IO holders from the
+    # offender set BEFORE doing any baseline math — they should never
+    # have been part of the baseline and should never trigger the
+    # ratchet.
+    raw_io_files -= PERMANENT_ALLOWLIST
+
     if args.update_baseline:
         _write_baseline(raw_io_files)
         print(
             f"Baseline refreshed: {len(raw_io_files)} legacy raw-IO files "
-            f"recorded in {BASELINE_PATH.relative_to(REPO_ROOT)}"
+            f"recorded in {BASELINE_PATH.relative_to(REPO_ROOT)} "
+            f"({len(PERMANENT_ALLOWLIST)} allowlisted)"
         )
         return 0
 
@@ -231,6 +253,7 @@ def main() -> int:
     print(
         f"check_no_raw_open: OK "
         f"(raw-IO baseline: {len(baseline)} legacy file(s) pinned, "
+        f"{len(PERMANENT_ALLOWLIST)} allowlisted, "
         f"parser-internals: zero violations)"
     )
     return 0
