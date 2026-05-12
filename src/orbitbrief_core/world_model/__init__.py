@@ -28,6 +28,22 @@ from orbitbrief_core.world_model.pack_prior import (
     PackPriorState,
     PackScore,
 )
+from orbitbrief_core.world_model.planner import (
+    BriefState,
+    Claim,
+    OrchestrationDirective,
+    PackActivation,
+    Planner,
+    PlannerEscalation,
+    PlannerEscalationReason,
+    PlannerInputs,
+    PlannerPrompt,
+    PlannerResult,
+    PlannerTier,
+    ReviewFlag,
+    SiteSummary,
+)
+from orbitbrief_core.world_model.refiner import RefinementResult, refine_brief
 from orbitbrief_core.world_model.registry import (
     DomainPack,
     DomainPackRegistry,
@@ -40,16 +56,31 @@ from orbitbrief_core.world_model.site_reality import (
 )
 
 __all__ = [
+    "BriefState",
+    "Claim",
     "DomainPack",
     "DomainPackRegistry",
     "Escalation",
     "EscalationLog",
     "EscalationReason",
+    "OrchestrationDirective",
+    "PackActivation",
     "PackPrior",
     "PackPriorState",
     "PackScore",
+    "Planner",
+    "PlannerEscalation",
+    "PlannerEscalationReason",
+    "PlannerInputs",
+    "PlannerPrompt",
+    "PlannerResult",
+    "PlannerTier",
+    "RefinementResult",
+    "ReviewFlag",
     "SiteCluster",
     "SiteRealityEngine",
     "SiteRealityState",
+    "SiteSummary",
     "load_default_registry",
+    "refine_brief",
 ]

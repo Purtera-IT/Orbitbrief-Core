@@ -202,6 +202,47 @@ class ChatMessage:
     content: str
 
 
+@dataclass(frozen=True)
+class ChatUsage:
+    """Token accounting for one chat call.
+
+    Servers vary in what they report; missing fields are zero.
+    """
+
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    # Wall time in milliseconds of the HTTP round-trip (transport +
+    # generate). Useful for the cost telemetry rollup.
+    latency_ms: int = 0
+
+    def merged_with(self, other: "ChatUsage") -> "ChatUsage":
+        return ChatUsage(
+            prompt_tokens=self.prompt_tokens + other.prompt_tokens,
+            completion_tokens=self.completion_tokens + other.completion_tokens,
+            total_tokens=self.total_tokens + other.total_tokens,
+            latency_ms=self.latency_ms + other.latency_ms,
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "prompt_tokens": self.prompt_tokens,
+            "completion_tokens": self.completion_tokens,
+            "total_tokens": self.total_tokens,
+            "latency_ms": self.latency_ms,
+        }
+
+
+@dataclass(frozen=True)
+class ChatResult:
+    """Text + usage + raw payload for one chat call."""
+
+    text: str
+    model: str
+    usage: ChatUsage
+    raw: dict  # the parsed JSON response (for debugging)
+
+
 class ChatClient(Protocol):
     """Minimum chat surface: a non-streaming completion."""
 
@@ -215,6 +256,18 @@ class ChatClient(Protocol):
         response_format: dict | None = None,
     ) -> str:
         """Return the assistant's full text reply (non-streaming)."""
+        ...
+
+    def complete_with_usage(
+        self,
+        messages: list[ChatMessage],
+        *,
+        model: str,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+        response_format: dict | None = None,
+    ) -> ChatResult:
+        """Same as :meth:`complete` but returns text + token usage + raw response."""
         ...
 
 
@@ -241,6 +294,23 @@ class OpenAIChatClient:
         max_tokens: int | None = None,
         response_format: dict | None = None,
     ) -> str:
+        return self.complete_with_usage(
+            messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format=response_format,
+        ).text
+
+    def complete_with_usage(
+        self,
+        messages: list[ChatMessage],
+        *,
+        model: str,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+        response_format: dict | None = None,
+    ) -> ChatResult:
         if not messages:
             raise InferenceError("complete: messages list is empty")
         payload: dict = {
@@ -252,18 +322,34 @@ class OpenAIChatClient:
             payload["max_tokens"] = int(max_tokens)
         if response_format is not None:
             payload["response_format"] = response_format
+        import time
+
+        start = time.perf_counter()
         data = _post_json(
             self._url("/v1/chat/completions"),
             payload,
             timeout_s=self.timeout_s,
             api_key=self.api_key,
         )
+        latency_ms = int((time.perf_counter() - start) * 1000)
         try:
-            return str(data["choices"][0]["message"]["content"])
+            text = str(data["choices"][0]["message"]["content"])
         except (KeyError, IndexError, TypeError) as exc:
             raise InferenceError(
                 f"unexpected chat response shape: {data!r}"
             ) from exc
+
+        # OpenAI puts usage at top level; Ollama returns it the same
+        # way under its OpenAI-compatible endpoint. Defensive defaults
+        # in case a backend omits the field entirely.
+        usage_raw = data.get("usage") or {}
+        usage = ChatUsage(
+            prompt_tokens=int(usage_raw.get("prompt_tokens", 0) or 0),
+            completion_tokens=int(usage_raw.get("completion_tokens", 0) or 0),
+            total_tokens=int(usage_raw.get("total_tokens", 0) or 0),
+            latency_ms=latency_ms,
+        )
+        return ChatResult(text=text, model=model, usage=usage, raw=data)
 
     def _url(self, path: str) -> str:
         return self.base_url.rstrip("/") + path

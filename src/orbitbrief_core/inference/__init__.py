@@ -17,6 +17,8 @@ from __future__ import annotations
 from orbitbrief_core.inference.client import (
     ChatClient,
     ChatMessage,
+    ChatResult,
+    ChatUsage,
     InferenceClient,
     InferenceError,
     NullInferenceClient,
@@ -27,6 +29,8 @@ from orbitbrief_core.inference.client import (
 __all__ = [
     "ChatClient",
     "ChatMessage",
+    "ChatResult",
+    "ChatUsage",
     "InferenceClient",
     "InferenceError",
     "NullInferenceClient",
