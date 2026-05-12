@@ -63,6 +63,11 @@ PERMANENT_ALLOWLIST: frozenset[str] = frozenset({
     # JSON paths from argv. Inspection-only; production callers
     # invoke the brain class directly via the orchestrator.
     "brains/__main__.py",
+    # Phase 6 review_runtime persistence: JSONL queue + training
+    # log. These are explicit storage backends with their own
+    # in-memory siblings — production callers pick one at construction.
+    "review_runtime/queue.py",
+    "review_runtime/training_log.py",
 })
 
 # Top-level parser-os modules that are the public seam. Anything outside

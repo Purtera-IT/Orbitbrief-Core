@@ -142,3 +142,57 @@ source_modules =
     orbitbrief_core.world_model
 forbidden_modules =
     orbitbrief_core.brains
+
+# ---------------------------------------------------------------------------
+# Phase 6 — Trust layer: validator + calibrator + review_runtime
+# ---------------------------------------------------------------------------
+# The validator owns path-legality (claim → packet → atom → source_ref) so it
+# IS allowed to talk to the runtime via the typed EvidenceLookup adapter.
+# It must NOT touch retrieval (retrieval results arrive pre-bundled).
+#
+# The calibrator runs over validator output + brain output + retrieval bundle.
+# It must NOT touch the runtime, the seam, or the retrieval store directly —
+# all signals come from typed inputs.
+#
+# The review_runtime is purely persistence + decision logging. It must NOT
+# touch the runtime, the seam, the retrieval store, the world_model engines,
+# or the brains layer (it consumes CalibratedItem, not brain state).
+
+[importlinter:contract:calibrator-no-substrate]
+name = calibrator must not import the runtime, seam, or retrieval store
+type = forbidden
+source_modules =
+    orbitbrief_core.calibrator
+forbidden_modules =
+    orbitbrief_core.evidence_runtime
+    orbitbrief_core.seam
+    orbitbrief_core.retrieval
+
+[importlinter:contract:validator-no-retrieval]
+name = validator must not import the retrieval store directly
+type = forbidden
+source_modules =
+    orbitbrief_core.validator
+forbidden_modules =
+    orbitbrief_core.retrieval
+
+[importlinter:contract:review-runtime-isolated]
+name = review_runtime must not import substrate / world_model engines / brain runners
+type = forbidden
+source_modules =
+    orbitbrief_core.review_runtime
+forbidden_modules =
+    orbitbrief_core.evidence_runtime
+    orbitbrief_core.seam
+    orbitbrief_core.retrieval
+    orbitbrief_core.world_model.pack_prior
+    orbitbrief_core.world_model.site_reality
+    orbitbrief_core.world_model.refiner
+    orbitbrief_core.world_model.planner.runner
+    orbitbrief_core.brains.managed_services.runner
+    orbitbrief_core.brains.managed_services.prompt
+# review_runtime DOES depend transitively on brain SCHEMAS through the
+# calibrator's CalibratedItem (which embeds the brain's payload dict). That's
+# expected — the queue carries those payloads through to reviewers verbatim.
+# We forbid only the brain runners + prompts, which review_runtime would
+# never legitimately need.
