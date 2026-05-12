@@ -30,3 +30,42 @@ forbidden_modules =
     pymupdf
     fitz
     pytesseract
+
+# ---------------------------------------------------------------------------
+# Phase 2 — Layer-skip prevention
+# ---------------------------------------------------------------------------
+# composers/, brains/, validator/, calibrator/ MUST NOT import retrieval
+# directly. They consume orchestrator-prepared retrieval results, never
+# reach into the index themselves. This keeps the retrieval surface
+# bounded (RetrievalHit only — no text bodies leaking into prompts) and
+# keeps the layered architecture honest.
+#
+# The four layers are not yet implemented (Phase 3+/Phase 4) — this
+# contract trips the moment any of them appear and tries to bypass.
+
+[importlinter:contract:no-retrieval-bypass]
+name = composers / brains / validator / calibrator must not import retrieval directly
+type = forbidden
+source_modules =
+    orbitbrief_core.composers
+    orbitbrief_core.brains
+    orbitbrief_core.validator
+    orbitbrief_core.calibrator
+forbidden_modules =
+    orbitbrief_core.retrieval
+
+# ---------------------------------------------------------------------------
+# Phase 2 — Inference chokepoint
+# ---------------------------------------------------------------------------
+# All outbound LLM/embedding traffic funnels through
+# orbitbrief_core.inference.*. evidence_runtime is a no-LLM zone (Phase
+# 1 invariant) and stays that way under static lint too.
+
+[importlinter:contract:evidence-runtime-no-inference]
+name = evidence_runtime must not import the inference layer
+type = forbidden
+source_modules =
+    orbitbrief_core.evidence_runtime
+forbidden_modules =
+    orbitbrief_core.inference
+    orbitbrief_core.retrieval
