@@ -70,6 +70,10 @@ from orbitbrief_core.validator import (
     ValidationReport,
 )
 from orbitbrief_core.world_model.pack_prior import PackPrior, PackPriorState
+from orbitbrief_core.world_model.registry import (
+    DomainPackRegistry,
+    load_default_registry,
+)
 from orbitbrief_core.world_model.planner import (
     BriefState,
     Planner,
@@ -128,6 +132,7 @@ class BriefPipeline:
 
     chat_client: ChatClient | None = None
     brain_registry: BrainRegistry = field(default_factory=default_brain_registry)
+    domain_registry: DomainPackRegistry = field(default_factory=load_default_registry)
     planner_default_model: str = "qwen3:14b"
     planner_escalated_model: str = "qwen3:32b"
     pack_prior_chat_model: str = "qwen3:14b"
@@ -184,15 +189,24 @@ class BriefPipeline:
         result.site_reality = sr_state
         records.append(rec)
 
-        # 20 retrieval bundles per active pack.
+        # 20 retrieval bundles per active pack — keyword-density
+        # filtered so each brain only sees packets relevant to its
+        # domain (huge prompt-size win on multi-pack engagements).
         active_packs = self._pick_active_packs(pp_state)
+        pack_keywords = self._build_pack_keywords(active_packs)
         bundles: dict[str, RetrievalBundle] = {}
-        assembler = BundleAssembler(runtime=runtime)
+        assembler = BundleAssembler(runtime=runtime, pack_keywords=pack_keywords)
         for pack_id in active_packs:
             bundle, rec = self._run_stage(
                 f"20_retrieval_bundles::{pack_id}",
                 lambda pid=pack_id: assembler.assemble(pack_id=pid),
                 artifact=artifacts.retrieval_bundle_path(pack_id),
+                extra_detail=lambda b: {
+                    "packet_count": sum(
+                        len(v) for v in b.packets_by_family.values()
+                    ),
+                    "families": sorted(b.packets_by_family.keys()),
+                },
             )
             bundles[pack_id] = bundle
             records.append(rec)
@@ -550,6 +564,28 @@ class BriefPipeline:
         """Write ``payload`` (already a string, e.g. Markdown) to ``artifact``."""
         artifact.parent.mkdir(parents=True, exist_ok=True)
         artifact.write_text(payload, encoding="utf-8")
+
+    def _build_pack_keywords(self, pack_ids: list[str]) -> dict[str, set[str]]:
+        """Per-pack keyword set used by the bundle assembler's filter.
+
+        Drawn from the world-model domain registry — workbook-extracted
+        ``keywords`` plus the hand-curated ``boosted_keywords``. The
+        assembler keeps a packet only when at least one of these tokens
+        appears in its atom text or anchor key.
+        """
+        out: dict[str, set[str]] = {}
+        for pack_id in pack_ids:
+            pack = self.domain_registry.get(pack_id)
+            if pack is None:
+                continue
+            kws: set[str] = set()
+            for w in pack.keywords:
+                kws.add(w.lower())
+            for w in pack.boosted_keywords:
+                kws.add(w.lower())
+            if kws:
+                out[pack_id] = kws
+        return out
 
     def _pick_active_packs(self, pack_prior: PackPriorState) -> list[str]:
         """Pick the top-N brains by raw pack-prior score.

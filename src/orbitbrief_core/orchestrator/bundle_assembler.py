@@ -2,26 +2,31 @@
 
 Brains can't read the runtime directly (Phase-5 isolation rules),
 so the orchestrator runs this assembler *for them*. Per active
-pack, we collect packets across every relevant family, attach
-the cited atoms' compact text snippets, and emit one
-:class:`RetrievalBundle` per pack.
+pack, we filter packets to the ones whose atom text actually
+matches the pack's keywords + boosted_keywords, attach compact
+text snippets, and emit one :class:`RetrievalBundle` per pack.
 
-Heuristic for "relevant family":
+The keyword filter is the speed + quality lever:
 
-* Until we hit retrieval-driven family selection (Phase 8+), we
-  use the union of every family across all packets in the
-  envelope. Most engagements yield 5–30 packets total — the
-  brain's prompt-side cap (``_PACKETS_PER_FAMILY_CAP=12``) keeps
-  prompt size predictable regardless.
-* Atom snippets are pre-trimmed to :data:`_MAX_SNIPPET_CHARS`
-  characters (240) so a chatty atom can't blow out the prompt.
-* Per-family cap (:data:`_PACKETS_PER_FAMILY_CAP=25`) is a
-  defense in depth; the prompt builder caps again.
+* Without it, every brain gets every packet (capped at 40/family).
+  On a cabling-heavy engagement, the ``msp`` brain would receive
+  ~95 packets, most of them cabling-themed → blown prompt budget,
+  fallback skeleton.
+* With it, ``msp`` only sees packets whose atoms mention MSP
+  vocabulary (NOC, SOC, monitoring, RMM, ticketing, …). On the
+  same engagement the cabling brain still sees 90+ packets
+  (cabling vocab matches almost every atom in a cabling case);
+  msp sees ~10 — small enough to fit the prompt, dense enough to
+  produce real items.
+
+If a pack has no keyword config (or no packets match), we fall
+back to the unfiltered list so the brain isn't starved.
 """
 from __future__ import annotations
 
+import re
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from orbitbrief_core.brains._retrieval_bundle import (
@@ -31,8 +36,21 @@ from orbitbrief_core.brains._retrieval_bundle import (
 from orbitbrief_core.evidence_runtime.runtime import EvidenceRuntime, RuntimeKey
 
 
+# Per-pack hard cap. Stays generous for the dominant pack; the
+# keyword filter trims the long tail before this cap matters.
 _PACKETS_PER_FAMILY_CAP = 40
-_MAX_SNIPPET_CHARS = 320
+# Atom-text snippet trim.
+_MAX_SNIPPET_CHARS = 280
+# Minimum keyword hits per packet for it to survive the per-pack
+# filter. 1 = any-match (loose, prefers recall), 2 = double-match
+# (tighter, prefers precision). Default 1 + a fallback to top-N
+# when nothing scores keeps weak packs from starving.
+_MIN_KEYWORD_HITS = 1
+# When the keyword filter produces too few packets for a brain to
+# be useful, top up to this floor with the highest-density packets
+# (or the lowest-id packets if no scoring data exists).
+_MIN_PACKETS_PER_PACK_AFTER_FILTER = 6
+_TOKEN = re.compile(r"[a-z0-9_]+")
 
 
 @dataclass
@@ -41,9 +59,14 @@ class BundleAssembler:
 
     runtime: EvidenceRuntime
     key: RuntimeKey | None = None
+    # Optional: ``pack_id → set[str]`` of keyword tokens used to filter
+    # the per-pack bundle. The pipeline supplies these from the world
+    # model's domain registry (keywords + boosted_keywords). Pack ids
+    # not in the dict get the unfiltered top-N (back-compat).
+    pack_keywords: dict[str, set[str]] = field(default_factory=dict)
 
     def assemble(self, *, pack_id: str) -> RetrievalBundle:
-        """One :class:`RetrievalBundle` for ``pack_id`` (today: pack-agnostic)."""
+        """One :class:`RetrievalBundle` for ``pack_id`` — keyword-filtered."""
         rk = self.key or self.runtime.default_key
         if rk is None:
             raise ValueError("BundleAssembler.assemble: runtime has no default key")
@@ -52,32 +75,87 @@ class BundleAssembler:
         atom_index: dict[str, dict[str, Any]] = {
             a["id"]: a for a in (envelope.get("atoms") or ())
         }
+        packets = list(envelope.get("packets") or [])
+        if not packets:
+            return RetrievalBundle(
+                project_id=rk.project_id,
+                compile_id=rk.compile_id,
+                packets_by_family={},
+            )
 
-        # We pull packets directly from the envelope (rather than
-        # via runtime.packets_for(family=...)) so this is one DB read.
-        packets = envelope.get("packets") or []
-        by_family: dict[str, list[PacketSnippet]] = defaultdict(list)
+        # Score every packet by keyword density against this pack's vocab.
+        keywords = self.pack_keywords.get(pack_id) or set()
+        scored: list[tuple[int, dict[str, Any]]] = []
         for raw in packets:
+            score = (
+                self._packet_keyword_score(raw, atom_index, keywords)
+                if keywords
+                else 1  # no vocab → keep everything; cap below handles bloat
+            )
+            scored.append((score, raw))
+
+        # Filter to keyword-positive packets, OR fall back to top-N by
+        # id (deterministic) if nothing matched.
+        keep: list[dict[str, Any]] = [r for s, r in scored if s >= _MIN_KEYWORD_HITS]
+        if len(keep) < _MIN_PACKETS_PER_PACK_AFTER_FILTER:
+            # Top up from the highest-scored zero-keyword packets so a
+            # weak pack with poor vocab match still gets a viable bundle.
+            extras = sorted(
+                (r for s, r in scored if s < _MIN_KEYWORD_HITS),
+                key=lambda r: str(r.get("id") or ""),
+            )
+            need = _MIN_PACKETS_PER_PACK_AFTER_FILTER - len(keep)
+            keep.extend(extras[:need])
+
+        # Group by family + apply per-family cap.
+        by_family: dict[str, list[PacketSnippet]] = defaultdict(list)
+        # Sort by (family, packet_id) for deterministic output.
+        keep.sort(key=lambda r: (str(r.get("family") or ""), str(r.get("id") or "")))
+        for raw in keep:
             family = raw.get("family") or ""
             if not family:
                 continue
             if len(by_family[family]) >= _PACKETS_PER_FAMILY_CAP:
                 continue
-            snippet = self._packet_to_snippet(raw, atom_index)
-            by_family[family].append(snippet)
+            by_family[family].append(self._packet_to_snippet(raw, atom_index))
 
-        # Sort each family by packet_id so two runs over byte-identical
-        # envelopes produce byte-identical bundles.
-        packets_by_family = {
-            family: tuple(sorted(snips, key=lambda p: p.packet_id))
-            for family, snips in by_family.items()
-        }
-
+        packets_by_family = {f: tuple(snips) for f, snips in by_family.items()}
         return RetrievalBundle(
             project_id=rk.project_id,
             compile_id=rk.compile_id,
             packets_by_family=packets_by_family,
         )
+
+    # ───── internals ─────
+
+    @staticmethod
+    def _packet_keyword_score(
+        raw: dict[str, Any],
+        atom_index: dict[str, dict[str, Any]],
+        keywords: set[str],
+    ) -> int:
+        """Count how many keyword tokens appear in the packet's atom text + anchor."""
+        if not keywords:
+            return 0
+        haystack_parts: list[str] = [str(raw.get("anchor_key") or "")]
+        cited_ids = set(raw.get("governing_atom_ids") or ()) | set(
+            raw.get("supporting_atom_ids") or ()
+        )
+        for aid in cited_ids:
+            atom = atom_index.get(aid)
+            if atom is None:
+                continue
+            text = atom.get("text") or ""
+            if text:
+                haystack_parts.append(text)
+        haystack = " ".join(haystack_parts).lower()
+        if not haystack:
+            return 0
+        # Tokenize once; count how many distinct keyword tokens are
+        # present (de-duped per packet so a chatty atom doesn't inflate
+        # the score).
+        tokens = set(_TOKEN.findall(haystack))
+        return sum(1 for kw in keywords if kw in tokens)
 
     @staticmethod
     def _packet_to_snippet(

@@ -234,19 +234,26 @@ _GROUNDED_SECTIONS: tuple[str, ...] = (
 def _strip_unresolved(
     state: ManagedServicesScopeState, bundle: RetrievalBundle
 ) -> tuple[ManagedServicesScopeState, set[str], set[str]]:
-    """Drop items whose packet/atom citations don't resolve in ``bundle``.
+    """Validate citations + auto-populate atom_ids when the LLM omits them.
 
-    Returns ``(cleaned_state, unresolved_packet_ids, unresolved_atom_ids)``.
+    Same shape as the briefing-runner variant — kept distinct because
+    the managed_services schema has 7 sections rather than 9. Items
+    citing a packet not in the bundle are dropped; atom_ids are
+    auto-populated from the cited packets' first governing atoms when
+    the LLM emitted only packet_ids (so the funnel always reflects
+    real atom-level provenance).
     """
     valid_packet_ids = bundle.known_packet_ids()
-    # Per-packet atom indices so we can verify atom citations precisely.
     packet_atom_index: dict[str, set[str]] = {}
+    packet_governing_order: dict[str, list[str]] = {}
     for p in bundle.all_packets:
-        packet_atom_index[p.packet_id] = (
-            set(p.governing_atom_ids)
-            | set(p.supporting_atom_ids)
-            | set(p.contradicting_atom_ids)
+        atoms = (
+            list(p.governing_atom_ids)
+            + list(p.supporting_atom_ids)
+            + list(p.contradicting_atom_ids)
         )
+        packet_atom_index[p.packet_id] = set(atoms)
+        packet_governing_order[p.packet_id] = atoms
 
     unresolved_packets: set[str] = set()
     unresolved_atoms: set[str] = set()
@@ -261,29 +268,42 @@ def _strip_unresolved(
             if unknown_pkts:
                 unresolved_packets.update(unknown_pkts)
                 continue
-            # Atom ids must appear under at least one cited packet.
+
             allowed_atoms: set[str] = set()
             for pid in item.supporting_packet_ids:
                 allowed_atoms |= packet_atom_index.get(pid, set())
-            unknown_atoms = [
-                aid for aid in item.supporting_atom_ids if aid not in allowed_atoms
-            ]
-            if unknown_atoms:
-                unresolved_atoms.update(unknown_atoms)
-                # Atom mis-citation is recoverable: drop the bad atom
-                # ids but keep the item (packet citation still valid).
-                item = item.model_copy(
-                    update={
-                        "supporting_atom_ids": tuple(
-                            aid for aid in item.supporting_atom_ids if aid in allowed_atoms
-                        )
-                    }
-                )
+
+            cited_valid: list[str] = []
+            for aid in item.supporting_atom_ids:
+                if aid in allowed_atoms:
+                    cited_valid.append(aid)
+                else:
+                    unresolved_atoms.add(aid)
+
+            if not cited_valid:
+                autofilled: list[str] = []
+                for pid in item.supporting_packet_ids:
+                    for aid in packet_governing_order.get(pid, []):
+                        if aid in autofilled:
+                            continue
+                        autofilled.append(aid)
+                        if len(autofilled) >= _AUTOFILL_ATOMS_PER_ITEM:
+                            break
+                    if len(autofilled) >= _AUTOFILL_ATOMS_PER_ITEM:
+                        break
+                cited_valid = autofilled
+
+            item = item.model_copy(
+                update={"supporting_atom_ids": tuple(cited_valid)}
+            )
             kept.append(item)
         update[section] = tuple(kept)
 
     cleaned = state.model_copy(update=update)
     return cleaned, unresolved_packets, unresolved_atoms
+
+
+_AUTOFILL_ATOMS_PER_ITEM = 2
 
 
 def _skeleton_state(

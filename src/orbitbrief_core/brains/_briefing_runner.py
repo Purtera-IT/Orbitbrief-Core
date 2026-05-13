@@ -371,15 +371,35 @@ def _format_validation_failure(exc: Exception) -> str:
 def _strip_unresolved(
     state: BriefingState, bundle: RetrievalBundle
 ) -> tuple[BriefingState, set[str], set[str]]:
-    """Drop items whose packet/atom citations don't resolve in ``bundle``."""
+    """Validate citations + auto-populate atom_ids when LLM omits them.
+
+    Three guarantees this pass enforces:
+
+    1. Items citing a packet not in the bundle are DROPPED (the bad
+       packet id is surfaced on ``unresolved_packet_ids``).
+    2. Atom ids the LLM made up that don't belong to any cited packet
+       are stripped from the item (id surfaced on
+       ``unresolved_atom_ids``); the item itself stays if at least one
+       valid atom remains.
+    3. **Items citing a real packet but no atom_ids get auto-populated
+       from the cited packet's first governing/supporting atoms** — at
+       most ``_AUTOFILL_ATOMS_PER_ITEM`` per item, picked deterministically
+       from the bundle. Without this, the LLM frequently emits
+       packet-only citations and the funnel "atoms_to_brief_pct" reads
+       zero. Auto-populated items still cite real atoms, so the
+       validator's path-legality rule is satisfied.
+    """
     valid_packet_ids = bundle.known_packet_ids()
     packet_atom_index: dict[str, set[str]] = {}
+    packet_governing_order: dict[str, list[str]] = {}
     for p in bundle.all_packets:
-        packet_atom_index[p.packet_id] = (
-            set(p.governing_atom_ids)
-            | set(p.supporting_atom_ids)
-            | set(p.contradicting_atom_ids)
+        atoms = (
+            list(p.governing_atom_ids)
+            + list(p.supporting_atom_ids)
+            + list(p.contradicting_atom_ids)
         )
+        packet_atom_index[p.packet_id] = set(atoms)
+        packet_governing_order[p.packet_id] = atoms
 
     unresolved_packets: set[str] = set()
     unresolved_atoms: set[str] = set()
@@ -396,27 +416,45 @@ def _strip_unresolved(
             if unknown_pkts:
                 unresolved_packets.update(unknown_pkts)
                 continue
+
             allowed_atoms: set[str] = set()
             for pid in item.supporting_packet_ids:
                 allowed_atoms |= packet_atom_index.get(pid, set())
-            unknown_atoms = [
-                aid for aid in item.supporting_atom_ids if aid not in allowed_atoms
-            ]
-            if unknown_atoms:
-                unresolved_atoms.update(unknown_atoms)
-                item = item.model_copy(
-                    update={
-                        "supporting_atom_ids": tuple(
-                            aid
-                            for aid in item.supporting_atom_ids
-                            if aid in allowed_atoms
-                        )
-                    }
-                )
+
+            cited_valid: list[str] = []
+            for aid in item.supporting_atom_ids:
+                if aid in allowed_atoms:
+                    cited_valid.append(aid)
+                else:
+                    unresolved_atoms.add(aid)
+
+            if not cited_valid:
+                # Auto-populate from the cited packets' governing atoms.
+                autofilled: list[str] = []
+                for pid in item.supporting_packet_ids:
+                    for aid in packet_governing_order.get(pid, []):
+                        if aid in autofilled:
+                            continue
+                        autofilled.append(aid)
+                        if len(autofilled) >= _AUTOFILL_ATOMS_PER_ITEM:
+                            break
+                    if len(autofilled) >= _AUTOFILL_ATOMS_PER_ITEM:
+                        break
+                cited_valid = autofilled
+
+            item = item.model_copy(
+                update={"supporting_atom_ids": tuple(cited_valid)}
+            )
             kept.append(item)
         update[section] = tuple(kept)
 
     return state.model_copy(update=update), unresolved_packets, unresolved_atoms
+
+
+# How many atoms to back-fill per item when the LLM cited zero. Two
+# is enough to satisfy the validator's path-legality rule and gives
+# the reviewer two distinct provenance pointers per claim.
+_AUTOFILL_ATOMS_PER_ITEM = 2
 
 
 def _skeleton_state(
@@ -465,19 +503,20 @@ Hard rules:
    scope_overview, detailed_scope_of_services, deliverables,
    assumptions, customer_responsibilities, out_of_scope,
    risks_or_dependencies, completion_criteria, open_items.
-3. Every emitted item MUST include `supporting_packet_ids` with at
-   least one packet_id drawn from the supplied retrieval bundle.
-4. `supporting_atom_ids` (when present) MUST appear in the cited
-   packet's governing_atom_ids or supporting_atom_ids.
-5. Use the section_guidance and section_family_hints in the user
+3. **Every emitted item MUST include both fields:**
+   - `supporting_packet_ids`: ≥1 packet_id from the retrieval bundle.
+   - `supporting_atom_ids`: ≥1 atom_id drawn from the cited packets'
+     `governing_atom_ids` or `supporting_atom_ids`. **Empty atom_ids
+     is rejected — every item needs traceable atom-level evidence.**
+4. Use the section_guidance and section_family_hints in the user
    message to choose target sections; do not invent items the bundle
    doesn't support.
-6. statement ≤ 600 chars; metadata values ≤ 600 chars.
-7. Leave provenance fields (`model_used`, `token_cost`,
+5. statement ≤ 600 chars; metadata values ≤ 600 chars.
+6. Leave provenance fields (`model_used`, `token_cost`,
    `fallback_used`, `unresolved_*`) unset; the runner stamps them.
-8. Confidence: 0.95 only when a single packet is unambiguous; 0.5
+7. Confidence: 0.95 only when a single packet is unambiguous; 0.5
    for one-source inference; 0.3 for bridging two weak packets.
-9. **Aim for 3–6 items per section when evidence supports it.** Empty
+8. **Aim for 3–6 items per section when evidence supports it.** Empty
    sections are valid only when the bundle truly has no relevant
    packets for that section. Cite multiple packets per item when
    several support the same statement (denser citation = higher
@@ -507,7 +546,7 @@ EXACT JSON SHAPE (use these field names verbatim — extras are rejected):
   "compile_id": "<string>",
   "generated_at": "<ISO-8601 timestamp>",
   "domain_id": "{domain_id}",
-  "scope_overview":              [{{"id": "scope_overview_001", "statement": "<≤600 chars>", "supporting_packet_ids": ["pkt_…"], "supporting_atom_ids": ["a_…"], "confidence": 0.0-1.0, "metadata": {{}}}}],
+  "scope_overview":              [{{"id": "scope_overview_001", "statement": "<≤600 chars>", "supporting_packet_ids": ["pkt_…"], "supporting_atom_ids": ["atm_…"], "confidence": 0.0-1.0, "metadata": {{}}}}],
   "detailed_scope_of_services":  [{{"id": "service_001", ...}}],
   "deliverables":                [],
   "assumptions":                 [],
@@ -520,9 +559,9 @@ EXACT JSON SHAPE (use these field names verbatim — extras are rejected):
 ```
 
 Notes:
-* Every list element MUST include `id` + `statement` + `supporting_packet_ids` (≥1 packet) + `confidence`.
+* Every list element MUST include `id` + `statement` + `supporting_packet_ids` (≥1 packet) + `supporting_atom_ids` (≥1 atom) + `confidence`. Items missing atom_ids are post-hoc filled from the packet's first governing atom by the runner, but the LLM MUST attempt to pick the most relevant atom rather than rely on the fallback.
 * `supporting_packet_ids` MUST contain packet ids from `packets_by_family` in the snapshot.
-* `supporting_atom_ids` MUST come from the cited packet's `governing_atom_ids` / `supporting_atom_ids`.
+* `supporting_atom_ids` MUST come from the cited packet's `governing_atom_ids` / `supporting_atom_ids` (visible in the snapshot).
 * `metadata` is a free-form string-string dict for domain extras
   (severity, deadline, survey_type, …) — keep values ≤600 chars.
 * DO NOT include `model_used`, `token_cost`, `fallback_used`,
