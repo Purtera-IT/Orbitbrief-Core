@@ -57,6 +57,28 @@ class ReviewContext:
         import json
         return json.loads(path.read_text(encoding="utf-8"))
 
+    def corpus_dashboard_html(self) -> str | None:
+        """Look for ``corpus_dashboard.html`` either in the artifacts dir
+        (if it IS a corpus root) or in its parent (if the artifacts dir
+        is one case inside a larger corpus results tree)."""
+        for candidate in (
+            self.artifacts_dir / "corpus_dashboard.html",
+            self.artifacts_dir.parent / "corpus_dashboard.html",
+        ):
+            if candidate.is_file():
+                return candidate.read_text(encoding="utf-8")
+        return None
+
+    def corpus_report_json(self) -> dict | None:
+        for candidate in (
+            self.artifacts_dir / "corpus_report.json",
+            self.artifacts_dir.parent / "corpus_report.json",
+        ):
+            if candidate.is_file():
+                import json
+                return json.loads(candidate.read_text(encoding="utf-8"))
+        return None
+
     def manifest(self) -> dict[str, Any]:
         path = self.artifacts_dir / "manifest.json"
         if not path.is_file():

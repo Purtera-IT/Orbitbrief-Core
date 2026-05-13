@@ -165,6 +165,29 @@ def build_app(context: ReviewContext) -> FastAPI:
             raise HTTPException(status_code=404, detail="no inspection report")
         return JSONResponse(report)
 
+    @app.get("/corpus", response_class=HTMLResponse)
+    def _corpus() -> HTMLResponse:
+        """Cross-case dashboard. Looks for ``corpus_dashboard.html`` either
+        next to the artifacts dir (if it IS the corpus root) or in its
+        parent (if the artifacts dir is one case in a larger corpus)."""
+        body = context.corpus_dashboard_html()
+        if body is None:
+            return HTMLResponse(
+                "<h1>No corpus dashboard</h1>"
+                "<p>Run <code>python compile_corpus.py &lt;corpus_root&gt; --out &lt;results_dir&gt;</code> "
+                "to generate <code>corpus_dashboard.html</code>, then point the reviewer UI at the "
+                "results directory (or any case inside it).</p>",
+                status_code=404,
+            )
+        return HTMLResponse(body)
+
+    @app.get("/api/corpus")
+    def _api_corpus() -> JSONResponse:
+        report = context.corpus_report_json()
+        if report is None:
+            raise HTTPException(status_code=404, detail="no corpus report")
+        return JSONResponse(report)
+
     # ───── JSON API surface ─────
 
     @app.get("/api/queue")

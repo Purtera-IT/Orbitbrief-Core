@@ -78,6 +78,10 @@ PERMANENT_ALLOWLIST: frozenset[str] = frozenset({
     "orchestrator/pipeline.py",
     "orchestrator/__main__.py",
     "orchestrator/inspection.py",
+    # Phase 8.5 corpus dashboard: aggregates per-case artifact JSONs
+    # across a results tree. Same operator-side filesystem seam as
+    # the other orchestrator artifact-readers.
+    "orchestrator/corpus.py",
     # Phase 8 reviewer UI: reads the composed-brief JSON + Markdown
     # written by the orchestrator. Operator-side filesystem seam, like
     # orchestrator/__main__.py.

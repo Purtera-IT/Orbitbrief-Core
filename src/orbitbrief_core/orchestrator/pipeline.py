@@ -240,6 +240,11 @@ class BriefPipeline:
                 records.append(_skipped_record(f"50_validator::{pack_id}"))
                 records.append(_skipped_record(f"60_calibrator::{pack_id}"))
             records.append(_skipped_record("70_review_queue"))
+            records.append(_skipped_record("80_composer"))
+            # Inspection still runs in substrate-only mode — that's
+            # the most valuable view of what parser-os saw, even
+            # without LLM downstream.
+            self._run_inspection_stage(artifacts, records)
             artifacts.write_pipeline_log(records)
             artifacts.write_manifest(self._manifest(envelope_path, result, records))
             result.stage_records = records
@@ -467,6 +472,21 @@ class BriefPipeline:
         # every stage. Always runs (even on no-chat-client / fallback
         # paths) because the value of "what did the substrate see?"
         # doesn't depend on a successful brain run.
+        self._run_inspection_stage(artifacts, records)
+
+        # Re-write the pipeline log + manifest so they include the
+        # inspection-stage record.
+        artifacts.write_pipeline_log(records)
+        artifacts.write_manifest(self._manifest(envelope_path, result, records))
+        result.stage_records = records
+        return result
+
+    def _run_inspection_stage(
+        self, artifacts: BriefArtifacts, records: list[StageRecord]
+    ) -> None:
+        """Build + write the inspection report. Same shape regardless
+        of whether the LLM stages ran — substrate-only runs still get
+        the full pack_prior / site_reality / atom-lineage view."""
         report, rec = self._run_stage(
             "90_inspection",
             lambda: build_inspection_report(artifacts),
@@ -494,13 +514,6 @@ class BriefPipeline:
                     detail={**(rec.detail or {}), "html_render_error": str(exc)},
                 )
         records.append(rec)
-
-        # Re-write the pipeline log + manifest so they include the
-        # inspection-stage record.
-        artifacts.write_pipeline_log(records)
-        artifacts.write_manifest(self._manifest(envelope_path, result, records))
-        result.stage_records = records
-        return result
 
     # ───── stage helpers ─────
 
