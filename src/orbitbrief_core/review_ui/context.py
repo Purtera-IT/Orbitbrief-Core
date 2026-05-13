@@ -44,6 +44,19 @@ class ReviewContext:
             return None
         return path.read_text(encoding="utf-8")
 
+    def inspection_html(self) -> str | None:
+        path = self.artifacts_dir / "91_inspection_report.html"
+        if not path.is_file():
+            return None
+        return path.read_text(encoding="utf-8")
+
+    def inspection_json(self) -> dict | None:
+        path = self.artifacts_dir / "90_inspection_report.json"
+        if not path.is_file():
+            return None
+        import json
+        return json.loads(path.read_text(encoding="utf-8"))
+
     def manifest(self) -> dict[str, Any]:
         path = self.artifacts_dir / "manifest.json"
         if not path.is_file():

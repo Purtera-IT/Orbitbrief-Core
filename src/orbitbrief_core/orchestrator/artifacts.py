@@ -120,6 +120,14 @@ class BriefArtifacts:
         return self.root / "81_composed_brief.md"
 
     @property
+    def inspection_json_path(self) -> Path:
+        return self.root / "90_inspection_report.json"
+
+    @property
+    def inspection_html_path(self) -> Path:
+        return self.root / "91_inspection_report.html"
+
+    @property
     def pipeline_log_path(self) -> Path:
         return self.root / "pipeline_log.json"
 

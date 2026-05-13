@@ -44,6 +44,8 @@ from orbitbrief_core.composer import (
     ComposerInputs,
     render_markdown,
 )
+from orbitbrief_core.orchestrator.inspection import build_inspection_report
+from orbitbrief_core.orchestrator.inspection_html import render_inspection_html
 from orbitbrief_core.evidence_runtime.runtime import EvidenceRuntime
 from orbitbrief_core.inference.client import ChatClient
 from orbitbrief_core.orchestrator.artifacts import (
@@ -404,6 +406,45 @@ class BriefPipeline:
                 )
             )
 
+        # Write the pipeline log + manifest first so the inspection
+        # stage can read them as part of the report.
+        artifacts.write_pipeline_log(records)
+        artifacts.write_manifest(self._manifest(envelope_path, result, records))
+
+        # 90 + 91 inspection report — comprehensive lineage view across
+        # every stage. Always runs (even on no-chat-client / fallback
+        # paths) because the value of "what did the substrate see?"
+        # doesn't depend on a successful brain run.
+        report, rec = self._run_stage(
+            "90_inspection",
+            lambda: build_inspection_report(artifacts),
+            artifact=artifacts.inspection_json_path,
+            extra_detail=lambda r: {
+                "atoms": (r.get("funnel") or {}).get("atoms_extracted", 0),
+                "packets": (r.get("funnel") or {}).get("packets_certified", 0),
+                "active_packs": (r.get("funnel") or {}).get("active_packs", []),
+            },
+        )
+        if report is not None:
+            try:
+                self._write_text(
+                    artifacts.inspection_html_path,
+                    render_inspection_html(report),
+                )
+            except Exception as exc:  # pragma: no cover - defensive
+                rec = StageRecord(
+                    stage=rec.stage,
+                    status=StageStatus.FALLBACK,
+                    started_at=rec.started_at,
+                    finished_at=_iso_now(),
+                    duration_ms=rec.duration_ms,
+                    artifact_path=rec.artifact_path,
+                    detail={**(rec.detail or {}), "html_render_error": str(exc)},
+                )
+        records.append(rec)
+
+        # Re-write the pipeline log + manifest so they include the
+        # inspection-stage record.
         artifacts.write_pipeline_log(records)
         artifacts.write_manifest(self._manifest(envelope_path, result, records))
         result.stage_records = records

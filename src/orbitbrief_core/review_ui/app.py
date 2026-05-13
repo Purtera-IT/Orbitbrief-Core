@@ -148,6 +148,23 @@ def build_app(context: ReviewContext) -> FastAPI:
             {"brief": brief, "markdown": md},
         )
 
+    @app.get("/inspection", response_class=HTMLResponse)
+    def _inspection() -> HTMLResponse:
+        body = context.inspection_html()
+        if body is None:
+            return HTMLResponse(
+                "<h1>No inspection report</h1><p>Run the orchestrator on this artifacts directory to generate <code>91_inspection_report.html</code>.</p>",
+                status_code=404,
+            )
+        return HTMLResponse(body)
+
+    @app.get("/api/inspection")
+    def _api_inspection() -> JSONResponse:
+        report = context.inspection_json()
+        if report is None:
+            raise HTTPException(status_code=404, detail="no inspection report")
+        return JSONResponse(report)
+
     # ───── JSON API surface ─────
 
     @app.get("/api/queue")
