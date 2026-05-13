@@ -29,6 +29,7 @@ re-attach a real client and resume.
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -104,6 +105,13 @@ class PipelineConfig:
     persist_review_queue: bool = True
     # If True, enqueue NEEDS_REVIEW + REJECT items into the review queue.
     enqueue_review_items: bool = True
+    # Run brain stages concurrently using a ThreadPoolExecutor. With
+    # default OLLAMA_NUM_PARALLEL=1, requests serialize at the model
+    # layer and parallel offers ~no speedup AND risks thermal throttling
+    # bleed-over between calls on Mac. Default 1 (sequential, safe).
+    # Bump to 2+ when running against vLLM or Ollama with
+    # OLLAMA_NUM_PARALLEL >= N (a real GPU host).
+    parallel_brains: int = 1
 
 
 @dataclass
@@ -297,21 +305,25 @@ class BriefPipeline:
         # right file. Touch it so the file exists.
         _ = training_log
 
-        for pack_id in active_packs:
-            factory = self.brain_registry.get(pack_id)
-            if factory is None:
-                records.append(
-                    _skipped_record(
-                        f"40_brain::{pack_id}",
-                        detail={"reason": "no registered brain for pack_id"},
-                    )
+        # Brain stages can run concurrently — each (factory, refined_brief,
+        # bundle) tuple is independent. We dispatch the LLM-bound 40_brain
+        # stages in parallel up to ``parallel_brains``; the validator
+        # and calibrator follow per-pack once their brain finishes.
+        runnable_packs = [p for p in active_packs if self.brain_registry.get(p) is not None]
+        skipped_packs = [p for p in active_packs if self.brain_registry.get(p) is None]
+        for pack_id in skipped_packs:
+            records.append(
+                _skipped_record(
+                    f"40_brain::{pack_id}",
+                    detail={"reason": "no registered brain for pack_id"},
                 )
-                records.append(_skipped_record(f"50_validator::{pack_id}"))
-                records.append(_skipped_record(f"60_calibrator::{pack_id}"))
-                continue
+            )
+            records.append(_skipped_record(f"50_validator::{pack_id}"))
+            records.append(_skipped_record(f"60_calibrator::{pack_id}"))
 
-            brain = factory(self.chat_client)  # type: ignore[arg-type]
-            brain_result, rec = self._run_stage(
+        def _run_brain(pack_id: str):
+            brain = self.brain_registry.get(pack_id)(self.chat_client)  # type: ignore[arg-type,misc]
+            return self._run_stage(
                 f"40_brain::{pack_id}",
                 lambda b=brain, br=refined.state, bd=bundles[pack_id]: b.compose(br, bd),
                 artifact=artifacts.brain_output_path(pack_id),
@@ -326,9 +338,27 @@ class BriefPipeline:
                     StageStatus.FALLBACK if r.fallback_used else StageStatus.OK
                 ),
             )
+
+        # Dispatch brains. ``max_workers=1`` forces sequential (compat path).
+        brain_outputs: dict[str, tuple[Any, StageRecord]] = {}
+        if self.config.parallel_brains > 1 and len(runnable_packs) > 1:
+            with ThreadPoolExecutor(
+                max_workers=min(self.config.parallel_brains, len(runnable_packs))
+            ) as pool:
+                futures = {pool.submit(_run_brain, pid): pid for pid in runnable_packs}
+                for fut, pid in futures.items():
+                    brain_outputs[pid] = fut.result()
+        else:
+            for pid in runnable_packs:
+                brain_outputs[pid] = _run_brain(pid)
+
+        # Validator + calibrator + queue per pack run sequentially —
+        # they're cheap (≤ 20 ms each on real envelopes).
+        for pack_id in runnable_packs:
+            brain_result, brain_rec = brain_outputs[pack_id]
             result.brain_states[pack_id] = brain_result.state
             result.brain_fallbacks[pack_id] = bool(brain_result.fallback_used)
-            records.append(rec)
+            records.append(brain_rec)
 
             is_briefing = pack_id in BRIEFING_PACK_IDS
             validate_fn = (

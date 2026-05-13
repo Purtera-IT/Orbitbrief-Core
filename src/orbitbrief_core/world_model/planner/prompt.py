@@ -53,6 +53,11 @@ _MAX_ATOM_CHARS = 120
 # Lower than the brain's cap because the planner only needs a
 # representative sample to make its engagement-level call.
 _DEFAULT_TOP_K = 6
+# Contradictions can balloon the planner prompt (parser-os emits 100+
+# contradicts edges on synthetic intake). The planner annotates a
+# representative subset; the full list survives in evidence_runtime
+# and is surfaced by the validator + composer downstream.
+_MAX_CONTRADICTIONS_IN_PLANNER_SNAPSHOT = 20
 
 
 @dataclass(frozen=True)
@@ -171,18 +176,25 @@ def _build_snapshot(inputs: PlannerInputs, *, top_k_per_pack: int) -> dict[str, 
             total += 1
         bundles[pack_id] = kept
 
-    # Contradictions (pre-derived by evidence_runtime).
+    # Contradictions (pre-derived by evidence_runtime). Capped because
+    # parser-os can emit 100+ "contradicts" edges on synthetic intake;
+    # passing all of them inflates the planner prompt to 30k+ tokens
+    # and starves the model. The planner ANNOTATES contradictions, not
+    # enumerates them — the full list lives in evidence_runtime and is
+    # surfaced by the validator + composer downstream.
+    cap = _MAX_CONTRADICTIONS_IN_PLANNER_SNAPSHOT
     contradictions = [
         {
             "edge_id": c.edge.get("id", ""),
             "from_atom_id": c.edge.get("from_atom_id", ""),
             "to_atom_id": c.edge.get("to_atom_id", ""),
             "reason": c.edge.get("reason", ""),
-            "from_text": (c.from_atom.get("text") or "")[:160] if c.from_atom else "",
-            "to_text": (c.to_atom.get("text") or "")[:160] if c.to_atom else "",
+            "from_text": (c.from_atom.get("text") or "")[:120] if c.from_atom else "",
+            "to_text": (c.to_atom.get("text") or "")[:120] if c.to_atom else "",
         }
-        for c in inputs.contradictions
+        for c in inputs.contradictions[:cap]
     ]
+    contradictions_truncated = max(0, len(inputs.contradictions) - cap)
 
     return {
         "pack_prior_top": pack_summary_top,
@@ -190,6 +202,7 @@ def _build_snapshot(inputs: PlannerInputs, *, top_k_per_pack: int) -> dict[str, 
         "active_packs": active_packs,
         "site_clusters": sites,
         "contradictions": contradictions,
+        "contradictions_truncated": contradictions_truncated,
         "retrieval_bundles": bundles,
     }
 
@@ -259,7 +272,14 @@ EXACT JSON SHAPE (use these field names verbatim — extras are rejected):
       "supporting_atom_ids": ["a1"], "supporting_packet_ids": [],
       "confidence": 0.0-1.0, "pack_id": "<active pack id or null>"}}
   ],
-  "contradictions": [],
+  "contradictions": [
+    {{"edge_id": "<edge id from snapshot.contradictions>",
+      "from_atom_id": "<atom id from edge>",
+      "to_atom_id": "<atom id from edge>",
+      "entity_key": "<canonical_key or null>",
+      "severity": "info|warning|blocker",
+      "summary": "<≤400 chars annotating the contradiction>"}}
+  ],
   "review_flags": [],
   "orchestration": [
     {{"action": "run_brain|request_review|skip_pack|request_clarification",
@@ -275,6 +295,9 @@ EXACT JSON SHAPE (use these field names verbatim — extras are rejected):
 Notes:
 * sites uses `cluster_id` (NOT `site_id`); copy ids directly from `site_clusters` in the snapshot.
 * orchestration uses `action` (NOT `directive`).
+* contradictions: copy `edge_id`, `from_atom_id`, `to_atom_id` directly from
+  `snapshot.contradictions`. DO NOT add `confidence` (not in schema) and DO
+  NOT invent atom ids — only carry forward edges that already exist.
 * `model_used`, `tier`, `escalation_log`, `token_cost` are stamped by
   the runner — leave them empty (`""`, `"default"`, `{{}}`, `{{}}`)
   and do not invent values.

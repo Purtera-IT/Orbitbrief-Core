@@ -44,7 +44,9 @@ from orbitbrief_core.world_model.planner.schema import BriefState
 
 
 _DEFAULT_MODEL = "qwen3:14b"
-_MAX_OUTPUT_TOKENS = 8192
+# 7-section MSP scope state typically fits in 2-3k completion tokens.
+# 6k headroom is plenty and saves real time vs the previous 8k cap.
+_MAX_OUTPUT_TOKENS = 6144
 
 
 @dataclass

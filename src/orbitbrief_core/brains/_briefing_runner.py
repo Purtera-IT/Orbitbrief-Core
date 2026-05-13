@@ -48,11 +48,10 @@ from orbitbrief_core.world_model.planner.schema import BriefState
 
 
 _DEFAULT_MODEL = "qwen3:14b"
-# 9 grounded sections × ~10 items × ~120 tokens/item = ~10k upper bound.
-# 8192 covers the typical engagement comfortably; the ``/no_think``
-# directive in the system prompt eliminates the worst Qwen3 thinking
-# overhead.
-_MAX_OUTPUT_TOKENS = 8192
+# Briefing brain typically emits 2-3k completion tokens (9 sections ×
+# 3-6 items × ~80 tokens/item with grounded citations). 6k gives 2×
+# headroom and avoids paying for tokens we never generate.
+_MAX_OUTPUT_TOKENS = 6144
 
 
 # Per-section parser-os PacketFamily hints. Same family can hint
