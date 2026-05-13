@@ -998,6 +998,11 @@ def main(argv: list[str] | None = None) -> int:
     (out_root / "MASTER_LLM_REVIEW_PROMPT.md").write_text(
         _master_llm_prompt(len(case_summaries)), encoding="utf-8"
     )
+    # Copy the analyst review prompt (versioned in docs/) into the
+    # bundle root so reviewers find it next to MASTER_LLM_REVIEW_PROMPT.md.
+    analyst_prompt = _REPO_ROOT / "docs" / "ANALYST_REVIEW_PROMPT.md"
+    if analyst_prompt.is_file():
+        shutil.copy2(analyst_prompt, out_root / "ANALYST_REVIEW_PROMPT.md")
 
     print(f"\nbundle written: {out_root}", file=sys.stderr)
     print(f"  cases: {len(case_summaries)}", file=sys.stderr)
