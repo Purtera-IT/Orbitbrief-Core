@@ -44,7 +44,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     compile_p.add_argument("--ollama-base-url", default="http://localhost:11434")
     compile_p.add_argument("--chat-model", default="qwen3:14b")
-    compile_p.add_argument("--escalated-model", default="qwen3:32b")
+    # Default escalated tier matches default tier on the local Mac path
+    # — qwen3:32b on Apple-Silicon Ollama generates ~30-40 tok/s which
+    # runs out of the 600 s transport timeout on big BriefState JSON.
+    # Override with --escalated-model qwen3:32b on a real GPU host.
+    compile_p.add_argument("--escalated-model", default="qwen3:14b")
     compile_p.add_argument(
         "--no-persist-queue",
         action="store_true",
@@ -71,7 +75,10 @@ def _cmd_compile(args) -> int:
         return 1
 
     chat = (
-        OpenAIChatClient(base_url=args.ollama_base_url, timeout_s=240.0)
+        # 600s timeout covers Qwen3-14B emitting up to 12k tokens of
+        # BriefState JSON on a 600+ atom engagement. Ollama on Mac
+        # caps generation at ~150 tok/s on the 14B model.
+        OpenAIChatClient(base_url=args.ollama_base_url, timeout_s=600.0)
         if args.ollama
         else None
     )

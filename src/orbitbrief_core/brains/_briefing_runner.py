@@ -69,8 +69,8 @@ SECTION_FAMILY_HINTS: dict[str, tuple[str, ...]] = {
     "open_items": ("missing_info", "quantity_conflict", "vendor_mismatch"),
 }
 
-_PACKETS_PER_FAMILY_CAP = 12
-_MAX_SNIPPET_CHARS = 240
+_PACKETS_PER_FAMILY_CAP = 20
+_MAX_SNIPPET_CHARS = 320
 
 
 @dataclass
@@ -477,6 +477,11 @@ Hard rules:
    `fallback_used`, `unresolved_*`) unset; the runner stamps them.
 8. Confidence: 0.95 only when a single packet is unambiguous; 0.5
    for one-source inference; 0.3 for bridging two weak packets.
+9. **Aim for 3–6 items per section when evidence supports it.** Empty
+   sections are valid only when the bundle truly has no relevant
+   packets for that section. Cite multiple packets per item when
+   several support the same statement (denser citation = higher
+   trust downstream).
 
 Domain operating rules (from the OrbitBrief intake workbook):
 {operating_rules}

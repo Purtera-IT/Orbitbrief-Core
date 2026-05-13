@@ -74,7 +74,10 @@ def decide_tier(
     site_reality: SiteRealityState,
     envelope: dict[str, Any],
     contradiction_count: int,
-    contradiction_density_threshold: float = 0.05,
+    # 15 % default. Synthetic intake (red-stamped PDFs, conflicting CSVs) often
+    # produces 20-25 % contradicts edges from parser-os; 5 % was over-firing.
+    # Real customer engagements typically sit under 10 %.
+    contradiction_density_threshold: float = 0.15,
     unstable_site_threshold: float = 0.30,
     pack_margin_threshold: float = 0.10,
     sparse_atom_threshold: int = 20,

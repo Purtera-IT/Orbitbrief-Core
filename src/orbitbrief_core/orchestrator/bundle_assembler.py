@@ -31,8 +31,8 @@ from orbitbrief_core.brains._retrieval_bundle import (
 from orbitbrief_core.evidence_runtime.runtime import EvidenceRuntime, RuntimeKey
 
 
-_PACKETS_PER_FAMILY_CAP = 25
-_MAX_SNIPPET_CHARS = 240
+_PACKETS_PER_FAMILY_CAP = 40
+_MAX_SNIPPET_CHARS = 320
 
 
 @dataclass

@@ -86,8 +86,16 @@ from orbitbrief_core.world_model.site_reality import (
 class PipelineConfig:
     """Knobs the orchestrator caller can tweak per run."""
 
-    # Pack-confidence floor for "active enough to ground a brain".
-    active_pack_floor: float = 0.05
+    # How many top brains to run per engagement, picked by **raw**
+    # pack-prior score rather than softmax confidence. The softmax
+    # saturates when one pack dominates by 25× (e.g. cabling >> msp on
+    # a cabling-heavy engagement that still has MSP onboarding); raw
+    # rank surfaces the secondary brains that confidence rounds to 0.
+    active_brain_top_n: int = 3
+    # Backstop confidence floor — drops dust packs even within the
+    # top-N. Defaults loose so msp/wireless/etc. still run when their
+    # raw score is non-trivial relative to the dominant pack.
+    active_pack_floor: float = 0.0
     # If True, persist the review queue + training log to JSONL on disk.
     persist_review_queue: bool = True
     # If True, enqueue NEEDS_REVIEW + REJECT items into the review queue.
@@ -544,26 +552,39 @@ class BriefPipeline:
         artifact.write_text(payload, encoding="utf-8")
 
     def _pick_active_packs(self, pack_prior: PackPriorState) -> list[str]:
-        active: list[str] = []
+        """Pick the top-N brains by raw pack-prior score.
+
+        Confidence (softmax) saturates when one pack dominates by 25×;
+        raw_score keeps the secondary brains visible. We always include
+        ``top_pack_id`` and then top up to ``active_brain_top_n`` from
+        the raw-score-sorted list, filtered by registry availability
+        and an optional confidence floor.
+        """
         floor = self.config.active_pack_floor
-        # Top pack always gets a brain run (subject to factory existing).
-        for s in pack_prior.scores:
-            if s.confidence >= floor or s.pack_id == pack_prior.top_pack_id:
-                active.append(s.pack_id)
-            if len(active) >= 4:  # cap fan-out to 4 brains per engagement
-                break
-        # Always include the top pack even if it slipped past the floor.
-        if pack_prior.top_pack_id not in active:
-            active.insert(0, pack_prior.top_pack_id)
-        # Filter to packs the registry can actually serve.
-        seen = set()
-        ordered = []
-        for p in active:
-            if p in seen:
+        cap = max(1, self.config.active_brain_top_n)
+        # Sort by raw_score desc, then by confidence desc, then by pack_id
+        # for deterministic tie-break.
+        ranked = sorted(
+            pack_prior.scores,
+            key=lambda s: (-s.raw_score, -s.confidence, s.pack_id),
+        )
+        active: list[str] = []
+        seen: set[str] = set()
+        # Top pack always wins, even if it isn't first in the rank
+        # (defensive — top_pack_id and sort order should agree).
+        if pack_prior.top_pack_id and pack_prior.top_pack_id not in seen:
+            active.append(pack_prior.top_pack_id)
+            seen.add(pack_prior.top_pack_id)
+        for s in ranked:
+            if s.pack_id in seen:
                 continue
-            seen.add(p)
-            ordered.append(p)
-        return ordered
+            if s.raw_score <= 0 and s.confidence < floor:
+                continue
+            active.append(s.pack_id)
+            seen.add(s.pack_id)
+            if len(active) >= cap:
+                break
+        return active
 
     def _manifest(
         self,

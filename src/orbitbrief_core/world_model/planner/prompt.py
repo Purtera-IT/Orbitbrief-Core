@@ -43,12 +43,16 @@ from orbitbrief_core.world_model.registry import DomainPack
 from orbitbrief_core.world_model.site_reality.state import SiteRealityState
 
 
-# We prune retrieval-bundle text to this many chars per atom so a
-# noisy long atom can't blow out the prompt budget. The LLM still
-# gets the atom id so it can refer back to it precisely.
-_MAX_ATOM_CHARS = 280
+# Planner prompt is intentionally lean — the planner makes
+# engagement-level decisions (which packs, sites, contradictions). The
+# detailed packet+atom text goes to the BRAIN, not the planner. Atom
+# text is capped tight here so the planner prompt stays under ~10 KB
+# even on 600+ atom engagements.
+_MAX_ATOM_CHARS = 120
 # Top-K atoms per active pack in the bundle (caller may override).
-_DEFAULT_TOP_K = 12
+# Lower than the brain's cap because the planner only needs a
+# representative sample to make its engagement-level call.
+_DEFAULT_TOP_K = 6
 
 
 @dataclass(frozen=True)
