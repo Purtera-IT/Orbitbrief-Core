@@ -59,13 +59,35 @@ def test_select_pack_ids_keeps_secondary_with_two_boosted_hits():
     assert "paging_mass_notification" in selected
 
 
-def test_select_pack_ids_caps_at_four():
+def test_select_pack_ids_caps_at_eight():
+    """Cap raised from 4 to 6 + boosted-sweep cap of 8 (post-v3)
+    so packs with strong boosted_keyword signal don't get squeezed
+    out by a few high-raw-score generic packs."""
     scores = [_score("wireless", 100, 0.5)] + [
         _score(f"p{i}", 60, 0.05) for i in range(10)
     ]
     selected = PackPrior._select_pack_ids(scores)
-    assert len(selected) == 4
+    # First 6 win on raw_score; no boosted hits in the synthetic
+    # fixture so the boosted sweep adds nothing.
+    assert len(selected) == 6
     assert selected[0] == "wireless"
+
+
+def test_select_pack_ids_boosted_sweep_includes_specialized_pack():
+    """A pack with raw_score below the cap-6 threshold but >= 2
+    boosted-keyword hits gets included via the boosted sweep."""
+    scores = [
+        _score("wireless", 1000, 0.6),
+    ] + [_score(f"generic_{i}", 200, 0.1) for i in range(6)] + [
+        _score(
+            "paging_mass_notification",
+            50,  # well below cap-6 threshold
+            0.05,
+            boosted_hits=3,
+        ),
+    ]
+    selected = PackPrior._select_pack_ids(scores)
+    assert "paging_mass_notification" in selected, selected
 
 
 def test_atom_text_stream_reads_raw_text_value_entity_keys_and_locator():

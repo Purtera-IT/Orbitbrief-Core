@@ -481,7 +481,29 @@ class PackPrior:
             if strong_absolute or strong_fraction or boosted_hits:
                 selected.append(score.pack_id)
 
-        return selected[:4]
+        selected = selected[:6]
+
+        # PR (post-v3) — boosted-keyword sweep. Any specialized pack
+        # with >= 2 BOOSTED keyword hits gets included even when its
+        # raw_score puts it outside the top-N by sort. Boost matches
+        # are curated, intentional, and high-precision (e.g.
+        # "alertus", "valcom", "bogen" → paging_mass_notification).
+        # Without this, a corpus with lots of generic msp / monitoring
+        # vocab can squeeze paging / fire / das / electrical out of
+        # the brain fan-out even when their vendor names are in the
+        # source.
+        for score in by_raw:
+            if score.pack_id in selected:
+                continue
+            boosted_hits = sum(
+                1 for kw in score.matched_keywords if kw.startswith("!")
+            )
+            if boosted_hits >= 2 and score.raw_score > 0:
+                selected.append(score.pack_id)
+                if len(selected) >= 8:
+                    break
+
+        return selected
 
     @staticmethod
     def _reorder_top(scores: list[PackScore], new_top_id: str) -> list[PackScore]:
