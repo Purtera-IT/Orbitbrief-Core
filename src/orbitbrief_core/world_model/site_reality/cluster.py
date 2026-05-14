@@ -80,10 +80,17 @@ _SITE_NEGATIVE_RE = re.compile(
     r"cisa|vulnerability|playbook|workflow|servicenow|pagerduty|logicmonitor|"
     r"belden|cat6|cat6a|cisco|meraki|genetec|axis|hanwha|apc|ups|license|sku|"
     r"contract|sla|nfpa|nist|pci|hipaa|sentinel|palo alto|firewall|"
-    # Vendor product names that contain a positive site word
-    # ("center", "campus", …) and would otherwise sneak through.
-    r"security center|synergis|streamvault|security command|"
-    r"omnicast|axis communications|palo alto networks"
+    # Specific vendor product names. Note we deliberately do NOT block
+    # generic "operations center" / "command center" — those are
+    # legitimate physical-site markers (Chicago Housing Authority
+    # Operations Center, Police Command Center, etc.). Only
+    # "Genetec Security Center" / "Synergis" / "Streamvault" /
+    # "Omnicast" / "Cisco Systems" / "Palo Alto Networks" /
+    # "Axis Communications" / "Hanwha Vision" — full vendor brand names —
+    # are blocked here.
+    r"security center|synergis|streamvault|"
+    r"omnicast|axis communications|palo alto networks|hanwha vision|"
+    r"cisco systems"
     r")\b",
     re.I,
 )

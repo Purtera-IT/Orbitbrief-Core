@@ -69,8 +69,30 @@ _PHYSICAL_SITE_RE = re.compile(
     r"school|elementary|middle\s+school|high\s+school|"
     r"campus|college|university|hospital|clinic|library|"
     r"auditorium|courthouse|courtroom|warehouse|plant|"
-    r"facility|office|venue|stadium|arena|airport|terminal"
-    r")\b",
+    r"facility|office|venue|stadium|arena|airport|terminal|"
+    # PR21 — broaden physical-site vocabulary so real sites like
+    # "Chicago Housing Authority Operations Center", "Piedmont
+    # Police Station", "Perry Street Parking Structure", "Santa
+    # Monica Analytics Lab" classify correctly. The vendor-product
+    # name "Security Center" is still blocked at the cluster.py
+    # negative-regex layer.
+    r"operations\s+center|command\s+center|distribution\s+center|"
+    r"data\s+center|datacenter|training\s+center|research\s+center|"
+    r"fulfillment\s+center|service\s+center|community\s+center|"
+    r"convention\s+center|"
+    r"police\s+station|fire\s+station|"
+    r"parking\s+structure|parking\s+deck|parking\s+garage|"
+    r"housing\s+authority|housing\s+development|"
+    r"analytics\s+lab|research\s+lab|innovation\s+lab|test\s+lab|"
+    r"city\s+hall|town\s+hall|town\s+center|"
+    r"campus\s+center|operations\s+building|"
+    # University name suffixes — "Virginia Tech", "Texas A&M",
+    # "Georgia Tech", "Cal Poly", "Penn State", "MIT", "Caltech",
+    # "VCU". These are place names with no other classification
+    # signal in the bare canonical name. Anchored with a leading
+    # capital so we don't match "tech" inside "technician".
+    r"(?:^|\s)(?:tech|polytechnic|institute|state|a&m|poly)$"
+    r")",
     re.I,
 )
 _BUILDING_RE = re.compile(
@@ -107,7 +129,9 @@ _ORGANIZATION_RE = re.compile(
 _ROLE_PERSON_RE = re.compile(
     r"\b("
     r"engineer|architect|director|manager|owner|admin(?:istrator)?|"
-    r"technician|tech|operator|analyst|specialist|consultant|"
+    # Drop bare "tech" — it's a common place-name suffix
+    # ("Virginia Tech", "Georgia Tech"). Keep "technician".
+    r"technician|operator|analyst|specialist|consultant|"
     r"president|vp|cio|cto|cso|ciso|"
     r"contact|sponsor|stakeholder|approver"
     r")\b",

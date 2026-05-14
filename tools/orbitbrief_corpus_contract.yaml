@@ -96,10 +96,11 @@ cases:
 
   STRESS_AV_TRIO:
     routing:
-      # AV doesn't have its own pack yet; accept low_voltage_cabling
-      # or other (not pure other — universal rule still requires a
-      # secondary).
-      selected_pack_ids_include_any: [low_voltage_cabling, other]
+      # PR19 added audio_visual pack. AV cases must include either
+      # the new audio_visual pack or low_voltage_cabling — never
+      # ``other`` as the only signal.
+      selected_pack_ids_include_any: [audio_visual, low_voltage_cabling]
+      forbid_top_pack_id: other
 
   STRESS_BMS_SPECS:
     routing:
@@ -142,7 +143,10 @@ cases:
 
   STRESS_NET_MAINT:
     routing:
-      selected_pack_ids_include_any: [msp, hardware]
+      # PR19 added a dedicated network_maintenance pack; accept it
+      # alongside the legacy msp / hardware fallbacks.
+      selected_pack_ids_include_any: [network_maintenance, msp, hardware]
+      forbid_top_pack_id: other
 
   STRESS_PAGING_TRIO:
     routing:
