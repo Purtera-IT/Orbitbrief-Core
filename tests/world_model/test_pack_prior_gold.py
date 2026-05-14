@@ -40,10 +40,10 @@ from orbitbrief_core.world_model.pack_prior import PackPrior
 PARSER_OS_TO_WORKBOOK: dict[str, tuple[str, ...]] = {
     "wireless": ("wireless",),
     "copper_cabling": ("low_voltage_cabling",),
-    "security_camera": ("other", "security_access", "low_voltage_cabling"),
+    "security_camera": ("security_camera", "other", "security_access", "low_voltage_cabling"),
     "access_control": ("security_access", "other"),
     "av": ("other",),
-    "paging": ("other",),
+    "paging": ("paging_mass_notification", "other"),
     "bms": ("other",),
     "networking": ("other", "msp"),
     "itad": ("itad",),

@@ -280,6 +280,7 @@ packs:
   boosted_keywords:
   - msp
   - managed_service
+  - managed_services
   - service_desk
   - help_desk
   - 24x7
@@ -287,6 +288,22 @@ packs:
   - ticketing
   - monitoring_tool
   - rmm
+  - noc
+  - soc
+  - managed_vpn
+  - managed_firewall
+  - firewall_monitoring
+  - remote_monitoring
+  - patching
+  - break_fix
+  - ticket_triage
+  - dispatch
+  - pagerduty
+  - servicenow
+  - logicmonitor
+  - microsoft_sentinel
+  - alert_routing
+  - after_hours_support
   - psa
   - connectwise
   - kaseya
@@ -390,13 +407,29 @@ packs:
   - union
   boosted_keywords:
   - access_control
+  - access_reader
   - badge
+  - badge_reader
   - card_reader
   - lenel
   - kantech
+  - hid
+  - hid_signo
+  - mercury
+  - onguard
+  - genetec_synergis
   - genetec_security
   - door_controller
+  - rex
+  - request_to_exit
+  - electrified_lock
+  - maglock
+  - electric_strike
+  - credential
+  - access_control_standard
   - escort_required
+  - clearance_required
+  - background_check
   - clearance_required
   - background_check
 - id: site_structure
@@ -501,6 +534,7 @@ packs:
   - wlan
   - access_point
   - access_points
+  - ap_refresh
   - aruba
   - meraki_wireless
   - cisco_wireless
@@ -509,5 +543,151 @@ packs:
   - ap_install
   - heatmap
   - rf_design
+  - wireless_survey
+  - controller
+  - wlc
+  - mgig
+  - poe_switch
+  - e_rate
+  - erate
+  - usac
+  - form_470
+  - form_471
   - controller_cloud
   - e_rate_wireless
+- id: security_camera
+  display_name: Security Camera and VMS
+  intake_aliases: []
+  subdomain_labels:
+  - Camera Deployment
+  - VMS / Video Retention
+  - Camera Repair / Operations
+  keywords:
+  - camera
+  - vms
+  - video_surveillance
+  - cctv
+  - retention
+  - nvr
+  boosted_keywords:
+  - vms
+  - video_management_system
+  - genetec_security_center
+  - milestone_xprotect
+  - axis_camera
+  - axis
+  - hanwha
+  - bosch_camera
+  - hikvision
+  - nvr
+  - video_retention
+  - camera_repair
+  - camera_operations
+  - streamvault
+  - video_analytics
+  - ip_camera
+- id: paging_mass_notification
+  display_name: Paging and Mass Notification
+  intake_aliases: []
+  subdomain_labels:
+  - Paging / Intercom
+  - Mass Notification / Emergency Alerting
+  - Bell / PA Schedules
+  keywords:
+  - paging
+  - intercom
+  - public_address
+  - pa_system
+  - mass_notification
+  - emergency_notification
+  - bell_schedule
+  - speaker
+  - strobe
+  boosted_keywords:
+  - alertus
+  - rave
+  - at_hoc
+  - aiphone
+  - talk_a_phone
+  - valcom
+  - bogen
+  - informacast
+  - singlewire
+  - mass_notification
+  - emergency_alerting
+- id: fire_safety
+  display_name: Fire Safety and Alarm
+  intake_aliases: []
+  subdomain_labels:
+  - Fire Alarm Panel
+  - Smoke / Heat Detection
+  - Notification Appliances
+  keywords:
+  - fire
+  - alarm
+  - smoke
+  - notification
+  - panel
+  - inspection
+  - nfpa
+  boosted_keywords:
+  - fire_alarm
+  - fire_panel
+  - facp
+  - nfpa_72
+  - smoke_detector
+  - pull_station
+  - horn_strobe
+  - annunciator
+  - fire_inspection
+  - sprinkler_monitor
+- id: das
+  display_name: Distributed Antenna System
+  intake_aliases: []
+  subdomain_labels:
+  - Public Safety DAS / ERRCS
+  - Cellular DAS
+  - DAS Commissioning
+  keywords:
+  - das
+  - antenna
+  - signal
+  - errcs
+  - public_safety_radio
+  boosted_keywords:
+  - das
+  - distributed_antenna
+  - public_safety_radio
+  - errcs
+  - bda
+  - donor_antenna
+  - signal_booster
+  - radio_coverage
+  - p25
+  - lte_in_building
+- id: electrical
+  display_name: Electrical and Power
+  intake_aliases: []
+  subdomain_labels:
+  - Branch Circuits / Receptacles
+  - UPS / Generator
+  - Grounding / Bonding
+  keywords:
+  - electrical
+  - power
+  - circuit
+  - panel
+  - ups
+  - generator
+  - grounding
+  boosted_keywords:
+  - panelboard
+  - breaker
+  - conduit
+  - receptacle
+  - ups
+  - generator
+  - transfer_switch
+  - grounding
+  - bonding
+  - ats
