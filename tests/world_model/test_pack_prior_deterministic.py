@@ -58,13 +58,13 @@ def test_itad_envelope_routes_to_itad(
     assert state.top_pack_id == "itad", state.top_pack_id
 
 
-def test_state_has_all_24_packs(
+def test_state_has_all_29_packs(
     prior_no_chat: PackPrior, runtime_from_envelope, wireless_envelope: dict[str, Any]
 ) -> None:
     """Every pack in the registry must appear in the state, even with score 0."""
     rt = runtime_from_envelope(wireless_envelope)
     state = prior_no_chat.compute(rt)
-    assert len(state.scores) == 24
+    assert len(state.scores) == 29
     pack_ids = {s.pack_id for s in state.scores}
     assert "wireless" in pack_ids
     assert "itad" in pack_ids

@@ -12,10 +12,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable
 
+from orbitbrief_core.brains.audio_visual import AudioVisualBrain
+from orbitbrief_core.brains.building_management_systems import (
+    BuildingManagementSystemsBrain,
+)
+from orbitbrief_core.brains.camera_vms_operations import CameraVmsOperationsBrain
 from orbitbrief_core.brains.datacenter import DatacenterBrain
 from orbitbrief_core.brains.imac import ImacBrain
 from orbitbrief_core.brains.low_voltage_cabling import LowVoltageCablingBrain
 from orbitbrief_core.brains.managed_services import ManagedServicesBrain
+from orbitbrief_core.brains.network_maintenance import NetworkMaintenanceBrain
+from orbitbrief_core.brains.procurement_finance import ProcurementFinanceBrain
 from orbitbrief_core.brains.rack_and_stack import RackAndStackBrain
 from orbitbrief_core.brains.wireless import WirelessBrain
 from orbitbrief_core.inference.client import ChatClient
@@ -69,6 +76,24 @@ def default_brain_registry() -> BrainRegistry:
     )
     reg.register("datacenter", lambda chat: DatacenterBrain(chat_client=chat))
     reg.register("imac", lambda chat: ImacBrain(chat_client=chat))
+    # PR19 — additional briefing-shaped brains.
+    reg.register("audio_visual", lambda chat: AudioVisualBrain(chat_client=chat))
+    reg.register(
+        "building_management_systems",
+        lambda chat: BuildingManagementSystemsBrain(chat_client=chat),
+    )
+    reg.register(
+        "network_maintenance",
+        lambda chat: NetworkMaintenanceBrain(chat_client=chat),
+    )
+    reg.register(
+        "camera_vms_operations",
+        lambda chat: CameraVmsOperationsBrain(chat_client=chat),
+    )
+    reg.register(
+        "procurement_finance",
+        lambda chat: ProcurementFinanceBrain(chat_client=chat),
+    )
     return reg
 
 
@@ -81,4 +106,9 @@ BRIEFING_PACK_IDS: frozenset[str] = frozenset({
     "rack_and_stack",
     "datacenter",
     "imac",
+    "audio_visual",
+    "building_management_systems",
+    "network_maintenance",
+    "camera_vms_operations",
+    "procurement_finance",
 })

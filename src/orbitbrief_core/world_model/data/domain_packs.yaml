@@ -691,3 +691,189 @@ packs:
   - grounding
   - bonding
   - ats
+- id: audio_visual
+  display_name: Audio Visual
+  intake_aliases: []
+  subdomain_labels:
+  - AV Conference Room Build-Out
+  - Auditorium AV
+  - Digital Signage / Display Walls
+  keywords:
+  - audio
+  - visual
+  - display
+  - projector
+  - speaker
+  - microphone
+  - dsp
+  - codec
+  boosted_keywords:
+  - av
+  - a_v
+  - audio_visual
+  - audio_video
+  - biamp
+  - tesira
+  - qsc
+  - q_sys
+  - extron
+  - crestron
+  - shure
+  - sennheiser
+  - polycom
+  - poly
+  - logitech_meetup
+  - microsoft_teams_room
+  - zoom_room
+  - dante_audio
+  - hdmi
+  - hdbaset
+  - sdi
+  - confidence_monitor
+  - lectern
+  - confidence_speaker
+  - assistive_listening
+- id: building_management_systems
+  display_name: Building Management Systems
+  intake_aliases: []
+  subdomain_labels:
+  - BMS / BAS Controls
+  - Energy / Lighting Controls
+  - HVAC Integration
+  keywords:
+  - bms
+  - bas
+  - hvac
+  - controls
+  - sensor
+  - thermostat
+  - chiller
+  - boiler
+  - rooftop_unit
+  boosted_keywords:
+  - bms
+  - bas
+  - building_management
+  - building_automation
+  - tridium
+  - niagara
+  - jace
+  - bacnet
+  - modbus
+  - lonworks
+  - johnson_controls
+  - metasys
+  - honeywell_ebi
+  - siemens_desigo
+  - schneider_ecostruxure
+  - delta_controls
+  - automated_logic
+  - distech
+  - controls_contractor
+  - controls_integrator
+- id: network_maintenance
+  display_name: Network Maintenance / Operations
+  intake_aliases: []
+  subdomain_labels:
+  - Switch / Router Lifecycle
+  - Firmware / Patch Window
+  - Network Monitoring & Alerting
+  keywords:
+  - maintenance
+  - monitoring
+  - patching
+  - firmware
+  - port_map
+  - vlan
+  - circuit
+  - wan
+  - lan
+  - core_switch
+  - access_switch
+  boosted_keywords:
+  - network_maintenance
+  - network_operations
+  - network_monitoring
+  - smartnet
+  - dna_advantage
+  - dna_essentials
+  - jtac
+  - tac_case
+  - rma
+  - cabinet_audit
+  - port_audit
+  - vlan_audit
+  - circuit_audit
+  - wan_failover
+  - bgp_peering
+  - ospf
+  - eigrp
+  - stp_loop
+- id: camera_vms_operations
+  display_name: Camera / VMS Operations
+  intake_aliases: []
+  subdomain_labels:
+  - Camera Health Monitoring
+  - Storage / Retention Compliance
+  - Camera Repair & Replacement
+  keywords:
+  - camera
+  - vms
+  - retention
+  - storage
+  - alert
+  - health
+  - operations
+  boosted_keywords:
+  - camera_health
+  - camera_uptime
+  - camera_repair
+  - camera_replace
+  - camera_truck_roll
+  - vms_operations
+  - vms_health
+  - storage_retention
+  - retention_compliance
+  - retention_audit
+  - genetec_security_center_ops
+  - milestone_xprotect_ops
+  - axis_ops
+  - hanwha_ops
+  - nvr_health
+- id: procurement_finance
+  display_name: Procurement and Finance
+  intake_aliases: []
+  subdomain_labels:
+  - Purchase Order / Quote Approval
+  - Invoicing & Net Terms
+  - Subcontractor Procurement
+  keywords:
+  - procurement
+  - purchase
+  - po
+  - invoice
+  - quote
+  - approval
+  - net_terms
+  - milestone
+  - billing
+  boosted_keywords:
+  - purchase_order
+  - po_number
+  - invoice_number
+  - vendor_invoice
+  - net_30
+  - net_45
+  - net_60
+  - milestone_billing
+  - cap_ex
+  - capex
+  - opex
+  - cost_code
+  - psl
+  - quote_approval
+  - subcontractor_quote
+  - graybar
+  - wesco
+  - anixter
+  - bid_bond

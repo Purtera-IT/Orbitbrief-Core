@@ -1242,3 +1242,79 @@ domains:
       - statement: Confirm whether local profile data outside OneDrive is migrated, skipped, or handled by user backup.
         evidence_pattern: missing_info packet on data migration boundary
         pitfalls: Do not assume cloud backup covers all user data.
+
+  audio_visual:
+    display_name: Audio Visual
+    operating_rules:
+      cite_sku: "Always cite manufacturer + model (Crestron / Biamp / QSC / Extron / Shure / Logitech / Poly) and connection type (HDMI, HDBaseT, SDI, Dante, AES67) when the source provides them."
+      separate_av_from_cabling: "Audio-visual signal flow, control programming, and DSP gain structure are AV scope; cable pulls between AV endpoints belong under low_voltage_cabling unless explicitly bundled."
+      acceptance: "Acceptance must reference a commissioning checklist (SPL targets, microphone gain, video latency, lipsync, network call quality)."
+    normalization:
+      vendors: [Crestron, Biamp, QSC, Extron, Shure, Sennheiser, Polycom, Poly, Logitech, "Microsoft Teams Room", Zoom]
+      protocols: [Dante, AES67, AVB, NDI, HDBaseT, SDI, HDMI, USB-C]
+    fields: {}
+    artifact_labels: ["AV scope brief", "Conference room AV BOM"]
+    subdomain_notes:
+      - "Conference rooms, auditoriums, board rooms, signage walls."
+      - "Always identify control system (Crestron / QSC Q-SYS / Extron) and DSP family."
+      - "Network video conferencing (Teams / Zoom) is in scope when the room hardware is being installed."
+  building_management_systems:
+    display_name: Building Management Systems
+    operating_rules:
+      cite_protocol: "Always cite the controls protocol (BACnet / Modbus / LonWorks) and platform (Tridium Niagara, Johnson Metasys, Siemens Desigo, Honeywell EBI, Schneider EcoStruxure)."
+      separate_low_voltage: "BMS controls programming + commissioning is BMS scope; the cabling between sensors / actuators is low_voltage_cabling unless bundled."
+      acceptance: "Acceptance must reference a sequence-of-operations test, point-to-point I/O verification, and a graphics commissioning sign-off."
+    normalization:
+      platforms: [Tridium, Niagara, Metasys, Desigo, EBI, EcoStruxure, "Delta Controls", "Automated Logic", Distech]
+      protocols: [BACnet, Modbus, LonWorks]
+    fields: {}
+    artifact_labels: ["BMS sequence of operations", "Controls submittal"]
+    subdomain_notes:
+      - "Smart-building controls — HVAC, lighting, energy, occupancy."
+      - "Most sites use a controls integrator subcontractor; capture their name."
+      - "Open-protocol BACnet/IP is preferred; capture any proprietary back-doors."
+  network_maintenance:
+    display_name: Network Maintenance / Operations
+    operating_rules:
+      cite_smartnet: "Always cite SmartNet / DNA Advantage / DNA Essentials coverage when the source mentions support tier, and the asset's RMA path."
+      separate_msp: "Generalized MSP service-desk / ticketing is msp scope; network-specific firmware, port audit, VLAN audit, WAN failover, BGP/OSPF tuning is network_maintenance."
+      acceptance: "Acceptance must reference a maintenance window, a rollback plan, and a port/circuit audit report."
+    normalization:
+      coverage_tiers: [SmartNet, "DNA Advantage", "DNA Essentials", JTAC, TAC]
+      protocols: [BGP, OSPF, EIGRP, STP, RSTP, MSTP, HSRP, VRRP]
+    fields: {}
+    artifact_labels: ["Maintenance window plan", "Port audit report"]
+    subdomain_notes:
+      - "Switch/router lifecycle, firmware patching, port audits, VLAN audits."
+      - "Distinct from msp: network-specific work, not generic ticketing."
+      - "Capture WAN failover requirements and BGP/OSPF peering changes."
+  camera_vms_operations:
+    display_name: Camera / VMS Operations
+    operating_rules:
+      cite_vms: "Always cite the VMS platform (Genetec Security Center, Milestone XProtect, Avigilon Alta) and storage retention SLA."
+      separate_camera_install: "Initial camera install + cabling is security_camera + low_voltage_cabling; ongoing camera health, VMS storage rebalancing, repair truck rolls, retention compliance reporting is camera_vms_operations."
+      acceptance: "Acceptance must reference camera uptime SLA, retention audit report, and a VMS health dashboard screenshot."
+    normalization:
+      platforms: ["Genetec Security Center", "Milestone XProtect", "Avigilon Alta", Streamvault, Omnicast]
+      health_metrics: [uptime, "frame loss", "lost packets", "last seen"]
+    fields: {}
+    artifact_labels: ["VMS health report", "Camera uptime dashboard", "Retention audit"]
+    subdomain_notes:
+      - "Operational ownership of an existing camera + VMS plant."
+      - "Capture retention SLA in days and any compliance regime (criminal justice, HIPAA, PCI)."
+      - "Truck-roll repair coverage area + dispatch SLA must be explicit."
+  procurement_finance:
+    display_name: Procurement and Finance
+    operating_rules:
+      cite_po: "Always cite PO number / purchase order line / quote number when the source provides them."
+      separate_engineering: "Procurement scope is sourcing, quoting, PO issuance, invoicing, milestone billing — not the engineering work itself."
+      acceptance: "Acceptance must reference receipt of materials, invoice schedule, and any change-order workflow."
+    normalization:
+      net_terms: ["Net 15", "Net 30", "Net 45", "Net 60"]
+      distributors: [Graybar, Wesco, Anixter, "ScanSource", "TD SYNNEX", "ePlus", CDW]
+    fields: {}
+    artifact_labels: ["Purchase order", "Vendor invoice", "Quote approval"]
+    subdomain_notes:
+      - "Money flow, not engineering."
+      - "Capture milestone-billing schedules and any cap-ex / op-ex distinction."
+      - "Subcontractor procurement (Graybar, Wesco, Anixter) is in scope; their installation work is not."
