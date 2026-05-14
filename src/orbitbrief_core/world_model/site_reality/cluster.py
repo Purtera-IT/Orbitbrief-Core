@@ -313,7 +313,13 @@ class SiteRealityEngine:
             if not _is_physical_site_candidate(ck, ent, envelope):
                 continue
 
-            kind = classify_site_candidate(ck, ent)
+            # PR6 (post-v3) — pass the entity's full evidence blob
+            # so the classifier can promote known-physical-site
+            # patterns (address + MDF / address + provider /
+            # address + event-access) even when the bare canonical
+            # name doesn't match the positive regex.
+            evidence_blob = _entity_evidence_blob(ck, ent, envelope)
+            kind = classify_site_candidate(ck, ent, evidence_blob=evidence_blob)
             # Reject anything not publishable as its own cluster.
             # room_or_closet stays for now — orchestrator may anchor
             # it to a parent site cluster.

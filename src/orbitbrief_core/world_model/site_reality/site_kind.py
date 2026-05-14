@@ -86,6 +86,12 @@ _PHYSICAL_SITE_RE = re.compile(
     r"analytics\s+lab|research\s+lab|innovation\s+lab|test\s+lab|"
     r"city\s+hall|town\s+hall|town\s+center|"
     r"campus\s+center|operations\s+building|"
+    # PR6 (post-v3) — yard / event staging / pole camera yard.
+    # Real physical sites that the previous regex missed
+    # ("Milwaukee Event Operations Pole Camera Yard").
+    r"yard|staging\s+area|staging\s+yard|event\s+yard|"
+    r"camera\s+yard|pole\s+camera\s+yard|"
+    r"event\s+operations|event\s+command\s+staging|"
     # University name suffixes — "Virginia Tech", "Texas A&M",
     # "Georgia Tech", "Cal Poly", "Penn State", "MIT", "Caltech",
     # "VCU". These are place names with no other classification
@@ -104,8 +110,15 @@ _BUILDING_RE = re.compile(
     re.I,
 )
 _ADDRESS_RE = re.compile(
-    r"\b\d{2,6}\s+[a-z0-9 .'-]+\s+(st|street|rd|road|ave|avenue|dr|drive|"
-    r"blvd|boulevard|way|lane|ln|pkwy|parkway|hwy|highway)\b",
+    r"\b\d{2,6}\s+[a-z0-9 .'-]+\s+("
+    r"st|street|rd|road|ave|avenue|dr|drive|"
+    r"blvd|boulevard|way|lane|ln|pkwy|parkway|hwy|highway|"
+    # PR6 (post-v3) — common street-name suffixes that aren't
+    # "Avenue/Street/Drive" (Broadway, Plaza, Place, Court,
+    # Trail, Square, Loop, Crescent, Terrace, Row).
+    r"broadway|plaza|place|pl|court|ct|trail|square|sq|loop|"
+    r"crescent|cres|terrace|ter|row"
+    r")\b",
     re.I,
 )
 _ROOM_CLOSET_RE = re.compile(
@@ -145,8 +158,14 @@ _EQUIPMENT_PRODUCT_RE = re.compile(
     r"cisco|meraki|juniper|aruba|fortinet|fortigate|palo\s+alto|"
     r"genetec|axis|hanwha|milestone|lenel|hid|mercury|"
     r"apc|generac|liebert|"
+    # PR6 (post-v3) — dropped bare ``camera`` and ``reader`` because
+    # they appear inside legitimate site names ("Pole Camera Yard",
+    # "Card Reader Lab"). Vendor names (Genetec, Axis, Hanwha,
+    # Milestone, Avigilon, HID, Mercury) still cover real product
+    # detection. Server/switch/router/firewall stay because they
+    # describe equipment rather than place names.
     r"ups|server|switch|router|firewall|controller|appliance|"
-    r"camera|reader|sensor|panel|breaker|outlet|jack|patch|cable|"
+    r"sensor|breaker|outlet|jack|patch|cable|"
     r"r\d{3}xd|r\d{3}|wsc?\d+"
     r")\b",
     re.I,
@@ -179,12 +198,21 @@ _GENERIC_PHRASE_RE = re.compile(
 
 
 def classify_site_candidate(
-    site_key: str, ent: dict[str, Any] | None = None
+    site_key: str,
+    ent: dict[str, Any] | None = None,
+    *,
+    evidence_blob: str = "",
 ) -> SiteCandidateKind:
     """Classify a ``site:*`` candidate based on its canonical name + key.
 
     Order of operations matters — we test the most specific /
     discriminative patterns first.
+
+    PR6 (post-v3 review) adds an optional ``evidence_blob`` arg.
+    Cluster.py passes the entity's atom-evidence text so a site like
+    "Milwaukee Event Operations Pole Camera Yard" with strong
+    address + MDF + provider evidence promotes to physical_site even
+    when the bare name doesn't match the positive regex.
     """
     # Classify on the canonical_name when available; only fall back to
     # the site_key surface form when no canonical_name exists. Joining
@@ -197,6 +225,10 @@ def classify_site_candidate(
     name = name.strip()
     if not name:
         return SiteCandidateKind.unknown
+    # Combined view for evidence-aware promotion. Negative checks
+    # below still run on the bare name only so vendor product names
+    # don't get rescued by adjacent address strings.
+    combined = f"{name} {evidence_blob}".strip()
 
     # Hard rejects first so they can't be rescued by an accidental
     # "campus" or "center" mention later in the candidate text.
@@ -216,12 +248,45 @@ def classify_site_candidate(
         return SiteCandidateKind.address
     if _PHYSICAL_SITE_RE.search(name):
         return SiteCandidateKind.physical_site
+    if _PHYSICAL_SITE_RE.search(combined):
+        return SiteCandidateKind.physical_site
     if _BUILDING_RE.search(name):
         return SiteCandidateKind.building
     if _ROOM_CLOSET_RE.search(name):
         return SiteCandidateKind.room_or_closet
     if _ORGANIZATION_RE.search(name):
         return SiteCandidateKind.organization
+
+    # PR6 (post-v3) — evidence-aware promotion. When the bare name
+    # is unknown but the entity has STRONG site evidence (address +
+    # site-id, address + MDF/IDF, address + provider, address +
+    # access language), promote to physical_site. Used to rescue
+    # event-yard / pole-camera-yard / portable-LTE sites whose
+    # canonical_name doesn't include any positive vocabulary.
+    if evidence_blob:
+        has_address = bool(_ADDRESS_RE.search(combined))
+        has_site_id = bool(re.search(r"\bS\d{2,4}\b", combined))
+        has_mdf_idf = bool(re.search(r"\b(MDF|IDF)[-_A-Z0-9]*\b", combined, re.I))
+        has_provider = bool(
+            re.search(
+                r"\b(city\s+fiber|firstnet|lte|comcast|at&t|verizon|cogent|"
+                r"metro[-\s]?e|dia\s+fiber)\b",
+                combined,
+                re.I,
+            )
+        )
+        has_access = bool(
+            re.search(
+                r"\b(access|credentialed|escort|badge|24x7|after[-\s]?hours|"
+                r"event[-\s]?driven)\b",
+                combined,
+                re.I,
+            )
+        )
+        if has_address and (
+            has_site_id or has_mdf_idf or has_provider or has_access
+        ):
+            return SiteCandidateKind.physical_site
 
     return SiteCandidateKind.unknown
 

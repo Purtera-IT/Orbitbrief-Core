@@ -83,3 +83,45 @@ def test_other_kinds_not_publishable():
     for k in (K.role_or_person, K.equipment_or_product, K.service_or_software,
               K.risk_or_priority, K.generic_phrase, K.organization, K.unknown):
         assert not is_publishable(k), k
+
+
+def test_event_operations_yard_classifies_as_physical_site():
+    """PR6 (post-v3) — vocabulary expansion. ``yard`` /
+    ``event operations`` / ``pole camera yard`` are now in
+    _PHYSICAL_SITE_RE so the bare canonical name suffices."""
+    ent = {
+        "canonical_key": "site:milwaukee_event_operations_pole_camera_yard",
+        "canonical_name": "Milwaukee Event Operations Pole Camera Yard",
+    }
+    kind = classify_site_candidate(ent["canonical_key"], ent)
+    assert kind is K.physical_site
+    assert is_publishable(kind)
+
+
+def test_unknown_name_with_strong_evidence_promotes_to_physical_site():
+    """PR6 (post-v3) — evidence-aware promotion. When the bare
+    name is unknown but the evidence blob includes an address PLUS
+    a site_id / MDF / provider / access signal, promote to
+    physical_site."""
+    ent = {
+        "canonical_key": "site:s01_makeshift_name",
+        "canonical_name": "S01 Makeshift Name",
+    }
+    evidence = (
+        "S01 Makeshift Name "
+        "809 N Broadway, Milwaukee, WI 53202 "
+        "MDF-MKE-EOC portable pole LTE kits city fiber FirstNet/LTE "
+        "credentialed event access"
+    )
+    kind = classify_site_candidate(
+        ent["canonical_key"], ent, evidence_blob=evidence
+    )
+    assert kind is K.physical_site
+    assert is_publishable(kind)
+
+
+def test_unknown_name_with_no_evidence_stays_unknown():
+    ent = {"canonical_key": "site:foo_bar_baz", "canonical_name": "foo bar baz"}
+    kind = classify_site_candidate(ent["canonical_key"], ent)
+    assert kind is K.unknown
+    assert not is_publishable(kind)

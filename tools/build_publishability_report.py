@@ -34,6 +34,21 @@ _DO_NOT_PUBLISH_FLAGS = {
     "do_not_certify_as_exclusion",
     "unchecked_checkbox_ambiguous",
 }
+import sys as _sys
+from pathlib import Path as _Path
+
+# Make in-tree src importable from a checkout so the SOW completeness
+# validator is reachable without installing the package.
+_REPO_ROOT = _Path(__file__).resolve().parents[1]
+_SRC = _REPO_ROOT / "src"
+if _SRC.is_dir() and str(_SRC) not in _sys.path:
+    _sys.path.insert(0, str(_SRC))
+
+from orbitbrief_core.validator.sow_completeness import (  # noqa: E402
+    security_camera_sow_completeness,
+)
+
+
 _BANNED_SITE_TERMS = [
     "belden", "cat6", "cat6a", "cat 6", "cat 6a",
     "cisa", "vulnerability", "playbook",
@@ -113,6 +128,7 @@ def _publishability_for_case(case_dir: Path) -> dict[str, Any]:
     qty_survival = (quantities_pub / quantities) if quantities else 1.0
 
     # ── routing checks ──
+    sow_findings: list = []
     if pack:
         top = pack.get("top_pack_id")
         top_conf = float(pack.get("top_confidence") or 0.0)
@@ -123,6 +139,14 @@ def _publishability_for_case(case_dir: Path) -> dict[str, Any]:
             hard_failures["pure_other_routing"] = 1
         if abs(top_conf - 1.0) < 1e-6:
             hard_failures["top_confidence_exactly_one"] = 1
+
+        # PR7 (post-v3) — security camera SOW completeness validator.
+        sow_findings = security_camera_sow_completeness(
+            selected_pack_ids=selected or ([top] if top else []),
+            atoms=(envelope or {}).get("atoms") or [],
+        )
+        for f in sow_findings:
+            warnings[f.rule_id] = warnings.get(f.rule_id, 0) + 1
 
     # ── site checks ──
     if site:
@@ -156,6 +180,15 @@ def _publishability_for_case(case_dir: Path) -> dict[str, Any]:
         "status": status,
         "hard_failures": hard_failures,
         "warnings": warnings,
+        "sow_completeness_findings": [
+            {
+                "rule_id": f.rule_id,
+                "severity": f.severity,
+                "message": f.message,
+                "detail": f.detail,
+            }
+            for f in sow_findings
+        ],
         "coverage": {
             "high_authority_atoms_total": high_auth_total,
             "high_authority_atoms_publishable": high_auth_pub,
