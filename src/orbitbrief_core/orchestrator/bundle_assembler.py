@@ -52,6 +52,30 @@ _MIN_KEYWORD_HITS = 1
 _MIN_PACKETS_PER_PACK_AFTER_FILTER = 6
 _TOKEN = re.compile(r"[a-z0-9_]+")
 
+# Atom review_flags that mark an atom as "QA marker only — do NOT
+# surface in PM-facing brief content". These atoms are still kept in
+# the runtime so the inspection report and review UI can show them
+# (the reviewer wants to know that a low-text PDF page was found, or
+# that an unchecked checkbox is ambiguous), but bundle assembly
+# strips them before brains see them so they can't be cited as
+# scope evidence in the final brief.
+_DO_NOT_PUBLISH_FLAGS: frozenset[str] = frozenset(
+    {
+        "visual_evidence_not_fully_extracted",
+        "do_not_certify_as_exclusion",
+        "unchecked_checkbox_ambiguous",
+    }
+)
+
+
+def _atom_is_publishable(atom: dict[str, Any] | None) -> bool:
+    if atom is None:
+        return False
+    flags = atom.get("review_flags") or ()
+    if not flags:
+        return True
+    return not any(f in _DO_NOT_PUBLISH_FLAGS for f in flags)
+
 
 @dataclass
 class BundleAssembler:
@@ -161,9 +185,17 @@ class BundleAssembler:
     def _packet_to_snippet(
         raw: dict[str, Any], atom_index: dict[str, dict[str, Any]]
     ) -> PacketSnippet:
-        gov = tuple(raw.get("governing_atom_ids") or ())
-        sup = tuple(raw.get("supporting_atom_ids") or ())
-        contra = tuple(raw.get("contradicting_atom_ids") or ())
+        # Filter atoms flagged as QA-only / do-not-publish out of
+        # every cited list AND the snippet text. Brains never see
+        # them, so they can't be cited as scope evidence in the
+        # final brief. The atoms still exist in the runtime for
+        # inspection / review UI use.
+        def _publishable(ids: tuple[str, ...]) -> tuple[str, ...]:
+            return tuple(a for a in ids if _atom_is_publishable(atom_index.get(a)))
+
+        gov = _publishable(tuple(raw.get("governing_atom_ids") or ()))
+        sup = _publishable(tuple(raw.get("supporting_atom_ids") or ()))
+        contra = _publishable(tuple(raw.get("contradicting_atom_ids") or ()))
         cited_ids = set(gov) | set(sup) | set(contra)
         atom_text: dict[str, str] = {}
         for aid in cited_ids:

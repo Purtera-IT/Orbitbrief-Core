@@ -1,0 +1,144 @@
+# Per-case regression contract for the orbitbrief corpus.
+#
+# Used by tools/orbitbrief_regression_gate.py with
+#   --contract tools/orbitbrief_corpus_contract.yaml
+#
+# Each case ID must match a directory under --orbit-results.
+# All assertions are AND-ed together; ANY failure fails the gate.
+#
+# Sourced from corpus_findings.yaml (v1, May 2026 review).
+
+# ──────────────────────────────────────────────────────────────────────
+# Universal contract — applied to every case (catches the universal
+# failure modes from findings.yaml: fake sites, pure-other routing,
+# Markdown invisibility for managed_services_package.md).
+# ──────────────────────────────────────────────────────────────────────
+universal:
+  forbidden_site_terms:
+    - belden
+    - cat6
+    - cat6a
+    - cat 6
+    - cat 6a
+    - cisa
+    - vulnerability
+    - playbook
+    - servicenow
+    - service now
+    - pagerduty
+    - logicmonitor
+    - apc
+    - ups battery
+    - sku
+    - license key
+    - sla coverage
+    - sentinel
+  routing:
+    forbid_pure_other: true
+  artifacts:
+    # Every case has a managed_services_package.md (per findings F001
+    # observed_in_other_cases). When present, it MUST emit atoms.
+    - filename_glob: "*managed_services_package.md"
+      min_atoms: 5
+      required_atom_types_any:
+        - scope_item
+        - quantity
+        - exclusion
+        - assumption
+        - constraint
+        - open_question
+
+# ──────────────────────────────────────────────────────────────────────
+# Per-case routing assertions. Sourced from findings.yaml +
+# domain_packs.yaml v4 (after PR6).
+#
+# selected_pack_ids_include_any → at least one of these pack ids
+# must appear in selected_pack_ids (PR5). This is intentionally
+# permissive: we accept the secondary winning OR the new
+# coverage-pack winning, since the substrate may legitimately
+# label some cases multiple ways.
+# ──────────────────────────────────────────────────────────────────────
+cases:
+  COPPER_001_SPRING_LAKE_AUDITORIUM:
+    routing:
+      selected_pack_ids_include_any: [low_voltage_cabling, msp]
+
+  COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES:
+    routing:
+      selected_pack_ids_include_any: [low_voltage_cabling, hardware, msp]
+
+  COPPER_003_BANKS_NETWORK_MODERNIZATION:
+    routing:
+      selected_pack_ids_include_any: [low_voltage_cabling, hardware]
+
+  COPPER_004_MSCS_DISTRICT_CABLING_SERVICES:
+    routing:
+      selected_pack_ids_include_any: [low_voltage_cabling, msp]
+
+  LOWVOLT_001_FLMD_COURTROOM_5D:
+    routing:
+      selected_pack_ids_include_any:
+        - low_voltage_cabling
+        - security_camera
+        - paging_mass_notification
+
+  STRESS_ACS_USC_PIEDMONT:
+    routing:
+      selected_pack_ids_include_any: [security_access]
+
+  STRESS_AV_TRIO:
+    routing:
+      # AV doesn't have its own pack yet; accept low_voltage_cabling
+      # or other (not pure other — universal rule still requires a
+      # secondary).
+      selected_pack_ids_include_any: [low_voltage_cabling, other]
+
+  STRESS_BMS_SPECS:
+    routing:
+      selected_pack_ids_include_any: [datacenter, low_voltage_cabling]
+
+  STRESS_COVERAGE_GAPS:
+    routing:
+      # F035 observed multiple coverage-gap domains in one case
+      # (paging, fire, DAS, electrical). At least one of the new
+      # coverage packs must surface.
+      selected_pack_ids_include_any:
+        - paging_mass_notification
+        - fire_safety
+        - das
+        - electrical
+
+  STRESS_DOWNEY_CABLING:
+    routing:
+      selected_pack_ids_include_any: [low_voltage_cabling, hardware]
+
+  STRESS_ITAD_PAIR:
+    routing:
+      selected_pack_ids_include_any: [itad]
+
+  STRESS_MULTI_CAM:
+    routing:
+      selected_pack_ids_include_any: [security_camera]
+
+  STRESS_NATOMAS_WIRELESS:
+    routing:
+      selected_pack_ids_include_any: [wireless]
+
+  STRESS_NET_MAINT:
+    routing:
+      selected_pack_ids_include_any: [msp, hardware]
+
+  STRESS_PAGING_TRIO:
+    routing:
+      selected_pack_ids_include_any: [paging_mass_notification]
+
+  STRESS_VT_CAM:
+    routing:
+      selected_pack_ids_include_any: [security_camera]
+
+  STRESS_XLSX_RARE:
+    routing:
+      # F036 — XLSX rows should now type as risk / asset_record / etc.
+      # If routing still picks "other", that's fine, but at minimum a
+      # secondary pack with real evidence should be present.
+      forbid_pure_other: true

@@ -47,7 +47,7 @@ def test_fails_on_pure_other_routing(tmp_path: Path):
         encoding="utf-8",
     )
     failures = gate.check_orbit_results(tmp_path)
-    assert any("routed only to other" in f for f in failures)
+    assert any("routed only to 'other'" in f for f in failures)
 
 
 def test_passes_when_other_has_secondaries(tmp_path: Path):
@@ -60,4 +60,42 @@ def test_passes_when_other_has_secondaries(tmp_path: Path):
         encoding="utf-8",
     )
     failures = gate.check_orbit_results(tmp_path)
+    assert failures == []
+
+
+def test_contract_routing_include_any_failure(tmp_path: Path):
+    case = tmp_path / "STRESS_MULTI_CAM"
+    case.mkdir()
+    (case / "pack_prior.json").write_text(
+        json.dumps({"top_pack_id": "other", "selected_pack_ids": ["other"]}),
+        encoding="utf-8",
+    )
+    contract = {
+        "cases": {
+            "STRESS_MULTI_CAM": {
+                "routing": {"selected_pack_ids_include_any": ["security_camera"]}
+            }
+        }
+    }
+    failures = gate.check_orbit_results(tmp_path, contract)
+    assert any("security_camera" in f for f in failures)
+
+
+def test_contract_routing_include_any_success(tmp_path: Path):
+    case = tmp_path / "STRESS_MULTI_CAM"
+    case.mkdir()
+    (case / "pack_prior.json").write_text(
+        json.dumps(
+            {"top_pack_id": "security_camera", "selected_pack_ids": ["security_camera"]}
+        ),
+        encoding="utf-8",
+    )
+    contract = {
+        "cases": {
+            "STRESS_MULTI_CAM": {
+                "routing": {"selected_pack_ids_include_any": ["security_camera"]}
+            }
+        }
+    }
+    failures = gate.check_orbit_results(tmp_path, contract)
     assert failures == []

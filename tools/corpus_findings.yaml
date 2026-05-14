@@ -1,0 +1,1356 @@
+summary:
+  cases_reviewed:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - LOWVOLT_001_FLMD_COURTROOM_5D
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_AV_TRIO
+  - STRESS_BMS_SPECS
+  - STRESS_COVERAGE_GAPS
+  - STRESS_DOWNEY_CABLING
+  - STRESS_ITAD_PAIR
+  - STRESS_MULTI_CAM
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  - STRESS_VT_CAM
+  - STRESS_XLSX_RARE
+  total_findings: 45
+  by_severity:
+    blocker: 18
+    info: 4
+    warning: 23
+  by_target_repo:
+    Orbitbrief-Core: 10
+    parser-os: 35
+  by_category:
+    atom_omitted: 22
+    atom_text_garbled: 4
+    atom_type_mislabeled: 2
+    edge_type_wrong: 1
+    entity_canonical_name_wrong: 2
+    enum_value_missing: 1
+    locator_wrong: 1
+    pack_keywords_missing: 1
+    pack_routing_wrong: 5
+    packet_family_wrong: 2
+    replay_failed_for_clean_text: 1
+    site_canonical_name_wrong: 2
+    site_clustering_missed: 1
+findings:
+- finding_id: F001
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: atom_omitted
+  severity: blocker
+  target_repo: parser-os
+  target_subpath: app/parsers/markdown.py
+  source_artifact: COPPER_001_SPRING_LAKE_AUDITORIUM_managed_services_package.md
+  raw_evidence: |-
+    line 13: Spring Lake Public Schools requires an execution-ready package for **copper cabling and low-voltage AV cabling**.
+    line 17: - **Operational scale:** 72 faceplate positions: 58 Cat6 UTP, 14 shielded Cat6/Cat6A AV runs, 2 fiber uplinks, 1 new wall rack, UPS runtime target 28 minutes at 55 percent load.
+  current_behavior: 'lineage/raw_vs_extracted.md reports parser `none/unknown` and `atoms extracted: 0` for `COPPER_001_SPRING_LAKE_AUDITORIUM_managed_services_package.md`.
+    The raw Markdown contains the case title, customer profile, operational scale, budget, scope, assumptions, exclusions,
+    acceptance criteria, site details, stakeholders, and transition plan, but none of those facts landed as atoms.'
+  expected_behavior: 'Markdown SOW/managed-services packages should be parsed into heading-aware atoms: scope_item, quantity,
+    budget/price, site, constraint, exclusion, assumption, acceptance_criterion, stakeholder, and operational_handoff facts,
+    with section_path and line-range locators.'
+  suggested_fix: Add a Markdown parser at app/parsers/markdown.py and register `.md` artifacts in the ingest registry. Preserve
+    heading hierarchy, table rows, and line ranges; reuse the text/table atom classifiers used for TXT/DOCX and emit source-replay-friendly
+    locators. Backfill tests for every `*_managed_services_package.md` in this corpus.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - LOWVOLT_001_FLMD_COURTROOM_5D
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_AV_TRIO
+  - STRESS_BMS_SPECS
+  - STRESS_COVERAGE_GAPS
+  - STRESS_DOWNEY_CABLING
+  - STRESS_ITAD_PAIR
+  - STRESS_MULTI_CAM
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  - STRESS_VT_CAM
+  - STRESS_XLSX_RARE
+- finding_id: F002
+  case_id: COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  category: atom_omitted
+  severity: blocker
+  target_repo: parser-os
+  target_subpath: app/parsers/markdown.py
+  source_artifact: COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES_managed_services_package.md
+  raw_evidence: |-
+    line 13: City of Worcester Public Facilities / Durkin Administration Building requires an execution-ready package for **network upgrade, AP cabling, copper re-termination**.
+    line 17: - **Operational scale:** 64 new AP cable runs, 38 copper re-terminations, 24 faulty endpoint replacements, 6 IDF cleanup bundles, 2 10G fiber uplink validations.
+  current_behavior: 'lineage/raw_vs_extracted.md reports parser `none/unknown` and `atoms extracted: 0` for `COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES_managed_services_package.md`.
+    The raw Markdown contains the case title, customer profile, operational scale, budget, scope, assumptions, exclusions,
+    acceptance criteria, site details, stakeholders, and transition plan, but none of those facts landed as atoms.'
+  expected_behavior: 'Markdown SOW/managed-services packages should be parsed into heading-aware atoms: scope_item, quantity,
+    budget/price, site, constraint, exclusion, assumption, acceptance_criterion, stakeholder, and operational_handoff facts,
+    with section_path and line-range locators.'
+  suggested_fix: Add a Markdown parser at app/parsers/markdown.py and register `.md` artifacts in the ingest registry. Preserve
+    heading hierarchy, table rows, and line ranges; reuse the text/table atom classifiers used for TXT/DOCX and emit source-replay-friendly
+    locators. Backfill tests for every `*_managed_services_package.md` in this corpus.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - LOWVOLT_001_FLMD_COURTROOM_5D
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_AV_TRIO
+  - STRESS_BMS_SPECS
+  - STRESS_COVERAGE_GAPS
+  - STRESS_DOWNEY_CABLING
+  - STRESS_ITAD_PAIR
+  - STRESS_MULTI_CAM
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  - STRESS_VT_CAM
+  - STRESS_XLSX_RARE
+- finding_id: F003
+  case_id: COPPER_003_BANKS_NETWORK_MODERNIZATION
+  category: atom_omitted
+  severity: blocker
+  target_repo: parser-os
+  target_subpath: app/parsers/markdown.py
+  source_artifact: COPPER_003_BANKS_NETWORK_MODERNIZATION_managed_services_package.md
+  raw_evidence: |-
+    line 13: Banks School District requires an execution-ready package for **campus Cat6A drops, fiber backbone, network modernization**.
+    line 17: - **Operational scale:** 378 Cat6A drops, 24 fiber uplinks, 14 IDF rack units remediated, 11 UPS replacements, 420 labeled patch cords including spares.
+  current_behavior: 'lineage/raw_vs_extracted.md reports parser `none/unknown` and `atoms extracted: 0` for `COPPER_003_BANKS_NETWORK_MODERNIZATION_managed_services_package.md`.
+    The raw Markdown contains the case title, customer profile, operational scale, budget, scope, assumptions, exclusions,
+    acceptance criteria, site details, stakeholders, and transition plan, but none of those facts landed as atoms.'
+  expected_behavior: 'Markdown SOW/managed-services packages should be parsed into heading-aware atoms: scope_item, quantity,
+    budget/price, site, constraint, exclusion, assumption, acceptance_criterion, stakeholder, and operational_handoff facts,
+    with section_path and line-range locators.'
+  suggested_fix: Add a Markdown parser at app/parsers/markdown.py and register `.md` artifacts in the ingest registry. Preserve
+    heading hierarchy, table rows, and line ranges; reuse the text/table atom classifiers used for TXT/DOCX and emit source-replay-friendly
+    locators. Backfill tests for every `*_managed_services_package.md` in this corpus.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - LOWVOLT_001_FLMD_COURTROOM_5D
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_AV_TRIO
+  - STRESS_BMS_SPECS
+  - STRESS_COVERAGE_GAPS
+  - STRESS_DOWNEY_CABLING
+  - STRESS_ITAD_PAIR
+  - STRESS_MULTI_CAM
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  - STRESS_VT_CAM
+  - STRESS_XLSX_RARE
+- finding_id: F004
+  case_id: COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  category: atom_omitted
+  severity: blocker
+  target_repo: parser-os
+  target_subpath: app/parsers/markdown.py
+  source_artifact: COPPER_004_MSCS_DISTRICT_CABLING_SERVICES_managed_services_package.md
+  raw_evidence: |-
+    line 13: Memphis-Shelby County Schools requires an execution-ready package for **district-wide structured cabling services and work-order controls**.
+    line 17: - **Operational scale:** Representative work-order: 190 Cat6 drops, 68 Cat6A AP/camera drops, 23 IDF cleanups, 14 rack/ladder adjustments, 1,200 unit-price references.
+  current_behavior: 'lineage/raw_vs_extracted.md reports parser `none/unknown` and `atoms extracted: 0` for `COPPER_004_MSCS_DISTRICT_CABLING_SERVICES_managed_services_package.md`.
+    The raw Markdown contains the case title, customer profile, operational scale, budget, scope, assumptions, exclusions,
+    acceptance criteria, site details, stakeholders, and transition plan, but none of those facts landed as atoms.'
+  expected_behavior: 'Markdown SOW/managed-services packages should be parsed into heading-aware atoms: scope_item, quantity,
+    budget/price, site, constraint, exclusion, assumption, acceptance_criterion, stakeholder, and operational_handoff facts,
+    with section_path and line-range locators.'
+  suggested_fix: Add a Markdown parser at app/parsers/markdown.py and register `.md` artifacts in the ingest registry. Preserve
+    heading hierarchy, table rows, and line ranges; reuse the text/table atom classifiers used for TXT/DOCX and emit source-replay-friendly
+    locators. Backfill tests for every `*_managed_services_package.md` in this corpus.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - LOWVOLT_001_FLMD_COURTROOM_5D
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_AV_TRIO
+  - STRESS_BMS_SPECS
+  - STRESS_COVERAGE_GAPS
+  - STRESS_DOWNEY_CABLING
+  - STRESS_ITAD_PAIR
+  - STRESS_MULTI_CAM
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  - STRESS_VT_CAM
+  - STRESS_XLSX_RARE
+- finding_id: F005
+  case_id: LOWVOLT_001_FLMD_COURTROOM_5D
+  category: atom_omitted
+  severity: blocker
+  target_repo: parser-os
+  target_subpath: app/parsers/markdown.py
+  source_artifact: LOWVOLT_001_FLMD_COURTROOM_5D_managed_services_package.md
+  raw_evidence: |-
+    line 13: U.S. District Court - Middle District of Florida requires an execution-ready package for **courtroom AV structured cabling and shielded copper**.
+    line 17: - **Operational scale:** 36 shielded Cat6A drops with deductive alternate for 34, 2 fiber pairs, 1 rack cleanup, 1 demolition package, 1 certification workbook.
+  current_behavior: 'lineage/raw_vs_extracted.md reports parser `none/unknown` and `atoms extracted: 0` for `LOWVOLT_001_FLMD_COURTROOM_5D_managed_services_package.md`.
+    The raw Markdown contains the case title, customer profile, operational scale, budget, scope, assumptions, exclusions,
+    acceptance criteria, site details, stakeholders, and transition plan, but none of those facts landed as atoms.'
+  expected_behavior: 'Markdown SOW/managed-services packages should be parsed into heading-aware atoms: scope_item, quantity,
+    budget/price, site, constraint, exclusion, assumption, acceptance_criterion, stakeholder, and operational_handoff facts,
+    with section_path and line-range locators.'
+  suggested_fix: Add a Markdown parser at app/parsers/markdown.py and register `.md` artifacts in the ingest registry. Preserve
+    heading hierarchy, table rows, and line ranges; reuse the text/table atom classifiers used for TXT/DOCX and emit source-replay-friendly
+    locators. Backfill tests for every `*_managed_services_package.md` in this corpus.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_AV_TRIO
+  - STRESS_BMS_SPECS
+  - STRESS_COVERAGE_GAPS
+  - STRESS_DOWNEY_CABLING
+  - STRESS_ITAD_PAIR
+  - STRESS_MULTI_CAM
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  - STRESS_VT_CAM
+  - STRESS_XLSX_RARE
+- finding_id: F006
+  case_id: STRESS_ACS_USC_PIEDMONT
+  category: atom_omitted
+  severity: blocker
+  target_repo: parser-os
+  target_subpath: app/parsers/markdown.py
+  source_artifact: STRESS_ACS_USC_PIEDMONT_managed_services_package.md
+  raw_evidence: |-
+    line 13: Composite: USC access-control standard and City of Piedmont project requires an execution-ready package for **access control and Genetec Synergis modernization**.
+    line 17: - **Operational scale:** 38 controlled doors, 8 Synergis Cloud Link appliances, 42 HID readers, 12 DPS replacements, 6 REX replacements, 1 Streamvault substitution review.
+  current_behavior: 'lineage/raw_vs_extracted.md reports parser `none/unknown` and `atoms extracted: 0` for `STRESS_ACS_USC_PIEDMONT_managed_services_package.md`.
+    The raw Markdown contains the case title, customer profile, operational scale, budget, scope, assumptions, exclusions,
+    acceptance criteria, site details, stakeholders, and transition plan, but none of those facts landed as atoms.'
+  expected_behavior: 'Markdown SOW/managed-services packages should be parsed into heading-aware atoms: scope_item, quantity,
+    budget/price, site, constraint, exclusion, assumption, acceptance_criterion, stakeholder, and operational_handoff facts,
+    with section_path and line-range locators.'
+  suggested_fix: Add a Markdown parser at app/parsers/markdown.py and register `.md` artifacts in the ingest registry. Preserve
+    heading hierarchy, table rows, and line ranges; reuse the text/table atom classifiers used for TXT/DOCX and emit source-replay-friendly
+    locators. Backfill tests for every `*_managed_services_package.md` in this corpus.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - LOWVOLT_001_FLMD_COURTROOM_5D
+  - STRESS_AV_TRIO
+  - STRESS_BMS_SPECS
+  - STRESS_COVERAGE_GAPS
+  - STRESS_DOWNEY_CABLING
+  - STRESS_ITAD_PAIR
+  - STRESS_MULTI_CAM
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  - STRESS_VT_CAM
+  - STRESS_XLSX_RARE
+- finding_id: F007
+  case_id: STRESS_AV_TRIO
+  category: atom_omitted
+  severity: blocker
+  target_repo: parser-os
+  target_subpath: app/parsers/markdown.py
+  source_artifact: STRESS_AV_TRIO_managed_services_package.md
+  raw_evidence: |-
+    line 13: Composite conference and boardroom AV portfolio requires an execution-ready package for **AV, unified communications, conferencing**.
+    line 17: - **Operational scale:** ICMA supports 5,000-6,000 attendees and temporary rooms; Hayward Bosch DICENTIS chamber system; AMBAG/MBARD unresolved 5 directors vs 7 voting licenses.
+  current_behavior: 'lineage/raw_vs_extracted.md reports parser `none/unknown` and `atoms extracted: 0` for `STRESS_AV_TRIO_managed_services_package.md`.
+    The raw Markdown contains the case title, customer profile, operational scale, budget, scope, assumptions, exclusions,
+    acceptance criteria, site details, stakeholders, and transition plan, but none of those facts landed as atoms.'
+  expected_behavior: 'Markdown SOW/managed-services packages should be parsed into heading-aware atoms: scope_item, quantity,
+    budget/price, site, constraint, exclusion, assumption, acceptance_criterion, stakeholder, and operational_handoff facts,
+    with section_path and line-range locators.'
+  suggested_fix: Add a Markdown parser at app/parsers/markdown.py and register `.md` artifacts in the ingest registry. Preserve
+    heading hierarchy, table rows, and line ranges; reuse the text/table atom classifiers used for TXT/DOCX and emit source-replay-friendly
+    locators. Backfill tests for every `*_managed_services_package.md` in this corpus.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - LOWVOLT_001_FLMD_COURTROOM_5D
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_BMS_SPECS
+  - STRESS_COVERAGE_GAPS
+  - STRESS_DOWNEY_CABLING
+  - STRESS_ITAD_PAIR
+  - STRESS_MULTI_CAM
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  - STRESS_VT_CAM
+  - STRESS_XLSX_RARE
+- finding_id: F008
+  case_id: STRESS_BMS_SPECS
+  category: atom_omitted
+  severity: blocker
+  target_repo: parser-os
+  target_subpath: app/parsers/markdown.py
+  source_artifact: STRESS_BMS_SPECS_managed_services_package.md
+  raw_evidence: |-
+    line 13: Composite: Wayne State University and University of Houston BMS standards requires an execution-ready package for **building management systems and OT monitoring**.
+    line 17: - **Operational scale:** 24 Niagara stations, 68 JACE appliances, 1,850 BACnet/IP objects monitored, 9 BMS servers, 14 high-priority AHU/chiller integrations.
+  current_behavior: 'lineage/raw_vs_extracted.md reports parser `none/unknown` and `atoms extracted: 0` for `STRESS_BMS_SPECS_managed_services_package.md`.
+    The raw Markdown contains the case title, customer profile, operational scale, budget, scope, assumptions, exclusions,
+    acceptance criteria, site details, stakeholders, and transition plan, but none of those facts landed as atoms.'
+  expected_behavior: 'Markdown SOW/managed-services packages should be parsed into heading-aware atoms: scope_item, quantity,
+    budget/price, site, constraint, exclusion, assumption, acceptance_criterion, stakeholder, and operational_handoff facts,
+    with section_path and line-range locators.'
+  suggested_fix: Add a Markdown parser at app/parsers/markdown.py and register `.md` artifacts in the ingest registry. Preserve
+    heading hierarchy, table rows, and line ranges; reuse the text/table atom classifiers used for TXT/DOCX and emit source-replay-friendly
+    locators. Backfill tests for every `*_managed_services_package.md` in this corpus.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - LOWVOLT_001_FLMD_COURTROOM_5D
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_AV_TRIO
+  - STRESS_COVERAGE_GAPS
+  - STRESS_DOWNEY_CABLING
+  - STRESS_ITAD_PAIR
+  - STRESS_MULTI_CAM
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  - STRESS_VT_CAM
+  - STRESS_XLSX_RARE
+- finding_id: F009
+  case_id: STRESS_COVERAGE_GAPS
+  category: atom_omitted
+  severity: blocker
+  target_repo: parser-os
+  target_subpath: app/parsers/markdown.py
+  source_artifact: STRESS_COVERAGE_GAPS_managed_services_package.md
+  raw_evidence: |-
+    line 13: Composite infrastructure domain coverage-gap program requires an execution-ready package for **synthetic domain pack for fire safety, DAS, electrical, ITAD**.
+    line 17: - **Operational scale:** Synthetic reference set: 186 fire alarm devices, 1 DAS headend, 54 DAS antennas, 12 electrical panels, 6 UPS circuits, 320 ITAD assets.
+  current_behavior: 'lineage/raw_vs_extracted.md reports parser `none/unknown` and `atoms extracted: 0` for `STRESS_COVERAGE_GAPS_managed_services_package.md`.
+    The raw Markdown contains the case title, customer profile, operational scale, budget, scope, assumptions, exclusions,
+    acceptance criteria, site details, stakeholders, and transition plan, but none of those facts landed as atoms.'
+  expected_behavior: 'Markdown SOW/managed-services packages should be parsed into heading-aware atoms: scope_item, quantity,
+    budget/price, site, constraint, exclusion, assumption, acceptance_criterion, stakeholder, and operational_handoff facts,
+    with section_path and line-range locators.'
+  suggested_fix: Add a Markdown parser at app/parsers/markdown.py and register `.md` artifacts in the ingest registry. Preserve
+    heading hierarchy, table rows, and line ranges; reuse the text/table atom classifiers used for TXT/DOCX and emit source-replay-friendly
+    locators. Backfill tests for every `*_managed_services_package.md` in this corpus.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - LOWVOLT_001_FLMD_COURTROOM_5D
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_AV_TRIO
+  - STRESS_BMS_SPECS
+  - STRESS_DOWNEY_CABLING
+  - STRESS_ITAD_PAIR
+  - STRESS_MULTI_CAM
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  - STRESS_VT_CAM
+  - STRESS_XLSX_RARE
+- finding_id: F010
+  case_id: STRESS_DOWNEY_CABLING
+  category: atom_omitted
+  severity: blocker
+  target_repo: parser-os
+  target_subpath: app/parsers/markdown.py
+  source_artifact: STRESS_DOWNEY_CABLING_managed_services_package.md
+  raw_evidence: |-
+    line 13: Downey Unified School District requires an execution-ready package for **multi-site CAT6 cabling and IP phone readiness**.
+    line 17: - **Operational scale:** 19 sites, 1,148 new Cat6 phone/data drops, 19 MDF reviews, 63 IDF closets, 1,250 labeled patch cords, 19 closeout binders.
+  current_behavior: 'lineage/raw_vs_extracted.md reports parser `none/unknown` and `atoms extracted: 0` for `STRESS_DOWNEY_CABLING_managed_services_package.md`.
+    The raw Markdown contains the case title, customer profile, operational scale, budget, scope, assumptions, exclusions,
+    acceptance criteria, site details, stakeholders, and transition plan, but none of those facts landed as atoms.'
+  expected_behavior: 'Markdown SOW/managed-services packages should be parsed into heading-aware atoms: scope_item, quantity,
+    budget/price, site, constraint, exclusion, assumption, acceptance_criterion, stakeholder, and operational_handoff facts,
+    with section_path and line-range locators.'
+  suggested_fix: Add a Markdown parser at app/parsers/markdown.py and register `.md` artifacts in the ingest registry. Preserve
+    heading hierarchy, table rows, and line ranges; reuse the text/table atom classifiers used for TXT/DOCX and emit source-replay-friendly
+    locators. Backfill tests for every `*_managed_services_package.md` in this corpus.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - LOWVOLT_001_FLMD_COURTROOM_5D
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_AV_TRIO
+  - STRESS_BMS_SPECS
+  - STRESS_COVERAGE_GAPS
+  - STRESS_ITAD_PAIR
+  - STRESS_MULTI_CAM
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  - STRESS_VT_CAM
+  - STRESS_XLSX_RARE
+- finding_id: F011
+  case_id: STRESS_ITAD_PAIR
+  category: atom_omitted
+  severity: blocker
+  target_repo: parser-os
+  target_subpath: app/parsers/markdown.py
+  source_artifact: STRESS_ITAD_PAIR_managed_services_package.md
+  raw_evidence: |-
+    line 13: Composite government ITAD program requires an execution-ready package for **ITAD, secure data destruction, recycling evidence**.
+    line 17: - **Operational scale:** Synthetic supplement baseline: 420 laptops/desktops, 72 monitors, 38 network devices, 19 servers/storage arrays, 1,250 loose drives/media, 24 pickups annually.
+  current_behavior: 'lineage/raw_vs_extracted.md reports parser `none/unknown` and `atoms extracted: 0` for `STRESS_ITAD_PAIR_managed_services_package.md`.
+    The raw Markdown contains the case title, customer profile, operational scale, budget, scope, assumptions, exclusions,
+    acceptance criteria, site details, stakeholders, and transition plan, but none of those facts landed as atoms.'
+  expected_behavior: 'Markdown SOW/managed-services packages should be parsed into heading-aware atoms: scope_item, quantity,
+    budget/price, site, constraint, exclusion, assumption, acceptance_criterion, stakeholder, and operational_handoff facts,
+    with section_path and line-range locators.'
+  suggested_fix: Add a Markdown parser at app/parsers/markdown.py and register `.md` artifacts in the ingest registry. Preserve
+    heading hierarchy, table rows, and line ranges; reuse the text/table atom classifiers used for TXT/DOCX and emit source-replay-friendly
+    locators. Backfill tests for every `*_managed_services_package.md` in this corpus.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - LOWVOLT_001_FLMD_COURTROOM_5D
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_AV_TRIO
+  - STRESS_BMS_SPECS
+  - STRESS_COVERAGE_GAPS
+  - STRESS_DOWNEY_CABLING
+  - STRESS_MULTI_CAM
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  - STRESS_VT_CAM
+  - STRESS_XLSX_RARE
+- finding_id: F012
+  case_id: STRESS_MULTI_CAM
+  category: atom_omitted
+  severity: blocker
+  target_repo: parser-os
+  target_subpath: app/parsers/markdown.py
+  source_artifact: STRESS_MULTI_CAM_managed_services_package.md
+  raw_evidence: |-
+    line 13: Composite public-sector camera operations portfolio requires an execution-ready package for **security camera, VMS maintenance, analytics**.
+    line 17: - **Operational scale:** Milwaukee 48 event pole cameras, Chicago Housing Authority 7,762 maintained cameras, Santa Monica 120 analytics-enabled pilot cameras; quantities are not merged.
+  current_behavior: 'lineage/raw_vs_extracted.md reports parser `none/unknown` and `atoms extracted: 0` for `STRESS_MULTI_CAM_managed_services_package.md`.
+    The raw Markdown contains the case title, customer profile, operational scale, budget, scope, assumptions, exclusions,
+    acceptance criteria, site details, stakeholders, and transition plan, but none of those facts landed as atoms.'
+  expected_behavior: 'Markdown SOW/managed-services packages should be parsed into heading-aware atoms: scope_item, quantity,
+    budget/price, site, constraint, exclusion, assumption, acceptance_criterion, stakeholder, and operational_handoff facts,
+    with section_path and line-range locators.'
+  suggested_fix: Add a Markdown parser at app/parsers/markdown.py and register `.md` artifacts in the ingest registry. Preserve
+    heading hierarchy, table rows, and line ranges; reuse the text/table atom classifiers used for TXT/DOCX and emit source-replay-friendly
+    locators. Backfill tests for every `*_managed_services_package.md` in this corpus.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - LOWVOLT_001_FLMD_COURTROOM_5D
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_AV_TRIO
+  - STRESS_BMS_SPECS
+  - STRESS_COVERAGE_GAPS
+  - STRESS_DOWNEY_CABLING
+  - STRESS_ITAD_PAIR
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  - STRESS_VT_CAM
+  - STRESS_XLSX_RARE
+- finding_id: F013
+  case_id: STRESS_NATOMAS_WIRELESS
+  category: atom_omitted
+  severity: blocker
+  target_repo: parser-os
+  target_subpath: app/parsers/markdown.py
+  source_artifact: STRESS_NATOMAS_WIRELESS_managed_services_package.md
+  raw_evidence: |-
+    line 13: Natomas Unified School District requires an execution-ready package for **wireless refresh and E-rate procurement controls**.
+    line 17: - **Operational scale:** 136 Cisco CW9166I-B APs from eligible matrix, unfunded planning placeholder up to 500 APs across future phases, 12 mGig switch allowances.
+  current_behavior: 'lineage/raw_vs_extracted.md reports parser `none/unknown` and `atoms extracted: 0` for `STRESS_NATOMAS_WIRELESS_managed_services_package.md`.
+    The raw Markdown contains the case title, customer profile, operational scale, budget, scope, assumptions, exclusions,
+    acceptance criteria, site details, stakeholders, and transition plan, but none of those facts landed as atoms.'
+  expected_behavior: 'Markdown SOW/managed-services packages should be parsed into heading-aware atoms: scope_item, quantity,
+    budget/price, site, constraint, exclusion, assumption, acceptance_criterion, stakeholder, and operational_handoff facts,
+    with section_path and line-range locators.'
+  suggested_fix: Add a Markdown parser at app/parsers/markdown.py and register `.md` artifacts in the ingest registry. Preserve
+    heading hierarchy, table rows, and line ranges; reuse the text/table atom classifiers used for TXT/DOCX and emit source-replay-friendly
+    locators. Backfill tests for every `*_managed_services_package.md` in this corpus.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - LOWVOLT_001_FLMD_COURTROOM_5D
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_AV_TRIO
+  - STRESS_BMS_SPECS
+  - STRESS_COVERAGE_GAPS
+  - STRESS_DOWNEY_CABLING
+  - STRESS_ITAD_PAIR
+  - STRESS_MULTI_CAM
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  - STRESS_VT_CAM
+  - STRESS_XLSX_RARE
+- finding_id: F014
+  case_id: STRESS_NET_MAINT
+  category: atom_omitted
+  severity: blocker
+  target_repo: parser-os
+  target_subpath: app/parsers/markdown.py
+  source_artifact: STRESS_NET_MAINT_managed_services_package.md
+  raw_evidence: |-
+    line 13: Composite municipal/transportation network maintenance portfolio requires an execution-ready package for **network/security maintenance, managed VPN, camera/access repair**.
+    line 17: - **Operational scale:** Mobile 1,523 cameras; OCTA security-system repair portfolio; MS ITS managed VPN spreadsheet rows normalized into CMDB; 220 VPN endpoints reference.
+  current_behavior: 'lineage/raw_vs_extracted.md reports parser `none/unknown` and `atoms extracted: 0` for `STRESS_NET_MAINT_managed_services_package.md`.
+    The raw Markdown contains the case title, customer profile, operational scale, budget, scope, assumptions, exclusions,
+    acceptance criteria, site details, stakeholders, and transition plan, but none of those facts landed as atoms.'
+  expected_behavior: 'Markdown SOW/managed-services packages should be parsed into heading-aware atoms: scope_item, quantity,
+    budget/price, site, constraint, exclusion, assumption, acceptance_criterion, stakeholder, and operational_handoff facts,
+    with section_path and line-range locators.'
+  suggested_fix: Add a Markdown parser at app/parsers/markdown.py and register `.md` artifacts in the ingest registry. Preserve
+    heading hierarchy, table rows, and line ranges; reuse the text/table atom classifiers used for TXT/DOCX and emit source-replay-friendly
+    locators. Backfill tests for every `*_managed_services_package.md` in this corpus.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - LOWVOLT_001_FLMD_COURTROOM_5D
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_AV_TRIO
+  - STRESS_BMS_SPECS
+  - STRESS_COVERAGE_GAPS
+  - STRESS_DOWNEY_CABLING
+  - STRESS_ITAD_PAIR
+  - STRESS_MULTI_CAM
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_PAGING_TRIO
+  - STRESS_VT_CAM
+  - STRESS_XLSX_RARE
+- finding_id: F015
+  case_id: STRESS_PAGING_TRIO
+  category: atom_omitted
+  severity: blocker
+  target_repo: parser-os
+  target_subpath: app/parsers/markdown.py
+  source_artifact: STRESS_PAGING_TRIO_managed_services_package.md
+  raw_evidence: |-
+    line 13: Composite higher-education mass notification portfolio requires an execution-ready package for **paging, intercom, mass notification**.
+    line 17: - **Operational scale:** UMaine 7 universities and 18,664 active users; San Jacinto 7-year term; endpoints include SMS, email, mobile app, desktop, IP speaker, and analog paging gateway.
+  current_behavior: 'lineage/raw_vs_extracted.md reports parser `none/unknown` and `atoms extracted: 0` for `STRESS_PAGING_TRIO_managed_services_package.md`.
+    The raw Markdown contains the case title, customer profile, operational scale, budget, scope, assumptions, exclusions,
+    acceptance criteria, site details, stakeholders, and transition plan, but none of those facts landed as atoms.'
+  expected_behavior: 'Markdown SOW/managed-services packages should be parsed into heading-aware atoms: scope_item, quantity,
+    budget/price, site, constraint, exclusion, assumption, acceptance_criterion, stakeholder, and operational_handoff facts,
+    with section_path and line-range locators.'
+  suggested_fix: Add a Markdown parser at app/parsers/markdown.py and register `.md` artifacts in the ingest registry. Preserve
+    heading hierarchy, table rows, and line ranges; reuse the text/table atom classifiers used for TXT/DOCX and emit source-replay-friendly
+    locators. Backfill tests for every `*_managed_services_package.md` in this corpus.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - LOWVOLT_001_FLMD_COURTROOM_5D
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_AV_TRIO
+  - STRESS_BMS_SPECS
+  - STRESS_COVERAGE_GAPS
+  - STRESS_DOWNEY_CABLING
+  - STRESS_ITAD_PAIR
+  - STRESS_MULTI_CAM
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_NET_MAINT
+  - STRESS_VT_CAM
+  - STRESS_XLSX_RARE
+- finding_id: F016
+  case_id: STRESS_VT_CAM
+  category: atom_omitted
+  severity: blocker
+  target_repo: parser-os
+  target_subpath: app/parsers/markdown.py
+  source_artifact: STRESS_VT_CAM_managed_services_package.md
+  raw_evidence: |-
+    line 13: Virginia Tech requires an execution-ready package for **enterprise video surveillance and SOC/NOC camera monitoring**.
+    line 17: - **Operational scale:** 250 initial camera license pool, 84 cameras at Perry Street, architecture preserved for 2,500 cameras, 30-day continuous retention and 90-day incident export.
+  current_behavior: 'lineage/raw_vs_extracted.md reports parser `none/unknown` and `atoms extracted: 0` for `STRESS_VT_CAM_managed_services_package.md`.
+    The raw Markdown contains the case title, customer profile, operational scale, budget, scope, assumptions, exclusions,
+    acceptance criteria, site details, stakeholders, and transition plan, but none of those facts landed as atoms.'
+  expected_behavior: 'Markdown SOW/managed-services packages should be parsed into heading-aware atoms: scope_item, quantity,
+    budget/price, site, constraint, exclusion, assumption, acceptance_criterion, stakeholder, and operational_handoff facts,
+    with section_path and line-range locators.'
+  suggested_fix: Add a Markdown parser at app/parsers/markdown.py and register `.md` artifacts in the ingest registry. Preserve
+    heading hierarchy, table rows, and line ranges; reuse the text/table atom classifiers used for TXT/DOCX and emit source-replay-friendly
+    locators. Backfill tests for every `*_managed_services_package.md` in this corpus.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - LOWVOLT_001_FLMD_COURTROOM_5D
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_AV_TRIO
+  - STRESS_BMS_SPECS
+  - STRESS_COVERAGE_GAPS
+  - STRESS_DOWNEY_CABLING
+  - STRESS_ITAD_PAIR
+  - STRESS_MULTI_CAM
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  - STRESS_XLSX_RARE
+- finding_id: F017
+  case_id: STRESS_XLSX_RARE
+  category: atom_omitted
+  severity: blocker
+  target_repo: parser-os
+  target_subpath: app/parsers/markdown.py
+  source_artifact: STRESS_XLSX_RARE_managed_services_package.md
+  raw_evidence: |-
+    line 13: Composite public-sector procurement analytics program requires an execution-ready package for **procurement operations and XLSX evidence normalization**.
+    line 17: - **Operational scale:** CalSAWS 484 Q&A rows; NJEDA tiered AUM fee schedule template; legacy XLS vendor pricelist requiring conversion controls.
+  current_behavior: 'lineage/raw_vs_extracted.md reports parser `none/unknown` and `atoms extracted: 0` for `STRESS_XLSX_RARE_managed_services_package.md`.
+    The raw Markdown contains the case title, customer profile, operational scale, budget, scope, assumptions, exclusions,
+    acceptance criteria, site details, stakeholders, and transition plan, but none of those facts landed as atoms.'
+  expected_behavior: 'Markdown SOW/managed-services packages should be parsed into heading-aware atoms: scope_item, quantity,
+    budget/price, site, constraint, exclusion, assumption, acceptance_criterion, stakeholder, and operational_handoff facts,
+    with section_path and line-range locators.'
+  suggested_fix: Add a Markdown parser at app/parsers/markdown.py and register `.md` artifacts in the ingest registry. Preserve
+    heading hierarchy, table rows, and line ranges; reuse the text/table atom classifiers used for TXT/DOCX and emit source-replay-friendly
+    locators. Backfill tests for every `*_managed_services_package.md` in this corpus.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - LOWVOLT_001_FLMD_COURTROOM_5D
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_AV_TRIO
+  - STRESS_BMS_SPECS
+  - STRESS_COVERAGE_GAPS
+  - STRESS_DOWNEY_CABLING
+  - STRESS_ITAD_PAIR
+  - STRESS_MULTI_CAM
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  - STRESS_VT_CAM
+- finding_id: F018
+  case_id: COPPER_003_BANKS_NETWORK_MODERNIZATION
+  category: atom_text_garbled
+  severity: warning
+  target_repo: parser-os
+  target_subpath: app/parsers/csv.py
+  source_artifact: site_list.csv
+  raw_evidence: |-
+    line 2: S01,Banks High School / District Core,"13050 NW Main St, Banks, OR 97106",2 floors plus gym mezzanine,School day 7:00 AM-4:00 PM; work after dismissal,MDF-HS-CORE,IDF-HS-A; IDF-HS-B; IDF-GYM,Ziply Fiber DIA; Comcast Business backup,"SIS, testing labs, cameras, VoIP",badge and escort; gym floor protection
+    line 3: S02,Banks Elementary,"42350 NW Trellis Way, Banks, OR 97106",1 floor,7:00 AM-5:30 PM,MDF-ES,IDF-ES-1,district fiber from high school,classroom Wi-Fi and testing carts,custodial escort
+  current_behavior: The parser emitted generic access atoms `atm_5f731d670f357e26` and `atm_5a4731eef0d6305b` with text `Site
+    access constraint`; the actual restrictions (`badge and escort; gym floor protection` and `custodial escort`) are not
+    preserved in the atom text.
+  expected_behavior: 'Site access atoms should preserve the actual restriction text and remain attached to the site row, e.g.
+    `Site access restriction: badge and escort; gym floor protection` for Banks High School / District Core and `custodial
+    escort` for Banks Elementary.'
+  suggested_fix: Update app/parsers/csv.py site_list handling to emit row-specific `site_access`/constraint atoms from the
+    `Access Restrictions` column and include the originating `Site ID`/`Site` in the atom payload or metadata. Add a regression
+    test that asserts the phrase after the final comma is present in the atom text.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - STRESS_BMS_SPECS
+  - STRESS_MULTI_CAM
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  related_atom_ids:
+  - atm_5f731d670f357e26
+  - atm_5a4731eef0d6305b
+- finding_id: F019
+  case_id: COPPER_003_BANKS_NETWORK_MODERNIZATION
+  category: atom_omitted
+  severity: warning
+  target_repo: parser-os
+  target_subpath: app/parsers/csv.py
+  source_artifact: site_list.csv
+  raw_evidence: 'line 2: S01,Banks High School / District Core,"13050 NW Main St, Banks, OR 97106",2 floors plus gym mezzanine,School
+    day 7:00 AM-4:00 PM; work after dismissal,MDF-HS-CORE,IDF-HS-A; IDF-HS-B; IDF-GYM,Ziply Fiber DIA; Comcast Business backup,"SIS,
+    testing labs, cameras, VoIP",badge and escort; gym floor protection'
+  current_behavior: Only site, area, MDF, and generic access atoms were emitted (`atm_14f184f69aefdc93`, `atm_bf119b14e6e87a48`,
+    `atm_ecc2efc18ce8b412`, `atm_5f731d670f357e26`). The address, operating hours, IDF list, WAN/providers, and critical systems
+    did not get atoms.
+  expected_behavior: Site-list rows should emit structured atoms for address, operating_hours, MDF, IDF list, WAN/provider,
+    critical_systems, and access restrictions so site_reality and scope brains have complete site context.
+  suggested_fix: In app/parsers/csv.py, add a `site_list` table schema with per-column emitters. Preserve all row fields as
+    child atoms linked to the primary `site` entity; include `row=2` and source column names in locators.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - STRESS_MULTI_CAM
+  - STRESS_NET_MAINT
+  - STRESS_XLSX_RARE
+  - STRESS_COVERAGE_GAPS
+  related_atom_ids:
+  - atm_14f184f69aefdc93
+  - atm_bf119b14e6e87a48
+  - atm_ecc2efc18ce8b412
+  - atm_5f731d670f357e26
+- finding_id: F020
+  case_id: COPPER_003_BANKS_NETWORK_MODERNIZATION
+  category: site_clustering_missed
+  severity: blocker
+  target_repo: Orbitbrief-Core
+  target_subpath: src/orbitbrief_core/world_model/site_reality/clusterer.py
+  source_artifact: site_list.csv
+  raw_evidence: |-
+    line 2: S01,Banks High School / District Core,"13050 NW Main St, Banks, OR 97106",2 floors plus gym mezzanine,School day 7:00 AM-4:00 PM; work after dismissal,MDF-HS-CORE,IDF-HS-A; IDF-HS-B; IDF-GYM,Ziply Fiber DIA; Comcast Business backup,"SIS, testing labs, cameras, VoIP",badge and escort; gym floor protection
+    line 3: S02,Banks Elementary,"42350 NW Trellis Way, Banks, OR 97106",1 floor,7:00 AM-5:30 PM,MDF-ES,IDF-ES-1,district fiber from high school,classroom Wi-Fi and testing carts,custodial escort
+  current_behavior: site_reality.md lists clusters for `banks elementary`, `cisa cybersecurity incident`, `commscope cat6a
+    cmp`, `site`, and `vulnerability response playbooks`, but does not create a cluster for the real site `Banks High School
+    / District Core` despite atom `atm_14f184f69aefdc93` (`Site Banks High School / District Core`).
+  expected_behavior: Both real sites from the approved site roster should become site clusters, and unrelated concepts should
+    not become physical-site clusters.
+  suggested_fix: In site_reality/clusterer.py, seed clusters from site-list/entity atoms before graph expansion, require site-like
+    source columns or address context for site entities, and filter section titles/product names from candidate site keys.
+    Add a regression asserting both Banks sites appear and no CISA/product clusters appear.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - STRESS_BMS_SPECS
+  - STRESS_NATOMAS_WIRELESS
+  related_atom_ids:
+  - atm_14f184f69aefdc93
+  - atm_5e29e9aa853b30c9
+  related_entity_keys:
+  - site:banks_elementary
+  - site:cisa_cybersecurity_incident
+  - site:commscope_cat6a_cmp
+- finding_id: F021
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: site_canonical_name_wrong
+  severity: warning
+  target_repo: Orbitbrief-Core
+  target_subpath: src/orbitbrief_core/world_model/site_reality/clusterer.py
+  source_artifact: COPPER_001_SPRING_LAKE_AUDITORIUM_noc_soc_onboarding_packet_weirdfmt.pdf
+  raw_evidence: |-
+    PDF page 2 section title: `Incident and Vulnerability Response Workflow`.
+    PDF page 2 cyber/logging notes include: `Sentinel workspace connection must be verified before SOC go-live` and `retain firewall/VPN logs for at least 365 days unless customer policy overrides`.
+  current_behavior: site_reality.md creates physical-site clusters `site:cisa_cybersecurity_incident` and `site:vulnerability_response_playbooks`
+    from NOC/SOC PDF section/reference text. These are documents/workflow concepts, not sites.
+  expected_behavior: Site clustering should exclude section titles, reference document titles, playbook names, and cyber workflow
+    labels unless they are tied to an address/site-roster row.
+  suggested_fix: Add a site candidate validator in site_reality/clusterer.py that requires evidence from `Site`, `Address`,
+    `MDF/IDF`, site-list rows, or location patterns. Add negative keywords for `incident`, `response`, `playbook`, `vulnerability`,
+    `CISA`, `ServiceNow`, and vendor/tool names when they lack address context.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - STRESS_ACS_USC_PIEDMONT
+  - STRESS_BMS_SPECS
+  - STRESS_MULTI_CAM
+  - STRESS_NET_MAINT
+  related_entity_keys:
+  - site:cisa_cybersecurity_incident
+  - site:vulnerability_response_playbooks
+- finding_id: F022
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: entity_canonical_name_wrong
+  severity: warning
+  target_repo: parser-os
+  target_subpath: app/domain/entities.py
+  source_artifact: license_support_matrix.csv
+  raw_evidence: 'line 4: Belden Cat6 CMP,Wesco/Anixter,TBD contract ID,2027-08-30,8x5 vendor support unless noted,Procurement,Renew
+    90 days prior; SLA exclusion if expired'
+  current_behavior: entities_and_edges.md creates `site:belden_cat6_cmp` with type `site` and site_reality surfaces `belden
+    cat6 cmp` as a physical site. The underlying atom is `atm_427ba3725aeb0169`, a license/support matrix row for a cable
+    product, not a site.
+  expected_behavior: Belden Cat6 CMP should canonicalize as a product/part/material entity and never as a `site:*` key.
+  suggested_fix: Tighten entity normalization in app/domain/entities.py so `Product` column values from support/license/BOM
+    matrices map to `part` or `device` families, not site. Add source-column-aware entity type hints and a product-material
+    negative filter in site extraction.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  - STRESS_DOWNEY_CABLING
+  - STRESS_NATOMAS_WIRELESS
+  related_atom_ids:
+  - atm_427ba3725aeb0169
+  related_entity_keys:
+  - site:belden_cat6_cmp
+- finding_id: F023
+  case_id: STRESS_BMS_SPECS
+  category: site_canonical_name_wrong
+  severity: warning
+  target_repo: Orbitbrief-Core
+  target_subpath: src/orbitbrief_core/world_model/site_reality/clusterer.py
+  source_artifact: site_list.csv
+  raw_evidence: |-
+    line 2: S01,Wayne State Science Building Reference,"Detroit, MI 48202",research/academic building,facilities 24x7; lab areas scheduled,MDF-FAC,"BMS panel rooms B1, 2M, roof penthouse",campus fiber,"HVAC, labs, BAS",facilities escort
+    line 3: S02,University of Houston Engineering Building Reference,"Houston, TX 77204",academic/research building,facilities 24x7,MDF-UH-ENG,MPC-1 through MPC-6,campus fiber,"AHUs, chillers, VAV controls",hot-work permit as applicable
+  current_behavior: site_reality.md omits both real BMS sites and instead includes `palo_alto_pa_440`, `servicenow_event_mgmt`,
+    `cisa_cybersecurity_incident`, `vulnerability_response_playbooks`, and `site`.
+  expected_behavior: Site clusters should be `Wayne State Science Building Reference` and `University of Houston Engineering
+    Building Reference`; products and monitoring tools should be excluded.
+  suggested_fix: Prioritize approved site-roster atoms and penalize product/tool entities during site_reality clustering.
+    Add a required site-roster recall test for STRESS_BMS_SPECS and a negative test that ServiceNow/Palo Alto cannot be canonical
+    site names without an address/site column.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_001_SPRING_LAKE_AUDITORIUM
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_DOWNEY_CABLING
+  related_atom_ids:
+  - atm_dae9c8c1862cdb59
+  - atm_62c47ee98cdf8528
+  related_entity_keys:
+  - site:palo_alto_pa_440
+  - site:servicenow_event_mgmt
+- finding_id: F024
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: atom_text_garbled
+  severity: warning
+  target_repo: parser-os
+  target_subpath: app/parsers/pdf.py
+  source_artifact: COPPER_001_SPRING_LAKE_AUDITORIUM_site_survey_field_packet_weirdscan.pdf
+  raw_evidence: 'PDF page 3, `Rack Elevation - Not To Scale / Field Draft` visual rack shows separate RU labels and items:
+    `U30` beside `Spare U - do not fill`; lower rack labels include `Owner Device`, `Fiber LIU`, `Switch Stack 2`, `Switch
+    Stack 1`, `Cable Manager`, `Patch Panel A`, `Blank`, `UPS - lower rail`. The adjacent port map is a separate table with
+    rows such as `Port Gi1/0/1 | Patch PP-04-08 | VLAN/Use BMS | Note bad label`.'
+  current_behavior: 'The PDF parser emitted garbled table atoms that merge unrelated rack labels, e.g. `atm_0c200dd7739dc3bb`
+    text `Switch Stack 2: Switch Stack 1`, `atm_23ad180a97578dd5` text `U30: U12 | Spare U - do not fill: Switch Stack 2`,
+    and `atm_0e8c9e7992b9738a` text `Spare U - do not fill: Fiber LIU`.'
+  expected_behavior: The rack elevation should produce separate location/fixture atoms or a structured rack_elevation table
+    preserving RU ranges and item labels without cross-column merges.
+  suggested_fix: 'Improve app/parsers/pdf.py table/diagram extraction for mixed layout pages: detect the rack-elevation diagram
+    as a spatial layout, cluster text by bounding boxes, and avoid treating left-side RU tick labels and colored item labels
+    as a rectangular table. Add a page-3 fixture test from this PDF.'
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - STRESS_DOWNEY_CABLING
+  - STRESS_NATOMAS_WIRELESS
+  related_atom_ids:
+  - atm_0c200dd7739dc3bb
+  - atm_23ad180a97578dd5
+  - atm_0e8c9e7992b9738a
+- finding_id: F025
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: atom_omitted
+  severity: warning
+  target_repo: parser-os
+  target_subpath: app/parsers/pdf.py
+  source_artifact: COPPER_001_SPRING_LAKE_AUDITORIUM_noc_soc_onboarding_packet_weirdfmt.pdf
+  raw_evidence: 'PDF page 2 workflow boxes: `Detect` - `Alert received or customer call opened`; `Triage` - `Correlate duplicate
+    CI/event noise`; `Contain` - `Apply approved runbook or isolate under CAB authority`; `Escalate` - `Route to customer/field/vendor
+    based on ownership`; `Recover` - `Validate service and monitor stability`; `Improve` - `Post-incident change/risk item`.'
+  current_behavior: No atom in extraction/atoms.md contains `Detect`, `Triage`, `Contain`, `Escalate`, `Recover`, or `Improve`.
+    The incident workflow diagram was skipped; only the runbook table and the cyber/logging paragraph were atomized.
+  expected_behavior: Process-flow boxes should emit ordered workflow/process_step atoms with page/box locators so the MSP/NOC
+    brief can summarize incident handling.
+  suggested_fix: Add a PDF block parser for diagram/text-box layouts in app/parsers/pdf.py. When a page has multiple bordered
+    text boxes in a horizontal sequence, emit process_step atoms ordered by x-coordinate with their title and description.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  - STRESS_VT_CAM
+  related_atom_ids: []
+- finding_id: F026
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: atom_omitted
+  severity: warning
+  target_repo: parser-os
+  target_subpath: app/parsers/pdf.py
+  source_artifact: COPPER_001_SPRING_LAKE_AUDITORIUM_noc_soc_onboarding_packet_weirdfmt.pdf
+  raw_evidence: 'PDF page 1 header fields: `CUSTOMER` = `Spring Lake Public Schools`; `SERVICE LINE` = `copper cabling and
+    low-voltage AV cabling`; `TARGET GO-LIVE` = `2026-07-23`.'
+  current_behavior: The alert-routing table rows were extracted, but no atom contains `Spring Lake Public Schools`, `copper
+    cabling and low-voltage AV cabling` as the service-line header field, or `2026-07-23`. These header facts are missing
+    from atoms and lineage.
+  expected_behavior: Header/form fields should produce customer, service_line, and target_date/milestone atoms with page-level
+    locators.
+  suggested_fix: Extend app/parsers/pdf.py form-card detection to recognize two-row bordered key/value boxes before tables.
+    Emit atoms using the label text as the atom type/key and the value text as content; add coverage for `TARGET GO-LIVE`.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - STRESS_BMS_SPECS
+  - STRESS_VT_CAM
+  related_atom_ids: []
+- finding_id: F027
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: atom_text_garbled
+  severity: warning
+  target_repo: parser-os
+  target_subpath: app/parsers/pdf.py
+  source_artifact: COPPER_001_SPRING_LAKE_AUDITORIUM_noc_soc_onboarding_packet_weirdfmt.pdf
+  raw_evidence: 'PDF page 1 `Monitoring Tool Intake` checkboxes: checked `LogicMonitor`, checked `Microsoft Sentinel`, unchecked
+    `ServiceNow Event Mgmt`, checked `Aruba Central`, unchecked `Meraki Dashboard`, checked `Genetec Security Center`, unchecked
+    `PRTG`, unchecked `Datadog`.'
+  current_behavior: Atom `atm_9b130dda1d232953` collapses checkbox state into text `x LogicMonitor x Microsoft Sentinel ServiceNow
+    Event Mgmt x Aruba Central Meraki Dashboard x Genetec Security Center`, losing the unchecked items and making the checked/unchecked
+    boundary ambiguous.
+  expected_behavior: 'Checkbox lists should emit one atom per tool with an explicit boolean/value, e.g. `Monitoring tool:
+    LogicMonitor selected=true`, `ServiceNow Event Mgmt selected=false`.'
+  suggested_fix: Implement checkbox glyph/adjacent-label extraction in app/parsers/pdf.py. Treat checkbox state as a value,
+    not as free text; include unchecked options so absence is not mistaken for omission.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - STRESS_BMS_SPECS
+  - STRESS_NET_MAINT
+  - STRESS_PAGING_TRIO
+  related_atom_ids:
+  - atm_9b130dda1d232953
+- finding_id: F028
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: atom_text_garbled
+  severity: info
+  target_repo: parser-os
+  target_subpath: app/parsers/pdf.py
+  source_artifact: COPPER_001_SPRING_LAKE_AUDITORIUM_noc_soc_onboarding_packet_weirdfmt.pdf
+  raw_evidence: 'PDF page 2 `Cyber / logging notes`: `- Sentinel workspace connection must be verified before SOC go-live`;
+    `- retain firewall/VPN logs for at least 365 days unless customer policy overrides`; `- do not enroll cameras into managed
+    alerts until privacy mask and naming are approved`.'
+  current_behavior: Atom `atm_09b4aaee41dc1dc2` starts with `gg g - Sentinel workspace connection...`, adding spurious characters
+    before the bullet list.
+  expected_behavior: Bullet text should preserve the three bullets without leading garbage characters.
+  suggested_fix: In PDF text normalization, strip orphan glyph fragments produced by border/scan noise before paragraph atoms.
+    Add a unit test asserting this paragraph begins with `Sentinel workspace connection`, not `gg g`.
+  reproducible: 'yes'
+  observed_in_other_cases: []
+  related_atom_ids:
+  - atm_09b4aaee41dc1dc2
+- finding_id: F029
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: atom_type_mislabeled
+  severity: warning
+  target_repo: parser-os
+  target_subpath: app/parsers/csv.py
+  source_artifact: risk_register.csv
+  raw_evidence: 'line 2: R-01-01,"Manifest flags quantity mismatch, Cat6 UTP/STP material mismatch, power-scope exclusion,
+    unknown raceway/conduit condition, and missing certification/testing reports.",Medium,Medium,Open,Customer IT,"mitigate
+    with written clarification, field validation, or change control"'
+  current_behavior: 'Risk-register rows are atomized as `scope_item`, e.g. `atm_f3ec144aea1049c5` text begins `RAID ID: R-01-01
+    | Category: Manifest flags quantity mismatch...`, even though the row is a risk/RAID item, not scope.'
+  expected_behavior: Rows from `risk_register.csv` should be risk/issue/constraint atoms with RAID ID, status, owner, impact,
+    probability, and mitigation fields preserved separately.
+  suggested_fix: Add a RAID/risk table schema in app/parsers/csv.py and a `risk` or `raid_item` atom type mapping. If the
+    enum lacks a risk value, add it in app/core/enums.py and update packet certification to route risk atoms to missing_info/constraint/risk
+    packets as appropriate.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - STRESS_XLSX_RARE
+  - STRESS_MULTI_CAM
+  related_atom_ids:
+  - atm_f3ec144aea1049c5
+- finding_id: F030
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: atom_type_mislabeled
+  severity: warning
+  target_repo: parser-os
+  target_subpath: app/parsers/csv.py
+  source_artifact: license_support_matrix.csv
+  raw_evidence: 'line 4: Belden Cat6 CMP,Wesco/Anixter,TBD contract ID,2027-08-30,8x5 vendor support unless noted,Procurement,Renew
+    90 days prior; SLA exclusion if expired'
+  current_behavior: Support/license rows are atomized as `scope_item`, e.g. `atm_427ba3725aeb0169` has type `scope_item` even
+    though it is a support-entitlement/renewal record.
+  expected_behavior: These rows should become support_contract/license_entitlement/renewal atoms with fields for contract
+    ID, expiration, support level, owner, and renewal note.
+  suggested_fix: Add a license/support matrix parser branch in app/parsers/csv.py. If needed, add `support_contract` and `renewal`
+    atom types in the atom enum and packet certifier so expiry and SLA-exclusion facts are not routed as generic scope.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - STRESS_BMS_SPECS
+  - STRESS_NET_MAINT
+  - STRESS_NATOMAS_WIRELESS
+  related_atom_ids:
+  - atm_427ba3725aeb0169
+- finding_id: F031
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: atom_omitted
+  severity: warning
+  target_repo: parser-os
+  target_subpath: app/parsers/csv.py
+  source_artifact: bom_summary.csv
+  raw_evidence: 'line 2: Cisco C9300L-48P-4X-A,48-port PoE+ access switch,2,Cisco reseller,12-16 weeks,support entitlement
+    and warranty must be captured before acceptance'
+  current_behavior: For row 2, parser emitted `atm_70485376a85c41e8` (`Quantity 2`), `atm_851c3a0b87a811f1` (`Line item Cisco
+    C9300L-48P-4X-A`), and `atm_2690ea98b3b4940e` (`Lead time 12-16 weeks`). The description, vendor/source, and support note
+    were not emitted as atoms.
+  expected_behavior: BOM rows should preserve item, description, quantity, vendor/source, lead time, and support/warranty
+    note as linked atoms or a structured vendor_line_item atom.
+  suggested_fix: Update quote/quote_parser_v1_4_1 or app/parsers/csv.py BOM schema to emit complete row objects or child atoms
+    for description/vendor/support_note. Add a regression for `support entitlement and warranty must be captured before acceptance`.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_PAGING_TRIO
+  related_atom_ids:
+  - atm_70485376a85c41e8
+  - atm_851c3a0b87a811f1
+  - atm_2690ea98b3b4940e
+- finding_id: F032
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: atom_omitted
+  severity: warning
+  target_repo: parser-os
+  target_subpath: app/parsers/csv.py
+  source_artifact: asset_inventory.csv
+  raw_evidence: 'line 2: COPPER_001_SPRING_LAKE_AUDITORIUM-A001,Switch,Cisco,C9300L-48P-4X-A,2,Spring Lake High School - Auditorium
+    Wing,MDF-A outside media center,MSP010010048,10.21.10.21,2026-06-15,2031-06-14,active/planned'
+  current_behavior: For the switch row, atoms capture only quantity (`atm_f1cb12f01c6c4562`) and part/model (`atm_fa85084391680224`).
+    Asset ID, type, vendor, site, MDF/area, serial, management IP, in-service date, refresh target, and status are omitted.
+  expected_behavior: Asset inventory rows should become structured asset atoms with identity, device type, vendor/model, quantity,
+    location, serial, mgmt IP, lifecycle dates, and status.
+  suggested_fix: Add an `asset_inventory` schema in app/parsers/csv.py. Emit one `asset` atom per row and child atoms for
+    management IP/lifecycle fields; link assets to site and device entities.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - STRESS_NET_MAINT
+  - STRESS_MULTI_CAM
+  - STRESS_VT_CAM
+  related_atom_ids:
+  - atm_f1cb12f01c6c4562
+  - atm_fa85084391680224
+- finding_id: F033
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: replay_failed_for_clean_text
+  severity: warning
+  target_repo: parser-os
+  target_subpath: app/core/source_replay.py
+  source_artifact: COPPER_001_SPRING_LAKE_AUDITORIUM_expanded_operations_workbook.xlsx
+  raw_evidence: 'BOM Detail row 149: A=BOM-0148 | B=Base | C=Hardware | D=Biamp | E=TesiraFORTÉ X 400-SUP | F=Biamp TesiraFORTÉ
+    X 400 - hardware for copper cabling and low-voltage AV cabling | G=LOT | H=5 | I=8532.82 | J=42664.1 | K=8-10 weeks |
+    L=Needs OEM registration | M=Requires E-rate form | N=Ingram Micro | O=Q-417837'
+  current_behavior: Atom `atm_0016e19b315f917a` (`Line item TesiraFORTÉ X 400-SUP Biamp TesiraFORTÉ X 400 - hardware for copper
+    cabling and low-voltage AV cabling`) is marked `verified=failed` even though the row contains the same part number, manufacturer,
+    and description in columns D-F.
+  expected_behavior: Source replay should verify clean XLSX row-derived atoms by matching across the row fields, even when
+    the atom text concatenates multiple columns.
+  suggested_fix: Update source_replay.py for spreadsheet atoms to reconstruct row text from the locator's sheet/row and all
+    referenced columns, then fuzzy-match token sets across the row. Add tests for workbook row 149 and other `BOM Detail`
+    rows that currently fail replay.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - STRESS_XLSX_RARE
+  - STRESS_NATOMAS_WIRELESS
+  related_atom_ids:
+  - atm_0016e19b315f917a
+- finding_id: F034
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: locator_wrong
+  severity: info
+  target_repo: parser-os
+  target_subpath: app/parsers/xlsx.py
+  source_artifact: COPPER_001_SPRING_LAKE_AUDITORIUM_expanded_operations_workbook.xlsx
+  raw_evidence: 'BOM Detail row 141: A=BOM-0140 | B=Add Alt 1 | C=Freight | D=Biamp | E=TesiraFORTÉ X 400-A | F=Biamp TesiraFORTÉ
+    X 400 - freight for copper cabling and low-voltage AV cabling | G=FT | H=3 | I=3918.53 | J=11755.59 | K=TBD - vendor allocation
+    | L=Quote received | M=Lead-time escalation needed | N=OEM Direct | O=Q-650795'
+  current_behavior: 'Atom `atm_0049592ba49c2137` locator maps both `section` and `material_spec` to column C (`columns={''lead_time'':
+    ''K'', ''section'': ''C'', ..., ''material_spec'': ''C'', ...}`), but the workbook row has phase/scope in column B (`Add
+    Alt 1`) and category/material spec in column C (`Freight`).'
+  expected_behavior: XLSX locators should preserve the actual workbook header-to-column mapping, without duplicate semantic
+    fields pointing to the same column unless the source really has duplicate headers.
+  suggested_fix: Fix header inference in app/parsers/xlsx.py so column B is retained as the row section/phase and column C
+    as category/material_spec. Add locator validation that flags duplicate header mappings when adjacent populated columns
+    are omitted.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - STRESS_XLSX_RARE
+  related_atom_ids:
+  - atm_0049592ba49c2137
+- finding_id: F035
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: packet_family_wrong
+  severity: warning
+  target_repo: parser-os
+  target_subpath: app/domain/packets/certifier.py
+  source_artifact: COPPER_001_SPRING_LAKE_AUDITORIUM_expanded_operations_workbook.xlsx
+  raw_evidence: 'BOM Detail row 141: A=BOM-0140 | B=Add Alt 1 | C=Freight | D=Biamp | E=TesiraFORTÉ X 400-A | F=Biamp TesiraFORTÉ
+    X 400 - freight for copper cabling and low-voltage AV cabling | G=FT | H=3 | I=3918.53 | J=11755.59 | K=TBD - vendor allocation
+    | L=Quote received | M=Lead-time escalation needed | N=OEM Direct | O=Q-650795'
+  current_behavior: Packet `pkt_3fb86a7ef563b356` is certified under `quantity_conflict` with only governing atom `atm_0049592ba49c2137`
+    (`Quantity 3`). A single row quantity is not a conflict.
+  expected_behavior: '`quantity_conflict` packets should require at least two quantity atoms about the same entity/scope with
+    incompatible values or explicit conflict language. Single quantity atoms should certify as quantity_claim or stay as supporting
+    evidence.'
+  suggested_fix: In packets/certifier.py, require >=2 governing atoms and a same-entity/same-scope check for quantity_conflict.
+    Add a guard that prevents a one-atom packet from being classified as a conflict.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_PAGING_TRIO
+  related_atom_ids:
+  - atm_0049592ba49c2137
+  related_packet_ids:
+  - pkt_3fb86a7ef563b356
+- finding_id: F036
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: packet_family_wrong
+  severity: warning
+  target_repo: parser-os
+  target_subpath: app/domain/packets/certifier.py
+  source_artifact: COPPER_001_SPRING_LAKE_AUDITORIUM_expanded_operations_workbook.xlsx
+  raw_evidence: 'BOM Detail row 168: A=BOM-0167 | B=Owner Allowance | C=Staging | D=Extron | E=DTP2 T 212-KIT | F=Extron DTP2
+    T 212 - staging for copper cabling and low-voltage AV cabling | G=PAIR | H=8 | I=1505.79 | J=12046.32 | K=8-10 weeks |
+    L=Needs OEM registration | M=Pending vendor revision | N=CDW | O=Q-852811'
+  current_behavior: Packet `pkt_008ae6f40a7e3d26` is certified under `scope_exclusion` with anchor `site:unknown|scope:power`
+    and governing atom `atm_0d14581d827e895f` (`Quantity 8`). The raw row is an owner allowance/staging BOM line; it does
+    not exclude power scope.
+  expected_behavior: Scope-exclusion packets should be driven by explicit exclusion text such as `electrical power ... excluded`,
+    not arbitrary quantity rows. The anchor should be the BOM item/scope row, not `site:unknown|scope:power`.
+  suggested_fix: Harden scope_exclusion rules in packets/certifier.py to require exclusion keywords (`excluded`, `not included`,
+    `unless listed`, etc.) in the governing atom or section. Do not infer power exclusions from quantity atoms or owner-allowance
+    phase labels.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - COPPER_004_MSCS_DISTRICT_CABLING_SERVICES
+  related_atom_ids:
+  - atm_0d14581d827e895f
+  related_packet_ids:
+  - pkt_008ae6f40a7e3d26
+- finding_id: F037
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: entity_canonical_name_wrong
+  severity: warning
+  target_repo: parser-os
+  target_subpath: app/domain/entities.py
+  source_artifact: COPPER_001_SPRING_LAKE_AUDITORIUM_expanded_operations_workbook.xlsx
+  raw_evidence: BOM Detail contains UPS/service rows such as row 168 `Extron DTP2 T 212 - staging...`; asset/BOM CSVs also
+    contain UPS line items including `APC SRT1500RMXLA` and workbook rows with `APC SMX2200RMHV2U`.
+  current_behavior: entities_and_edges.md uses canonical key `device:access_point` with aliases including `device:apc_smx2200rmhv2u_cable_pathway_for_copper_cabling_and_low_voltage_av_cabling`,
+    `device:apc_smx2200rmhv2u_hardware...`, and `device:apc_smx2200rmhv2u_license...`. APC SMX UPS rows are being canonicalized
+    under `access_point`.
+  expected_behavior: APC SMX/SRT UPS products should canonicalize to `device:ups`/part entities, not `device:access_point`.
+  suggested_fix: Review app/domain/entities.py synonym/abbreviation logic. Prevent `APC` from matching `AP`/access point,
+    and add manufacturer/product family hints (`APC`, `Smart-UPS`, `SMX`, `SRT`, `UPS`) that force UPS classification. Add
+    tests for APC product names.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - STRESS_NATOMAS_WIRELESS
+  - STRESS_DOWNEY_CABLING
+  related_entity_keys:
+  - device:access_point
+- finding_id: F038
+  case_id: COPPER_001_SPRING_LAKE_AUDITORIUM
+  category: edge_type_wrong
+  severity: warning
+  target_repo: parser-os
+  target_subpath: app/domain/edges.py
+  source_artifact: COPPER_001_SPRING_LAKE_AUDITORIUM_expanded_operations_workbook.xlsx
+  raw_evidence: |-
+    BOM Detail row 22: A=BOM-0021 | B=Add Alt 2 | C=License | D=QSC | E=Core Nano-SUP | F=QSC Core Nano - license for copper cabling and low-voltage AV cabling | G=EA | H=50 | I=5166.25 | J=258312.5 | K=In stock | L=Budgetary | M=Freight not included | N=SHI | O=Q-349549
+    BOM Detail row 33: A=BOM-0032 | B=Base | C=License | D=QSC | E=Core Nano-LIC | F=QSC Core Nano - license for copper cabling and low-voltage AV cabling | G=PAIR | H=77 | I=5346.96 | J=411715.92 | K=8-10 weeks | L=Substitute pending approval | M=Pending vendor revision | N=SHI | O=Q-723645
+  current_behavior: entities_and_edges.md emits a `contradicts` edge between `atm_789b5876259b8753` (`Quantity 77`, row 33
+    Base Core Nano-LIC) and `atm_c5326cceb27a5d28` (`Quantity 50`, row 22 Add Alt 2 Core Nano-SUP) with reason `Quantity mismatch
+    77 vs 50 for shared entity context`. The rows are different BOM IDs/parts/phases, not conflicting claims about the same
+    quantity.
+  expected_behavior: Quantity contradiction edges should require the same BOM item, same scope phase, same part number or
+    explicitly reconciled same entity. Different BOM IDs, SKUs, phases, or UOMs should not be marked contradictory.
+  suggested_fix: Update app/domain/edges.py quantity-conflict logic to include BOM ID, part_number, phase/section, and UOM
+    in the entity context. Do not rely on a normalized product family alone for contradiction edges.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_002_WORCESTER_DURKIN_NETWORK_UPGRADES
+  - STRESS_XLSX_RARE
+  related_atom_ids:
+  - atm_789b5876259b8753
+  - atm_c5326cceb27a5d28
+- finding_id: F039
+  case_id: STRESS_ACS_USC_PIEDMONT
+  category: pack_routing_wrong
+  severity: warning
+  target_repo: Orbitbrief-Core
+  target_subpath: src/orbitbrief_core/world_model/pack_prior/router.py
+  source_artifact: STRESS_ACS_USC_PIEDMONT_managed_services_package.md
+  raw_evidence: |-
+    line 13: Composite: USC access-control standard and City of Piedmont project requires an execution-ready package for **access control and Genetec Synergis modernization**.
+    line 17: - **Operational scale:** 38 controlled doors, 8 Synergis Cloud Link appliances, 42 HID readers, 12 DPS replacements, 6 REX replacements, 1 Streamvault substitution review.
+  current_behavior: pack_prior.md top pick is `other` with raw score 691 and confidence 1.0; `security_access` is runner-up
+    with raw score 579 but confidence `2.2856936767186716e-49`. A clear access-control engagement was routed to the catch-all
+    `other` pack.
+  expected_behavior: '`security_access` should be the top pack or at least an active co-primary. Keywords that should dominate
+    include `access control`, `Genetec Synergis`, `doors`, `HID readers`, `DPS`, `REX`, and `CJIS`.'
+  suggested_fix: Reduce/retire catch-all `other` boosted keywords in domain_packs.yaml for security-access vocabulary and
+    boost security_access keywords for `synergis`, `hid`, `reader`, `door`, `rex`, `dps`, `streamvault`, and `cjis`. Also
+    cap `other` so it cannot outrank a domain pack on domain-specific terms.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - STRESS_NET_MAINT
+  - STRESS_VT_CAM
+  related_atom_ids: []
+- finding_id: F040
+  case_id: STRESS_MULTI_CAM
+  category: pack_routing_wrong
+  severity: warning
+  target_repo: Orbitbrief-Core
+  target_subpath: src/orbitbrief_core/world_model/data/domain_packs.yaml
+  source_artifact: STRESS_MULTI_CAM_managed_services_package.md
+  raw_evidence: |-
+    line 13: Composite public-sector camera operations portfolio requires an execution-ready package for **security camera, VMS maintenance, analytics**.
+    line 17: - **Operational scale:** Milwaukee 48 event pole cameras, Chicago Housing Authority 7,762 maintained cameras, Santa Monica 120 analytics-enabled pilot cameras; quantities are not merged.
+  current_behavior: pack_prior.md top pick is `other` raw score 1584, confidence 1.0, matched keywords `!axis`, `!bms`, `!camera`,
+    `!genetec`, `!meraki`, `!vms`. A camera/VMS portfolio is being handled by `other` rather than a specific camera/video-surveillance/security
+    pack.
+  expected_behavior: A video-surveillance/VMS/security-camera domain pack should activate, or `security_access` should receive
+    this vocabulary as a strong secondary if a separate camera pack does not exist.
+  suggested_fix: Add a `video_surveillance` or `camera_vms` pack in domain_packs.yaml, or move `axis`, `genetec`, `milestone`,
+    `vms`, `camera`, `analytics`, and `retention` out of `other` into a real domain pack. Add a router regression for STRESS_MULTI_CAM.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - STRESS_VT_CAM
+  - STRESS_NET_MAINT
+  related_atom_ids: []
+- finding_id: F041
+  case_id: STRESS_PAGING_TRIO
+  category: pack_keywords_missing
+  severity: warning
+  target_repo: Orbitbrief-Core
+  target_subpath: src/orbitbrief_core/world_model/data/domain_packs.yaml
+  source_artifact: STRESS_PAGING_TRIO_managed_services_package.md
+  raw_evidence: |-
+    line 13: Composite higher-education mass notification portfolio requires an execution-ready package for **paging, intercom, mass notification**.
+    line 17: - **Operational scale:** UMaine 7 universities and 18,664 active users; San Jacinto 7-year term; endpoints include SMS, email, mobile app, desktop, IP speaker, and analog paging gateway.
+  current_behavior: pack_prior.md top pick is `other` raw score 1540, confidence 1.0, matched keywords `!bms`, `!camera`,
+    `!genetec`, `!intercom`, `!meraki`, `!paging`. Emergency communications/paging vocabulary is assigned to the catch-all
+    pack.
+  expected_behavior: A mass-notification/paging pack should receive boosted keywords for `paging`, `intercom`, `mass notification`,
+    `SMS`, `email`, `mobile app`, `desktop`, `IP speaker`, `analog paging gateway`, `Rave`, `Alertus`, `Regroup`, and `BlackBerry
+    AtHoc`.
+  suggested_fix: Add or expand a mass_notification/emergency_communications pack in domain_packs.yaml and remove paging/intercom
+    from the `other` boosted list. Add routing tests for STRESS_PAGING_TRIO.
+  reproducible: 'yes'
+  observed_in_other_cases: []
+  related_atom_ids: []
+- finding_id: F042
+  case_id: STRESS_XLSX_RARE
+  category: pack_routing_wrong
+  severity: warning
+  target_repo: Orbitbrief-Core
+  target_subpath: src/orbitbrief_core/world_model/pack_prior/router.py
+  source_artifact: STRESS_XLSX_RARE_managed_services_package.md
+  raw_evidence: |-
+    line 13: Composite public-sector procurement analytics program requires an execution-ready package for **procurement operations and XLSX evidence normalization**.
+    line 17: - **Operational scale:** CalSAWS 484 Q&A rows; NJEDA tiered AUM fee schedule template; legacy XLS vendor pricelist requiring conversion controls.
+    line 84: - **Source-derived issue:** Source notes identify CalSAWS 484 Q&A rows, NJEDA tiered AUM fee schedule, no-alteration template, legacy .xls Genetec pricelist, and spreadsheet parser robustness requirements.
+  current_behavior: pack_prior.md top pick is `hardware` raw score 223, confidence ~1.0; `site_structure` is runner-up, while
+    `data_migration` raw score is only 28. The engagement is fundamentally about spreadsheet evidence normalization, not hardware
+    procurement.
+  expected_behavior: A spreadsheet/evidence-normalization/procurement-analysis pack should top-rank this case, or `audit`/`data_migration`
+    should be active secondary packs. Keywords should include `XLSX`, `XLS`, `Q&A rows`, `fee schedule`, `no-alteration template`,
+    `merged cells`, `source of truth`, and `parser robustness`.
+  suggested_fix: Add a workbook_evidence/procurement_spreadsheet pack or boost spreadsheet-evidence terms in an existing data_migration/audit
+    pack. Penalize generic `procurement` for hardware unless it co-occurs with BOM/device terms.
+  reproducible: 'yes'
+  observed_in_other_cases: []
+  related_atom_ids:
+  - atm_5419caf564d26f4c
+- finding_id: F043
+  case_id: STRESS_COVERAGE_GAPS
+  category: enum_value_missing
+  severity: info
+  target_repo: Orbitbrief-Core
+  target_subpath: src/orbitbrief_core/world_model/data/domain_packs.yaml
+  source_artifact: STRESS_COVERAGE_GAPS_managed_services_package.md
+  raw_evidence: |-
+    line 13: Composite infrastructure domain coverage-gap program requires an execution-ready package for **synthetic domain pack for fire safety, DAS, electrical, ITAD**.
+    line 17: - **Operational scale:** Synthetic reference set: 186 fire alarm devices, 1 DAS headend, 54 DAS antennas, 12 electrical panels, 6 UPS circuits, 320 ITAD assets.
+    line 84: - **Source-derived issue:** Source notes explicitly recommend synthesizing realistic artifacts for fire_safety, DAS, electrical, and ITAD, referencing NFPA 72, NFPA 1225, UL 2524, IFC 510, panel schedules, and ITAD asset lists.
+  current_behavior: pack_prior.md top pick is `itad` raw score 814, confidence 1.0. The case explicitly spans fire safety,
+    DAS, electrical, and ITAD, but available packs collapse the result to ITAD rather than representing the missing domains.
+  expected_behavior: Domain pack taxonomy should represent fire_safety, DAS/ERRCS, and electrical/power in addition to ITAD,
+    or at minimum flag this as a multi-domain coverage-gap case requiring multiple packs.
+  suggested_fix: Add enum/domain pack entries for `fire_safety`, `das_errcs`, and `electrical_power` in domain_packs.yaml
+    with boosted keywords such as `NFPA 72`, `NFPA 1225`, `UL 2524`, `IFC 510`, `FACP`, `NAC`, `BDA`, `ERRCS`, `panel schedule`,
+    `ATS`, and `LOTO`. Update pack_prior to support multi-domain activation for coverage-gap cases.
+  reproducible: 'yes'
+  observed_in_other_cases: []
+  related_atom_ids: []
+- finding_id: F044
+  case_id: STRESS_NET_MAINT
+  category: pack_routing_wrong
+  severity: warning
+  target_repo: Orbitbrief-Core
+  target_subpath: src/orbitbrief_core/world_model/pack_prior/router.py
+  source_artifact: STRESS_NET_MAINT_managed_services_package.md
+  raw_evidence: |-
+    line 13: Composite municipal/transportation network maintenance portfolio requires an execution-ready package for **network/security maintenance, managed VPN, camera/access repair**.
+    line 17: - **Operational scale:** Mobile 1,523 cameras; OCTA security-system repair portfolio; MS ITS managed VPN spreadsheet rows normalized into CMDB; 220 VPN endpoints reference.
+    line 84: - **Source-derived issue:** Source notes identify Mobile 1,523 cameras, OCTA security systems repair, MS ITS managed VPN XLSX, Lenel/Milestone/Genetec transition, 50-mile office, C-7/C-10, sanctions, and SLA tiers.
+  current_behavior: pack_prior.md top pick is `other` raw score 1020, confidence 1.0, with matched keywords `!axis`, `!camera`,
+    `!genetec`, `!meraki`, `cameras`, `firewall`; msp/security_access are not active top packs despite managed VPN, CMDB normalization,
+    camera/access repair, sanctions, and SLA tiers.
+  expected_behavior: This should activate an MSP/network-maintenance pack plus video/security-access secondary packs. The
+    catch-all `other` should not own camera/access/VPN maintenance vocabulary.
+  suggested_fix: Move `axis`, `camera`, `genetec`, `meraki`, `managed VPN`, `VPN endpoints`, `SLA tiers`, `Lenel`, `Milestone`,
+    and `sanctions` vocabulary into domain packs with explicit routing weights. Add a multi-pack threshold based on raw score,
+    not softmax confidence.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - STRESS_MULTI_CAM
+  - STRESS_VT_CAM
+  - STRESS_ACS_USC_PIEDMONT
+  related_atom_ids: []
+- finding_id: F045
+  case_id: STRESS_NATOMAS_WIRELESS
+  category: pack_routing_wrong
+  severity: info
+  target_repo: Orbitbrief-Core
+  target_subpath: src/orbitbrief_core/world_model/pack_prior/router.py
+  source_artifact: STRESS_NATOMAS_WIRELESS_managed_services_package.md
+  raw_evidence: |-
+    line 13: Natomas Unified School District requires an execution-ready package for **wireless refresh and E-rate procurement controls**.
+    line 17: - **Operational scale:** 136 Cisco CW9166I-B APs from eligible matrix, unfunded planning placeholder up to 500 APs across future phases, 12 mGig switch allowances.
+    line 83: - **Source-derived issue:** Source notes identify RFP 25-107, Cisco CW9166I-B, 500 vs 136 AP conflict, E-rate Year 28, July 1 2025 start date, USAC, FCC red-light, and Secure Networks Act requirements.
+  current_behavior: pack_prior.md correctly picks `wireless` raw score 1163, but `hardware` raw score 262 has confidence 0.0
+    and is not surfaced as a meaningful secondary despite AP hardware, mGig switching, E-rate procurement, USAC/FCC compliance,
+    and Secure Networks Act constraints.
+  expected_behavior: Wireless should remain primary, but hardware/procurement/compliance should be activated as secondary
+    context for BOM and public-procurement controls.
+  suggested_fix: Replace or supplement the softmax confidence gate with a raw-score/rank threshold for secondary packs. Add
+    a rule that hardware/procurement packs activate when wireless cases contain device SKUs, AP counts, switch allowances,
+    and E-rate/USAC procurement terms.
+  reproducible: 'yes'
+  observed_in_other_cases:
+  - COPPER_003_BANKS_NETWORK_MODERNIZATION
+  - STRESS_XLSX_RARE
+  related_atom_ids: []
