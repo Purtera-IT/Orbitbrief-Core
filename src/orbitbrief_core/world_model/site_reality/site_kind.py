@@ -1,0 +1,223 @@
+"""Typed site-candidate classifier (PR 11 — Site Reality v2).
+
+The original site_reality filter only blocked obvious banned product
+terms (Belden, Cat6, ServiceNow). Real corpus runs still produced
+clusters like ``role:customer network engineer``, ``priority:p2 high``,
+``equipment:poweredge r760xd vms``, ``generic:some mdf``,
+``service:ms its vpn service desk``. None of those are physical sites.
+
+This module classifies a ``site:*`` candidate into one of:
+
+    physical_site         (campus / school / hospital / library)
+    building              (district core, main campus, annex, tower)
+    address               (street + number + suffix)
+    room_or_closet        (MDF, IDF, room, closet) — must be anchored
+                          to a parent physical_site to be published
+    organization          (district, agency, department, customer)
+    role_or_person        (engineer, architect, director, owner)
+    equipment_or_product  (PowerEdge, Cat6, BMS VM, switch)
+    service_or_software   (ServiceNow, VPN service desk, vendor SaaS)
+    risk_or_priority      (P2 High, critical, blocker)
+    generic_phrase        ("each MDF", "some IDF", "one closet")
+    unknown               (couldn't decide)
+
+The orchestrator then publishes only ``physical_site``, ``building``,
+``address``, and ``room_or_closet`` (the last only when
+``parent_cluster_id`` is non-empty).
+"""
+from __future__ import annotations
+
+import re
+from enum import Enum
+from typing import Any
+
+
+class SiteCandidateKind(str, Enum):
+    physical_site = "physical_site"
+    building = "building"
+    room_or_closet = "room_or_closet"
+    address = "address"
+    organization = "organization"
+    role_or_person = "role_or_person"
+    equipment_or_product = "equipment_or_product"
+    service_or_software = "service_or_software"
+    risk_or_priority = "risk_or_priority"
+    generic_phrase = "generic_phrase"
+    unknown = "unknown"
+
+
+# What kinds are publishable as their own physical-site cluster?
+PUBLISHABLE_KINDS: frozenset[SiteCandidateKind] = frozenset(
+    {
+        SiteCandidateKind.physical_site,
+        SiteCandidateKind.building,
+        SiteCandidateKind.address,
+    }
+)
+# What kinds may be published only when anchored to a parent
+# physical-site cluster (e.g. "MDF Room 102" anchored to "Banks HS").
+PUBLISHABLE_IF_ANCHORED: frozenset[SiteCandidateKind] = frozenset(
+    {SiteCandidateKind.room_or_closet}
+)
+
+
+# ─────────────────────────── pattern packs ──────────────────────────
+
+
+_PHYSICAL_SITE_RE = re.compile(
+    r"\b("
+    r"school|elementary|middle\s+school|high\s+school|"
+    r"campus|college|university|hospital|clinic|library|"
+    r"auditorium|courthouse|courtroom|warehouse|plant|"
+    r"facility|office|venue|stadium|arena|airport|terminal"
+    r")\b",
+    re.I,
+)
+_BUILDING_RE = re.compile(
+    r"\b("
+    r"building|bldg|tower|annex|wing|hall|"
+    r"district\s+core|main\s+campus|main\s+building|"
+    r"east\s+wing|west\s+wing|north\s+wing|south\s+wing"
+    r")\b",
+    re.I,
+)
+_ADDRESS_RE = re.compile(
+    r"\b\d{2,6}\s+[a-z0-9 .'-]+\s+(st|street|rd|road|ave|avenue|dr|drive|"
+    r"blvd|boulevard|way|lane|ln|pkwy|parkway|hwy|highway)\b",
+    re.I,
+)
+_ROOM_CLOSET_RE = re.compile(
+    r"\b("
+    r"mdf(?:\s*\d+)?|idf(?:\s*\d+)?|"
+    r"telecom\s+(?:room|closet)|server\s+room|equipment\s+room|"
+    r"comm(?:s|unications)?\s+(?:room|closet)|wiring\s+closet|"
+    r"data\s+closet|patch\s+room|"
+    r"room\s*\d+|suite\s*\d+|closet\s*\d+"
+    r")\b",
+    re.I,
+)
+_ORGANIZATION_RE = re.compile(
+    r"\b("
+    r"district|agency|department|customer|client|"
+    r"public\s+schools|county|city|state|federal|"
+    r"corporation|llc|inc|company"
+    r")\b",
+    re.I,
+)
+_ROLE_PERSON_RE = re.compile(
+    r"\b("
+    r"engineer|architect|director|manager|owner|admin(?:istrator)?|"
+    r"technician|tech|operator|analyst|specialist|consultant|"
+    r"president|vp|cio|cto|cso|ciso|"
+    r"contact|sponsor|stakeholder|approver"
+    r")\b",
+    re.I,
+)
+_EQUIPMENT_PRODUCT_RE = re.compile(
+    r"\b("
+    r"poweredge|optiplex|nimble|isilon|"
+    r"cat\s?6|cat\s?6a|cat\s?5e|"
+    r"belden|panduit|commscope|leviton|"
+    r"cisco|meraki|juniper|aruba|fortinet|fortigate|palo\s+alto|"
+    r"genetec|axis|hanwha|milestone|lenel|hid|mercury|"
+    r"apc|generac|liebert|"
+    r"ups|server|switch|router|firewall|controller|appliance|"
+    r"camera|reader|sensor|panel|breaker|outlet|jack|patch|cable|"
+    r"r\d{3}xd|r\d{3}|wsc?\d+"
+    r")\b",
+    re.I,
+)
+_SERVICE_SOFTWARE_RE = re.compile(
+    r"\b("
+    r"servicenow|pagerduty|logicmonitor|sentinel|onguard|synergis|"
+    r"streamvault|omnicast|xprotect|"
+    r"vpn|service\s+desk|help\s*desk|noc|soc|saas|paas|iaas|"
+    r"vlan|management\s+vlan|mgmt\s+vlan|"
+    r"microsoft\s+\w+|office\s+365|azure|aws|google\s+workspace"
+    r")\b",
+    re.I,
+)
+_RISK_PRIORITY_RE = re.compile(
+    r"\b("
+    r"p[0-9]\s*(?:critical|high|medium|low)|"
+    r"critical|blocker|urgent|severity|priority|"
+    r"high\s+risk|low\s+risk|medium\s+risk"
+    r")\b",
+    re.I,
+)
+_GENERIC_PHRASE_RE = re.compile(
+    r"\b("
+    r"each|some|every|any|all|the|a|an|several|various|"
+    r"site|location|place|area"
+    r")\s+(mdf|idf|room|closet|building|site|location)\b",
+    re.I,
+)
+
+
+def classify_site_candidate(
+    site_key: str, ent: dict[str, Any] | None = None
+) -> SiteCandidateKind:
+    """Classify a ``site:*`` candidate based on its canonical name + key.
+
+    Order of operations matters — we test the most specific /
+    discriminative patterns first.
+    """
+    # Classify on the canonical_name when available; only fall back to
+    # the site_key surface form when no canonical_name exists. Joining
+    # the two created spurious matches like "Building A" + "building a"
+    # → "a building" → generic_phrase, dropping legitimate sites.
+    cn = ""
+    if ent:
+        cn = (ent.get("canonical_name") or "").strip()
+    name = cn if cn else site_key.replace("site:", "").replace("_", " ")
+    name = name.strip()
+    if not name:
+        return SiteCandidateKind.unknown
+
+    # Hard rejects first so they can't be rescued by an accidental
+    # "campus" or "center" mention later in the candidate text.
+    if _RISK_PRIORITY_RE.search(name):
+        return SiteCandidateKind.risk_or_priority
+    if _ROLE_PERSON_RE.search(name):
+        return SiteCandidateKind.role_or_person
+    if _EQUIPMENT_PRODUCT_RE.search(name):
+        return SiteCandidateKind.equipment_or_product
+    if _SERVICE_SOFTWARE_RE.search(name):
+        return SiteCandidateKind.service_or_software
+    if _GENERIC_PHRASE_RE.search(name):
+        return SiteCandidateKind.generic_phrase
+
+    # Then accepts.
+    if _ADDRESS_RE.search(name):
+        return SiteCandidateKind.address
+    if _PHYSICAL_SITE_RE.search(name):
+        return SiteCandidateKind.physical_site
+    if _BUILDING_RE.search(name):
+        return SiteCandidateKind.building
+    if _ROOM_CLOSET_RE.search(name):
+        return SiteCandidateKind.room_or_closet
+    if _ORGANIZATION_RE.search(name):
+        return SiteCandidateKind.organization
+
+    return SiteCandidateKind.unknown
+
+
+def is_publishable(
+    kind: SiteCandidateKind, *, parent_cluster_id: str | None = None
+) -> bool:
+    """Publishability gate. Room/closet kinds must have a parent
+    physical-site cluster — a stand-alone "MDF" cluster is meaningless."""
+    if kind in PUBLISHABLE_KINDS:
+        return True
+    if kind in PUBLISHABLE_IF_ANCHORED:
+        return bool(parent_cluster_id)
+    return False
+
+
+__all__ = [
+    "SiteCandidateKind",
+    "PUBLISHABLE_KINDS",
+    "PUBLISHABLE_IF_ANCHORED",
+    "classify_site_candidate",
+    "is_publishable",
+]

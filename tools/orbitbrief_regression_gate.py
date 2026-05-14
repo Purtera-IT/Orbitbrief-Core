@@ -180,10 +180,22 @@ def _check_routing(case_dir: Path, routing: dict[str, Any]) -> list[str]:
         return failures
 
     top = payload.get("top_pack_id")
+    top_conf = float(payload.get("top_confidence") or 0.0)
     selected = list(payload.get("selected_pack_ids") or [])
 
     if routing.get("forbid_pure_other") and top == "other" and not selected:
         failures.append(f"{case_dir.name}: routed only to 'other' (contract.forbid_pure_other)")
+
+    forbidden_top = routing.get("forbid_top_pack_id")
+    if forbidden_top and top == forbidden_top:
+        failures.append(
+            f"{case_dir.name}: top_pack_id={top!r} is forbidden by contract"
+        )
+
+    if routing.get("forbid_top_confidence_exactly_one") and abs(top_conf - 1.0) < 1e-6:
+        failures.append(
+            f"{case_dir.name}: top_confidence=1.0 exactly (calibration smell — see PR13)"
+        )
 
     needed_any = routing.get("selected_pack_ids_include_any") or []
     if needed_any:
@@ -279,9 +291,8 @@ def check_orbit_results(
 
     universal_cfg = (contract or {}).get("universal", {}) or {}
     banned = universal_cfg.get("forbidden_site_terms") or _DEFAULT_BANNED_FAKE_SITE_TERMS
-    forbid_pure_other = bool(
-        universal_cfg.get("routing", {}).get("forbid_pure_other", True)
-    )
+    universal_routing = universal_cfg.get("routing", {}) or {}
+    forbid_pure_other = bool(universal_routing.get("forbid_pure_other", True))
     universal_artifacts = universal_cfg.get("artifacts") or []
     cases_cfg = (contract or {}).get("cases", {}) or {}
 
@@ -300,6 +311,11 @@ def check_orbit_results(
         envelope = _load_envelope(case_dir)
         if universal_artifacts:
             failures.extend(_check_artifacts(case_dir, universal_artifacts, envelope))
+
+        # Universal routing checks (forbid_top_pack_id /
+        # forbid_top_confidence_exactly_one) apply to every case.
+        if universal_routing:
+            failures.extend(_check_routing(case_dir, universal_routing))
 
         per_case = cases_cfg.get(case_dir.name) or {}
         if per_case.get("routing"):

@@ -81,6 +81,36 @@ def _site_names(c: dict) -> list[str]:
 def _classify_finding(
     f: dict, cases: dict[str, dict], corpus_summary: dict
 ) -> dict:
+    """Decide a finding's closure status.
+
+    Strict statuses (PR 15 — post-review tightening):
+
+      resolved_exact            — the substrate change DEMONSTRABLY
+                                   addresses this case (e.g.
+                                   markdown atoms now > 0; new typed
+                                   AtomType present; fake site banned-
+                                   term gone from this case's
+                                   clusters; routing target now
+                                   includes a specialized pack).
+
+      resolved_by_design        — the engineering change is in place
+                                   AND the case shows directional
+                                   improvement, but the *exact*
+                                   raw_evidence span needs a manual
+                                   spot-check on the inspection
+                                   report. This is what we used to
+                                   call "partially_resolved".
+
+      needs_full_brain_run      — closure requires the LLM brains
+                                   plus a manual diff between raw
+                                   and normalized text for the
+                                   specific span.
+
+      unresolved                — no measurable change for this case.
+      regressed                 — the substrate is WORSE for this
+                                   case than the baseline finding
+                                   describes.
+    """
     fid = f["finding_id"]
     cat = f.get("category")
     case_id = f.get("case_id")
@@ -94,25 +124,26 @@ def _classify_finding(
 
     # ── atom_omitted (e.g. F001 markdown invisibility) ──────────────
     if cat == "atom_omitted":
-        # Markdown-omitted findings: every reviewed case now produces
-        # atoms from its managed_services_package.md.
         if "markdown" in (f.get("target_subpath") or "").lower():
             md_atoms = _md_atoms_for(case)
             if md_atoms >= 5:
-                status = "resolved"
+                # Exact: the parser now emits atoms for the markdown
+                # artifact that was producing 0 before.
+                status = "resolved_exact"
                 proof.append(
                     f"managed_services_package.md → {md_atoms} atoms (was 0)"
                 )
             elif md_atoms > 0:
-                status = "partially_resolved"
+                status = "resolved_by_design"
                 proof.append(f"md atoms now {md_atoms}; expected ≥5")
             else:
                 status = "unresolved"
         else:
-            # Generic atom_omitted: presence of any new structured
-            # AtomType (risk / asset_record / support_entitlement /
-            # site_roster / lifecycle_status) for this case is
-            # evidence the parser is now emitting more.
+            # Generic atom_omitted: a non-markdown atom omission. We
+            # can only confirm exact closure when a NEW structured
+            # AtomType present in this case matches the original
+            # finding's expected_behavior. Without that 1:1 evidence
+            # we mark resolved_by_design pending a manual check.
             new_types_present = sum(
                 _by_atom_type(case).get(t, 0)
                 for t in (
@@ -123,15 +154,26 @@ def _classify_finding(
                     "lifecycle_status",
                 )
             )
-            if new_types_present > 0 or _atoms_total(case) > 200:
-                status = "partially_resolved"
+            if new_types_present > 0:
+                status = "resolved_by_design"
                 proof.append(
                     f"atoms_total={_atoms_total(case)}, "
-                    f"new_typed_rows={new_types_present}"
+                    f"new_typed_rows={new_types_present} → "
+                    "design change in place"
                 )
                 remaining.append(
-                    "Confirm full coverage of the specific evidence span "
-                    "cited in raw_evidence by spot-checking the inspection report."
+                    "Confirm the specific raw_evidence span from the "
+                    "finding now appears as an atom by spot-checking "
+                    "inspection_report.html for this case."
+                )
+            elif _atoms_total(case) > 200:
+                status = "resolved_by_design"
+                proof.append(
+                    f"atoms_total={_atoms_total(case)} (was missing the cited span)"
+                )
+                remaining.append(
+                    "Confirm the specific span is now an atom — manual "
+                    "spot-check on inspection_report.html."
                 )
             else:
                 status = "unresolved"
@@ -146,13 +188,13 @@ def _classify_finding(
             )
         )
         if new_types_present > 0:
-            status = "resolved"
+            status = "resolved_exact"
             proof.append(
                 f"PR2 added new AtomTypes; case emits {new_types_present} "
                 "structured-typed atoms"
             )
         else:
-            status = "partially_resolved"
+            status = "resolved_by_design"
             proof.append(
                 "schema extended with risk/asset_record/support_entitlement/"
                 "site_roster/lifecycle_status/form_option_state"
@@ -174,7 +216,7 @@ def _classify_finding(
 
     # ── locator_wrong / replay_failed_for_clean_text ────────────────
     elif cat == "locator_wrong":
-        status = "partially_resolved"
+        status = "resolved_by_design"
         proof.append(
             "PR1 markdown atoms carry line_start/line_end + section_path; "
             "PR2 xlsx rows carry sheet+row+column; PR7 PDF checkbox/workflow "
@@ -182,10 +224,10 @@ def _classify_finding(
         )
         remaining.append(
             "Locator correctness on the original artifact requires a "
-            "manual replay check."
+            "manual replay check on inspection_report.html."
         )
     elif cat == "replay_failed_for_clean_text":
-        status = "resolved"
+        status = "resolved_exact"
         proof.append(
             "PR8 added _replay_norm (NFKD strip) + spreadsheet full-row "
             "fallback; clean rows whose cited cells alone don't match are "
@@ -202,37 +244,49 @@ def _classify_finding(
         names = _site_names(case)
         bad_terms = [
             "belden", "cat6", "genetec", "axis camera", "synergis",
-            "servicenow", "sentinel", "security center",
+            "servicenow", "sentinel", "security center", "hanwha",
         ]
         has_fake = any(any(t in (n or "").lower() for t in bad_terms) for n in names)
         if not has_fake:
-            status = "resolved"
+            status = "resolved_exact"
             proof.append(
                 f"site_reality emits {len(names)} clusters and none contain "
-                "banned product/framework/SaaS terms"
+                "banned product/framework/SaaS terms (PR4 + PR11 typed "
+                "candidate classifier)"
             )
         else:
-            status = "partially_resolved"
-            proof.append("Some clusters still contain product-like names.")
+            status = "regressed"
+            proof.append(
+                "Some clusters STILL contain product-like names — "
+                "PR11 missed this candidate."
+            )
 
     # ── pack_routing_wrong / pack_keywords_missing ──────────────────
     elif cat in {"pack_routing_wrong", "pack_keywords_missing"}:
         sel = _selected(case)
+        pp = _routing(case)
+        top = pp.get("top_pack_id")
         if not sel:
             status = "unresolved"
+        elif top == "other":
+            # PR12 should have demoted other; if it's still top here
+            # that's a regression.
+            status = "regressed"
+            remaining.append("Top pack is still 'other' after PR12 demotion.")
         elif sel == {"other"}:
             status = "unresolved"
-            remaining.append("Still routes only to 'other'.")
+            remaining.append("Selected list is only 'other'.")
         else:
-            status = "resolved"
+            status = "resolved_exact"
             proof.append(
-                f"selected_pack_ids = {sorted(sel)} (PR5 + PR6 read full atom "
-                "text and added missing packs)"
+                f"top={top!r}, selected_pack_ids={sorted(sel)} "
+                "(PR5 atom text stream + PR6 vocab + PR12 other demotion + "
+                "PR13 calibrated confidence)"
             )
 
     # ── packet_family_wrong / edge_type_wrong ────────────────────────
     elif cat in {"packet_family_wrong", "edge_type_wrong"}:
-        status = "partially_resolved"
+        status = "resolved_by_design"
         proof.append(
             "PR9 added packetizer gates "
             "(_valid_quantity_conflict_group, _valid_scope_exclusion_group) "

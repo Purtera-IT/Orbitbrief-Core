@@ -76,11 +76,31 @@ def _per_case(case_dir: Path) -> dict[str, Any]:
         atoms_per_doc = _atoms_by_artifact_filename(envelope)
         md_doc_atoms = {k: v for k, v in atoms_per_doc.items() if k.lower().endswith(".md")}
 
-        # Replay status from atom.receipts.replay_status (if present).
+        # Replay status — read both ``atom.verified`` (the field
+        # parser-os actually populates today) AND
+        # ``atom.receipts[].replay_status`` (older shape).
         replay_counts: Counter[str] = Counter()
         for a in atoms:
+            v = a.get("verified")
+            if v:
+                replay_counts[str(v)] += 1
             for r in a.get("receipts") or ():
-                replay_counts[str(r.get("replay_status") or "")] += 1
+                rs = r.get("replay_status")
+                if rs:
+                    replay_counts[str(rs)] += 1
+        # Per-parser failure breakdown so we can tell which parser is
+        # responsible for any failed-replay surge.
+        docs_by_id = {
+            str(d.get("artifact_id") or ""): d
+            for d in (envelope.get("documents") or [])
+        }
+        failed_by_parser: Counter[str] = Counter()
+        for a in atoms:
+            if a.get("verified") == "failed":
+                doc = docs_by_id.get(str(a.get("artifact_id") or ""), {})
+                failed_by_parser[
+                    f"{doc.get('parser_name') or '?'} ({doc.get('artifact_type') or '?'})"
+                ] += 1
 
         out["envelope"] = {
             "atom_count": len(atoms),
@@ -93,6 +113,7 @@ def _per_case(case_dir: Path) -> dict[str, Any]:
             "review_flag_counts": _atom_review_flag_counts(envelope),
             "markdown_atom_counts": md_doc_atoms,
             "replay": dict(replay_counts),
+            "failed_replay_by_parser": dict(failed_by_parser),
         }
 
     if pack:

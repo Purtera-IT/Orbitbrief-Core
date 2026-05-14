@@ -42,6 +42,11 @@ from orbitbrief_core.world_model.escalation import (
     EscalationLog,
     EscalationReason,
 )
+from orbitbrief_core.world_model.site_reality.site_kind import (
+    SiteCandidateKind,
+    classify_site_candidate,
+    is_publishable,
+)
 from orbitbrief_core.world_model.site_reality.state import (
     SiteCluster,
     SiteRealityState,
@@ -255,12 +260,18 @@ class SiteRealityEngine:
             )
             clusters.append(cluster)
 
-        clusters.sort(key=lambda c: c.cluster_id)
+        # PR11 — drop unpublishable orphan room_or_closet clusters
+        # (no parent physical-site to anchor to). The cluster is still
+        # present in inspection / runtime — just not in the published
+        # site-reality state. Future work: actually anchor MDF/IDF to
+        # the nearest physical_site cluster via co-mention edges.
+        publishable_clusters = [c for c in clusters if c.publishable]
+        publishable_clusters.sort(key=lambda c: c.cluster_id)
         return SiteRealityState(
             project_id=rk.project_id,
             compile_id=rk.compile_id,
-            clusters=tuple(clusters),
-            cluster_count=len(clusters),
+            clusters=tuple(publishable_clusters),
+            cluster_count=len(publishable_clusters),
             escalation_log=log.to_dict(),
             merged_keys=merged,
         )
@@ -271,16 +282,21 @@ class SiteRealityEngine:
     def _collect_site_entities(
         envelope: dict[str, Any],
     ) -> dict[str, dict[str, Any]]:
-        """Return ``{canonical_key: entity_dict}`` for every site:* entity
-        whose evidence blob looks like a real physical site.
+        """Return ``{canonical_key: entity_dict}`` for every site:*
+        entity that is publishable as a physical-site cluster.
 
-        Server-side hygiene (PR4): even after parser-os
-        ``entity_hygiene`` runs, drop ``site:*`` candidates whose
-        evidence is dominated by product / vendor / framework / SaaS
-        terms (Belden, Cat6, CISA, ServiceNow, Genetec, APC, …) and
-        carry no positive site words. This is a second safety layer
-        so Core never publishes a fake site cluster like
-        "Belden Cat6 CMP" or "CISA Vulnerability Playbook".
+        Two-stage filter:
+
+        1. Legacy regex hygiene (PR4) — drops obvious banned product
+           / SaaS / framework names.
+        2. Typed candidate classifier (PR11) — drops role / equipment
+           / service / risk / generic kinds even if they slipped past
+           the regex. ``room_or_closet`` is dropped here because at
+           collection time we don't yet know its parent cluster; the
+           orchestrator decides downstream whether to anchor + publish.
+
+        Each kept entity gets ``ent["__site_kind"]`` so downstream
+        cluster construction can stamp ``kind`` onto the cluster.
         """
         out: dict[str, dict[str, Any]] = {}
         for ent in envelope.get("entities") or ():
@@ -289,7 +305,16 @@ class SiteRealityEngine:
                 continue
             if not _is_physical_site_candidate(ck, ent, envelope):
                 continue
-            out[ck] = ent
+
+            kind = classify_site_candidate(ck, ent)
+            # Reject anything not publishable as its own cluster.
+            # room_or_closet stays for now — orchestrator may anchor
+            # it to a parent site cluster.
+            if not (is_publishable(kind) or kind.value == "room_or_closet"):
+                continue
+            ent_with_kind = dict(ent)
+            ent_with_kind["__site_kind"] = kind.value
+            out[ck] = ent_with_kind
         return out
 
     def _build_cluster(
@@ -338,6 +363,30 @@ class SiteRealityEngine:
         else:
             confidence = 0.5  # truly unnamed; midpoint to flag downstream
 
+        # PR11 — typed publishability. The kind comes from
+        # _collect_site_entities (which stamped __site_kind on each
+        # entity). We pick the "best" kind across members in the order
+        # physical_site > building > address > room_or_closet >
+        # everything else.
+        kind_order = (
+            "physical_site",
+            "building",
+            "address",
+            "room_or_closet",
+        )
+        member_kinds = {
+            site_entities[sk].get("__site_kind", "unknown") for sk in members
+        }
+        chosen_kind = "unknown"
+        for k in kind_order:
+            if k in member_kinds:
+                chosen_kind = k
+                break
+        # room_or_closet without a parent cluster is not publishable.
+        # Anchoring is left as future work — stamp publishable=False
+        # for now, the engine drops these from the returned state.
+        is_pub = is_publishable(SiteCandidateKind(chosen_kind))
+
         return SiteCluster(
             cluster_id=f"site_cluster::{rep}",
             canonical_name=canonical_name,
@@ -347,6 +396,9 @@ class SiteRealityEngine:
             artifact_ids=tuple(sorted(artifact_ids)),
             name_resolved_by_llm=escalated,
             confidence=float(min(1.0, max(0.0, confidence))),
+            kind=chosen_kind,
+            parent_cluster_id=None,
+            publishable=is_pub,
         )
 
     def _pick_canonical_name(

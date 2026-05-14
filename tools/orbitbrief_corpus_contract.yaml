@@ -34,6 +34,14 @@ universal:
     - sla coverage
     - sentinel
   routing:
+    # No case may route to ``other`` as the top pack — PR12 made
+    # other a fallback sink, so any case still routing top=other
+    # means we have no domain evidence at all and that's a blocker.
+    forbid_top_pack_id: other
+    # Confidence at exactly 1.0 is the calibration smell the
+    # post-repair review called out — PR13's calibrator caps at
+    # 0.985, so a 1.0 means a stale envelope from before PR13.
+    forbid_top_confidence_exactly_one: true
     forbid_pure_other: true
   artifacts:
     # Every case has a managed_services_package.md (per findings F001
@@ -119,6 +127,8 @@ cases:
   STRESS_MULTI_CAM:
     routing:
       selected_pack_ids_include_any: [security_camera]
+      # PR12 — security_camera should TOP the case, not be a secondary.
+      forbid_top_pack_id: other
 
   STRESS_NATOMAS_WIRELESS:
     routing:
@@ -131,10 +141,12 @@ cases:
   STRESS_PAGING_TRIO:
     routing:
       selected_pack_ids_include_any: [paging_mass_notification]
+      forbid_top_pack_id: other
 
   STRESS_VT_CAM:
     routing:
       selected_pack_ids_include_any: [security_camera]
+      forbid_top_pack_id: other
 
   STRESS_XLSX_RARE:
     routing:

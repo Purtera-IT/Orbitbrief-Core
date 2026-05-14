@@ -67,14 +67,41 @@ _DO_NOT_PUBLISH_FLAGS: frozenset[str] = frozenset(
     }
 )
 
+# PR14 — replay verified states that allow an atom to be cited in
+# PM-facing content. Anything else (``failed``, ``unsupported``,
+# ``unverified``, missing) is dropped from brain bundles.
+_PUBLISHABLE_VERIFIED_STATES: frozenset[str] = frozenset(
+    {
+        "verified",
+        "verified_exact",
+        "verified_row",
+        "verified_fuzzy",
+        "partial",  # at least one source ref verified
+    }
+)
+
 
 def _atom_is_publishable(atom: dict[str, Any] | None) -> bool:
+    """Return True only when the atom (a) has no do-not-publish flag
+    AND (b) has a publishable replay state.
+
+    This is the publishability gate: brain bundles cannot cite an
+    atom that doesn't satisfy both conditions, which means the
+    final composed brief cannot contain a claim backed only by a
+    failed-replay or QA-marker atom.
+    """
     if atom is None:
         return False
     flags = atom.get("review_flags") or ()
-    if not flags:
+    if any(f in _DO_NOT_PUBLISH_FLAGS for f in flags):
+        return False
+    verified = atom.get("verified")
+    # Atoms produced before the verifier ran (no ``verified`` field)
+    # default to publishable so back-compat envelopes work; once
+    # ``verified`` is present, only the publishable states pass.
+    if verified is None:
         return True
-    return not any(f in _DO_NOT_PUBLISH_FLAGS for f in flags)
+    return str(verified) in _PUBLISHABLE_VERIFIED_STATES
 
 
 @dataclass

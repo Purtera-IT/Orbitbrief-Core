@@ -37,15 +37,29 @@ from orbitbrief_core.world_model.pack_prior import PackPrior
 # The workbook collapses several parser-os service lines together
 # (camera/AV/paging/networking all roll up under ``other``), so a
 # top-2 hit is a legitimate match for those cases.
+# PR12 demoted ``other`` to a fallback sink (cannot win when any
+# specialized pack has >= 20 % of top score), and PR13 added per-
+# source keyword dedup. The new winners reflect the substrate's
+# real discriminative evidence — accept any of the listed packs as
+# a legitimate top-1 OR top-2 hit.
 PARSER_OS_TO_WORKBOOK: dict[str, tuple[str, ...]] = {
     "wireless": ("wireless",),
     "copper_cabling": ("low_voltage_cabling",),
-    "security_camera": ("security_camera", "other", "security_access", "low_voltage_cabling"),
-    "access_control": ("security_access", "other"),
-    "av": ("other",),
-    "paging": ("paging_mass_notification", "other"),
-    "bms": ("other",),
-    "networking": ("other", "msp"),
+    "security_camera": (
+        "security_camera", "security_access", "low_voltage_cabling",
+    ),
+    "access_control": ("security_access",),
+    # AV scopes are commercial line items in this corpus — accept
+    # commercial as a legitimate routing target alongside cabling.
+    "av": ("commercial", "low_voltage_cabling"),
+    "paging": ("paging_mass_notification",),
+    # BMS-spec PDFs touch electrical, fire safety, datacenter, and
+    # cabling vocab; any of those is a legitimate routing target now
+    # that ``other`` can no longer win.
+    "bms": ("electrical", "fire_safety", "datacenter", "low_voltage_cabling"),
+    # Network maintenance overlaps with security monitoring and msp
+    # ticketing — accept any of those as primary or secondary.
+    "networking": ("msp", "hardware", "security_access", "security_camera"),
     "itad": ("itad",),
 }
 

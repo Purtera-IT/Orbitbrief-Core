@@ -19,6 +19,12 @@ class SiteCluster(BaseModel):
     artifact_ids: tuple[str, ...]
     name_resolved_by_llm: bool = False
     confidence: float = Field(ge=0.0, le=1.0)
+    # PR11 — typed publishability. ``kind`` is one of:
+    # physical_site / building / address / room_or_closet
+    # ``publishable`` is False for room_or_closet without a parent.
+    kind: str = "unknown"
+    parent_cluster_id: str | None = None
+    publishable: bool = True
 
 
 class SiteRealityState(BaseModel):

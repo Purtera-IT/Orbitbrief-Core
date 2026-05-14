@@ -109,6 +109,19 @@ _MIN_REGULAR_LEN = 3
 # Boost weight: a hand-curated boost match counts this many times more
 # than a workbook keyword match.
 _BOOST_WEIGHT = 3
+# PR13 — per-source keyword cap. A single chatty atom (e.g. a long
+# Markdown paragraph repeating "service desk" 40 times) was inflating
+# one pack's score with boilerplate. Cap unique-keyword contribution
+# per source so the dominant pack must come from breadth of evidence,
+# not chatty boilerplate density.
+_MAX_HITS_PER_SOURCE_PER_KEYWORD = 1
+# PR12 — "other" is a fallback sink, not a competitive pack. After
+# scoring, if any specialized pack has a meaningful share of the top
+# raw_score, force "other" to lose. The threshold is loose on
+# purpose: any specialized pack with raw_score >= 20% of the top
+# raw_score is enough to demote "other".
+_OTHER_FALLBACK_PACK_ID = "other"
+_OTHER_DEMOTE_FRACTION = 0.20
 
 
 def _strip_think(text: str) -> str:
@@ -163,7 +176,16 @@ class PackPrior:
         log = EscalationLog()
 
         raw_scores, matched_kws, tokens_considered = self._score(envelope)
-        confidences = self._softmax(raw_scores)
+
+        # PR12 — "other" is a fallback. If any specialized pack has a
+        # meaningful share of the top raw_score, demote "other" so it
+        # cannot win top-1 or be selected as a brain target. We still
+        # report its score for transparency.
+        raw_scores = self._demote_other_when_specialized_exists(raw_scores)
+
+        # PR13 — replace softmax confidence with a margin + support
+        # signal that doesn't saturate at 1.0.
+        confidences = self._calibrated_confidences(raw_scores)
 
         scores = self._build_scores(raw_scores, confidences, matched_kws)
         top, runner_up = scores[0], scores[1] if len(scores) > 1 else None
@@ -259,16 +281,31 @@ class PackPrior:
 
         for tokens in self._iter_token_streams(envelope):
             total_tokens += len(tokens)
+            # PR13 — per-source de-dup so a chatty atom that repeats
+            # one keyword 40 times only counts once for that pack.
+            seen_per_pack: dict[str, set[str]] = {}
             for tok in tokens:
                 if len(tok) >= _MIN_REGULAR_LEN:
                     for pack_id in self.registry.packs_for_keyword(tok):
+                        seen = seen_per_pack.setdefault(pack_id, set())
+                        if tok in seen:
+                            continue
+                        seen.add(tok)
                         raw_scores[pack_id] += 1
                         matched[pack_id].add(tok)
                 for pack_id in self.registry.packs_for_boost_keyword(tok):
+                    seen = seen_per_pack.setdefault(pack_id, set())
+                    if f"!{tok}" in seen:
+                        continue
+                    seen.add(f"!{tok}")
                     raw_scores[pack_id] += _BOOST_WEIGHT
                     matched[pack_id].add(f"!{tok}")
             for big in _bigrams(tokens):
                 for pack_id in self.registry.packs_for_boost_keyword(big):
+                    seen = seen_per_pack.setdefault(pack_id, set())
+                    if f"!{big}" in seen:
+                        continue
+                    seen.add(f"!{big}")
                     raw_scores[pack_id] += _BOOST_WEIGHT
                     matched[pack_id].add(f"!{big}")
 
@@ -296,9 +333,8 @@ class PackPrior:
         ]
 
     def _softmax(self, raw_scores: dict[str, int]) -> dict[str, float]:
-        """Temperature-scaled softmax with a small floor for the all-zero case."""
-        # Add 1e-3 floor so an all-zeros input still yields a uniform-ish
-        # distribution rather than 0/0 NaN.
+        """Temperature-scaled softmax — kept for back-compat tests; the
+        live ``compute`` path uses :meth:`_calibrated_confidences`."""
         if not raw_scores:
             return {}
         floor = 1e-3
@@ -306,11 +342,82 @@ class PackPrior:
             pid: float(s) / max(self.softmax_temperature, 1e-6) + floor
             for pid, s in raw_scores.items()
         }
-        # Numerical-stability: subtract max before exp.
         m = max(adjusted.values())
         exps = {pid: math.exp(v - m) for pid, v in adjusted.items()}
         total = sum(exps.values())
         return {pid: v / total for pid, v in exps.items()}
+
+    @staticmethod
+    def _demote_other_when_specialized_exists(
+        raw_scores: dict[str, int],
+    ) -> dict[str, int]:
+        """PR12 — make "other" a fallback sink, not a competitive pack.
+
+        If any specialized pack has raw_score >= 20 % of the top
+        specialized raw_score, set ``other`` to 0 so it can never
+        win top-1 or be selected as a brain target. The intent: the
+        ``other`` pack is for engagements with no recognizable
+        domain, not for splitting credit with real packs.
+        """
+        if _OTHER_FALLBACK_PACK_ID not in raw_scores:
+            return raw_scores
+        specialized = {
+            pid: s for pid, s in raw_scores.items()
+            if pid != _OTHER_FALLBACK_PACK_ID
+        }
+        if not specialized:
+            return raw_scores
+        top_specialized = max(specialized.values())
+        if top_specialized <= 0:
+            return raw_scores
+        # Anyone with >= 20 % of the top specialized score qualifies.
+        strong_specialized = [
+            pid for pid, s in specialized.items()
+            if s >= _OTHER_DEMOTE_FRACTION * top_specialized
+        ]
+        if strong_specialized:
+            out = dict(raw_scores)
+            out[_OTHER_FALLBACK_PACK_ID] = 0
+            return out
+        return raw_scores
+
+    @staticmethod
+    def _calibrated_confidences(raw_scores: dict[str, int]) -> dict[str, float]:
+        """PR13 — margin + support based confidence.
+
+        Replaces the softmax that saturated at 1.0 on every case
+        with a sigmoid over (top - runner_up) / max(top, 1). The
+        confidence ceiling is 0.985 — any pack at exactly 1.0 means
+        we picked the wrong calibrator.
+        """
+        if not raw_scores:
+            return {}
+        sorted_scores = sorted(raw_scores.values(), reverse=True)
+        top = float(sorted_scores[0])
+        if top <= 0:
+            # No signal — uniform low confidence.
+            return {pid: 0.0 for pid in raw_scores}
+        runner_up = float(sorted_scores[1]) if len(sorted_scores) > 1 else 0.0
+        margin_ratio = (top - runner_up) / top  # 0..1
+        # Sigmoid centered around a 10 % margin so a thin win is ~0.55,
+        # a 30 % margin is ~0.78, a 60 % margin is ~0.94.
+        ceiling = 0.985
+        center = 0.10
+        steepness = 6.0
+        top_conf = ceiling / (1 + math.exp(-steepness * (margin_ratio - center)))
+        # Distribute remaining mass to runner-ups proportional to their
+        # raw_score so secondaries still get a useful confidence number.
+        out: dict[str, float] = {}
+        for pid, s in raw_scores.items():
+            if s == 0:
+                out[pid] = 0.0
+                continue
+            if s == int(top):
+                out[pid] = top_conf
+            else:
+                # Other packs scale to top_conf * (s/top).
+                out[pid] = round(top_conf * (s / top), 4)
+        return out
 
     def _build_scores(
         self,
@@ -335,6 +442,11 @@ class PackPrior:
 
     @staticmethod
     def _select_pack_ids(scores: list[PackScore]) -> list[str]:
+        # PR12 — never select "other" as a brain target. The
+        # _demote_other_when_specialized_exists step zeros it out
+        # when specialized packs exist; we still skip it explicitly
+        # here for the all-zero corner case.
+        scores = [s for s in scores if s.pack_id != _OTHER_FALLBACK_PACK_ID]
         """Pick top pack + secondary packs that carry meaningful evidence.
 
         Selection rules (order matters; first match wins per pack):

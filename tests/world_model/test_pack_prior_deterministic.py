@@ -68,6 +68,13 @@ def test_state_has_all_24_packs(
     pack_ids = {s.pack_id for s in state.scores}
     assert "wireless" in pack_ids
     assert "itad" in pack_ids
-    # Confidences sum to ~1.0 (softmax invariant).
-    total = sum(s.confidence for s in state.scores)
-    assert abs(total - 1.0) < 1e-6, total
+    # PR13 — confidence is no longer a softmax probability; it's a
+    # margin-based calibrated signal capped at 0.985 so a winning pack
+    # cannot read as "100 % confident". Only invariant: every value is
+    # in [0, ceiling] and the top pack's confidence is highest.
+    ceiling = 0.985
+    for s in state.scores:
+        assert 0.0 <= s.confidence <= ceiling + 1e-6, (s.pack_id, s.confidence)
+    # The top pack should have the highest confidence (or tied for it).
+    sorted_scores = sorted(state.scores, key=lambda s: -s.confidence)
+    assert sorted_scores[0].confidence >= sorted_scores[1].confidence
