@@ -103,7 +103,13 @@ cases:
 
   STRESS_BMS_SPECS:
     routing:
-      selected_pack_ids_include_any: [datacenter, low_voltage_cabling]
+      # PR19 added building_management_systems pack; expect either
+      # the new BMS pack OR the legacy datacenter/cabling fallbacks.
+      selected_pack_ids_include_any:
+        - building_management_systems
+        - datacenter
+        - low_voltage_cabling
+        - electrical
 
   STRESS_COVERAGE_GAPS:
     routing:

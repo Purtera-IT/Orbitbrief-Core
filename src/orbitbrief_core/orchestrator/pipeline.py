@@ -408,7 +408,11 @@ class BriefPipeline:
             result.calibrations[pack_id] = calibration_report
             records.append(rec)
 
-            if queue is not None and self.config.enqueue_review_items:
+            if (
+                queue is not None
+                and self.config.enqueue_review_items
+                and calibration_report is not None
+            ):
                 queued = 0
                 for item in calibration_report.items:
                     if item.verdict is Verdict.AUTO_ACCEPT:
