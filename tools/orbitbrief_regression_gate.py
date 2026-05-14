@@ -95,6 +95,7 @@ def _load_envelope(case_dir: Path) -> dict[str, Any] | None:
 
     Looks at common emission paths the orchestrator writes to."""
     for cand in (
+        "00_envelope.json",
         "envelope.json",
         "input_envelope.json",
         "orbitbrief_input.json",
@@ -121,7 +122,9 @@ def _check_universal(
 ) -> list[str]:
     failures: list[str] = []
 
-    site_json = _candidate_files(case_dir, "site_reality.json")
+    site_json = _candidate_files(
+        case_dir, "site_reality.json", "11_site_reality_state.json"
+    )
     if site_json is not None:
         try:
             payload = _load_json(site_json)
@@ -137,7 +140,9 @@ def _check_universal(
                         f"(banned term: {hit!r})"
                     )
 
-    pack_json = _candidate_files(case_dir, "pack_prior.json")
+    pack_json = _candidate_files(
+        case_dir, "pack_prior.json", "10_pack_prior_state.json"
+    )
     if pack_json is not None and forbid_pure_other:
         try:
             payload = _load_json(pack_json)
@@ -162,7 +167,9 @@ def _check_universal(
 
 def _check_routing(case_dir: Path, routing: dict[str, Any]) -> list[str]:
     failures: list[str] = []
-    pack_json = _candidate_files(case_dir, "pack_prior.json")
+    pack_json = _candidate_files(
+        case_dir, "pack_prior.json", "10_pack_prior_state.json"
+    )
     if pack_json is None:
         failures.append(f"{case_dir.name}: contract requires pack_prior.json (not found)")
         return failures

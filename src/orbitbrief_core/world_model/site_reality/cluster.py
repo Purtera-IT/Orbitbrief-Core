@@ -74,7 +74,11 @@ _SITE_NEGATIVE_RE = re.compile(
     r"\b("
     r"cisa|vulnerability|playbook|workflow|servicenow|pagerduty|logicmonitor|"
     r"belden|cat6|cat6a|cisco|meraki|genetec|axis|hanwha|apc|ups|license|sku|"
-    r"contract|sla|nfpa|nist|pci|hipaa|sentinel|palo alto|firewall"
+    r"contract|sla|nfpa|nist|pci|hipaa|sentinel|palo alto|firewall|"
+    # Vendor product names that contain a positive site word
+    # ("center", "campus", …) and would otherwise sneak through.
+    r"security center|synergis|streamvault|security command|"
+    r"omnicast|axis communications|palo alto networks"
     r")\b",
     re.I,
 )
@@ -116,7 +120,25 @@ def _is_physical_site_candidate(
 ) -> bool:
     """Return True only if the entity's evidence blob looks like a
     real physical site (school / building / address) and is not
-    overwhelmed by product/framework/SaaS terms."""
+    overwhelmed by product/framework/SaaS terms.
+
+    Two-step (post-review tightening):
+
+    1. If the SITE KEY itself / the canonical name contains a
+       negative term (Genetec, Cat6, ServiceNow, …), drop. This is
+       strict on purpose — accepting an unrelated "center" /
+       "campus" mention nearby would let "Genetec Security Center"
+       through. The parser-os ``entity_hygiene`` module uses the
+       same rule.
+    2. Otherwise: drop if the full evidence blob is negative-
+       dominated AND has no positive site vocabulary. Keep if the
+       blob has positive site vocabulary anywhere.
+    """
+    name = (str(ent.get("canonical_name") or "") + " " +
+            site_key.replace("site:", "").replace("_", " "))
+    if _SITE_NEGATIVE_RE.search(name):
+        return False
+
     blob = _entity_evidence_blob(site_key, ent, envelope)
     if _SITE_NEGATIVE_RE.search(blob) and not _SITE_POSITIVE_RE.search(blob):
         return False
