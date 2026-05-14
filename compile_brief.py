@@ -46,13 +46,13 @@ def _maybe_compile_with_parser_os(
     case_dir: Path, project_id: str | None, *, quiet: bool
 ) -> Path:
     """Run parser-os on ``case_dir`` and write the envelope to a temp path."""
-    parser_os_root = Path(
-        os.environ.get("PARSER_OS_ROOT", "/Users/purtera/dev/purtera/parser-os-repo")
-    )
-    if not parser_os_root.is_dir():
+    parser_os_root_raw = os.environ.get("PARSER_OS_ROOT", "")
+    parser_os_root = Path(parser_os_root_raw).expanduser() if parser_os_root_raw else None
+    if not parser_os_root or not parser_os_root.is_dir():
         sys.exit(
-            f"compile_brief: parser-os not found at {parser_os_root}. "
-            "Pass an envelope.json directly or set PARSER_OS_ROOT."
+            "compile_brief: parser-os not found. "
+            "Set PARSER_OS_ROOT=/absolute/path/to/parser-os-repo "
+            "or pass a prebuilt envelope.json."
         )
     if str(parser_os_root) not in sys.path:
         sys.path.insert(0, str(parser_os_root))
