@@ -31,6 +31,7 @@ Determinism
 """
 from __future__ import annotations
 
+import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Any, Iterable
@@ -54,6 +55,72 @@ from orbitbrief_core.world_model.site_reality.state import (
 # edges mean the atoms disagree, not that they co-locate.
 _MERGING_EDGE_TYPES: frozenset[str] = frozenset({"same_as", "located_in"})
 _SITE_KEY_PREFIX = "site:"
+
+
+# Server-side site-reality hygiene (PR4): even after parser-os entity
+# hygiene runs, Core should refuse to cluster ``site:*`` entities whose
+# evidence blob obviously refers to a product / vendor / framework /
+# SaaS tool / standard rather than a physical place.
+_SITE_POSITIVE_RE = re.compile(
+    r"\b("
+    r"school|campus|building|bldg|center|hospital|library|auditorium|"
+    r"office|facility|warehouse|mdf|idf|floor|suite|room|closet|"
+    r"district core|main campus|annex|tower|"
+    r"\d{2,6}\s+[a-z0-9 .'-]+\s+(st|street|rd|road|ave|avenue|dr|drive|blvd|way|lane|ln)"
+    r")\b",
+    re.I,
+)
+_SITE_NEGATIVE_RE = re.compile(
+    r"\b("
+    r"cisa|vulnerability|playbook|workflow|servicenow|pagerduty|logicmonitor|"
+    r"belden|cat6|cat6a|cisco|meraki|genetec|axis|hanwha|apc|ups|license|sku|"
+    r"contract|sla|nfpa|nist|pci|hipaa|sentinel|palo alto|firewall"
+    r")\b",
+    re.I,
+)
+
+
+def _entity_evidence_blob(
+    site_key: str,
+    ent: dict[str, Any],
+    envelope: dict[str, Any],
+) -> str:
+    """Aggregate the entity's name + atom evidence so site-reality has
+    enough text to call ``_is_physical_site_candidate`` reliably."""
+    indexes = envelope.get("indexes") or {}
+    atoms_by_key = indexes.get("atoms_by_entity_key") or {}
+    atoms_by_id = {
+        a.get("id"): a
+        for a in envelope.get("atoms") or ()
+        if isinstance(a, dict)
+    }
+
+    parts: list[str] = [
+        str(ent.get("canonical_name") or ""),
+        site_key.replace("site:", "").replace("_", " "),
+    ]
+    for atom_id in list(atoms_by_key.get(site_key, []))[:10]:
+        atom = atoms_by_id.get(atom_id)
+        if not atom:
+            continue
+        parts.append(str(atom.get("raw_text") or atom.get("text") or ""))
+        parts.append(str(atom.get("normalized_text") or ""))
+        parts.append(str(atom.get("value") or ""))
+    return " ".join(parts)
+
+
+def _is_physical_site_candidate(
+    site_key: str,
+    ent: dict[str, Any],
+    envelope: dict[str, Any],
+) -> bool:
+    """Return True only if the entity's evidence blob looks like a
+    real physical site (school / building / address) and is not
+    overwhelmed by product/framework/SaaS terms."""
+    blob = _entity_evidence_blob(site_key, ent, envelope)
+    if _SITE_NEGATIVE_RE.search(blob) and not _SITE_POSITIVE_RE.search(blob):
+        return False
+    return bool(_SITE_POSITIVE_RE.search(blob))
 
 
 @dataclass
@@ -182,12 +249,25 @@ class SiteRealityEngine:
     def _collect_site_entities(
         envelope: dict[str, Any],
     ) -> dict[str, dict[str, Any]]:
-        """Return ``{canonical_key: entity_dict}`` for every site:* entity."""
+        """Return ``{canonical_key: entity_dict}`` for every site:* entity
+        whose evidence blob looks like a real physical site.
+
+        Server-side hygiene (PR4): even after parser-os
+        ``entity_hygiene`` runs, drop ``site:*`` candidates whose
+        evidence is dominated by product / vendor / framework / SaaS
+        terms (Belden, Cat6, CISA, ServiceNow, Genetec, APC, …) and
+        carry no positive site words. This is a second safety layer
+        so Core never publishes a fake site cluster like
+        "Belden Cat6 CMP" or "CISA Vulnerability Playbook".
+        """
         out: dict[str, dict[str, Any]] = {}
         for ent in envelope.get("entities") or ():
             ck = ent.get("canonical_key") or ""
-            if ck.startswith(_SITE_KEY_PREFIX):
-                out[ck] = ent
+            if not ck.startswith(_SITE_KEY_PREFIX):
+                continue
+            if not _is_physical_site_candidate(ck, ent, envelope):
+                continue
+            out[ck] = ent
         return out
 
     def _build_cluster(
