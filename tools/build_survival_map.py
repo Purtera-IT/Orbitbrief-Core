@@ -163,7 +163,9 @@ def _build_ledger_for_case(case_dir: Path) -> tuple[list[dict], dict]:
         except Exception:
             cb = None
         if cb:
-            for grp in (cb.get("domain_groups") or []):
+            # Composer JSON uses ``domains`` (not ``domain_groups``)
+            # and each item carries ``item_id`` + ``supporting_atom_ids``.
+            for grp in (cb.get("domains") or cb.get("domain_groups") or []):
                 pack_id = grp.get("pack_id") or grp.get("display_name") or ""
                 for sec in (grp.get("sections") or []):
                     sec_id = sec.get("section_id") or sec.get("section") or ""

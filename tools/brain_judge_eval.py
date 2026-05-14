@@ -41,7 +41,10 @@ _SRC = _REPO_ROOT / "src"
 if _SRC.is_dir() and str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from orbitbrief_core.inference.client import ChatClient, ChatMessage  # noqa: E402
+from orbitbrief_core.inference.client import (  # noqa: E402
+    ChatMessage,
+    OpenAIChatClient,
+)
 
 
 _THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
@@ -54,21 +57,39 @@ def _strip_think(text: str) -> str:
 
 
 def _extract_json(text: str) -> dict | None:
-    text = _strip_think(text)
-    # Try fenced code block first.
+    """Robust JSON salvager. Tries:
+    1) the whole reply
+    2) a fenced ```json``` block
+    3) the largest balanced {...} substring
+    4) progressively trims trailing prose until json.loads succeeds
+    """
+    text = _strip_think(text).strip()
+    if not text:
+        return None
+    # 1) whole reply
+    try:
+        return json.loads(text)
+    except Exception:
+        pass
+    # 2) fenced code block
     m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     if m:
         try:
             return json.loads(m.group(1))
         except Exception:
             pass
-    # Otherwise the first `{ … }` block.
-    m = re.search(r"\{.*\}", text, re.DOTALL)
-    if m:
-        try:
-            return json.loads(m.group(0))
-        except Exception:
-            return None
+    # 3) balanced-brace scan — find the largest {...} that parses
+    starts = [i for i, c in enumerate(text) if c == "{"]
+    ends = [i for i, c in enumerate(text) if c == "}"]
+    for s in starts:
+        for e in reversed(ends):
+            if e <= s:
+                continue
+            candidate = text[s : e + 1]
+            try:
+                return json.loads(candidate)
+            except Exception:
+                continue
     return None
 
 
@@ -184,7 +205,11 @@ def _candidate(case_dir: Path, *names: str) -> Path | None:
 
 def _flatten_brief_items(composed_brief: dict) -> list[dict]:
     out: list[dict] = []
-    for grp in composed_brief.get("domain_groups") or []:
+    for grp in (
+        composed_brief.get("domains")
+        or composed_brief.get("domain_groups")
+        or []
+    ):
         pack_id = grp.get("pack_id") or grp.get("display_name") or ""
         for sec in grp.get("sections") or []:
             sec_id = sec.get("section_id") or sec.get("section") or ""
@@ -310,8 +335,8 @@ def _evaluate_case(
 
     pm_payload = json.dumps(
         {
-            "executive_summary": composed.get("executive_summary"),
-            "domain_groups": [
+            "executive_summary": composed.get("summary") or composed.get("executive_summary"),
+            "domains": [
                 {
                     "pack": g.get("pack_id") or g.get("display_name"),
                     "sections": [
@@ -325,7 +350,7 @@ def _evaluate_case(
                         for s in (g.get("sections") or [])
                     ],
                 }
-                for g in (composed.get("domain_groups") or [])
+                for g in (composed.get("domains") or composed.get("domain_groups") or [])
             ],
         },
         ensure_ascii=False,
@@ -364,7 +389,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--ollama-host", default="http://localhost:11434")
     args = p.parse_args(argv)
 
-    chat = ChatClient(host=args.ollama_host, timeout_s=600)
+    chat = OpenAIChatClient(base_url=args.ollama_host, timeout_s=600.0)
 
     cases = sorted(x for x in args.orbit_results.iterdir() if x.is_dir())
     per_case: list[dict] = []
