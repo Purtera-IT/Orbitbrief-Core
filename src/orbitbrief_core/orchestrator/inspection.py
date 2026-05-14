@@ -351,6 +351,7 @@ def build_inspection_report(artifacts: BriefArtifacts) -> dict[str, Any]:
         "margin": pack_prior.get("margin"),
         "escalated": pack_prior.get("escalated"),
         "tokens_considered": pack_prior.get("tokens_considered"),
+        "selected_pack_ids": pack_prior.get("selected_pack_ids") or [],
         "top_scores": [
             {
                 "pack_id": s.get("pack_id"),

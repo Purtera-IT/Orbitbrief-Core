@@ -56,6 +56,50 @@ from orbitbrief_core.world_model.registry import (
 
 
 _TOKEN = re.compile(r"[a-z0-9_]+")
+
+
+def _atom_text_stream(atom: dict[str, Any]) -> str:
+    """Concatenate all routable text fields on a parser-os atom.
+
+    The legacy router only read ``atom["text"]``, but parser-os atoms
+    actually carry the bulk of their evidence in ``raw_text``,
+    ``normalized_text``, ``value`` (a dict), ``entity_keys``, and
+    ``source_refs[].locator`` (filename / sheet / section_path / page).
+    Reading only ``text`` is what caused security/camera/paging cases
+    to route to ``other`` despite obvious vendor/device evidence.
+    """
+    parts: list[str] = []
+
+    for key in ("text", "raw_text", "normalized_text", "claim", "normalized_claim"):
+        v = atom.get(key)
+        if isinstance(v, str) and v.strip():
+            parts.append(v)
+
+    value = atom.get("value")
+    if isinstance(value, dict):
+        for v in value.values():
+            if isinstance(v, (str, int, float)):
+                parts.append(str(v))
+            elif isinstance(v, list):
+                parts.extend(str(x) for x in v if isinstance(x, (str, int, float)))
+            elif isinstance(v, dict):
+                parts.extend(
+                    str(x) for x in v.values() if isinstance(x, (str, int, float))
+                )
+
+    for key in atom.get("entity_keys") or ():
+        parts.append(str(key).replace(":", " ").replace("_", " "))
+
+    for ref in atom.get("source_refs") or ():
+        if isinstance(ref, dict):
+            parts.append(str(ref.get("filename") or ""))
+            locator = ref.get("locator") or {}
+            if isinstance(locator, dict):
+                parts.append(str(locator.get("section_path") or ""))
+                parts.append(str(locator.get("sheet") or ""))
+                parts.append(str(locator.get("page") or ""))
+
+    return " ".join(p for p in parts if p)
 # Length floor for unigram tokens. Two-char abbreviations (``ap``, ``rf``,
 # ``av``, ``po``, ``id``) carry strong domain signal, so we accept them
 # but only via the boost path — regular keyword matches still need ≥ 3
@@ -175,6 +219,8 @@ class PackPrior:
                         runner_up.confidence if runner_up else 0.0
                     )
 
+        selected_pack_ids = self._select_pack_ids(scores)
+
         return PackPriorState(
             project_id=rk.project_id,
             compile_id=rk.compile_id,
@@ -188,6 +234,7 @@ class PackPrior:
             pre_escalation_top_pack_id=pre_top,
             escalation_log=log.to_dict(),
             tokens_considered=tokens_considered,
+            selected_pack_ids=tuple(selected_pack_ids),
         )
 
     # ───── internals ─────
@@ -232,7 +279,9 @@ class PackPrior:
     ) -> Iterable[list[str]]:
         """Yield one token list per text source so bigrams stay bounded by source."""
         for atom in envelope.get("atoms") or ():
-            yield self._tokenize(atom.get("text") or "")
+            text = _atom_text_stream(atom)
+            if text:
+                yield self._tokenize(text)
         for entity in envelope.get("entities") or ():
             yield self._tokenize(entity.get("canonical_name") or "")
             for alias in entity.get("aliases") or ():
@@ -283,6 +332,44 @@ class PackPrior:
             )
         out.sort(key=lambda s: (-s.confidence, s.pack_id))
         return out
+
+    @staticmethod
+    def _select_pack_ids(scores: list[PackScore]) -> list[str]:
+        """Pick top pack + secondary packs that carry meaningful evidence.
+
+        Selection rules (order matters; first match wins per pack):
+
+        * The top raw-score pack is always selected.
+        * Other packs join the selection if any of:
+          - ``raw_score >= 60`` (absolute strength), OR
+          - ``raw_score >= 0.20 * top_raw_score`` (relative strength), OR
+          - ≥ 2 boosted-keyword hits (curated boost wins are rare and
+            deliberately strong evidence).
+
+        Capped at 4 to bound brain fan-out. Stops softmax saturation
+        from hiding strong secondary signal.
+        """
+        if not scores:
+            return []
+
+        by_raw = sorted(scores, key=lambda s: (-s.raw_score, s.pack_id))
+        top = by_raw[0]
+        selected = [top.pack_id]
+
+        for score in by_raw[1:]:
+            if score.raw_score <= 0:
+                continue
+            strong_absolute = score.raw_score >= 60
+            strong_fraction = (
+                top.raw_score > 0 and score.raw_score >= 0.20 * top.raw_score
+            )
+            boosted_hits = (
+                sum(1 for kw in score.matched_keywords if kw.startswith("!")) >= 2
+            )
+            if strong_absolute or strong_fraction or boosted_hits:
+                selected.append(score.pack_id)
+
+        return selected[:4]
 
     @staticmethod
     def _reorder_top(scores: list[PackScore], new_top_id: str) -> list[PackScore]:

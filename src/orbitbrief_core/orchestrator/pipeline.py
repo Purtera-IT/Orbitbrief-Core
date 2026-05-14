@@ -631,26 +631,40 @@ class BriefPipeline:
         return out
 
     def _pick_active_packs(self, pack_prior: PackPriorState) -> list[str]:
-        """Pick the top-N brains by raw pack-prior score.
+        """Pick brains to run.
 
-        Confidence (softmax) saturates when one pack dominates by 25×;
-        raw_score keeps the secondary brains visible. We always include
-        ``top_pack_id`` and then top up to ``active_brain_top_n`` from
-        the raw-score-sorted list, filtered by registry availability
-        and an optional confidence floor.
+        Preferred source: ``pack_prior.selected_pack_ids`` — the router
+        already applied the proper "top + meaningful secondaries"
+        selection rules (absolute / fractional / boosted-hits) instead
+        of softmax saturation, so this is the source of truth.
+
+        Fallback: legacy top-N raw-score ranking, for back-compat with
+        any state that predates ``selected_pack_ids``.
         """
-        floor = self.config.active_pack_floor
         cap = max(1, self.config.active_brain_top_n)
-        # Sort by raw_score desc, then by confidence desc, then by pack_id
-        # for deterministic tie-break.
+
+        if pack_prior.selected_pack_ids:
+            active: list[str] = []
+            seen: set[str] = set()
+            for pid in pack_prior.selected_pack_ids:
+                if pid in seen:
+                    continue
+                active.append(pid)
+                seen.add(pid)
+                if len(active) >= cap:
+                    break
+            if pack_prior.top_pack_id and pack_prior.top_pack_id not in seen and len(active) < cap:
+                active.append(pack_prior.top_pack_id)
+            return active
+
+        # ── legacy path: top-N by raw_score ───────────────────────
+        floor = self.config.active_pack_floor
         ranked = sorted(
             pack_prior.scores,
             key=lambda s: (-s.raw_score, -s.confidence, s.pack_id),
         )
-        active: list[str] = []
-        seen: set[str] = set()
-        # Top pack always wins, even if it isn't first in the rank
-        # (defensive — top_pack_id and sort order should agree).
+        active = []
+        seen = set()
         if pack_prior.top_pack_id and pack_prior.top_pack_id not in seen:
             active.append(pack_prior.top_pack_id)
             seen.add(pack_prior.top_pack_id)

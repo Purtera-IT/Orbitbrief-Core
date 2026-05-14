@@ -44,3 +44,10 @@ class PackPriorState(BaseModel):
     # Total atom-text tokens scored — useful for sanity checks
     # ("did we score zero tokens because the envelope is empty?").
     tokens_considered: int = Field(default=0, ge=0)
+    # Pack ids the orchestrator should run brains for, ordered by
+    # raw_score desc with the top pack always first. Includes secondary
+    # packs whose score is meaningful in absolute terms or relative to
+    # the top pack — so a wireless project that also has clear
+    # access-control evidence will run BOTH brains, instead of letting
+    # softmax saturation hide the secondary pack.
+    selected_pack_ids: tuple[str, ...] = ()
