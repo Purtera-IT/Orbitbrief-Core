@@ -1,0 +1,1287 @@
+version: sow_completeness_rules_v1
+description: Data-driven SOW completeness starter. Checks selected/inferred OrbitBrief domain packs against PM-critical
+  SOW fields across all atoms, packets, and site clusters.
+pack_aliases:
+  telecom_structured_cabling:
+  - telecom
+  - low_voltage_cabling
+  cabling:
+  - low_voltage_cabling
+  camera_vms_operations:
+  - security_camera
+  security_cameras:
+  - security_camera
+  bms:
+  - building_management_systems
+  bas:
+  - building_management_systems
+  procurement_finance:
+  - commercial
+  - hardware
+  procurement:
+  - commercial
+  - hardware
+  network_ops:
+  - network_maintenance
+  managed_services:
+  - msp
+  professional_services:
+  - professional_services
+  site:
+  - site_structure
+global_checks:
+- id: global.customer_project_identity
+  label: Customer / project identity
+  severity: warning
+  message: No clear customer or project identity was found in the substrate.
+  suggested_open_question: Who is the contracting customer and what is the project / program name?
+  evidence:
+    any_regex:
+    - \b(customer|client|owner|district|agency|university|hospital|city|county)\b
+    - \b(project|program|scope|engagement)\b
+- id: global.site_reality_present
+  label: At least one physical site cluster
+  severity: warning
+  message: No publishable physical site cluster was found.
+  suggested_open_question: Which physical site(s), buildings, rooms, MDFs/IDFs, or addresses are in scope?
+  evidence:
+    requires_site_cluster: true
+- id: global.schedule_or_milestone
+  label: Schedule / milestone / target date
+  severity: warning
+  message: No schedule, milestone, target go-live, or access-window timing evidence was found.
+  suggested_open_question: What are the target dates, install windows, access windows, and acceptance milestones?
+  evidence:
+    any_regex:
+    - \b(schedule|milestone|target go[- ]?live|go[- ]?live|completion|cutover|install window|access window|due date|weekend|after[-
+      ]?hours)\b
+    - \b20\d{2}[-/]\d{1,2}[-/]\d{1,2}\b
+- id: global.commercial_structure
+  label: Pricing / commercial structure
+  severity: warning
+  message: No pricing, rate card, quote, PO, NTE, fixed-fee, T&M, or unit-price structure was found.
+  suggested_open_question: 'What is the commercial model: fixed fee, T&M, NTE, unit price, milestone billing, or
+    quote/PO structure?'
+  evidence:
+    any_regex:
+    - \b(price|pricing|quote|budget|cost|rate card|fixed fee|fixed[- ]price|t\s*&\s*m|time and materials|nte|not
+      to exceed|unit price|purchase order|po\b|milestone billing)\b
+    - \$\s?\d
+- id: global.explicit_exclusions
+  label: Explicit exclusions / boundaries
+  severity: warning
+  message: No explicit exclusions or by-others boundaries were found.
+  suggested_open_question: What is explicitly excluded or by others?
+  evidence:
+    any_regex:
+    - \b(excluded|exclusions?|out of scope|not included|by others|owner provided|customer provided|n\.i\.c\.|nic\b)\b
+- id: global.explicit_assumptions
+  label: Explicit assumptions
+  severity: info
+  message: No explicit assumptions were found.
+  suggested_open_question: What assumptions is the SOW relying on?
+  evidence:
+    any_regex:
+    - \b(assumption|assume|assumed|provided that|subject to|existing condition|existing pathway|power available|access
+      available)\b
+domains:
+  low_voltage_cabling:
+    display_name: Low Voltage Cabling
+    scope_triggers:
+    - \b(cat\s?6a?|cat\s?5e|cabling|cable drops?|drops?|patch panel|keystone|faceplate|fluke|tia[- ]?568|tia[- ]?606|j[-
+      ]?hooks?|fire[- ]?stop|idf|mdf)\b
+    checks:
+    - id: low_voltage_cabling.cable_category
+      label: Cable category
+      severity: blocker
+      message: Cabling scope is present but no cable category was found.
+      suggested_open_question: 'What cable category/type is required: Cat6, Cat6A, Cat5e, OM4, OS2, etc.?'
+      evidence:
+        any_regex:
+        - \b(cat\s?5e|cat\s?6a?|category\s?6a?|category\s?6|fiber|om[1-5]|single[- ]?mode|multi[- ]?mode)\b
+    - id: low_voltage_cabling.cable_family_jacket
+      label: Cable family / jacket / environment
+      severity: warning
+      message: Cable category exists but no family/jacket/environment was found.
+      suggested_open_question: Is the cable UTP/STP, plenum/riser/OSP, shielded, armored, or otherwise environment-specific?
+      evidence:
+        any_regex:
+        - \b(utp|stp|shielded|plenum|cmp|riser|cmr|osp|indoor|outdoor|armored|low smoke|lszh)\b
+    - id: low_voltage_cabling.drop_count
+      label: Drop / run count
+      severity: blocker
+      message: Cabling scope is present but no drop/run/strand count was found.
+      suggested_open_question: How many drops/runs/strands/pairs are in scope?
+      evidence:
+        any_regex:
+        - \b\d{1,5}\s*(?:[A-Za-z0-9+/#.-]+\s+){0,6}(drops?|runs?|cables?|locations?|outlets?|strands?|pairs?)\b
+    - id: low_voltage_cabling.termination_standard
+      label: Termination standard
+      severity: warning
+      message: No copper termination standard was found.
+      suggested_open_question: What termination standard and connector/jack class apply?
+      evidence:
+        any_regex:
+        - \b(t568a|t568b|tia[- ]?568\.2[- ]?d|keystone|rj[- ]?45|110[- ]?block|bix|punch[- ]?down|termination)\b
+    - id: low_voltage_cabling.pathway_requirements
+      label: Pathway requirements
+      severity: warning
+      message: No pathway/conduit/J-hook/firestopping requirements were found.
+      suggested_open_question: 'What pathway work is included: J-hooks, conduit, tray, sleeves, penetrations, fire-stopping?'
+      evidence:
+        any_regex:
+        - \b(j[- ]?hooks?|conduit|sleeves?|tray|basket tray|ladder rack|pathway|penetration|fire[- ]?stop|core drill|surface
+          raceway)\b
+    - id: low_voltage_cabling.testing_standard
+      label: Testing / certification standard
+      severity: blocker
+      message: No cabling test/certification standard was found.
+      suggested_open_question: 'What test standard and report format are required: Fluke Versiv permanent-link,
+        TIA-568.2-D, etc.?'
+      evidence:
+        any_regex:
+        - \b(fluke|versiv|dsx|certif(?:y|ication)|permanent link|channel test|tia[- ]?568\.2[- ]?d|test reports?)\b
+    - id: low_voltage_cabling.labeling_standard
+      label: Labeling standard
+      severity: warning
+      message: No cable labeling standard or naming convention was found.
+      suggested_open_question: 'What labeling convention applies: TIA-606-C, site/IDF/port/jack numbering?'
+      evidence:
+        any_regex:
+        - \b(tia[- ]?606[- ]?c|label(?:ing|ling)?|label scheme|port number|site code|id f|idf|mdf|jack id|cable
+          id)\b
+    - id: low_voltage_cabling.patch_panels_rack_hw
+      label: Patch panels / rack hardware
+      severity: warning
+      message: No patch panel or rack-mount hardware detail was found.
+      suggested_open_question: Are patch panels, rack hardware, and cable management included? What qty/model/U?
+      evidence:
+        any_regex:
+        - \b(patch panels?|rack[- ]?mount|horizontal manager|vertical manager|wire manager|1u|2u|110 block|termination
+          block)\b
+    - id: low_voltage_cabling.faceplates_jacks
+      label: Faceplates / jacks / biscuits
+      severity: warning
+      message: No faceplate/jack/biscuit count or spec was found.
+      suggested_open_question: Are faceplates, jacks, biscuits/surface boxes included? What counts/colors?
+      evidence:
+        any_regex:
+        - \b(faceplates?|wall plates?|jacks?|keystones?|biscuits?|surface box|color)\b
+    - id: low_voltage_cabling.demo_removal
+      label: Demolition / abandoned cable removal
+      severity: info
+      message: No demolition/removal scope or explicit exclusion was found.
+      suggested_open_question: Is demolition or abandoned cable removal included or excluded?
+      evidence:
+        any_regex:
+        - \b(demo(?:lition)?|remove|removal|abandoned cable|decommission|pull out|dispose)\b
+        - \b(no\s+demo|demolition excluded|removal excluded)\b
+    - id: low_voltage_cabling.acceptance_package
+      label: Acceptance package
+      severity: warning
+      message: No cabling acceptance deliverable package was found.
+      suggested_open_question: 'What closeout artifacts are required: test reports, redlines, as-builts, photo logs?'
+      evidence:
+        any_regex:
+        - \b(test reports?|as[- ]?built|redlines?|closeout|certification report|photo log|turnover package)\b
+  wireless:
+    display_name: Wireless
+    scope_triggers:
+    - \b(wireless|wlan|wi[- ]?fi|access points?|\baps?\b|heatmap|survey|wlc|ssid|radius|wpa3|6\s?ghz|spectrum)\b
+    checks:
+    - id: wireless.ap_count_model
+      label: AP count and model
+      severity: blocker
+      message: Wireless scope is present but AP count/model evidence is incomplete.
+      suggested_open_question: How many APs and what AP model(s) are in scope?
+      evidence:
+        any_regex:
+        - \b\d{1,4}\s*(aps?|access points?)\b
+        - \b(ap[- ]?\d+|cw\d+|mr\d+|cisco\s+\w+|meraki\s+mr|aruba\s+ap|mist\s+ap)\b
+    - id: wireless.survey_type
+      label: Survey type
+      severity: warning
+      message: No wireless survey type was found.
+      suggested_open_question: Is this predictive, passive, AP-on-a-stick, active, or post-validation survey work?
+      evidence:
+        any_regex:
+        - \b(predictive|passive|active survey|ap[- ]?on[- ]?a[- ]?stick|post[- ]?validation|walk test|rf survey)\b
+    - id: wireless.heatmap_deliverables
+      label: Heatmap / RF deliverables
+      severity: warning
+      message: No RF heatmap deliverables were found.
+      suggested_open_question: 'What RF deliverables are required: heatmaps, SNR, channel reuse, coverage maps?'
+      evidence:
+        any_regex:
+        - \b(heat ?map|signal strength|snr|channel reuse|coverage map|ekahau|airmagnet|hamina|sidekick)\b
+    - id: wireless.ssid_vlan_auth
+      label: SSID / VLAN / authentication config
+      severity: warning
+      message: No SSID/VLAN/authentication details were found.
+      suggested_open_question: What SSIDs, VLANs, authentication, and guest access are in scope?
+      evidence:
+        any_regex:
+        - \b(ssid|vlan|802\.1x|radius|psk|wpa2|wpa3|guest network|captive portal)\b
+    - id: wireless.poe_switch_dependency
+      label: PoE / switch dependency
+      severity: warning
+      message: No PoE budget or switch dependency was found.
+      suggested_open_question: What PoE class/budget and switch/mGig dependencies exist?
+      evidence:
+        any_regex:
+        - \b(poe\+?\+?|poe class|power budget|mgig|multi[- ]?gig|switch upgrade|uplink|injector)\b
+    - id: wireless.mounting_access
+      label: Mounting and access method
+      severity: warning
+      message: No AP mounting/access method was found.
+      suggested_open_question: How will APs be mounted and what access/lift constraints apply?
+      evidence:
+        any_regex:
+        - \b(t[- ]?bar|ceiling mount|wall mount|exterior mount|lift|ladder|mounting|bracket|j[- ]?hook)\b
+    - id: wireless.acceptance_criteria
+      label: Wireless acceptance criteria
+      severity: warning
+      message: No RF acceptance criteria were found.
+      suggested_open_question: What RF performance targets define acceptance?
+      evidence:
+        any_regex:
+        - \b(acceptance|pass/fail|throughput|rssi|snr|dbm|roaming|voice grade|validation criteria)\b
+  security_access:
+    display_name: Security Access Control
+    scope_triggers:
+    - \b(access control|card reader|badge reader|door controller|hid|mercury|lenel|synergis|rex|dps|maglock|electric
+      strike)\b
+    checks:
+    - id: security_access.door_count_type
+      label: Door count / door type
+      severity: blocker
+      message: Access-control scope is present but no door count/type was found.
+      suggested_open_question: How many doors/openings/readers and what door types are in scope?
+      evidence:
+        any_regex:
+        - \b\d{1,4}\s*(doors?|openings?|readers?)\b
+        - \b(single door|double door|mantrap|storefront|gate)\b
+    - id: security_access.reader_model
+      label: Reader model / manufacturer
+      severity: warning
+      message: No reader model/manufacturer was found.
+      suggested_open_question: What reader model and credential standard are required?
+      evidence:
+        any_regex:
+        - \b(hid|signo|iclass|seos|mifare|desfire|reader model|card reader|badge reader)\b
+    - id: security_access.lock_hardware
+      label: Locking hardware
+      severity: warning
+      message: No lock hardware scope was found.
+      suggested_open_question: 'What lock hardware is included/excluded: electric strike, maglock, electrified mortise?'
+      evidence:
+        any_regex:
+        - \b(electric strike|maglock|magnetic lock|electrified mortise|panic hardware|lockset|door hardware)\b
+    - id: security_access.rex_dps
+      label: REX / DPS / door monitoring
+      severity: warning
+      message: No REX/DPS/fault-monitoring detail was found.
+      suggested_open_question: Are REX, DPS, bond sensors, and fault monitoring included?
+      evidence:
+        any_regex:
+        - \b(rex|request[- ]?to[- ]?exit|dps|door position|bond sensor|motion rex|fault monitoring)\b
+    - id: security_access.controller_power
+      label: Controller / panel / power
+      severity: warning
+      message: No controller/panel/power detail was found.
+      suggested_open_question: What controller/panel/power supply/battery backup is required?
+      evidence:
+        any_regex:
+        - \b(mercury|lp\d+|controller|panel|power supply|battery backup|slsa|ups|enclosure)\b
+    - id: security_access.platform_integration
+      label: Access platform / integration
+      severity: warning
+      message: No access-control software platform was found.
+      suggested_open_question: What software platform and cardholder/visitor integrations are in scope?
+      evidence:
+        any_regex:
+        - \b(onguard|synergis|amag|kantech|avigilon alta|access platform|cardholder|visitor management)\b
+    - id: security_access.acceptance
+      label: Door acceptance test
+      severity: warning
+      message: No access-control acceptance test was found.
+      suggested_open_question: What door-cycle, badge, audit-log, and access-level tests define acceptance?
+      evidence:
+        any_regex:
+        - \b(door cycle test|audit log|badge test|access level test|acceptance|commissioning)\b
+  security_camera:
+    display_name: Security Camera / VMS
+    scope_triggers: &id001
+    - \b(camera|vms|video management|genetec|axis|hanwha|milestone|avigilon|nvr|ptz|video retention)\b
+    checks: &id002
+    - id: security_camera.camera_count_model
+      label: Camera count and model
+      severity: blocker
+      message: Camera/VMS scope is present but no camera count/model was found.
+      suggested_open_question: How many cameras and what model(s) are in scope?
+      evidence:
+        any_regex:
+        - \b\d{1,5}\s*(cameras?|ptz|domes?|multi[- ]?sensor)\b
+        - \b(axis|hanwha|avigilon|hikvision|bosch|verkada|p\d{4}|qnv|qnp|wv[- ]?s)\b
+    - id: security_camera.camera_type_mount
+      label: Camera type / mount
+      severity: warning
+      message: No camera type or mount detail was found.
+      suggested_open_question: What camera types and mounts are required?
+      evidence:
+        any_regex:
+        - \b(fixed dome|ptz|multi[- ]?sensor|panoramic|thermal|bullet|pendant|wall mount|pole mount|corner mount|in[-
+          ]?ceiling)\b
+    - id: security_camera.resolution_bitrate_codec
+      label: Resolution / bitrate / codec
+      severity: warning
+      message: No video resolution, bitrate, frame rate, or codec assumptions were found.
+      suggested_open_question: What resolution, FPS, bitrate, and codec assumptions drive storage and bandwidth?
+      evidence:
+        any_regex:
+        - \b(\d+\s?mp|1080p|4k|fps|frame rate|bitrate|h\.264|h\.265|codec|resolution)\b
+    - id: security_camera.vms_platform
+      label: VMS platform
+      severity: blocker
+      message: No VMS platform was found.
+      suggested_open_question: What VMS platform is in scope?
+      evidence:
+        any_regex:
+        - \b(genetec security center|milestone xprotect|avigilon|verkada|vms|video management system|security center|xprotect)\b
+    - id: security_camera.video_retention
+      label: Video retention SLA
+      severity: blocker
+      message: Camera/VMS scope is present but no explicit video footage retention SLA was found.
+      suggested_open_question: What is the required video footage retention period in days?
+      evidence:
+        any_regex:
+        - \b(video|footage|recording|recorded video|surveillance)\b.{0,80}\b(retention|retain|days|storage)\b
+        - \b(retention|retain|days|storage)\b.{0,80}\b(video|footage|recording|recorded video|surveillance)\b
+    - id: security_camera.storage_nvr
+      label: Storage / NVR / server model
+      severity: warning
+      message: No storage/NVR/server architecture was found.
+      suggested_open_question: What storage/NVR/server/RAID architecture supports video retention?
+      evidence:
+        any_regex:
+        - \b(nvr|storage server|streamvault|raid|video archive|retention server|nas|san)\b
+    - id: security_camera.recording_config
+      label: Recording mode
+      severity: warning
+      message: No recording mode was found.
+      suggested_open_question: Is recording continuous, motion, event-based, or hybrid?
+      evidence:
+        any_regex:
+        - \b(continuous recording|motion recording|event[- ]?based recording|hybrid recording|recording mode|recording
+          schedule)\b
+    - id: security_camera.network_vlan_ports
+      label: Network port / VLAN per camera
+      severity: warning
+      message: No camera network/VLAN/port mapping was found.
+      suggested_open_question: What switch ports, VLANs, and PoE budgets apply per camera?
+      evidence:
+        any_regex:
+        - \b(camera vlan|vlan|switch port|port map|network port|poe class|poe budget)\b
+    - id: security_camera.privacy_compliance
+      label: Privacy / compliance / masking
+      severity: warning
+      message: No privacy/compliance/masking requirement was found.
+      suggested_open_question: Are privacy masks, compliance rules, or approval workflows required?
+      evidence:
+        any_regex:
+        - \b(privacy mask|privacy zone|hipaa|pci|criminal justice|cjIS|retention audit|masking approval)\b
+    - id: security_camera.acceptance
+      label: Camera/VMS acceptance criteria
+      severity: warning
+      message: No camera/VMS acceptance criteria were found.
+      suggested_open_question: 'What defines acceptance: FoV review, stream health, retention audit, naming, uptime
+        SLA?'
+      evidence:
+        any_regex:
+        - \b(fov|field of view|retention audit|uptime sla|camera naming|stream health|view review|commissioning|acceptance)\b
+  camera_vms_operations:
+    display_name: Camera VMS Operations
+    scope_triggers: *id001
+    checks: *id002
+  paging_mass_notification:
+    display_name: Paging / Mass Notification
+    scope_triggers:
+    - \b(paging|intercom|public address|pa system|mass notification|bell schedule|speaker|strobe|informacast|alertus|rave|singlewire|valcom|bogen)\b
+    checks:
+    - id: paging.speaker_count_model
+      label: Speaker count / model
+      severity: blocker
+      message: Paging scope is present but no speaker count/model was found.
+      suggested_open_question: How many speakers/strobes and what models are in scope?
+      evidence:
+        any_regex:
+        - \b\d{1,5}\s*(speakers?|horns?|strobes?)\b
+        - \b(bogen|valcom|atlas|jbl|speaker model|horn speaker|ceiling speaker)\b
+    - id: paging.amplifier_wattage
+      label: Amplifier / wattage budget
+      severity: warning
+      message: No amplifier/wattage budget was found.
+      suggested_open_question: What amplifier model/count and wattage budget are required?
+      evidence:
+        any_regex:
+        - \b(amplifier|amp\b|wattage|watts|w budget|70v|25v)\b
+    - id: paging.zones_bell_schedule
+      label: Zones / bell schedule
+      severity: warning
+      message: No paging zone or bell schedule was found.
+      suggested_open_question: What zones and bell schedules/overrides are required?
+      evidence:
+        any_regex:
+        - \b(zone|zoning|bell schedule|schedule override|bell controller)\b
+    - id: paging.platform_triggers
+      label: Platform / trigger sources
+      severity: warning
+      message: No notification platform or trigger source was found.
+      suggested_open_question: What mass-notification platform and trigger sources are in scope?
+      evidence:
+        any_regex:
+        - \b(informacast|alertus|rave|singlewire|athoc|panic button|intercom|police dispatch|trigger source)\b
+    - id: paging.acceptance
+      label: Paging acceptance criteria
+      severity: warning
+      message: No SPL/intelligibility/drill acceptance criteria were found.
+      suggested_open_question: What SPL/intelligibility/drill tests define acceptance?
+      evidence:
+        any_regex:
+        - \b(spl|intelligibility|sti|drill test|acceptance|sound level|db)\b
+  fire_safety:
+    display_name: Fire Safety
+    scope_triggers:
+    - \b(fire alarm|facp|nfpa\s?72|smoke detector|heat detector|pull station|horn strobe|annunciator|nac|ahj)\b
+    checks:
+    - id: fire_safety.facp_model
+      label: FACP model / manufacturer
+      severity: blocker
+      message: Fire-safety scope is present but no FACP model/manufacturer was found.
+      suggested_open_question: What FACP model/manufacturer is in scope?
+      evidence:
+        any_regex:
+        - \b(facp|fire alarm control panel|notifier|simplex|edwards|firelite|silent knight)\b
+    - id: fire_safety.code_ahj
+      label: Code / AHJ reference
+      severity: blocker
+      message: No NFPA/AHJ/code basis was found.
+      suggested_open_question: Which NFPA 72 edition and AHJ acceptance path apply?
+      evidence:
+        any_regex:
+        - \b(nfpa\s?72|ahj|authority having jurisdiction|fire marshal|code edition)\b
+    - id: fire_safety.devices_counts
+      label: Device counts
+      severity: warning
+      message: No smoke/heat/pull/horn/strobe device counts were found.
+      suggested_open_question: What device counts/models are included?
+      evidence:
+        any_regex:
+        - \b\d{1,5}\s*(smoke detectors?|heat detectors?|pull stations?|horns?|strobes?|nacs?)\b
+    - id: fire_safety.acceptance_test
+      label: AHJ inspection / acceptance test
+      severity: warning
+      message: No AHJ inspection or acceptance test plan was found.
+      suggested_open_question: What inspection/pre-test/AHJ witness plan defines acceptance?
+      evidence:
+        any_regex:
+        - \b(acceptance test|inspection|fire marshal|ahj witness|pre-test|sequence test)\b
+    - id: fire_safety.exclusions
+      label: Fire-safety exclusions
+      severity: warning
+      message: No fire-safety exclusions were found.
+      suggested_open_question: 'What fire-safety scope is excluded: sprinkler, electrical, AHJ fees, permits?'
+      evidence:
+        any_regex:
+        - \b(sprinkler excluded|electrical excluded|ahj fees excluded|permit excluded|not included|out of scope)\b
+  das:
+    display_name: Distributed Antenna System
+    scope_triggers:
+    - \b(das|distributed antenna|errcs|bda|public safety radio|donor antenna|signal booster|p25|ber|uplink)\b
+    checks:
+    - id: das.coverage_type
+      label: Coverage type
+      severity: blocker
+      message: DAS scope is present but coverage type was not found.
+      suggested_open_question: Is the DAS public-safety, cellular, or both? Which carriers/bands?
+      evidence:
+        any_regex:
+        - \b(public safety|cellular|carrier|firstnet|p25|lte|5g|errcs)\b
+    - id: das.headend_model
+      label: BDA/DAS head-end model
+      severity: warning
+      message: No BDA/DAS head-end model was found.
+      suggested_open_question: What BDA/DAS head-end manufacturer/model is required?
+      evidence:
+        any_regex:
+        - \b(bda|head[- ]?end|signal booster|commscope|solid|adrf|westell|rf headend)\b
+    - id: das.antenna_count_type
+      label: Antenna count / type
+      severity: warning
+      message: No antenna count/type was found.
+      suggested_open_question: How many antennas and what type/location?
+      evidence:
+        any_regex:
+        - \b\d{1,4}\s*(antennas?)\b
+        - \b(omni|directional|panel antenna|donor antenna)\b
+    - id: das.ahj_rf_acceptance
+      label: RF/AHJ acceptance test
+      severity: blocker
+      message: No DAS RF/AHJ acceptance test was found.
+      suggested_open_question: What RF grid/signal/BER/AHJ acceptance criteria apply?
+      evidence:
+        any_regex:
+        - \b(signal strength|ber|da q|grid test|walk test|ahj|acceptance|errcs standard)\b
+  electrical:
+    display_name: Electrical / Power
+    scope_triggers:
+    - \b(panelboard|breaker|circuit|conduit|raceway|receptacle|ups|generator|ats|grounding|bonding|nema|load test)\b
+    checks:
+    - id: electrical.panel_breaker
+      label: Panelboard / breaker schedule
+      severity: blocker
+      message: Electrical scope is present but panel/breaker schedule evidence is missing.
+      suggested_open_question: What panelboards, breakers, amperage/voltage, and circuit numbers are in scope?
+      evidence:
+        any_regex:
+        - \b(panelboard|panel|breaker schedule|circuit number|amperage|voltage|\d+\s?amp|\d+\s?v)\b
+    - id: electrical.raceway_receptacle
+      label: Conduit/raceway/receptacle
+      severity: warning
+      message: No conduit/raceway/receptacle detail was found.
+      suggested_open_question: What conduit/raceway and receptacle types/counts are included?
+      evidence:
+        any_regex:
+        - \b(conduit|raceway|emt|rigid|receptacle|nema|l5-20|l6-20|l21-30)\b
+    - id: electrical.ups_runtime
+      label: UPS model / runtime
+      severity: warning
+      message: UPS/power scope is present but model/runtime/bypass detail is missing.
+      suggested_open_question: What UPS/PDU model, runtime, and bypass/A+B topology are required?
+      evidence:
+        any_regex:
+        - \b(ups|runtime|battery|bypass|a\+b feeds|pdu)\b
+    - id: electrical.acceptance
+      label: Electrical acceptance tests
+      severity: warning
+      message: No electrical acceptance test plan was found.
+      suggested_open_question: What load/megger/ground-resistance acceptance tests apply?
+      evidence:
+        any_regex:
+        - \b(load test|megger|ground resistance|commissioning|acceptance test|infrared scan)\b
+  audio_visual:
+    display_name: Audio Visual
+    scope_triggers:
+    - \b(av|audio visual|display|projector|microphone|biamp|q[- ]?sys|crestron|extron|teams room|zoom room|dante|hdmi|usb[-
+      ]?c|assistive listening)\b
+    checks:
+    - id: audio_visual.rooms
+      label: Room count / room type
+      severity: blocker
+      message: AV scope is present but room count/type was not found.
+      suggested_open_question: How many rooms and what room types are in scope?
+      evidence:
+        any_regex:
+        - \b\d{1,4}\s*(rooms?|conference rooms?|huddle rooms?|classrooms?|auditoriums?)\b
+        - \b(boardroom|training room|auditorium|huddle|conference)\b
+    - id: audio_visual.display_camera_mic
+      label: Display/camera/microphone specs
+      severity: warning
+      message: No AV endpoint display/camera/mic specs were found.
+      suggested_open_question: What display, camera, and microphone models/counts are included?
+      evidence:
+        any_regex:
+        - \b(display|projector|camera|microphone|ceiling array|gooseneck|handheld|lav|poly|logitech|vaddio|aver)\b
+    - id: audio_visual.dsp_control
+      label: DSP / control system
+      severity: warning
+      message: No DSP or control system platform was found.
+      suggested_open_question: What DSP and control system are in scope?
+      evidence:
+        any_regex:
+        - \b(biamp|tesira|q[- ]?sys|symetrix|crestron|extron|amx|control system|dsp)\b
+    - id: audio_visual.uc_connectivity
+      label: UC platform / connectivity
+      severity: warning
+      message: No UC platform or connectivity detail was found.
+      suggested_open_question: What UC platform and connectivity standards are included?
+      evidence:
+        any_regex:
+        - \b(teams room|zoom room|webex|codec|hdmi|usb[- ]?c|hdbaset|dante|aes67|ndi)\b
+    - id: audio_visual.acceptance
+      label: AV acceptance criteria
+      severity: warning
+      message: No AV acceptance criteria were found.
+      suggested_open_question: What SPL, lipsync, latency, call-quality, programming, and commissioning acceptance
+        tests apply?
+      evidence:
+        any_regex:
+        - \b(spl|lipsync|latency|call quality|commissioning|programming|acceptance)\b
+  building_management_systems:
+    display_name: BMS / BAS
+    scope_triggers:
+    - \b(bms|bas|building management|building automation|tridium|niagara|jace|bacnet|modbus|metasys|desigo|vav|damper|sequence
+      of operations)\b
+    checks:
+    - id: bms.platform
+      label: BMS platform
+      severity: blocker
+      message: BMS/BAS scope is present but platform was not found.
+      suggested_open_question: What BMS/BAS platform is in scope?
+      evidence:
+        any_regex:
+        - \b(tridium|niagara|metasys|desigo|ebi|ecostruxure|building automation|bms platform|bas platform)\b
+    - id: bms.controllers_protocol
+      label: Controllers / protocol
+      severity: warning
+      message: No JACE/controller/protocol detail was found.
+      suggested_open_question: What controller count/model/version and protocol are required?
+      evidence:
+        any_regex:
+        - \b(jace|controller|bacnet|modbus|lonworks|mstp|ip controller)\b
+    - id: bms.points_devices
+      label: Points / sensors / actuators
+      severity: warning
+      message: No sensor/actuator/VAV point count was found.
+      suggested_open_question: What sensors, actuators, VAVs/dampers, and point counts are included?
+      evidence:
+        any_regex:
+        - \b(sensor|temperature|humidity|occupancy|co2|water sensor|actuator|vav|damper|points?\b)\b
+    - id: bms.sequence_trends_alarms
+      label: Sequence / trends / alarms
+      severity: warning
+      message: No sequence of operations, trend, alarm, or schedule config was found.
+      suggested_open_question: What sequence, graphics, trend, alarm, and schedule config is required?
+      evidence:
+        any_regex:
+        - \b(sequence of operations|soo|trend|alarm|schedule|graphics|commissioning sign[- ]?off)\b
+    - id: bms.cyber_hardening
+      label: Cybersecurity hardening
+      severity: info
+      message: No BMS cybersecurity hardening detail was found.
+      suggested_open_question: What BMS network segmentation, firmware, credential, and hardening requirements apply?
+      evidence:
+        any_regex:
+        - \b(segmentation|firmware|hardening|vlan|firewall|password|certificate|cybersecurity)\b
+  datacenter:
+    display_name: Datacenter
+    scope_triggers:
+    - \b(datacenter|data center|rack elevation|hot aisle|cold aisle|containment|rack pdu|a\+b feed|cassette|mtp|load
+      test)\b
+    checks:
+    - id: datacenter.racks
+      label: Rack count / size
+      severity: blocker
+      message: Datacenter scope is present but rack count/size was not found.
+      suggested_open_question: How many racks, what size, and what manufacturer?
+      evidence:
+        any_regex:
+        - \b\d{1,4}\s*(racks?)\b
+        - \b(42u|45u|47u|50u|rack elevation)\b
+    - id: datacenter.pdu_power
+      label: Rack PDU / power
+      severity: warning
+      message: No PDU/power-feed detail was found.
+      suggested_open_question: What PDU type and A/B power feed requirements apply?
+      evidence:
+        any_regex:
+        - \b(rack pdu|metered pdu|switched pdu|a\+b|power feed|kw|amps|voltage)\b
+    - id: datacenter.devices_ru
+      label: Device count / U height
+      severity: warning
+      message: No device/U-height inventory was found.
+      suggested_open_question: What devices, U-heights, and power draws are included?
+      evidence:
+        any_regex:
+        - \b(server|switch|firewall|appliance|u[- ]?height|\d+u)\b
+    - id: datacenter.cooling_layout
+      label: Cooling / aisle / layout
+      severity: info
+      message: No cooling/aisle/layout detail was found.
+      suggested_open_question: What cooling/airflow/layout assumptions apply?
+      evidence:
+        any_regex:
+        - \b(cooling|hot aisle|cold aisle|containment|airflow|blanking panel|layout)\b
+    - id: datacenter.acceptance
+      label: Datacenter acceptance criteria
+      severity: warning
+      message: No datacenter acceptance criteria were found.
+      suggested_open_question: What load, airflow, cabling QA, and as-built acceptance artifacts are required?
+      evidence:
+        any_regex:
+        - \b(load test|airflow|cabling qa|acceptance|as[- ]?built|rack elevation)\b
+  rack_and_stack:
+    display_name: Rack and Stack
+    scope_triggers:
+    - \b(rack[- ]?and[- ]?stack|rack and stack|rack elevation|rack pdu|patching|de[- ]?rack|rack mount)\b
+    checks:
+    - id: rack_and_stack.rack_devices
+      label: Rack/device list
+      severity: blocker
+      message: Rack-and-stack scope is present but rack/device list was not found.
+      suggested_open_question: What devices are being racked, in what rack/U positions?
+      evidence:
+        any_regex:
+        - \b(rack elevation|rack unit|\d+u|server|switch|firewall|appliance|device list)\b
+    - id: rack_and_stack.cabling_patching
+      label: Cabling/patching spec
+      severity: warning
+      message: No patching/cable-management spec was found.
+      suggested_open_question: What patching and cable-management work is included?
+      evidence:
+        any_regex:
+        - \b(patch|patching|cable management|vertical manager|horizontal manager|fiber patch|cat6a|mtp|lc)\b
+    - id: rack_and_stack.power_pdu
+      label: Power/PDU detail
+      severity: warning
+      message: No rack power/PDU detail was found.
+      suggested_open_question: What PDU/power cord/feed details apply?
+      evidence:
+        any_regex:
+        - \b(pdu|power cord|a\+b|c13|c19|l6-30|whip|power feed)\b
+    - id: rack_and_stack.acceptance
+      label: Rack acceptance criteria
+      severity: warning
+      message: No rack-and-stack acceptance criteria were found.
+      suggested_open_question: What acceptance checks prove rack-and-stack completion?
+      evidence:
+        any_regex:
+        - \b(power on|post check|label|photo|rack elevation|as[- ]?built|acceptance)\b
+  msp:
+    display_name: Managed Services / NOC / SOC
+    scope_triggers:
+    - \b(noc|soc|managed services|service desk|sla|pagerduty|servicenow|logicmonitor|sentinel|alert routing|runbook|cmdb|patching
+      window)\b
+    checks:
+    - id: msp.service_tier
+      label: Service tier / coverage hours
+      severity: blocker
+      message: MSP/NOC/SOC scope is present but service tier/hours were not found.
+      suggested_open_question: What service tier and coverage hours apply?
+      evidence:
+        any_regex:
+        - \b(24x7|24/7|8x5|business hours|after[- ]?hours|coverage window|service tier)\b
+    - id: msp.coverage_scope
+      label: Coverage scope
+      severity: warning
+      message: No managed-service coverage scope was found.
+      suggested_open_question: Which systems are covered by managed services?
+      evidence:
+        any_regex:
+        - \b(network|endpoints?|cloud|security|voice|mobile|firewall|vpn|camera|vms)\b
+    - id: msp.sla_targets
+      label: SLA response/resolution targets
+      severity: blocker
+      message: No SLA response/resolution target was found.
+      suggested_open_question: What response, resolution, escalation, and uptime SLAs apply?
+      evidence:
+        any_regex:
+        - \b(response time|resolution time|sla|\d+[- ]?min(?:ute)? response|\d+[- ]?hour response|uptime)\b
+    - id: msp.tools
+      label: Monitoring/ticketing/security tools
+      severity: warning
+      message: No monitoring/ticketing/tooling evidence was found.
+      suggested_open_question: What tools are used for monitoring, ticketing, alerting, and security?
+      evidence:
+        any_regex:
+        - \b(logicmonitor|prtg|datadog|servicenow|pagerduty|sentinel|aruba central|meraki dashboard|genetec security
+          center|solarwinds)\b
+    - id: msp.escalation_oncall
+      label: Escalation path / on-call
+      severity: warning
+      message: No escalation path or on-call routing was found.
+      suggested_open_question: What escalation path and on-call routing apply?
+      evidence:
+        any_regex:
+        - \b(escalation|on[- ]?call|noc l1|noc l2|soc l1|soc l2|dispatch|pagerduty|route)\b
+    - id: msp.patching_change
+      label: Patching / change approval
+      severity: warning
+      message: No patch/change approval workflow was found.
+      suggested_open_question: What patching/change approval workflow and maintenance windows apply?
+      evidence:
+        any_regex:
+        - \b(patching|patch window|change approval|cab|maintenance window|change management)\b
+    - id: msp.reporting_kpis
+      label: Reporting cadence / KPIs
+      severity: warning
+      message: No reporting cadence or KPI evidence was found.
+      suggested_open_question: What reporting cadence and KPIs are required?
+      evidence:
+        any_regex:
+        - \b(reporting cadence|monthly report|weekly report|kpi|metrics|service review|qbr)\b
+    - id: msp.onboarding_acceptance
+      label: Onboarding / go-live acceptance
+      severity: warning
+      message: No MSP onboarding/go-live acceptance checklist was found.
+      suggested_open_question: What onboarding milestones and go-live readiness checks are required?
+      evidence:
+        any_regex:
+        - \b(onboarding|go[- ]?live|cmdb freeze|runbook|knowledge transfer|readiness checklist|acceptance)\b
+  network_maintenance:
+    display_name: Network Maintenance / Operations
+    scope_triggers:
+    - \b(network maintenance|switch audit|router|smartnet|jtac|dna advantage|firmware|vlan audit|wan circuit|bgp|ospf|failover|thousandeyes|solarwinds)\b
+    checks:
+    - id: network_maintenance.device_inventory
+      label: Switch/router inventory
+      severity: blocker
+      message: Network-maintenance scope is present but device inventory was not found.
+      suggested_open_question: What switch/router/firewall inventory and software versions are covered?
+      evidence:
+        any_regex:
+        - \b(switch|router|firewall|model|serial|software version|ios[- ]?xe|nx[- ]?os|junos|pan[- ]?os)\b
+    - id: network_maintenance.coverage_tier
+      label: Support coverage tier
+      severity: warning
+      message: No support coverage tier was found.
+      suggested_open_question: What support coverage tier and renewal status apply?
+      evidence:
+        any_regex:
+        - \b(smartnet|dna advantage|jtac|support contract|coverage tier|renewal|entitlement)\b
+    - id: network_maintenance.firmware_change
+      label: Firmware/change window
+      severity: warning
+      message: No firmware/change-management window was found.
+      suggested_open_question: What patch/change window and rollback process apply?
+      evidence:
+        any_regex:
+        - \b(firmware|patch window|maintenance window|change management|cab|rollback)\b
+    - id: network_maintenance.port_vlan_wan
+      label: Port/VLAN/WAN inventory
+      severity: warning
+      message: No port/VLAN/WAN/circuit inventory was found.
+      suggested_open_question: What port/VLAN audit and WAN circuit inventory is in scope?
+      evidence:
+        any_regex:
+        - \b(port audit|vlan audit|vlan|wan|circuit|provider|carrier|demarc)\b
+    - id: network_maintenance.routing_failover
+      label: Routing/failover testing
+      severity: info
+      message: No routing protocol or failover testing evidence was found.
+      suggested_open_question: What routing protocol and failover tests are required?
+      evidence:
+        any_regex:
+        - \b(bgp|ospf|eigrp|static route|peering|failover test|ha test)\b
+  imac:
+    display_name: IMAC
+    scope_triggers:
+    - \b(imac|install move add change|workstation move|desktop move|endpoint refresh|seat move|asset tag|post[-
+      ]?move login)\b
+    checks:
+    - id: imac.endpoint_count
+      label: Endpoint/workstation count
+      severity: blocker
+      message: IMAC scope is present but endpoint/workstation count was not found.
+      suggested_open_question: How many endpoints/seats are in scope?
+      evidence:
+        any_regex:
+        - \b\d{1,5}\s*(workstations?|endpoints?|desktops?|laptops?|seats?)\b
+    - id: imac.move_type_schedule
+      label: Move type / schedule
+      severity: warning
+      message: No move type/schedule was found.
+      suggested_open_question: What move type and schedule/access window apply?
+      evidence:
+        any_regex:
+        - \b(intra[- ]?building|inter[- ]?building|off[- ]?site|floor move|weekend|after[- ]?hours|move window)\b
+    - id: imac.image_wipe_asset
+      label: Image/wipe/asset tag scope
+      severity: warning
+      message: No image/wipe/asset-tag update scope was found.
+      suggested_open_question: Is imaging, wipe, refresh, asset tagging, or asset DB update included?
+      evidence:
+        any_regex:
+        - \b(image|refresh|wipe|asset tag|asset db|inventory update)\b
+    - id: imac.acceptance
+      label: Post-move acceptance
+      severity: warning
+      message: No post-move login/acceptance test was found.
+      suggested_open_question: What post-move login/validation/signoff defines acceptance?
+      evidence:
+        any_regex:
+        - \b(post[- ]?move|login test|acceptance|user sign[- ]?off|validation)\b
+  itad:
+    display_name: ITAD
+    scope_triggers:
+    - \b(itad|asset disposal|data destruction|chain of custody|certificate of destruction|nist\s?sp\s?800[- ]?88|r2v3|e[-
+      ]?stewards|recycle|resale)\b
+    checks:
+    - id: itad.asset_count_class
+      label: Asset count / class
+      severity: blocker
+      message: ITAD scope is present but asset count/class was not found.
+      suggested_open_question: How many assets and what asset classes are in scope?
+      evidence:
+        any_regex:
+        - \b\d{1,6}\s*(servers?|laptops?|desktops?|printers?|mobiles?|network devices?|assets?)\b
+    - id: itad.chain_of_custody
+      label: Chain of custody / pickup
+      severity: blocker
+      message: No chain-of-custody or pickup logistics were found.
+      suggested_open_question: What pickup logistics and chain-of-custody controls apply?
+      evidence:
+        any_regex:
+        - \b(chain of custody|pickup|packaging|freight|bill of lading|custody|handoff|transport)\b
+    - id: itad.data_destruction
+      label: Data destruction standard
+      severity: blocker
+      message: No data destruction standard was found.
+      suggested_open_question: What data destruction/sanitization standard applies?
+      evidence:
+        any_regex:
+        - \b(nist\s?sp\s?800[- ]?88|dod|nsa|data destruction|sanitize|wipe|shred|degauss)\b
+    - id: itad.certificates
+      label: Certificate of destruction
+      severity: warning
+      message: No certificate format/deliverable was found.
+      suggested_open_question: What certificate/report is delivered and at what serial/tag fidelity?
+      evidence:
+        any_regex:
+        - \b(certificate of destruction|cod\b|destruction certificate|serial report|audit certificate)\b
+    - id: itad.environmental
+      label: Environmental compliance
+      severity: warning
+      message: No environmental compliance stream was found.
+      suggested_open_question: What resale/refurbish/recycle stream and environmental standard apply?
+      evidence:
+        any_regex:
+        - \b(r2v3|e[- ]?stewards|iso\s?14001|recycle|refurbish|resale|landfill)\b
+  commercial:
+    display_name: Commercial
+    scope_triggers:
+    - \b(commercial|pricing|fixed fee|t&m|time and materials|nte|not to exceed|milestone billing|rate card|change
+      order|net\s?\d+)\b
+    checks:
+    - id: commercial.pricing_structure
+      label: Pricing structure
+      severity: blocker
+      message: Commercial scope is present but pricing structure was not found.
+      suggested_open_question: What pricing model applies?
+      evidence:
+        any_regex:
+        - \b(fixed fee|fixed price|t\s*&\s*m|time and materials|nte|not to exceed|unit price|milestone billing|rate
+          card)\b
+    - id: commercial.po_quote_terms
+      label: PO / quote / net terms
+      severity: warning
+      message: No PO/quote/net terms were found.
+      suggested_open_question: What quote/PO and payment terms apply?
+      evidence:
+        any_regex:
+        - \b(po\b|purchase order|quote|net\s?15|net\s?30|net\s?45|net\s?60|payment terms)\b
+    - id: commercial.change_order
+      label: Change order workflow
+      severity: warning
+      message: No change-order workflow was found.
+      suggested_open_question: How are scope changes and overages approved?
+      evidence:
+        any_regex:
+        - \b(change order|scope change|approval|rate card|out of scope|not to exceed)\b
+  procurement_finance:
+    display_name: Procurement / Finance
+    scope_triggers:
+    - \b(procurement|purchase order|po\b|quote|distributor|graybar|wesco|anixter|scansource|td synnex|capex|opex|gl
+      code|lead time|invoice)\b
+    checks:
+    - id: procurement.line_items_vendor
+      label: Line items / vendor / distributor
+      severity: blocker
+      message: Procurement scope is present but line item/vendor/distributor evidence is missing.
+      suggested_open_question: What line items, vendors, distributors, SKUs, and quantities are in scope?
+      evidence:
+        any_regex:
+        - \b(line item|sku|part number|manufacturer|vendor|distributor|graybar|wesco|anixter|scansource|td synnex)\b
+    - id: procurement.lead_times
+      label: Lead times
+      severity: warning
+      message: No lead time evidence was found.
+      suggested_open_question: What lead times and availability constraints apply?
+      evidence:
+        any_regex:
+        - \b(lead time|eta|availability|backorder|ship date|4[- ]?6 weeks|weeks)\b
+    - id: procurement.capex_opex_gl
+      label: CapEx / OpEx / GL coding
+      severity: info
+      message: No CapEx/OpEx/cost-code evidence was found.
+      suggested_open_question: How should costs be classified and allocated?
+      evidence:
+        any_regex:
+        - \b(capex|opex|gl code|cost code|budget code|allocation)\b
+  hardware:
+    display_name: Hardware
+    scope_triggers:
+    - \b(hardware|sku|part number|manufacturer|model|serial|asset tag|warranty|rma|receive|staging)\b
+    checks:
+    - id: hardware.line_items
+      label: Hardware line items
+      severity: blocker
+      message: Hardware scope is present but SKU/model/quantity line items are missing.
+      suggested_open_question: What hardware SKUs/models/quantities are in scope?
+      evidence:
+        any_regex:
+        - \b(sku|part number|model|manufacturer|qty|quantity|serial|asset tag)\b
+    - id: hardware.warranty_support
+      label: Warranty/support entitlement
+      severity: warning
+      message: No warranty/support entitlement evidence was found.
+      suggested_open_question: What warranty/support entitlement applies to the hardware?
+      evidence:
+        any_regex:
+        - \b(warranty|support contract|entitlement|smartnet|renewal|coverage)\b
+    - id: hardware.staging_receiving
+      label: Receiving/staging logistics
+      severity: info
+      message: No receiving/staging logistics were found.
+      suggested_open_question: Who receives, stages, tags, and tracks hardware?
+      evidence:
+        any_regex:
+        - \b(receiving|staging|warehouse|asset tag|inventory|ship to|delivery)\b
+  telecom:
+    display_name: Telecom
+    scope_triggers:
+    - \b(telecom|carrier|circuit|demarc|wan turn[- ]?up|ucaas|voip|number port|e911|dispatchable location|sip|did)\b
+    checks:
+    - id: telecom.circuit_demarc
+      label: Circuit / demarc / carrier
+      severity: blocker
+      message: Telecom scope is present but carrier/circuit/demarc detail is missing.
+      suggested_open_question: What carrier, circuit IDs, demarc, and handoff type are in scope?
+      evidence:
+        any_regex:
+        - \b(carrier|circuit id|demarc|handoff|dia|mpls|broadband|wan|turn[- ]?up)\b
+    - id: telecom.cutover_timing
+      label: Cutover timing / dependency
+      severity: warning
+      message: No telecom cutover timing/dependency was found.
+      suggested_open_question: What cutover/port/turn-up timing and dependencies apply?
+      evidence:
+        any_regex:
+        - \b(cutover|port date|turn[- ]?up|maintenance window|carrier dependency|loa|foc)\b
+    - id: telecom.ucaas_porting
+      label: UCaaS/VoIP/number porting
+      severity: warning
+      message: Telecom voice scope may be present but UCaaS/VoIP/porting evidence is missing.
+      suggested_open_question: Is UCaaS/VoIP/DID porting/E911 in scope?
+      evidence:
+        any_regex:
+        - \b(ucaas|voip|sip|did|number port|porting|handset|e911|dispatchable location)\b
+  professional_services:
+    display_name: Professional Services
+    scope_triggers:
+    - \b(discovery|assessment|design|workshop|future state|current state|requirements|recommendations|deliverable|professional
+      services)\b
+    checks:
+    - id: professional_services.deliverables
+      label: Deliverables
+      severity: blocker
+      message: Professional-services scope is present but deliverables are not defined.
+      suggested_open_question: What professional-services deliverables are required?
+      evidence:
+        any_regex:
+        - \b(deliverable|assessment report|design document|workshop notes|recommendations|future[- ]?state|current[-
+          ]?state|roadmap)\b
+    - id: professional_services.workshops_stakeholders
+      label: Workshops / stakeholders
+      severity: warning
+      message: No workshop cadence or stakeholder responsibility was found.
+      suggested_open_question: What workshops/interviews and stakeholders are required?
+      evidence:
+        any_regex:
+        - \b(workshop|stakeholder|interview|cadence|sme|review session)\b
+    - id: professional_services.acceptance
+      label: Acceptance criteria
+      severity: warning
+      message: No acceptance criteria for advisory deliverables were found.
+      suggested_open_question: How are advisory/design deliverables accepted?
+      evidence:
+        any_regex:
+        - \b(acceptance|sign[- ]?off|review cycle|approval|final deliverable)\b
+  audit:
+    display_name: Audit / Site Readiness
+    scope_triggers:
+    - \b(audit|site readiness|as[- ]?built|walkthrough|photo log|punch list|readiness assessment|finding)\b
+    checks:
+    - id: audit.audit_scope
+      label: Audit scope / locations
+      severity: blocker
+      message: Audit scope is present but audited locations/systems are not defined.
+      suggested_open_question: What sites/rooms/systems are being audited?
+      evidence:
+        any_regex:
+        - \b(audit scope|walkthrough|locations?|systems?|sites?|rooms?|closets?|readiness)\b
+    - id: audit.findings_schema
+      label: Findings severity / evidence
+      severity: warning
+      message: No findings severity/evidence schema was found.
+      suggested_open_question: How are findings categorized, evidenced, assigned, and remediated?
+      evidence:
+        any_regex:
+        - \b(severity|finding|photo|remediation|owner|due date|punch list)\b
+    - id: audit.deliverable
+      label: Audit deliverable
+      severity: warning
+      message: No audit report/as-built deliverable was found.
+      suggested_open_question: What audit/readiness/as-built deliverable is required?
+      evidence:
+        any_regex:
+        - \b(audit report|as[- ]?built|photo log|readiness report|punch list)\b
+  data_migration:
+    display_name: Data Migration
+    scope_triggers:
+    - \b(data migration|tenant migration|profile migration|mailbox move|onedrive|sharepoint|cutover|coexistence|rollback)\b
+    checks:
+    - id: data_migration.source_target
+      label: Source/target platforms
+      severity: blocker
+      message: Data migration scope is present but source/target platforms are missing.
+      suggested_open_question: What source and target platforms/tenants are in scope?
+      evidence:
+        any_regex:
+        - \b(source tenant|target tenant|source platform|target platform|sharepoint|onedrive|mailbox|m365|google
+          workspace)\b
+    - id: data_migration.object_counts
+      label: Object/user/data counts
+      severity: blocker
+      message: No migration object/user/data counts were found.
+      suggested_open_question: How many users/mailboxes/sites/files/GB/TB are in scope?
+      evidence:
+        any_regex:
+        - \b\d{1,6}\s*(users?|mailboxes?|sites?|gb|tb|files?|profiles?)\b
+    - id: data_migration.cutover_rollback
+      label: Cutover / rollback
+      severity: warning
+      message: No cutover or rollback plan was found.
+      suggested_open_question: What cutover, pilot, delta-sync, coexistence, and rollback plan applies?
+      evidence:
+        any_regex:
+        - \b(cutover|freeze|delta sync|rollback|coexistence|pilot)\b
+    - id: data_migration.acceptance
+      label: Migration acceptance
+      severity: warning
+      message: No migration acceptance criteria were found.
+      suggested_open_question: What validation/reconciliation criteria define migration acceptance?
+      evidence:
+        any_regex:
+        - \b(validation|reconciliation|acceptance|user sign[- ]?off|error report)\b
+  alm:
+    display_name: ALM / Release Governance
+    scope_triggers:
+    - \b(alm|release|environment|workflow|approval|change advisory|jira|servicenow|devops|release train)\b
+    checks:
+    - id: alm.environments
+      label: Environment inventory
+      severity: blocker
+      message: ALM scope is present but environment inventory is missing.
+      suggested_open_question: Which environments and workflows are in scope?
+      evidence:
+        any_regex:
+        - \b(dev|test|qa|uat|prod|environment|sandbox)\b
+    - id: alm.workflow_approvals
+      label: Workflow / approvals
+      severity: warning
+      message: No workflow approval/release governance detail was found.
+      suggested_open_question: What workflow states, approvals, and release gates apply?
+      evidence:
+        any_regex:
+        - \b(workflow|approval|release gate|change approval|cab|governance)\b
+    - id: alm.tooling
+      label: ALM tooling
+      severity: warning
+      message: No ALM tooling evidence was found.
+      suggested_open_question: What ALM/tooling systems are in scope?
+      evidence:
+        any_regex:
+        - \b(jira|servicenow|azure devops|ado|gitlab|github|cmdb)\b
+  staff_augmentation:
+    display_name: Staff Augmentation
+    scope_triggers:
+    - \b(staff augmentation|staff aug|resource|fte|contractor|role|skillset|resume|backfill|onsite|remote)\b
+    checks:
+    - id: staff_aug.roles_counts
+      label: Roles / headcount
+      severity: blocker
+      message: Staff-augmentation scope is present but roles/headcount are missing.
+      suggested_open_question: What roles, skills, and headcount/FTE are required?
+      evidence:
+        any_regex:
+        - \b\d+(\.\d+)?\s*(fte|resources?|contractors?)\b
+        - \b(role|engineer|technician|project manager|analyst|architect)\b
+    - id: staff_aug.duration_location
+      label: Duration / location
+      severity: warning
+      message: No duration/location/on-site requirement was found.
+      suggested_open_question: What duration, location, travel, and remote/on-site expectations apply?
+      evidence:
+        any_regex:
+        - \b(duration|start date|end date|weeks|months|onsite|remote|hybrid|travel)\b
+    - id: staff_aug.acceptance
+      label: Timesheet / deliverable acceptance
+      severity: warning
+      message: No timesheet/deliverable acceptance process was found.
+      suggested_open_question: How are staff-aug time, deliverables, and performance accepted?
+      evidence:
+        any_regex:
+        - \b(timesheet|approval|deliverable|manager approval|weekly report|status report)\b
+  delivery_execution:
+    display_name: Delivery Execution
+    scope_triggers:
+    - \b(project plan|delivery|raid log|risk register|cutover validation|acceptance checklist|hypercare|go[- ]?live
+      readiness)\b
+    checks:
+    - id: delivery_execution.milestones
+      label: Delivery milestones
+      severity: blocker
+      message: Delivery execution scope is present but milestones are missing.
+      suggested_open_question: What delivery milestones and dates apply?
+      evidence:
+        any_regex:
+        - \b(milestone|project plan|go[- ]?live|cutover|hypercare|readiness|kickoff)\b
+    - id: delivery_execution.risks_raid
+      label: Risk/RAID tracking
+      severity: warning
+      message: No risk/RAID tracking evidence was found.
+      suggested_open_question: How are risks, assumptions, issues, and dependencies tracked?
+      evidence:
+        any_regex:
+        - \b(risk register|raid|issue log|dependency|mitigation|owner|severity)\b
+    - id: delivery_execution.acceptance
+      label: Acceptance / signoff
+      severity: blocker
+      message: No delivery acceptance/signoff process was found.
+      suggested_open_question: What acceptance checklist and signoff process closes delivery?
+      evidence:
+        any_regex:
+        - \b(acceptance|sign[- ]?off|validation|checklist|customer approval|closeout)\b
+  site_structure:
+    display_name: Site Structure
+    scope_triggers:
+    - \b(site list|site roster|building|floor|room|mdf|idf|address|access constraint|wan provider|critical systems)\b
+    checks:
+    - id: site_structure.site_roster
+      label: Site roster with physical site evidence
+      severity: blocker
+      message: Site-structure scope is present but no publishable site cluster exists.
+      suggested_open_question: Which physical sites/buildings/rooms are in scope?
+      evidence:
+        requires_site_cluster: true
+    - id: site_structure.address_access
+      label: Addresses / access constraints
+      severity: warning
+      message: No address/access-constraint evidence was found.
+      suggested_open_question: What addresses and access constraints apply to each site?
+      evidence:
+        any_regex:
+        - \b(address|street|ave|road|rd\b|st\b|access|escort|badge|credential|after[- ]?hours|24x7)\b
+    - id: site_structure.mdf_idf_wan
+      label: MDF/IDF/WAN critical systems
+      severity: warning
+      message: No MDF/IDF/WAN/critical-system evidence was found.
+      suggested_open_question: Which MDF/IDF/demarc/WAN providers and critical systems map to each site?
+      evidence:
+        any_regex:
+        - \b(mdf|idf|wan|carrier|provider|critical systems|demarc)\b
+  other:
+    display_name: Other / Unknown
+    scope_triggers: []
+    checks: []

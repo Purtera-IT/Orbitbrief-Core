@@ -45,7 +45,8 @@ if _SRC.is_dir() and str(_SRC) not in _sys.path:
     _sys.path.insert(0, str(_SRC))
 
 from orbitbrief_core.validator.sow_completeness import (  # noqa: E402
-    security_camera_sow_completeness,
+    SowCompletenessFinding,
+    evaluate_sow_completeness,
 )
 
 
@@ -128,7 +129,9 @@ def _publishability_for_case(case_dir: Path) -> dict[str, Any]:
     qty_survival = (quantities_pub / quantities) if quantities else 1.0
 
     # ── routing checks ──
-    sow_findings: list = []
+    sow_findings: list[SowCompletenessFinding] = []
+    sow_status: str = "green"
+    sow_active_domains: list[str] = []
     if pack:
         top = pack.get("top_pack_id")
         top_conf = float(pack.get("top_confidence") or 0.0)
@@ -140,13 +143,26 @@ def _publishability_for_case(case_dir: Path) -> dict[str, Any]:
         if abs(top_conf - 1.0) < 1e-6:
             hard_failures["top_confidence_exactly_one"] = 1
 
-        # PR7 (post-v3) — security camera SOW completeness validator.
-        sow_findings = security_camera_sow_completeness(
+        # SOW completeness validator (29 domains × 138 checks).
+        # Replaces the original PR7 narrow security-camera-only
+        # validator. Returns a SowCompletenessResult; per-severity
+        # totals roll into hard_failures (blocker) and warnings.
+        site_clusters = (site or {}).get("clusters") or []
+        sow_result = evaluate_sow_completeness(
             selected_pack_ids=selected or ([top] if top else []),
             atoms=(envelope or {}).get("atoms") or [],
+            packets=(envelope or {}).get("packets") or [],
+            site_clusters=site_clusters,
         )
-        for f in sow_findings:
-            warnings[f.rule_id] = warnings.get(f.rule_id, 0) + 1
+        sow_findings = list(sow_result.findings)
+        sow_status = sow_result.status
+        sow_active_domains = list(sow_result.active_domain_ids)
+        if sow_result.blocker_count:
+            hard_failures["sow_completeness_blockers"] = sow_result.blocker_count
+        if sow_result.warning_count:
+            warnings["sow_completeness_warnings"] = sow_result.warning_count
+        if sow_result.info_count:
+            warnings["sow_completeness_info"] = sow_result.info_count
 
     # ── site checks ──
     if site:
@@ -180,15 +196,17 @@ def _publishability_for_case(case_dir: Path) -> dict[str, Any]:
         "status": status,
         "hard_failures": hard_failures,
         "warnings": warnings,
-        "sow_completeness_findings": [
-            {
-                "rule_id": f.rule_id,
-                "severity": f.severity,
-                "message": f.message,
-                "detail": f.detail,
-            }
-            for f in sow_findings
-        ],
+        "sow_completeness": {
+            "status": sow_status,
+            "active_domain_ids": sow_active_domains,
+            "summary": {
+                "total_findings": len(sow_findings),
+                "blocker": sum(1 for f in sow_findings if f.severity == "blocker"),
+                "warning": sum(1 for f in sow_findings if f.severity == "warning"),
+                "info": sum(1 for f in sow_findings if f.severity == "info"),
+            },
+            "findings": [f.to_dict() for f in sow_findings],
+        },
         "coverage": {
             "high_authority_atoms_total": high_auth_total,
             "high_authority_atoms_publishable": high_auth_pub,

@@ -40,6 +40,14 @@ from orbitbrief_core.validator.validator import (
     PackIncompatibility,
 )
 
+from orbitbrief_core.validator.sow_completeness import (
+    SowCompletenessFinding,
+    SowCompletenessResult,
+    evaluate_from_case_payloads,
+    evaluate_sow_completeness,
+    load_sow_rules,
+)
+
 __all__ = [
     "BrainOutputValidator",
     "DictEvidenceLookup",
@@ -53,4 +61,9 @@ __all__ = [
     "ValidationReport",
     "ValidationRuleId",
     "ValidationSeverity",
+    "SowCompletenessFinding",
+    "SowCompletenessResult",
+    "evaluate_from_case_payloads",
+    "evaluate_sow_completeness",
+    "load_sow_rules",
 ]
