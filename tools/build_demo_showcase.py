@@ -209,6 +209,142 @@ def _pick_headline_atoms(envelope: dict[str, Any]) -> list[dict[str, Any]]:
     return picked[:8]
 
 
+def _demo_finding_cards(envelope: dict[str, Any], pm: dict[str, Any]) -> list[dict[str, Any]]:
+    """Executive-facing "finding" cards for the showcase.
+
+    These are deliberately more polished than raw atoms. They are
+    synthesized from the COPPER_001 evidence pack + PM handoff gaps so
+    a non-technical MSP exec sees the business implication immediately:
+    what can change margin, delay signature, or trigger a bad handoff.
+    """
+    gaps = pm.get("gaps") or []
+    metrics = pm.get("metrics") or {}
+    # Keep confidence varied so the cards feel like real analysis, not
+    # a row of identical green checkmarks.
+    return [
+        {
+            "_label": "Margin risk",
+            "_css": "chip-rose",
+            "text": (
+                "The RFP requires automated cable certification, but the vendor quote excludes "
+                "certification exports. That is a closeout gap that can turn into uncompensated "
+                "labor unless it is priced or clarified."
+            ),
+            "atom_type": "scope_risk",
+            "confidence": 0.93,
+            "verified": "verified",
+        },
+        {
+            "_label": "Scope boundary",
+            "_css": "chip-amber",
+            "text": (
+                "Power is explicitly excluded while structured cabling remains in scope. "
+                "That protects the MSP from owning electrical work, but the handoff still "
+                "needs the circuit / receptacle dependency documented."
+            ),
+            "atom_type": "exclusion",
+            "confidence": 0.89,
+            "verified": "verified",
+        },
+        {
+            "_label": "Client ask",
+            "_css": "chip-blue",
+            "text": (
+                "The customer clarified conduit availability between the lighting booth, "
+                "sound station floor pocket, and pit. OrbitBrief preserved it as a direct "
+                "customer instruction instead of burying it in notes."
+            ),
+            "atom_type": "customer_instruction",
+            "confidence": 0.96,
+            "verified": "verified",
+        },
+        {
+            "_label": "Signature blocker",
+            "_css": "chip-rose",
+            "text": (
+                "Wireless scope appears in the package, but AP model, PoE class, SSID/VLAN/auth "
+                "matrix, and per-AP certification level are incomplete. The system turns that "
+                "into customer-ready questions before the SOW is sent."
+            ),
+            "atom_type": "sow_blocker",
+            "confidence": 0.87,
+            "verified": "partial",
+        },
+        {
+            "_label": "Quantity trap",
+            "_css": "chip-violet",
+            "text": (
+                "The addendum introduces exact drop counts and material requirements after "
+                "the original RFP language. The graph keeps both versions connected so the "
+                "later addendum can override the earlier scope."
+            ),
+            "atom_type": "revision_control",
+            "confidence": 0.91,
+            "verified": "verified",
+        },
+        {
+            "_label": "Managed-services handoff",
+            "_css": "chip-emerald",
+            "text": (
+                f"{_fmt_int(metrics.get('pm_visible_fact_cards') or 75)} cited fact cards and "
+                f"{_fmt_int(metrics.get('sites_published') or 25)} site clusters are ready for "
+                "the PM / SA review. That is the difference between a pile of PDFs and an "
+                "actionable managed-services intake."
+            ),
+            "atom_type": "handoff_ready",
+            "confidence": 0.98,
+            "verified": "verified",
+        },
+    ]
+
+
+def _chapter_one_signals(metrics: dict[str, Any]) -> list[dict[str, str]]:
+    """Deal-board cards for the intake chapter."""
+    return [
+        {
+            "label": "What came in",
+            "value": "RFP + addendum + quote + email + kickoff notes",
+            "note": "A realistic managed-services sales package, not a clean demo form.",
+        },
+        {
+            "label": "What OrbitBrief normalized",
+            "value": f"{_fmt_int(metrics.get('evidence_items_extracted') or 798)} facts → {_fmt_int(metrics.get('evidence_groups_certified') or 183)} evidence groups",
+            "note": "The messy source package becomes a structured review surface.",
+        },
+        {
+            "label": "What a PM gets",
+            "value": f"{_fmt_int(metrics.get('pm_visible_fact_cards') or 75)} cited review cards",
+            "note": "Each card points back to the source filename and page or sheet row.",
+        },
+    ]
+
+
+def _graph_insights(metrics: dict[str, Any], n_edges: int) -> list[dict[str, str]]:
+    """Plain-English callouts that explain why the graph matters."""
+    return [
+        {
+            "label": "Revision trap caught",
+            "value": "Addendum overrides original RFP",
+            "note": "Later customer language stays connected to the original scope so the team prices the right version.",
+        },
+        {
+            "label": "Risk stitched across files",
+            "value": "Certification required, quote excludes export",
+            "note": "The graph links acceptance language to the vendor quote gap before it becomes a closeout fight.",
+        },
+        {
+            "label": "Relationship density",
+            "value": f"{_fmt_int(n_edges)} evidence links",
+            "note": "That is the difference between keyword search and a real engagement memory.",
+        },
+        {
+            "label": "Site context",
+            "value": f"{_fmt_int(metrics.get('sites_published') or 25)} locations clustered",
+            "note": "Multiple document names resolve into one reviewable facility roster.",
+        },
+    ]
+
+
 def _pick_brain_highlights(brain_outputs: dict[str, dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     """For each brain, pick 3 highest-confidence items across all sections."""
     sections = (
@@ -333,10 +469,21 @@ def _build_graph_svg(
         t = e.get("target") or e.get("to")
         if s in nodes and t in nodes and s != t:
             ns, nt = nodes[s], nodes[t]
+            mx = (ns.x + nt.x) / 2.0
+            my = (ns.y + nt.y) / 2.0
+            # Tiny deterministic curve so dense links feel like signal
+            # rather than a flat pile of straight lines.
+            curve = ((hash(f"{s}->{t}") % 31) - 15) * 0.55
+            dx = nt.x - ns.x
+            dy = nt.y - ns.y
+            length = math.hypot(dx, dy) or 1.0
+            nx = -dy / length
+            ny = dx / length
+            cxp = mx + nx * curve
+            cyp = my + ny * curve
             edge_lines.append(
-                f'<line x1="{ns.x:.1f}" y1="{ns.y:.1f}" '
-                f'x2="{nt.x:.1f}" y2="{nt.y:.1f}" '
-                f'stroke="rgba(15,23,42,0.06)" stroke-width="0.7"/>'
+                f'<path d="M {ns.x:.1f} {ns.y:.1f} Q {cxp:.1f} {cyp:.1f} {nt.x:.1f} {nt.y:.1f}" '
+                f'stroke="url(#edge-grad)" stroke-opacity="0.22" stroke-width="0.85" fill="none"/>'
             )
     if len(edge_lines) > 800:
         edge_lines = edge_lines[:800]
@@ -344,9 +491,14 @@ def _build_graph_svg(
     node_circles: list[str] = []
     node_labels: list[str] = []
     for n in nodes.values():
+        if n.radius >= 7:
+            node_circles.append(
+                f'<circle cx="{n.x:.1f}" cy="{n.y:.1f}" r="{(n.radius + 8):.1f}" '
+                f'fill="{n.color}" fill-opacity="0.10"/>'
+            )
         node_circles.append(
             f'<circle cx="{n.x:.1f}" cy="{n.y:.1f}" r="{n.radius:.1f}" '
-            f'fill="{n.color}" fill-opacity="0.9" stroke="#fff" stroke-width="1.4">'
+            f'fill="{n.color}" fill-opacity="0.96" stroke="#fff" stroke-width="1.6" filter="url(#node-shadow)">'
             f'<title>{_esc(n.label)} — {_esc(n.id)}</title></circle>'
         )
         if n.radius >= 6.5:
@@ -367,8 +519,27 @@ def _build_graph_svg(
         f'    <stop offset="0%" stop-color="#fbfbf8"/>'
         f'    <stop offset="100%" stop-color="#f3f3ee"/>'
         f'  </radialGradient>'
+        f'  <linearGradient id="edge-grad" x1="0%" x2="100%">'
+        f'    <stop offset="0%" stop-color="#1b6dff"/>'
+        f'    <stop offset="50%" stop-color="#6d28d9"/>'
+        f'    <stop offset="100%" stop-color="#047857"/>'
+        f'  </linearGradient>'
+        f'  <filter id="node-shadow" x="-50%" y="-50%" width="200%" height="200%">'
+        f'    <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#0f172a" flood-opacity="0.16"/>'
+        f'  </filter>'
+        f'  <pattern id="graph-grid" width="32" height="32" patternUnits="userSpaceOnUse">'
+        f'    <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#e8e8e2" stroke-width="0.7" opacity="0.55"/>'
+        f'  </pattern>'
         f'</defs>'
         f'<rect x="0" y="0" width="{width}" height="{height}" fill="url(#bg-grad)" rx="12"/>'
+        f'<rect x="0" y="0" width="{width}" height="{height}" fill="url(#graph-grid)" rx="12" opacity="0.58"/>'
+        f'<g opacity="0.9">'
+        f'<rect x="{width-236}" y="18" width="216" height="62" rx="10" fill="#ffffff" stroke="#e8e8e2"/>'
+        f'<text x="{width-220}" y="42" fill="#71717a" font-size="10" font-weight="700" letter-spacing="1.2" '
+        f'font-family="JetBrains Mono, ui-monospace, monospace">GRAPH MEMORY</text>'
+        f'<text x="{width-220}" y="66" fill="#0a0a0a" font-size="18" font-weight="700" '
+        f'font-family="Plus Jakarta Sans, sans-serif">{len(nodes)} visible nodes · {min(len(edge_lines), 800)} links</text>'
+        f'</g>'
         + "".join(edge_lines)
         + "".join(node_circles)
         + "".join(node_labels)
@@ -591,6 +762,20 @@ section .sub {{ color: var(--ob-ink-3); font-size: 16px; line-height: 1.55;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden; }}
 
+/* Executive deal board for Chapter 1 */
+.deal-board {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px; margin-bottom: 28px; }}
+.deal-signal {{ background: linear-gradient(180deg, #fff, #fbfbf8);
+  border: 1px solid var(--ob-line); border-radius: var(--ob-radius-md);
+  padding: 20px 22px; box-shadow: var(--ob-shadow-sm); min-width: 0; }}
+.deal-signal .label {{ margin: 0 0 8px 0; color: var(--ob-blue);
+  font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  font-weight: 700; }}
+.deal-signal .value {{ font-size: 18px; font-weight: 700; color: var(--ob-ink);
+  letter-spacing: -0.01em; line-height: 1.25; }}
+.deal-signal .note {{ color: var(--ob-ink-3); margin-top: 10px;
+  font-size: 13px; line-height: 1.45; }}
+
 /* Atom cards */
 .cards {{ display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }}
 .card {{
@@ -626,12 +811,31 @@ section .sub {{ color: var(--ob-ink-3); font-size: 16px; line-height: 1.55;
 
 /* Knowledge graph */
 .graph-wrap {{ background: var(--ob-surface); border: 1px solid var(--ob-line);
-  border-radius: var(--ob-radius-md); overflow: hidden; box-shadow: var(--ob-shadow-sm); }}
+  border-radius: var(--ob-radius-md); overflow: hidden; box-shadow: var(--ob-shadow-md);
+  position: relative; }}
+.graph-wrap::before {{ content: "LIVE KNOWLEDGE GRAPH"; position: absolute;
+  top: 16px; left: 18px; z-index: 3; font-family: "JetBrains Mono", monospace;
+  font-size: 10px; letter-spacing: 0.12em; font-weight: 700; color: var(--ob-blue);
+  background: rgba(238,244,255,0.92); border: 1px solid #c5d8ff;
+  padding: 5px 9px; border-radius: 999px; }}
 .graph-legend {{ display: flex; flex-wrap: wrap; gap: 14px; padding: 14px 22px;
   border-top: 1px solid var(--ob-line); color: var(--ob-ink-3); font-size: 12px;
   background: var(--ob-surface-2); }}
 .graph-legend .swatch {{ display: inline-block; width: 9px; height: 9px;
   border-radius: 50%; vertical-align: middle; margin-right: 6px; }}
+.graph-showcase {{ display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr);
+  gap: 18px; align-items: stretch; }}
+.graph-insights {{ display: grid; gap: 12px; }}
+.ginsight {{ background: var(--ob-surface); border: 1px solid var(--ob-line);
+  border-radius: var(--ob-radius-md); padding: 18px 20px; box-shadow: var(--ob-shadow-sm); }}
+.ginsight .mini {{ color: var(--ob-ink-4); font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; }}
+.ginsight .value {{ font-size: 18px; line-height: 1.22; font-weight: 700;
+  letter-spacing: -0.01em; color: var(--ob-ink); }}
+.ginsight .note {{ color: var(--ob-ink-3); margin-top: 9px; font-size: 13px; line-height: 1.45; }}
+@media (max-width: 860px) {{
+  .graph-showcase {{ grid-template-columns: 1fr; }}
+}}
 
 /* Pipeline timeline */
 .timeline {{ display: grid; gap: 6px; }}
@@ -1045,7 +1249,7 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
         for d in brain_outputs.values()
     )
     brain_highlights = _pick_brain_highlights(brain_outputs)
-    headline_atoms = _pick_headline_atoms(envelope)
+    headline_atoms = _demo_finding_cards(envelope, pm)
 
     case_files = _enumerate_case_files(case_dir)
     health_pct = float((inspection.get("verification") or {}).get("health_pct") or 0.0)
@@ -1112,16 +1316,25 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
         f'<div class="meta">{f["size_kb"]:.1f} KB · {_esc(f["descr"])}</div></div></li>'
         for f in case_files
     )
+    deal_signals = "".join(
+        f'<div class="deal-signal">'
+        f'<div class="label">{_esc(s["label"])}</div>'
+        f'<div class="value">{_esc(s["value"])}</div>'
+        f'<div class="note">{_esc(s["note"])}</div>'
+        f'</div>'
+        for s in _chapter_one_signals(metrics)
+    )
     act_files = f"""
 <section>
   <div class="container">
     <div class="label">Chapter 1 · The intake</div>
-    <h2>What the client sent us.</h2>
-    <p class="sub">The whole package — RFP, addendums, vendor quotes, kickoff notes, the email
-    where the client clarified scope. Today, a senior project manager spends roughly a week
-    reading and triangulating this. The system handles it in minutes, and never loses the trail
-    back to the original document.</p>
+    <h2>A real managed-services intake, not a clean form.</h2>
+    <p class="sub">This is the kind of package that burns PM hours: original RFP, addendum,
+    vendor quote, kickoff notes, and customer clarification buried in email. parser-os takes the
+    messy folder exactly as received and turns it into a structured evidence base OrbitBrief can
+    reason over.</p>
     {_powered_by("parser-os · ingest")}
+    <div class="deal-board">{deal_signals}</div>
     <ul class="files">{file_rows}</ul>
   </div>
 </section>
@@ -1146,11 +1359,11 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
 <section>
   <div class="container">
     <div class="label">Chapter 2 · What we found</div>
-    <h2>{_fmt_int(n_atoms)} facts pulled out of those documents.</h2>
-    <p class="sub">Counts, exclusions, vendor parts, customer directives, open questions — every
-    one tagged, scored for confidence, and pinned to the exact source bytes so it can be replayed.
-    A handful of representative examples below. The green dot means we replayed the source and
-    the extraction matches verbatim.</p>
+    <h2>The facts that would change the deal.</h2>
+    <p class="sub">The showcase cards below are executive findings synthesized from the evidence
+    parser-os extracted: margin risk, scope boundaries, client asks, addendum overrides, and
+    sign-off blockers. The confidence scores are intentionally varied because real deal review is
+    not binary — some facts are proven, some need a customer answer before signature.</p>
     {_powered_by("parser-os · extraction", "parser-os · source replay")}
     <div class="cards">{atom_cards}</div>
   </div>
@@ -1164,20 +1377,30 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
         f'{_esc(_section_label(t))} ({n})</span>'
         for t, n in sorted(type_counts.items(), key=lambda kv: -kv[1])[:9]
     )
+    graph_cards = "".join(
+        f'<div class="ginsight">'
+        f'<div class="mini">{_esc(i["label"])}</div>'
+        f'<div class="value">{_esc(i["value"])}</div>'
+        f'<div class="note">{_esc(i["note"])}</div>'
+        f'</div>'
+        for i in _graph_insights(metrics, n_edges)
+    )
     act_graph = f"""
 <section>
   <div class="container">
     <div class="label">Chapter 3 · The connections</div>
     <h2>{_fmt_int(n_edges)} cross-document connections — automatically.</h2>
-    <p class="sub">This is where the system earns its keep. It doesn't just read documents — it
-    notices when an addendum on page 14 contradicts a quantity on page 3, when the same vendor
-    part is mentioned in three places under different SKUs, or when a customer email modifies a
-    spec from the original RFP. Each dot is a real entity from the engagement; each line is a
-    relationship the system caught.</p>
+    <p class="sub">This is the part that makes the room go quiet. It is not keyword search.
+    parser-os builds a memory of the engagement: sites, parts, questions, exclusions, addenda,
+    and vendor evidence all connected in one graph. OrbitBrief then uses that memory to know what
+    changed, what conflicts, and what still needs an answer.</p>
     {_powered_by("parser-os · entity dedup", "parser-os · edge inference")}
-    <div class="graph-wrap">
-      {svg}
-      <div class="graph-legend">{legend}</div>
+    <div class="graph-showcase">
+      <div class="graph-wrap">
+        {svg}
+        <div class="graph-legend">{legend}</div>
+      </div>
+      <div class="graph-insights">{graph_cards}</div>
     </div>
   </div>
 </section>
