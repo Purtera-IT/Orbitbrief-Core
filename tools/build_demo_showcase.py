@@ -93,11 +93,63 @@ def _fmt_ms(ms: Any) -> str:
 def _shorten(s: str, n: int) -> str:
     s = (s or "").strip()
     s = " ".join(s.split())
-    return (s[: n - 1] + "…") if len(s) > n else s
+    if len(s) <= n:
+        return s
+    # Cut on a word boundary if possible so we never end mid-word.
+    cut = s.rfind(" ", 0, n - 1)
+    if cut > n * 0.6:
+        return s[:cut].rstrip(" ,;:.") + "…"
+    return s[: n - 1].rstrip(" ,;:.") + "…"
+
+
+# Noise prefixes that show up in raw RFP text and look terrible in a
+# showcase quote ("Risk Trigger:", "Answer:", "Line item", "8.4.1 ...").
+# Stripping them dramatically improves how the cards read.
+_NOISE_PREFIX_PATTERNS = (
+    r"^(?:Risk Trigger|Answer|Question|Note|Comment|Description|Title)\s*:\s*",
+    r"^Line item\s+",
+    r"^\d+(?:\.\d+){1,4}\s*[-–—]?\s*",
+    r"^[A-Z]\d+(?:\.\d+){0,3}\s*[-–—]?\s*",
+    r"^Section\s+\d+(?:\.\d+){0,3}\s*[:.\-–—]?\s*",
+)
+
+
+def _polish_quote(s: str) -> str:
+    """Tidy raw RFP text so it reads cleanly in a card."""
+    import re
+    if not s:
+        return ""
+    s = s.strip()
+    # Normalize curly / smart quotes + ligatures + double spaces.
+    s = (s.replace("\u201c", '"').replace("\u201d", '"')
+           .replace("\u2018", "'").replace("\u2019", "'")
+           .replace("\u00a0", " ").replace("\u2013", "-").replace("\u2014", "-"))
+    s = " ".join(s.split())
+    for pat in _NOISE_PREFIX_PATTERNS:
+        s = re.sub(pat, "", s, count=1)
+    # Capitalize the first letter if it isn't already.
+    if s and s[0].islower():
+        s = s[0].upper() + s[1:]
+    # Strip a trailing colon or comma — both look orphaned in a quote.
+    s = s.rstrip(",:; ")
+    return s
 
 
 def _section_label(s: str) -> str:
     return s.replace("_", " ").title()
+
+
+def _powered_by(*parts: str) -> str:
+    """Render a small "powered by parser-os + OrbitBrief" badge.
+
+    Each chapter shows which subsystem produced its content so the
+    reader walks away knowing both halves of the stack contributed.
+    """
+    chips = "".join(
+        f'<span class="pb-chip pb-{("po" if "parser" in p.lower() else "ob")}">{_esc(p)}</span>'
+        for p in parts
+    )
+    return f'<div class="powered">{chips}</div>'
 
 
 def _verified_dot(verified: str | None) -> str:
@@ -465,7 +517,55 @@ section h2 {{
 section h2 em {{ font-style: italic; color: var(--ob-blue); }}
 section h2 strong {{ font-weight: 400; }}
 section .sub {{ color: var(--ob-ink-3); font-size: 16px; line-height: 1.55;
-  max-width: 720px; margin-bottom: 44px; text-wrap: pretty; }}
+  max-width: 720px; margin-bottom: 28px; text-wrap: pretty; }}
+
+/* Powered-by chips — every chapter labels which half of the stack
+   produced its content. */
+.powered {{ display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 36px; }}
+.pb-chip {{ display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.04em; border: 1px solid var(--ob-line);
+  background: var(--ob-surface); color: var(--ob-ink-3);
+  font-family: "JetBrains Mono", monospace; }}
+.pb-chip::before {{ content: ""; width: 6px; height: 6px; border-radius: 50%;
+  display: inline-block; }}
+.pb-chip.pb-po::before {{ background: var(--ob-emerald); }}
+.pb-chip.pb-ob::before {{ background: var(--ob-blue); }}
+.pb-chip.pb-po {{ color: var(--ob-emerald); border-color: #c8edd2; background: var(--ob-emerald-soft); }}
+.pb-chip.pb-ob {{ color: var(--ob-blue); border-color: #c5d8ff; background: var(--ob-blue-soft); }}
+
+/* Pulsing live indicator for the chrome status pill on red. */
+@keyframes ob-pulse {{
+  0%, 100% {{ opacity: 1; }}
+  50% {{ opacity: 0.35; }}
+}}
+.live-dot {{ width: 7px; height: 7px; border-radius: 50%;
+  display: inline-block; vertical-align: middle; margin-right: 6px;
+  animation: ob-pulse 1.6s ease-in-out infinite; }}
+.live-dot.r {{ background: var(--ob-rose); box-shadow: 0 0 0 3px rgba(190,18,60,0.15); }}
+.live-dot.y {{ background: var(--ob-amber); box-shadow: 0 0 0 3px rgba(180,83,9,0.15); }}
+.live-dot.g {{ background: var(--ob-emerald); box-shadow: 0 0 0 3px rgba(4,120,87,0.15); }}
+
+/* Gradient numbers on the hero stat cards for that little extra wow. */
+.stat-card.featured .num {{
+  background: linear-gradient(180deg, var(--ob-ink) 0%, var(--ob-blue) 110%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}}
+.stat-card.featured {{ border-color: var(--ob-blue-soft);
+  box-shadow: 0 0 0 1px var(--ob-blue-soft), var(--ob-shadow-md); }}
+
+/* Subtle card lift on hover — feels like a real product. */
+.card, .fact, .blk, .brain, .file {{ transition: box-shadow .16s ease, transform .16s ease, border-color .16s ease; }}
+.card:hover, .fact:hover, .blk:hover, .file:hover {{
+  box-shadow: var(--ob-shadow-md); border-color: var(--ob-line-2);
+}}
+
+/* Inline mini-badge for the brand chrome ("parser-os ⊕ OrbitBrief"). */
+.brand .stack {{ display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 8px; border-radius: 999px; background: var(--ob-blue-soft);
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ob-blue);
+  font-family: "JetBrains Mono", monospace; margin-left: 8px; }}
 
 /* Source library */
 .files {{ list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;
@@ -806,10 +906,10 @@ def _render_brain_blocks(brain_outputs: dict[str, dict[str, Any]],
         item_html = "".join(
             f'<div class="bitem">'
             f'<div class="sec">{_esc(_section_label(it.get("section") or ""))}</div>'
-            f'<div class="stmt">{_esc(it.get("statement") or "")}</div>'
-            f'<div class="meta">confidence {float(it.get("confidence") or 0):.2f} · '
-            f'cites {len(it.get("supporting_packet_ids") or [])} packet(s) · '
-            f'{len(it.get("supporting_atom_ids") or [])} atom(s)</div>'
+            f'<div class="stmt">{_esc(_shorten(_polish_quote(it.get("statement") or ""), 240))}</div>'
+            f'<div class="meta">confidence {float(it.get("confidence") or 0):.0%} · '
+            f'{len(it.get("supporting_packet_ids") or [])} evidence group(s) · '
+            f'{len(it.get("supporting_atom_ids") or [])} cited fact(s)</div>'
             f'</div>'
             for it in items
         ) or '<div class="bitem"><em>(no high-confidence items emitted by this brain)</em></div>'
@@ -834,27 +934,43 @@ def _render_facts_gallery(facts_by_category: dict[str, list[dict[str, Any]]],
         return '<p class="sub">(no fact cards)</p>'
     pool: list[dict[str, Any]] = []
     for cat, facts in facts_by_category.items():
-        # Sort by confidence then text length and pick top N per category.
+        # Prefer slightly shorter, higher-confidence facts so the cards
+        # all read at a similar visual weight in the gallery.
         sortable = sorted(
-            facts, key=lambda f: (-(f.get("confidence") or 0.0), -len(f.get("text") or "")),
+            facts,
+            key=lambda f: (
+                -(f.get("confidence") or 0.0),
+                abs(len(f.get("text") or "") - 140),
+            ),
         )
-        for f in sortable[:per_cat]:
+        kept = 0
+        for f in sortable:
             text = (f.get("text") or "").strip()
-            if 25 <= len(text) <= 320:
+            if 25 <= len(text) <= 280:
                 pool.append({"_cat": cat, **f})
+                kept += 1
+                if kept >= per_cat:
+                    break
     pool = pool[:total_cap]
     cards = "".join(
         f'<div class="fact">'
         f'<div class="cat">{_esc(_section_label(f["_cat"]))}</div>'
-        f'<div class="text">{_esc(_shorten(f.get("text") or "", 280))}</div>'
+        f'<div class="text">{_esc(_shorten(_polish_quote(f.get("text") or ""), 200))}</div>'
         f'<div class="src">{_verified_dot(f.get("verified"))}'
-        f'<span class="file">{_esc((f.get("source") or {}).get("filename") or "—")}</span>'
+        f'<span class="file">{_esc(_basename((f.get("source") or {}).get("filename") or "—"))}</span>'
         f'<span class="loc">· {_esc((f.get("source") or {}).get("locator") or "—")}</span>'
         f'</div>'
         f'</div>'
         for f in pool
     )
     return f'<div class="facts">{cards}</div>'
+
+
+def _basename(path: str) -> str:
+    """Strip directory prefixes from source filenames so chips don't blow up."""
+    if not path:
+        return "—"
+    return path.rsplit("/", 1)[-1]
 
 
 def _render_blockers(gaps: list[dict[str, Any]],
@@ -872,16 +988,16 @@ def _render_blockers(gaps: list[dict[str, Any]],
             f'<div class="rule-row">'
             f'<span class="sev {sev}">{_esc(sev)}</span>'
             f'<span class="domain">{_esc(g.get("domain_label") or g.get("domain_id"))}</span>'
-            f'<span class="rule-id">{_esc(g.get("rule_id"))}</span>'
+            f'<span class="rule-id">{_esc(_shorten(g.get("rule_id") or "", 40))}</span>'
             f'</div>'
-            f'<div class="lab">{_esc(g.get("label") or "—")}</div>'
-            f'<div class="msg">{_esc(g.get("message") or "")}</div>'
+            f'<div class="lab">{_esc(_shorten(g.get("label") or "—", 110))}</div>'
+            f'<div class="msg">{_esc(_shorten(g.get("message") or "", 280))}</div>'
             + (
-                f'<div class="ask">{_esc(g["suggested_open_question"])}</div>'
+                f'<div class="ask">{_esc(_shorten(g["suggested_open_question"], 240))}</div>'
                 if g.get("suggested_open_question") else ""
             )
             + (
-                f'<div class="obs">Observed: {_esc(g["observed_summary"])}</div>'
+                f'<div class="obs">Observed · {_esc(_shorten(g["observed_summary"], 160))}</div>'
                 if g.get("observed_summary") else ""
             )
             + '</div>'
@@ -936,8 +1052,10 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
 
     runtime_min = f"{runtime_s/60:.1f} min" if runtime_s else "—"
 
+    status_dot_cls = "r" if status == "red" else ("y" if status == "yellow" else "g")
     status_chip = (
         f'<span class="chip-status {_esc(status)}">'
+        f'<span class="live-dot {status_dot_cls}"></span>'
         f'{_esc(status_label)} · {metrics.get("blockers", 0)} blocker · '
         f'{metrics.get("warnings", 0)} warning</span>'
     )
@@ -949,6 +1067,7 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
     <div class="brand">
       <span class="brand-mark"></span>
       <span class="brand-name">Purpulse <span class="lo">·</span> OrbitBrief</span>
+      <span class="stack">parser-os ⊕ OrbitBrief</span>
     </div>
     <div class="crumbs">
       <span>Quoting</span><span class="sep">/</span>
@@ -974,12 +1093,13 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
     Every claim below is cited back to the source document and page number — your team can verify
     anything in two clicks.</p>
     <div class="stats">
-      <div class="stat-card"><div class="lab">Documents read</div><div class="num">{_fmt_int(n_docs)}</div></div>
-      <div class="stat-card"><div class="lab">Facts extracted</div><div class="num">{_fmt_int(metrics.get("evidence_items_extracted") or n_atoms)}</div></div>
+      <div class="stat-card featured"><div class="lab">Documents read</div><div class="num">{_fmt_int(n_docs)}</div></div>
+      <div class="stat-card featured"><div class="lab">Facts extracted</div><div class="num">{_fmt_int(metrics.get("evidence_items_extracted") or n_atoms)}</div></div>
+      <div class="stat-card"><div class="lab">Cross-references</div><div class="num">{_fmt_int(n_edges)}</div></div>
       <div class="stat-card"><div class="lab">Sites identified</div><div class="num">{_fmt_int(metrics.get("sites_published"))}</div></div>
       <div class="stat-card"><div class="lab">Cited fact cards</div><div class="num">{_fmt_int(metrics.get("pm_visible_fact_cards"))}</div></div>
       <div class="stat-card"><div class="lab">Specialists run</div><div class="num">{_fmt_int(len(brains_run))}</div></div>
-      <div class="stat-card"><div class="lab">Source accuracy</div><div class="num">{health_pct:.0f}%</div></div>
+      <div class="stat-card featured"><div class="lab">Source accuracy</div><div class="num">{health_pct:.0f}%</div></div>
     </div>
   </div>
 </div>
@@ -1001,6 +1121,7 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
     where the client clarified scope. Today, a senior project manager spends roughly a week
     reading and triangulating this. The system handles it in minutes, and never loses the trail
     back to the original document.</p>
+    {_powered_by("parser-os · ingest")}
     <ul class="files">{file_rows}</ul>
   </div>
 </section>
@@ -1013,9 +1134,9 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
         f'<span class="chip {a["_css"]}">{_esc(a["_label"])}</span>'
         f'<span class="replay">{_verified_dot(a.get("verified"))}source verified</span>'
         f'</div>'
-        f'<div class="quote">“{_esc(_shorten(a.get("text") or "", 240))}”</div>'
+        f'<div class="quote">“{_esc(_shorten(_polish_quote(a.get("text") or ""), 200))}”</div>'
         f'<div class="meta">'
-        f'<span>category: {_esc(_section_label(a.get("atom_type") or ""))}</span>'
+        f'<span>category · {_esc(_section_label(a.get("atom_type") or ""))}</span>'
         f'<span>confidence {float(a.get("confidence") or 0):.0%}</span>'
         f'</div>'
         f'</div>'
@@ -1030,6 +1151,7 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
     one tagged, scored for confidence, and pinned to the exact source bytes so it can be replayed.
     A handful of representative examples below. The green dot means we replayed the source and
     the extraction matches verbatim.</p>
+    {_powered_by("parser-os · extraction", "parser-os · source replay")}
     <div class="cards">{atom_cards}</div>
   </div>
 </section>
@@ -1052,6 +1174,7 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
     part is mentioned in three places under different SKUs, or when a customer email modifies a
     spec from the original RFP. Each dot is a real entity from the engagement; each line is a
     relationship the system caught.</p>
+    {_powered_by("parser-os · entity dedup", "parser-os · edge inference")}
     <div class="graph-wrap">
       {svg}
       <div class="graph-legend">{legend}</div>
@@ -1071,6 +1194,7 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
     addendum, and a vendor quote. The system clusters them so your scope review starts from one
     canonical roster — {_fmt_int(metrics.get("sites_published"))} confirmed sites for this
     engagement. No double-counting, no missed locations.</p>
+    {_powered_by("OrbitBrief · site reality")}
     {sites_html}
   </div>
 </section>
@@ -1088,6 +1212,7 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
     discipline (electrical, structured cabling, professional services), and emits a structured
     brief: scope, deliverables, assumptions, risks, open questions. The model, token cost, and
     response time are visible per specialist for full auditability.</p>
+    {_powered_by("OrbitBrief · pack router", "OrbitBrief · specialist brains")}
     {brain_html}
   </div>
 </section>
@@ -1104,6 +1229,7 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
     by category — sites, scope, bill of materials, network, managed services, acceptance
     criteria, risks, exclusions — and points back to the exact filename plus page or row. If
     your client asks "where did you get that?", you have the answer in two clicks.</p>
+    {_powered_by("parser-os · atoms", "OrbitBrief · composer")}
     {facts_gallery}
   </div>
 </section>
@@ -1121,6 +1247,7 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
     prioritized checklist of the things this specific engagement needs verified — drawn from
     the gaps the system noticed across all of the documents. Engineering hours saved before
     you've even kicked off design.</p>
+    {_powered_by("OrbitBrief · SOW validator")}
     <div class="sa"><ol>{sa_html}</ol></div>
   </div>
 </section>
@@ -1139,6 +1266,7 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
     <p class="sub">For every gap the system found, you get the rule that fired, what was
     missing, and a suggested question — ready to paste into the next client call. No "I'll get
     back to you on that." Status: <strong style="color:{status_color}">{_esc(status_label)}</strong>.</p>
+    {_powered_by("OrbitBrief · SOW validator", "OrbitBrief · question generator")}
     {blockers_html}
   </div>
 </section>
@@ -1156,6 +1284,7 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
     <p class="sub">Every specialist that was considered, every pipeline stage that ran, with
     timing. Click through to the full inspection report for atom-level lineage. This is the
     "show your work" view that distinguishes us from a black-box LLM.</p>
+    {_powered_by("parser-os · pipeline log", "OrbitBrief · pack router")}
 
     <h3 style="font-family:'Plus Jakarta Sans',sans-serif; font-size:14px; font-weight:600;
         text-transform:uppercase; letter-spacing:0.08em; color:var(--ob-ink-3);
