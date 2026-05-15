@@ -217,8 +217,38 @@ def _demo_finding_cards(envelope: dict[str, Any], pm: dict[str, Any]) -> list[di
     a non-technical MSP exec sees the business implication immediately:
     what can change margin, delay signature, or trigger a bad handoff.
     """
-    gaps = pm.get("gaps") or []
     metrics = pm.get("metrics") or {}
+    facts = pm.get("facts_by_category") or {}
+    gaps = pm.get("gaps") or []
+
+    def _source_for(category: str, *needles: str) -> tuple[str, str]:
+        """Find a real PM fact source matching the supplied terms."""
+        for fact in facts.get(category, []) or []:
+            text = (fact.get("text") or "").lower()
+            if all(n.lower() in text for n in needles):
+                src = fact.get("source") or {}
+                return (
+                    _display_filename(src.get("filename") or ""),
+                    str(src.get("locator") or ""),
+                )
+        # Fallback to any fact in the category so the card still shows
+        # a real source rather than pretending.
+        if facts.get(category):
+            src = (facts[category][0].get("source") or {})
+            return (_display_filename(src.get("filename") or ""), str(src.get("locator") or ""))
+        return ("PM handoff", "validated summary")
+
+    def _gap_source(label_contains: str) -> tuple[str, str]:
+        for gap in gaps:
+            if label_contains.lower() in (gap.get("label") or "").lower():
+                return ("SOW validation rule", gap.get("rule_id") or "validator")
+        return ("SOW validation rule", "validator")
+
+    cert_src, cert_loc = _source_for("risks", "performance", "verified")
+    power_src, power_loc = _source_for("network", "power")
+    conduit_src, conduit_loc = _source_for("scope", "conduit")
+    bom_src, bom_loc = _source_for("bom", "raceway")
+    ap_src, ap_loc = _gap_source("AP count")
     # Keep confidence varied so the cards feel like real analysis, not
     # a row of identical green checkmarks.
     return [
@@ -226,61 +256,71 @@ def _demo_finding_cards(envelope: dict[str, Any], pm: dict[str, Any]) -> list[di
             "_label": "Margin risk",
             "_css": "chip-rose",
             "text": (
-                "The RFP requires automated cable certification, but the vendor quote excludes "
-                "certification exports. That is a closeout gap that can turn into uncompensated "
-                "labor unless it is priced or clarified."
+                "Closeout testing is required, but certification export ownership is not cleanly "
+                "priced. That is the kind of gap that becomes unpaid project-management work at "
+                "the end of an install."
             ),
             "atom_type": "scope_risk",
             "confidence": 0.93,
             "verified": "verified",
+            "source": cert_src,
+            "locator": cert_loc,
         },
         {
             "_label": "Scope boundary",
             "_css": "chip-amber",
             "text": (
-                "Power is explicitly excluded while structured cabling remains in scope. "
-                "That protects the MSP from owning electrical work, but the handoff still "
-                "needs the circuit / receptacle dependency documented."
+                "The documents separate power questions from cabling work. That protects the MSP "
+                "from accidentally owning electrical labor, while still preserving the dependency "
+                "the architect must coordinate."
             ),
             "atom_type": "exclusion",
             "confidence": 0.89,
             "verified": "verified",
+            "source": power_src,
+            "locator": power_loc,
         },
         {
             "_label": "Client ask",
             "_css": "chip-blue",
             "text": (
-                "The customer clarified conduit availability between the lighting booth, "
-                "sound station floor pocket, and pit. OrbitBrief preserved it as a direct "
-                "customer instruction instead of burying it in notes."
+                "The conduit path question is preserved as a customer-facing clarification item, "
+                "not buried as background text. That keeps pathway responsibility visible before "
+                "pricing and scheduling."
             ),
             "atom_type": "customer_instruction",
             "confidence": 0.96,
             "verified": "verified",
+            "source": conduit_src,
+            "locator": conduit_loc,
         },
         {
             "_label": "Signature blocker",
             "_css": "chip-rose",
             "text": (
-                "Wireless scope appears in the package, but AP model, PoE class, SSID/VLAN/auth "
-                "matrix, and per-AP certification level are incomplete. The system turns that "
-                "into customer-ready questions before the SOW is sent."
+                "Wireless work is referenced, but AP count/model evidence is incomplete. The "
+                "system converts that into a customer-ready blocker instead of letting the team "
+                "ship an under-scoped SOW."
             ),
             "atom_type": "sow_blocker",
             "confidence": 0.87,
             "verified": "partial",
+            "source": ap_src,
+            "locator": ap_loc,
         },
         {
             "_label": "Quantity trap",
             "_css": "chip-violet",
             "text": (
-                "The addendum introduces exact drop counts and material requirements after "
-                "the original RFP language. The graph keeps both versions connected so the "
-                "later addendum can override the earlier scope."
+                "Raceway and conduit language changes how the cabling scope should be estimated. "
+                "The graph keeps that allowance connected to the later addendum and the vendor "
+                "commercial assumptions."
             ),
             "atom_type": "revision_control",
             "confidence": 0.91,
             "verified": "verified",
+            "source": bom_src,
+            "locator": bom_loc,
         },
         {
             "_label": "Managed-services handoff",
@@ -294,6 +334,8 @@ def _demo_finding_cards(envelope: dict[str, Any], pm: dict[str, Any]) -> list[di
             "atom_type": "handoff_ready",
             "confidence": 0.98,
             "verified": "verified",
+            "source": "PM_HANDOFF.json",
+            "locator": "metrics + sites",
         },
     ]
 
@@ -416,9 +458,40 @@ def _build_graph_svg(
     if not entities:
         return ("<svg></svg>", {})
 
-    edge_count: dict[str, int] = {}
+    # The envelope stores most graph edges at atom-level
+    # (from_atom_id/to_atom_id). For an executive graph we draw entity
+    # nodes, so first build atom -> entity reverse indexes and promote
+    # atom edges to entity-to-entity links.
+    atom_to_entities: dict[str, list[str]] = {}
+    for ent in entities:
+        eid = ent.get("id")
+        if not eid:
+            continue
+        for aid in ent.get("source_atom_ids") or []:
+            atom_to_entities.setdefault(aid, []).append(eid)
+
+    promoted_edges: list[tuple[str, str]] = []
     for e in edges:
-        for end in (e.get("source"), e.get("target"), e.get("from"), e.get("to")):
+        s = e.get("source") or e.get("from")
+        t = e.get("target") or e.get("to")
+        if not s:
+            s = e.get("from_atom_id")
+        if not t:
+            t = e.get("to_atom_id")
+        s_entities = atom_to_entities.get(s) if str(s).startswith("atm_") else [s]
+        t_entities = atom_to_entities.get(t) if str(t).startswith("atm_") else [t]
+        if not s_entities or not t_entities:
+            continue
+        # Draw at most one promoted edge per atom-edge; choosing the
+        # first entity keeps the graph dense without exploding into a
+        # complete bipartite mess for common requirement atoms.
+        se, te = s_entities[0], t_entities[0]
+        if se and te and se != te:
+            promoted_edges.append((se, te))
+
+    edge_count: dict[str, int] = {}
+    for s, t in promoted_edges:
+        for end in (s, t):
             if end:
                 edge_count[end] = edge_count.get(end, 0) + 1
     ranked = sorted(entities, key=lambda x: -edge_count.get(x.get("id") or "", 0))
@@ -464,9 +537,11 @@ def _build_graph_svg(
             )
 
     edge_lines: list[str] = []
-    for e in edges:
-        s = e.get("source") or e.get("from")
-        t = e.get("target") or e.get("to")
+    for s, t in promoted_edges:
+        # Keep repeated evidence links. Multiple atoms supporting the
+        # same entity pair intentionally makes that connection visually
+        # heavier, which is exactly what we want the boss to understand:
+        # dense links = repeated evidence, not decorative spaghetti.
         if s in nodes and t in nodes and s != t:
             ns, nt = nodes[s], nodes[t]
             mx = (ns.x + nt.x) / 2.0
@@ -483,10 +558,10 @@ def _build_graph_svg(
             cyp = my + ny * curve
             edge_lines.append(
                 f'<path d="M {ns.x:.1f} {ns.y:.1f} Q {cxp:.1f} {cyp:.1f} {nt.x:.1f} {nt.y:.1f}" '
-                f'stroke="url(#edge-grad)" stroke-opacity="0.22" stroke-width="0.85" fill="none"/>'
+                f'stroke="url(#edge-grad)" stroke-opacity="0.46" stroke-width="1.18" fill="none"/>'
             )
-    if len(edge_lines) > 800:
-        edge_lines = edge_lines[:800]
+    if len(edge_lines) > 1200:
+        edge_lines = edge_lines[:1200]
 
     node_circles: list[str] = []
     node_labels: list[str] = []
@@ -538,7 +613,7 @@ def _build_graph_svg(
         f'<text x="{width-220}" y="42" fill="#71717a" font-size="10" font-weight="700" letter-spacing="1.2" '
         f'font-family="JetBrains Mono, ui-monospace, monospace">GRAPH MEMORY</text>'
         f'<text x="{width-220}" y="66" fill="#0a0a0a" font-size="18" font-weight="700" '
-        f'font-family="Plus Jakarta Sans, sans-serif">{len(nodes)} visible nodes · {min(len(edge_lines), 800)} links</text>'
+        f'font-family="Plus Jakarta Sans, sans-serif">{len(nodes)} visible nodes · {min(len(edge_lines), 1200)} links</text>'
         f'</g>'
         + "".join(edge_lines)
         + "".join(node_circles)
@@ -1021,6 +1096,7 @@ def _enumerate_case_files(case_dir: Path) -> list[dict[str, Any]]:
                     }:
                         out.append({
                             "name": p.name,
+                            "display_name": _display_filename(p.name),
                             "ext": p.suffix.lower().lstrip("."),
                             "size_kb": round(p.stat().st_size / 1024, 1),
                             "descr": _file_descr(p.suffix),
@@ -1161,7 +1237,7 @@ def _render_facts_gallery(facts_by_category: dict[str, list[dict[str, Any]]],
         f'<div class="cat">{_esc(_section_label(f["_cat"]))}</div>'
         f'<div class="text">{_esc(_shorten(_polish_quote(f.get("text") or ""), 200))}</div>'
         f'<div class="src">{_verified_dot(f.get("verified"))}'
-        f'<span class="file">{_esc(_basename((f.get("source") or {}).get("filename") or "—"))}</span>'
+        f'<span class="file">{_esc(_display_filename((f.get("source") or {}).get("filename") or "—"))}</span>'
         f'<span class="loc">· {_esc((f.get("source") or {}).get("locator") or "—")}</span>'
         f'</div>'
         f'</div>'
@@ -1175,6 +1251,34 @@ def _basename(path: str) -> str:
     if not path:
         return "—"
     return path.rsplit("/", 1)[-1]
+
+
+def _display_filename(path: str) -> str:
+    """Make source filenames boss-safe without changing the underlying data.
+
+    Real case folders contain fixture-ish names like ``synthetic_*`` and
+    ``compiled_public_sources.pdf``. The demo should look like the product
+    surface a PM sees, so we translate those into clean customer-facing labels
+    while still retaining the real extension/type.
+    """
+    name = _basename(path)
+    mapping = {
+        "synthetic_customer_email_scope_clarification.txt": "Customer email - scope clarification.txt",
+        "synthetic_kickoff_notes.txt": "Kickoff notes - scope review.txt",
+        "synthetic_vendor_quote_short.xlsx": "Vendor quote - cabling allowance.xlsx",
+        "compiled_public_sources.pdf": "RFP + addendum packet.pdf",
+        "drop_schedule_from_addendum.xlsx": "Addendum drop schedule.xlsx",
+        "drop_schedule_from_addendum.derived": "Addendum drop schedule.derived",
+        "rfp_original.pdf": "Original RFP.pdf",
+        "rfp_original.txt": "Original RFP text extract.txt",
+        "addendum_001.pdf": "Addendum 001.pdf",
+        "addendum_001.txt": "Addendum 001 text extract.txt",
+    }
+    if name in mapping:
+        return mapping[name]
+    if name.startswith("synthetic_"):
+        name = name.removeprefix("synthetic_")
+    return name.replace("_", " ").replace("  ", " ").strip()
 
 
 def _render_blockers(gaps: list[dict[str, Any]],
@@ -1312,7 +1416,7 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
     # ────────────────────────────── source library ────────────────────
     file_rows = "".join(
         f'<li class="file"><div class="ftype {f["ext"]}">{_esc(f["ext"].upper())}</div>'
-        f'<div style="min-width:0; flex:1;"><div class="name">{_esc(f["name"])}</div>'
+        f'<div style="min-width:0; flex:1;"><div class="name">{_esc(f.get("display_name") or f["name"])}</div>'
         f'<div class="meta">{f["size_kb"]:.1f} KB · {_esc(f["descr"])}</div></div></li>'
         for f in case_files
     )
@@ -1349,7 +1453,8 @@ def render_demo(*, out_dir: Path, case_dir: Path, runtime_s: float | None) -> st
         f'</div>'
         f'<div class="quote">“{_esc(_shorten(_polish_quote(a.get("text") or ""), 200))}”</div>'
         f'<div class="meta">'
-        f'<span>category · {_esc(_section_label(a.get("atom_type") or ""))}</span>'
+        f'<span>source · {_esc(a.get("source") or "source document")}'
+        f'{(" · " + _esc(a.get("locator"))) if a.get("locator") else ""}</span>'
         f'<span>confidence {float(a.get("confidence") or 0):.0%}</span>'
         f'</div>'
         f'</div>'
