@@ -502,10 +502,22 @@ class BriefPipeline:
             },
         )
         if report is not None:
+            # PM final layer is the FIRST section of the inspection
+            # page; build it best-effort so PMs see their view above
+            # the engineering view, with one-click links to the
+            # standalone PM_EXECUTIVE_SUMMARY / SA_REVIEW_PACKET /
+            # PM_HANDOFF artifacts. Failure here never blocks the
+            # render; we just fall back to engineering-only HTML.
+            pm_handoff_payload: dict[str, Any] | None = None
+            try:
+                from orbitbrief_core.pm_handoff import build_pm_handoff
+                pm_handoff_payload = build_pm_handoff(artifacts.root).to_dict()
+            except Exception:
+                pm_handoff_payload = None
             try:
                 self._write_text(
                     artifacts.inspection_html_path,
-                    render_inspection_html(report),
+                    render_inspection_html(report, pm_handoff=pm_handoff_payload),
                 )
             except Exception as exc:  # pragma: no cover - defensive
                 rec = StageRecord(

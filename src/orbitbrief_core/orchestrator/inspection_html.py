@@ -31,13 +31,18 @@ import json
 from typing import Any
 
 
-def render_inspection_html(report: dict[str, Any]) -> str:
+def render_inspection_html(report: dict[str, Any], pm_handoff: dict[str, Any] | None = None) -> str:
     project = report.get("project_id") or "?"
     compile_id = report.get("compile_id") or "?"
     funnel = report.get("funnel") or {}
     parts: list[str] = []
     parts.append(_HEAD)
-    parts.append(_header_block(project, compile_id, funnel, report))
+    parts.append(_header_block(project, compile_id, funnel, report, has_pm=bool(pm_handoff)))
+    # PM final layer first — the audience that opens this page first
+    # is usually a PM, not an engineer. The engineering inspection
+    # follows below for substrate-level audit.
+    if pm_handoff:
+        parts.append(_pm_handoff_block(pm_handoff))
     parts.append(_funnel_block(funnel))
     parts.append(_pack_prior_block(report.get("pack_prior") or {}))
     parts.append(_site_reality_block(report.get("site_reality") or {}))
@@ -72,9 +77,10 @@ def _section(title: str, body: str, *, anchor: str = "") -> str:
 # ────────────────────────────── blocks ─────────────────────────────────
 
 
-def _header_block(project: str, compile_id: str, funnel: dict, report: dict) -> str:
+def _header_block(project: str, compile_id: str, funnel: dict, report: dict, has_pm: bool = False) -> str:
     rb = report.get("refined_brief") or {}
     manifest = report.get("manifest") or {}
+    pm_anchor = '<a href="#pm-handoff" class="pm-anchor">PM handoff</a>' if has_pm else ""
     return f"""
 <header>
   <h1>OrbitBrief inspection — <code>{_esc(project)}</code></h1>
@@ -86,6 +92,7 @@ def _header_block(project: str, compile_id: str, funnel: dict, report: dict) -> 
     Total tokens <code>{_esc((rb.get("token_cost") or {}).get("total_tokens", "—"))}</code>
   </div>
   <nav class="anchors">
+    {pm_anchor}
     <a href="#funnel">Funnel</a>
     <a href="#pack-prior">Pack prior</a>
     <a href="#site-reality">Site reality</a>
@@ -99,6 +106,117 @@ def _header_block(project: str, compile_id: str, funnel: dict, report: dict) -> 
   </nav>
 </header>
 """
+
+
+def _pm_handoff_block(handoff: dict) -> str:
+    """Render the PM final layer as the first section of the
+    inspection page. Reads a ``PMHandoff.to_dict()`` payload."""
+    status = (handoff.get("status") or "unknown").lower()
+    status_label = handoff.get("status_label") or status.upper()
+    status_emoji = {"red": "🔴", "yellow": "🟡", "green": "🟢"}.get(status, "⚪")
+    status_cls = f"pm-status pm-status-{status}"
+    summary = handoff.get("one_line_summary") or ""
+    metrics = handoff.get("metrics") or {}
+
+    metric_rows = "\n".join(
+        f"<tr><td>{_esc(label)}</td><td class='num'>{_esc(metrics.get(key, '—'))}</td></tr>"
+        for label, key in [
+            ("Source files read", "source_files_read"),
+            ("Evidence items extracted", "evidence_items_extracted"),
+            ("Confirmed physical sites", "confirmed_physical_sites"),
+            ("SOW blocker questions", "sow_blocker_questions"),
+            ("SOW warning questions", "sow_warning_questions"),
+            ("Top workstream", "top_workstream"),
+        ]
+    )
+
+    sites = handoff.get("sites") or []
+    if sites:
+        site_rows = "\n".join(
+            f"<tr><td>{_esc(s.get('name'))}</td>"
+            f"<td><code>{_esc(s.get('kind'))}</code></td>"
+            f"<td>{'✓' if s.get('publishable') else '✗'}</td>"
+            f"<td class='num'>{_esc(s.get('member_evidence_count'))}</td>"
+            f"<td class='num'>{_esc(s.get('artifact_count'))}</td></tr>"
+            for s in sites
+        )
+        sites_table = f"""
+<table>
+  <thead><tr><th>Site</th><th>Kind</th><th>Confirmed</th><th class='num'>Evidence items</th><th class='num'>Source files</th></tr></thead>
+  <tbody>{site_rows}</tbody>
+</table>"""
+    else:
+        sites_table = '<p class="muted">No publishable physical-site cluster.</p>'
+
+    domains = handoff.get("domains") or []
+    if domains:
+        dom_rows = "\n".join(
+            f"<tr><td>{_esc(d.get('label'))}</td>"
+            f"<td>{'✓' if d.get('routed') else ''}</td>"
+            f"<td>{'✓' if d.get('sow_active') else ''}</td>"
+            f"<td class='num'>{_esc(d.get('blockers'))}</td>"
+            f"<td class='num'>{_esc(d.get('warnings'))}</td></tr>"
+            for d in domains
+        )
+        dom_table = f"""
+<table>
+  <thead><tr><th>Workstream</th><th>Routed?</th><th>SOW active?</th><th class='num'>Blockers</th><th class='num'>Warnings</th></tr></thead>
+  <tbody>{dom_rows}</tbody>
+</table>"""
+    else:
+        dom_table = '<p class="muted">No detected workstreams.</p>'
+
+    gaps = handoff.get("gaps") or []
+    blockers = [g for g in gaps if g.get("severity") == "blocker"]
+    warnings = [g for g in gaps if g.get("severity") == "warning"]
+
+    def _gap_li(g: dict) -> str:
+        return (
+            f"<li><strong>{_esc(g.get('domain_label') or g.get('domain_id'))} — "
+            f"{_esc(g.get('label'))}:</strong> "
+            f"{_esc(g.get('customer_question') or g.get('message'))}</li>"
+        )
+
+    blockers_html = (
+        "<ul>" + "".join(_gap_li(g) for g in blockers) + "</ul>"
+        if blockers
+        else '<p class="muted">No blocker SOW questions.</p>'
+    )
+    warnings_html = (
+        f"<details><summary>{len(warnings)} warning question(s) to clarify</summary>"
+        f"<ul>" + "".join(_gap_li(g) for g in warnings) + "</ul></details>"
+        if warnings
+        else ""
+    )
+
+    body = f"""
+<div class="{status_cls}">
+  <div class="pm-banner">{status_emoji} {_esc(status_label)}</div>
+  <div class="pm-summary">{_esc(summary)}</div>
+  <div class="pm-links">
+    <a href="PM_EXECUTIVE_SUMMARY.html">📄 PM Executive Summary</a>
+    <a href="SA_REVIEW_PACKET.html">🛠️ Solution Architect Packet</a>
+    <a href="PM_HANDOFF.html">🔗 Combined PM Handoff</a>
+    <a href="PM_HANDOFF.json">{{ }} JSON payload</a>
+  </div>
+</div>
+
+<h3 class="sub">PM scorecard</h3>
+<table style="max-width: 520px;">
+  <tbody>{metric_rows}</tbody>
+</table>
+
+<h3 class="sub">Confirmed physical sites</h3>
+{sites_table}
+
+<h3 class="sub">Detected workstreams</h3>
+{dom_table}
+
+<h3 class="sub">Must-resolve customer questions ({len(blockers)})</h3>
+{blockers_html}
+{warnings_html}
+"""
+    return _section("PM final layer — what the PM sees first", body, anchor="pm-handoff")
 
 
 def _funnel_block(funnel: dict) -> str:
@@ -523,6 +641,26 @@ span.status-ok       { background: rgba(44,138,77,0.15); color: var(--ok); }
 span.status-fallback { background: rgba(179,89,0,0.15); color: var(--warn); }
 span.status-failed   { background: rgba(179,38,30,0.15); color: var(--bad); }
 span.status-skipped  { background: #f4f5f7; color: var(--muted); }
+
+/* PM final-layer block */
+header nav.anchors a.pm-anchor { color: #fff; background: #1f6feb; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+.pm-status { border-radius: 6px; padding: 14px 18px; margin-bottom: 14px; border: 1px solid; display: flex; flex-direction: column; gap: 8px; }
+.pm-status-red    { background: #fff5f5; border-color: #f1b0a8; }
+.pm-status-yellow { background: #fffaeb; border-color: #f0d27a; }
+.pm-status-green  { background: #f1fbf3; border-color: #95d4a8; }
+.pm-status .pm-banner { font-size: 18px; font-weight: 700; }
+.pm-status-red    .pm-banner { color: var(--bad); }
+.pm-status-yellow .pm-banner { color: var(--warn); }
+.pm-status-green  .pm-banner { color: var(--ok); }
+.pm-status .pm-summary { color: #333; font-size: 13px; }
+.pm-status .pm-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.pm-status .pm-links a {
+  background: #fff; border: 1px solid var(--border); padding: 6px 10px; border-radius: 4px;
+  text-decoration: none; color: var(--accent); font-weight: 600; font-size: 12px;
+}
+.pm-status .pm-links a:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+section ul li { margin: 4px 0; }
+section details summary { cursor: pointer; font-weight: 600; color: var(--muted); margin: 12px 0 6px; }
 </style>
 </head>
 <body>
