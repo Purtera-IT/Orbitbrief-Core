@@ -1,0 +1,68 @@
+[
+  {
+    "case_id": "COPPER_001_SPRING_LAKE_AUDITORIUM",
+    "case_dir": "/Users/purtera/dev/purtera/parser-os-repo/real_data_cases/COPPER_001_SPRING_LAKE_AUDITORIUM",
+    "out_dir": "/tmp/orbitbrief_eval/20260515T151406Z/COPPER_001_SPRING_LAKE_AUDITORIUM",
+    "elapsed_s": 467.95,
+    "exit_code": 0,
+    "brains_run": [
+      "electrical",
+      "low_voltage_cabling",
+      "professional_services"
+    ],
+    "active_packs": [
+      "electrical",
+      "low_voltage_cabling",
+      "professional_services"
+    ],
+    "items_per_brain": {
+      "electrical": 9,
+      "low_voltage_cabling": 11,
+      "professional_services": 11
+    },
+    "fallback_brains": [],
+    "skipped_brains_no_chat": false,
+    "stage_status_counts": {
+      "ok": 16,
+      "failed": 4
+    },
+    "pm_status": "red",
+    "pm_blocker_count": 5,
+    "pm_warning_count": 18,
+    "verification_health_pct": 99.0,
+    "verification_failed_count": 0,
+    "verification_atom_total": 798,
+    "error": ""
+  },
+  {
+    "case_id": "STRESS_DOWNEY_CABLING",
+    "case_dir": "/Users/purtera/dev/purtera/parser-os-repo/real_data_cases/STRESS_DOWNEY_CABLING",
+    "out_dir": "/tmp/orbitbrief_eval/20260515T151406Z/STRESS_DOWNEY_CABLING",
+    "elapsed_s": 55.38,
+    "exit_code": 0,
+    "brains_run": [
+      "audit"
+    ],
+    "active_packs": [
+      "alm",
+      "audit"
+    ],
+    "items_per_brain": {
+      "audit": 0
+    },
+    "fallback_brains": [],
+    "skipped_brains_no_chat": false,
+    "stage_status_counts": {
+      "ok": 10,
+      "skipped": 3,
+      "failed": 2
+    },
+    "pm_status": "red",
+    "pm_blocker_count": 2,
+    "pm_warning_count": 9,
+    "verification_health_pct": 0.0,
+    "verification_failed_count": 0,
+    "verification_atom_total": 0,
+    "error": ""
+  }
+]
