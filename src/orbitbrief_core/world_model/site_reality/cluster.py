@@ -328,6 +328,63 @@ class SiteRealityEngine:
             ent_with_kind = dict(ent)
             ent_with_kind["__site_kind"] = kind.value
             out[ck] = ent_with_kind
+
+        # PR (post-2-case review) — site_roster atom promotion.
+        # Boss review F2 found that real sites captured as
+        # ``site_roster`` atoms (e.g. "Durkin Administration
+        # Building") were dropped from site_reality because the
+        # envelope projection strips ``value`` + ``entity_keys`` from
+        # atoms. Fix: parse the pipe-delimited text field of every
+        # ``site_roster`` atom for ``Site:`` / ``Site Name:`` /
+        # ``Address:`` and synthesize a physical_site cluster.
+        # ``site_roster`` is the customer's authoritative site list,
+        # so we publish unconditionally.
+        from orbitbrief_core.world_model.site_reality.site_kind import (
+            SiteCandidateKind,
+        )
+        for atom in envelope.get("atoms") or ():
+            if atom.get("atom_type") != "site_roster":
+                continue
+            text = atom.get("text") or ""
+            # Pipe-delimited fields: ``Field: value | Field: value | …``
+            site_name: str | None = None
+            address: str | None = None
+            for chunk in text.split("|"):
+                chunk = chunk.strip()
+                if ":" not in chunk:
+                    continue
+                k, _, v = chunk.partition(":")
+                k_norm = k.strip().lower()
+                v = v.strip()
+                if site_name is None and k_norm in ("site", "site name"):
+                    site_name = v
+                elif address is None and k_norm == "address":
+                    address = v
+            # Fallback: try value.canonical_cells if envelope
+            # preserved them (some compile paths do).
+            if site_name is None:
+                cc = (atom.get("value") or {}).get("canonical_cells") or {}
+                site_name = cc.get("site_name") or cc.get("site")
+                address = address or cc.get("address")
+            if not site_name:
+                continue
+            normalized = (
+                str(site_name).strip().lower().replace(" ", "_").replace("-", "_")
+            )
+            ck = f"site:{normalized}"
+            if ck in out:
+                continue
+            synthetic_ent = {
+                "canonical_key": ck,
+                "canonical_name": str(site_name).strip(),
+                "aliases": [str(site_name).strip()],
+                "source_atom_ids": [atom.get("id")],
+                "artifact_ids": [atom.get("artifact_id")],
+                "__site_kind": SiteCandidateKind.physical_site.value,
+                "__from_site_roster_atom": True,
+                "__address": address or "",
+            }
+            out[ck] = synthetic_ent
         return out
 
     def _build_cluster(
@@ -351,6 +408,56 @@ class SiteRealityEngine:
             atom = atoms_by_id.get(aid)
             if atom and atom.get("artifact_id"):
                 artifact_ids.add(atom["artifact_id"])
+
+        # Boss-review v8 F1 — synthetic site_roster entities carry
+        # ``source_atom_ids`` / ``artifact_ids`` directly because the
+        # envelope projection strips entity_keys from atoms (so the
+        # standard ``atoms_by_entity_key`` index is empty for them).
+        # Plus, for any physical_site cluster we also pull in atoms
+        # whose source_refs point to the same artifact, so the
+        # cluster renders with real evidence breadcrumbs in the
+        # boss-review markdown.
+        for sk in members:
+            ent = site_entities.get(sk) or {}
+            for aid in ent.get("source_atom_ids") or ():
+                if aid:
+                    atom_ids.add(aid)
+                    a = atoms_by_id.get(aid)
+                    if a and a.get("artifact_id"):
+                        artifact_ids.add(a["artifact_id"])
+            for art in ent.get("artifact_ids") or ():
+                if art:
+                    artifact_ids.add(art)
+
+        # Boss-review v9 C001-F3 — backfill member_atom_ids from atoms
+        # whose text mentions the cluster's canonical site name or
+        # address. The envelope projection strips entity_keys from
+        # atoms so we can't rely on the entity_key index alone — but
+        # for PM credibility the cluster needs to cite ALL atoms
+        # mentioning the site (site-roster CSV row, site-survey PDF
+        # page 1 header, MD package, expanded operations workbook,
+        # etc.).
+        site_name_terms: set[str] = set()
+        for sk in members:
+            ent = site_entities.get(sk) or {}
+            cn = (ent.get("canonical_name") or "").strip().lower()
+            if cn and len(cn) >= 6:
+                site_name_terms.add(cn)
+            addr = (ent.get("__address") or "").strip().lower()
+            if addr and len(addr) >= 8:
+                # Normalize address — first 30 chars suffice as a
+                # text-match fingerprint.
+                site_name_terms.add(addr[:30])
+        if site_name_terms:
+            for atom in envelope.get("atoms") or ():
+                aid = atom.get("id")
+                if not aid or aid in atom_ids:
+                    continue
+                blob = (atom.get("text") or "").lower()
+                if any(term in blob for term in site_name_terms):
+                    atom_ids.add(aid)
+                    if atom.get("artifact_id"):
+                        artifact_ids.add(atom["artifact_id"])
 
         # Name reconciliation: vote across member entities.
         name_votes = Counter(

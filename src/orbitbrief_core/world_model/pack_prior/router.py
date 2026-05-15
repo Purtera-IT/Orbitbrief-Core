@@ -241,7 +241,19 @@ class PackPrior:
                         runner_up.confidence if runner_up else 0.0
                     )
 
-        selected_pack_ids = self._select_pack_ids(scores)
+        # Boss-review v9 C001-F1 / C002-F1 — apply pack-level
+        # ``required_anchor_regex_any`` AFTER raw selection, so packs
+        # like wireless / audio_visual whose generic vocabulary
+        # matches a cabling case can't carry a brain unless real
+        # equipment evidence appears in the corpus text.
+        anchor_text = " ".join(
+            _atom_text_stream(a) for a in (envelope.get("atoms") or ())
+        )
+        selected_pack_ids = self._select_pack_ids(
+            scores,
+            registry=self.registry,
+            anchor_text=anchor_text,
+        )
 
         return PackPriorState(
             project_id=rk.project_id,
@@ -441,7 +453,12 @@ class PackPrior:
         return out
 
     @staticmethod
-    def _select_pack_ids(scores: list[PackScore]) -> list[str]:
+    def _select_pack_ids(
+        scores: list[PackScore],
+        *,
+        registry: "DomainPackRegistry | None" = None,
+        anchor_text: str = "",
+    ) -> list[str]:
         # PR12 — never select "other" as a brain target. The
         # _demote_other_when_specialized_exists step zeros it out
         # when specialized packs exist; we still skip it explicitly
@@ -502,6 +519,42 @@ class PackPrior:
                 selected.append(score.pack_id)
                 if len(selected) >= 8:
                     break
+
+        # Boss-review v9 C001-F1 / C002-F1 — pack-level anchor gate.
+        # Drop selected packs that declare ``required_anchor_regex_any``
+        # in domain_packs.yaml unless the corpus has the required
+        # number of distinct anchor matches. Top pack is preserved
+        # (we still need to RECORD what the router thought) but
+        # excluded from selected_pack_ids so brains don't run on it.
+        if registry is not None and anchor_text:
+            top_id = selected[0] if selected else None
+            kept: list[str] = []
+            for pid in selected:
+                pack = registry.get(pid)
+                anchors = tuple(getattr(pack, "required_anchor_regex_any", ()) or ())
+                if not anchors:
+                    kept.append(pid)
+                    continue
+                min_hits = int(
+                    getattr(pack, "required_anchor_min_distinct_hits", 2) or 2
+                )
+                distinct: set[str] = set()
+                ok = False
+                for pat in anchors:
+                    try:
+                        rx = re.compile(pat, re.I)
+                    except re.error:
+                        continue
+                    for m in rx.finditer(anchor_text):
+                        distinct.add(m.group(0).lower())
+                        if len(distinct) >= min_hits:
+                            ok = True
+                            break
+                    if ok:
+                        break
+                if ok or pid == top_id:
+                    kept.append(pid)
+            selected = kept
 
         return selected
 

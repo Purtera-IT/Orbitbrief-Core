@@ -195,6 +195,26 @@ _GENERIC_PHRASE_RE = re.compile(
     r")\s+(mdf|idf|room|closet|building|site|location)\b",
     re.I,
 )
+# PR (post-2-case review F1) — known noise patterns that came from
+# project_metadata, source-reference rows, table-header fragments,
+# survey-item header rows, or generic acceptance/checklist nouns
+# that the entity_resolution stage incorrectly produced as site
+# candidates. Reject hard.
+_NOISE_SITE_RE = re.compile(
+    r"\b("
+    r"safetyculture|tts\s+cabling\s+survey|"
+    r"survey\s+item\s+status|acceptance\s+item|nonconforming\s+items?|"
+    r"po\s+required|change\s+advisory\s+board|cab\s+meeting|"
+    r"cmdb|target\s+go[-\s]?live|managed\s+services\s+acceptance|"
+    r"av\s+low\s+voltage\s+readiness|generated\s+artifact|"
+    r"customer\s+restrictions|pm\s+connection|"
+    r"open\s+customer|cori|gsa\s+it\s+services|"
+    # Table-header fragment patterns: ``<noun> <noun>`` of generic
+    # words that no real site would be named.
+    r"^\s*site\s*$|^\s*field\s+note\s*$"
+    r")\b",
+    re.I,
+)
 
 
 def classify_site_candidate(
@@ -232,6 +252,8 @@ def classify_site_candidate(
 
     # Hard rejects first so they can't be rescued by an accidental
     # "campus" or "center" mention later in the candidate text.
+    if _NOISE_SITE_RE.search(name):
+        return SiteCandidateKind.generic_phrase
     if _RISK_PRIORITY_RE.search(name):
         return SiteCandidateKind.risk_or_priority
     if _ROLE_PERSON_RE.search(name):

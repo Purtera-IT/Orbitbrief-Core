@@ -31,6 +31,13 @@ class DomainPack:
     subdomain_labels: tuple[str, ...]
     keywords: tuple[str, ...]
     boosted_keywords: tuple[str, ...] = ()
+    # Boss-review v9 C001-F1 / C002-F1 — optional per-pack anchor
+    # gating used by the router AFTER raw scoring. A pack is only
+    # admitted to ``selected_pack_ids`` when the corpus contains at
+    # least ``required_anchor_min_distinct_hits`` distinct matches
+    # of ``required_anchor_regex_any``. Empty tuple = no gate.
+    required_anchor_regex_any: tuple[str, ...] = ()
+    required_anchor_min_distinct_hits: int = 2
 
 
 class DomainPackRegistry:
@@ -76,6 +83,12 @@ class DomainPackRegistry:
                     subdomain_labels=tuple(raw.get("subdomain_labels") or ()),
                     keywords=tuple(raw.get("keywords") or ()),
                     boosted_keywords=tuple(raw.get("boosted_keywords") or ()),
+                    required_anchor_regex_any=tuple(
+                        raw.get("required_anchor_regex_any") or ()
+                    ),
+                    required_anchor_min_distinct_hits=int(
+                        raw.get("required_anchor_min_distinct_hits") or 2
+                    ),
                 )
             )
         return cls(packs)

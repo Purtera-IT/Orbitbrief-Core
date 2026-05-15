@@ -263,11 +263,17 @@ def _site_reality_md(sr: dict) -> str:
         f"cluster(s), {sr.get('merged_keys', 0)} key(s) merged._\n"
     )
     if clusters:
-        out.append("\n| cluster_id | canonical_name | site_keys | member_atoms | artifacts | LLM-resolved |")
-        out.append("|---|---|---|---:|---|:-:|")
+        out.append(
+            "\n| cluster_id | canonical_name | kind | publishable | site_keys "
+            "| member_atoms | artifacts | LLM-resolved |"
+        )
+        out.append("|---|---|---|:-:|---|---:|---|:-:|")
         for c in clusters:
             out.append(
-                f"| `{c.get('cluster_id')}` | {c.get('canonical_name')} "
+                f"| `{c.get('cluster_id')}` "
+                f"| {c.get('canonical_name')} "
+                f"| `{c.get('kind', 'unknown')}` "
+                f"| {'✓' if c.get('publishable', True) else 'x'} "
                 f"| `{', '.join(c.get('site_keys') or [])}` "
                 f"| {len(c.get('member_atom_ids') or [])} "
                 f"| `{', '.join(c.get('artifact_ids') or [])}` "

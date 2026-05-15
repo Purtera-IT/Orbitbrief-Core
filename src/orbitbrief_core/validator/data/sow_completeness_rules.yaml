@@ -87,6 +87,8 @@ global_checks:
 domains:
   low_voltage_cabling:
     display_name: Low Voltage Cabling
+    inference_threshold: 4
+    inference_min_hits: 6
     scope_triggers:
     - \b(cat\s?6a?|cat\s?5e|cabling|cable drops?|drops?|patch panel|keystone|faceplate|fluke|tia[- ]?568|tia[- ]?606|j[-
       ]?hooks?|fire[- ]?stop|idf|mdf)\b
@@ -184,8 +186,127 @@ domains:
       evidence:
         any_regex:
         - \b(test reports?|as[- ]?built|redlines?|closeout|certification report|photo log|turnover package)\b
+    # --- 2-case-review boss additions (cabling) ---
+    - id: low_voltage_cabling.termination_scheme_missing
+      label: Termination scheme (T568A vs T568B)
+      severity: blocker
+      message: Cabling scope does not specify T568A vs T568B termination scheme; both ends must follow one and only one.
+      suggested_open_question: Will jacks be terminated to T568A or T568B, and is one scheme used uniformly site-wide?
+      evidence:
+        any_regex:
+        - \b(t568a|t568b|568[- ]?a|568[- ]?b)\b
+    - id: low_voltage_cabling.labeling_format_exact_missing
+      label: Exact labeling format (TIA-606 site/IDF/port)
+      severity: warning
+      message: Labeling standard mentioned but the exact label syntax (e.g., SITE-IDF-PORT, building.floor.idf.jack) is not pinned.
+      suggested_open_question: 'What is the exact label format and example: e.g., DURK-IDF301-A-12, with leading zeros and field separators?'
+      evidence:
+        any_regex:
+        - \b[A-Z]{2,5}[- ./]?[A-Z0-9]{1,4}[- ./]?[A-Z0-9]{1,4}[- ./]?\d{1,4}\b
+        - \blabel\s+example|\bsample\s+label|\blabel\s+format\b
+    - id: low_voltage_cabling.faceplate_jack_color_missing
+      label: Faceplate / jack color and count per location
+      severity: warning
+      message: Faceplate/jack model present but per-location color / count / icon scheme not specified.
+      suggested_open_question: 'What faceplate/jack color, count per location, and port-icon scheme apply (e.g., blue=data, white=voice)?'
+      evidence:
+        any_regex:
+        - \b(white|black|blue|red|green|ivory|gray|grey|almond|electric ivory)\b\s+(faceplate|jack|keystone)
+        - \b\d{1,2}\s*[- ]?port\s+(faceplate|jack|biscuit)\b
+    - id: low_voltage_cabling.service_loop_cable_management_missing
+      label: Service loop length / cable management
+      severity: warning
+      message: No service loop length or vertical/horizontal cable management spec was found.
+      suggested_open_question: 'What service loop length is required at jack and patch ends, and which vertical+horizontal managers will be used?'
+      evidence:
+        any_regex:
+        - \bservice\s+loop\b|\bslack\s+loop\b|\bcoil\b
+        - \b(vertical|horizontal)\s+(manager|wire\s+manager|cable\s+manager)\b
+    - id: low_voltage_cabling.rough_in_trim_out_split_missing
+      label: Rough-in vs trim-out scope split
+      severity: warning
+      message: Cabling scope does not split rough-in (cable pulls + sleeves) from trim-out (terminations + dressing + testing).
+      suggested_open_question: How is the work split between rough-in (pulls, sleeves, fire-stop) and trim-out (terminate, dress, test, label) and who owns each phase?
+      evidence:
+        any_regex:
+        - \brough[- ]?in\b
+        - \btrim[- ]?out\b|\btrim\s+out\b
+    # --- v8 boss additions (cabling) ---
+    - id: low_voltage_cabling.grounding_bonding_backboard_missing
+      label: Grounding / bonding / backboard responsibility
+      severity: warning
+      message: Cabling scope mentions ground bar / backboard / busbar as observation, but doesn't assign provision and acceptance responsibility.
+      suggested_open_question: Who provides and installs the telecom backboard, ladder rack bonding, ground bar, and bonding conductor, and what TIA-607 acceptance evidence is required?
+      evidence:
+        any_regex:
+        - \b(install|provide|provision|furnish)\b.{0,50}\b(grounding|bonding|busbar|backboard|ground\s+bar|tgb|tmgb|bonding\s+conductor|tia[- ]?607)\b
+        - \b(grounding|bonding)\s+responsibility\b
+        - \b(tia[- ]?607|telecommunications\s+bonding)\b
+    - id: low_voltage_cabling.prevailing_wage_public_work_missing
+      label: Prevailing wage / public-works labor terms
+      severity: warning
+      message: Public/K-12/municipal owner present but prevailing wage, certified payroll, union, background check, or public-works labor terms are not declared.
+      suggested_open_question: Does the project require prevailing wage, certified payroll, union labor, background checks, or other public-works labor terms (state-specific)?
+      evidence:
+        any_regex:
+        - \b(prevailing\s+wage|certified\s+payroll|union\s+labor|davis[- ]?bacon|public\s+works\s+labor|background\s+check|fingerprint|cori|live\s+scan)\b
+    - id: low_voltage_cabling.attic_stock_warranty_registration_missing
+      label: Attic stock + warranty registration in acceptance package
+      severity: info
+      message: Cabling acceptance package doesn't list attic stock counts or warranty registration with the cable/connectivity OEM.
+      suggested_open_question: What attic stock (extra cables, jacks, faceplates) is required and is OEM warranty registration (Panduit, Belden, CommScope, Leviton, etc.) part of closeout?
+      evidence:
+        any_regex:
+        - \b(attic\s+stock|spare\s+(?:cable|jack|faceplate|patch))\b
+        - \b(warranty\s+registration|oem\s+warranty|extended\s+warranty\s+registration|panduit\s+pcc|commscope\s+systim?ax|belden\s+10gx)\b
+    # --- v9 boss additions (cabling) ---
+    - id: low_voltage_cabling.rack_strategy_anchoring_missing
+      label: Rack strategy / anchoring / seismic
+      severity: warning
+      message: Rack or rack-elevation scope is present but rack type, anchoring, anti-tip / seismic, wall-mount, or rack-grounding requirements are not declared.
+      suggested_open_question: 'What rack strategy applies: wall-mount, 2-post, 4-post, anchoring/anti-tip/seismic hardware, and rack grounding/bonding acceptance evidence?'
+      evidence:
+        any_regex:
+        - \b(rack\s+elevation|wall\s+rack|new\s+wall\s+rack|ru\s*\d+|patch\s+panel|rack[- ]?mount|2[- ]?post|4[- ]?post|anti[- ]?tip|seismic\s+(rack|brace|anchor))\b
+    - id: low_voltage_cabling.as_built_format_layer_convention_missing
+      label: As-built format + layer convention
+      severity: warning
+      message: As-built / redline deliverables are present but file format, layer/naming convention, and revision ownership are not declared.
+      suggested_open_question: 'What as-built format is required (DWG, PDF, Bluebeam, other), what layer/naming convention should be used, and who approves final redline conversion?'
+      evidence:
+        any_regex:
+        - \b(as[- ]?built|asbuilt|redline|closeout\s+package|drawing\s+package|cad\s+(?:layer|convention|standard))\b
+    - id: low_voltage_cabling.core_drilling_patch_paint_boundary_missing
+      label: Core drilling / patching / paint boundary
+      severity: warning
+      message: Pathway or firestopping scope is present but core drilling, sleeves, patching, paint matching, ceiling repair, and restoration responsibilities are not assigned.
+      suggested_open_question: If new sleeves/core drilling, patching, paint matching, ceiling repair, or wall restoration are required, who performs and pays for that work?
+      evidence:
+        any_regex:
+        - \b(core\s+drill(?:ing)?|sleeve\s+install|patching|paint\s+match|ceiling\s+repair|wall\s+restoration|x[- ]?ray\s+scan)\b
   wireless:
     display_name: Wireless
+    inference_threshold: 5
+    inference_min_hits: 8
+    # Boss-review v8 F6 — wireless inference must additionally see at
+    # least one of the AP-/WLAN-specific anchor terms below or it
+    # won't activate. Generic VLAN names + "aruba central" monitoring
+    # mentions in MSP runbooks no longer pull wireless completeness in.
+    required_anchor_min_distinct_hits: 2
+    required_anchor_regex_any:
+      # Requires AT LEAST 2 distinct AP/WLAN-specific tokens before
+      # wireless completeness rules run. "AP" alone is too generic
+      # (asset_type column, AP-on-a-stick, MAC etc.), so we require
+      # multi-token AP/WLAN evidence. Removed bare ``\baps?\b``.
+      - \b(access\s+points?|wlc|wireless\s+controller|wireless\s+lan\s+controller|wlan\s+controller)\b
+      - \b(wi[- ]?fi\s+heatmap|wireless\s+heatmap|rf\s+heatmap)\b
+      - \b802\.11(?:ac|ax|be|n|g)\b
+      - \b(wlan\s+(?:install|deployment|design|cabling)|ap\s+install|ap\s+(?:cabling|drop)s?|access\s+point\s+(?:install|drop|cable)s?)\b
+      - \b(ssid|wpa[23]|802\.1x\s+wireless|radius\s+wireless|wireless\s+psk)\b
+      # AP-only model patterns (NOT switches like C9300):
+      # Cisco AP series start with CW91xx, AIR-AP, AIR-CAP; Aruba AP-###;
+      # Meraki MR##; Mist AP##; Ruckus R###.
+      - \b(meraki\s+mr\d{2,3}|aruba\s+ap[- ]?\d{2,3}|cisco\s+(?:cw|air[- ]?(?:ap|cap))\d{2,4}|mist\s+ap\d|ruckus\s+r\d{3}|catalyst\s+9166|cw9166|cw9162|cw9164)\b
     scope_triggers:
     - \b(wireless|wlan|wi[- ]?fi|access points?|\baps?\b|heatmap|survey|wlc|ssid|radius|wpa3|6\s?ghz|spectrum)\b
     checks:
@@ -246,8 +367,92 @@ domains:
       evidence:
         any_regex:
         - \b(acceptance|pass/fail|throughput|rssi|snr|dbm|roaming|voice grade|validation criteria)\b
+    # --- 2-case-review boss additions (wireless) ---
+    - id: wireless.owner_furnished_boundary_missing
+      label: Owner-furnished AP/cable boundary
+      severity: warning
+      message: Wireless scope present but the AP / cabling / mount boundary between owner-furnished and integrator-furnished is not declared.
+      suggested_open_question: Are APs, mounts, and AP cabling owner-furnished or integrator-furnished, and where is the demarcation?
+      evidence:
+        any_regex:
+        - \b(owner[- ]?furnished|customer[- ]?furnished|by\s+(owner|customer)|integrator[- ]?furnished)\b.{0,40}\b(ap|access\s+point|cable|mount)
+    - id: wireless.ssid_vlan_auth_matrix_missing
+      label: SSID / VLAN / auth matrix
+      severity: blocker
+      message: Wireless scope present but a SSID-to-VLAN-to-auth matrix is not declared. VLAN names alone do not satisfy this rule.
+      suggested_open_question: 'What is the full SSID/VLAN/auth matrix: SSID name, VLAN, 802.1X vs PSK vs WPA2/3 vs Open, RADIUS server, guest captive portal?'
+      evidence:
+        # Boss-review v8 F9 — must explicitly find SSID + auth tokens
+        # nearby. VLAN-only network maps no longer satisfy the rule.
+        all_regex:
+        - \b(ssid|wlan)\b
+        - \b(802\.1x|radius|wpa3|wpa2|psk|captive\s+portal|open\s+authentication)\b
+    - id: wireless.poe_class_per_ap_missing
+      label: PoE class per AP (802.3af / at / bt)
+      severity: blocker
+      message: Wireless scope present but PoE class per AP (802.3af / at / bt or PoE+ / UPoE / Class 4-8) and per-switch power budget are not declared. A generic "PoE Watts" column does not satisfy this rule.
+      suggested_open_question: 'What PoE class do the APs require (802.3af vs at vs bt, or Class 4 vs 6 vs 8) and is the source switch power budget reserved?'
+      evidence:
+        # Boss-review v8 F10 — strict on class identifier, not just
+        # generic "PoE Watts" columns from spreadsheets.
+        any_regex:
+        - \b802\.3(?:af|at|bt)\b
+        - \b(poe\+\+|upoe(\+|plus)?|poe\s+class\s+[1-8]|class\s+[1-8]\s+poe)\b
+    - id: wireless.mounting_locations_missing
+      label: Per-AP mounting locations
+      severity: warning
+      message: Wireless scope present but per-AP mounting locations / heights / orientations are not enumerated.
+      suggested_open_question: 'What are the per-AP mounting locations, heights, orientations, and antenna types?'
+      evidence:
+        any_regex:
+        - \bap[- ]?\d+\b.{0,60}\b(ceiling|wall|t[- ]?bar|mount|height|column|hallway|room\s+\d+)\b
+    - id: wireless.post_validation_walkthrough_missing
+      label: Post-deployment validation walk-through
+      severity: warning
+      message: Wireless scope present but a post-deployment RF / coverage walk-through (sometimes called "as-built survey" or "post-validation") is not specified.
+      suggested_open_question: Is a post-deployment validation walk-through (heatmap, RSSI, SNR, channel/CCI, roaming, voice grade) required, with what pass/fail thresholds?
+      evidence:
+        any_regex:
+        - \bpost[- ]?(?:validation|deployment|install)\s+(survey|walk[- ]?through|heatmap|test)\b
+        - \bas[- ]?built\s+(?:rf\s+|wireless\s+)?(survey|heatmap)\b
+    # --- v9 boss additions (wireless) ---
+    - id: wireless.per_ap_cable_certification_level_missing
+      label: Per-AP cable certification level
+      severity: blocker
+      message: AP cabling scope present but per-AP cable category / shielding / mGig + 6 GHz readiness / 4-pair certification requirement are not declared.
+      suggested_open_question: 'What cable category and certification level are required per AP drop: Cat6 vs Cat6A, shielded vs UTP, 4-pair permanent-link, mGig/6 GHz ready, OEM-specific requirement?'
+      evidence:
+        any_regex:
+        - \b(per[- ]?ap\s+(?:cable|cert)|ap\s+cable\s+(?:category|class|cert|certification)|cat6a?\s+(?:per|each)\s+ap|4[- ]?pair\s+(?:permanent|certification))\b
+    - id: wireless.dfs_channel_policy_missing
+      label: DFS channel policy
+      severity: warning
+      message: Wireless scope present but DFS channel usage / avoidance / event handling are not declared.
+      suggested_open_question: Are DFS channels allowed, avoided, or conditionally used, and what happens when DFS events force channel changes?
+      evidence:
+        any_regex:
+        - \bdfs(?:\s+channel)?(?:\s+(?:policy|allowed|avoided|usage|event))?\b
+    - id: wireless.wips_rogue_ap_policy_missing
+      label: WIPS / rogue-AP policy
+      severity: warning
+      message: Wireless scope present but WIPS / rogue-AP detection, alert routing, and remediation ownership are not declared.
+      suggested_open_question: Should WIPS/rogue-AP events be monitored, who receives alerts, and who owns containment / remediation?
+      evidence:
+        any_regex:
+        - \b(wips|rogue\s+ap|wireless\s+ips|wireless\s+intrusion|airwave\s+wips)\b
+    - id: wireless.device_onboarding_flow_missing
+      label: Wireless client onboarding flow
+      severity: warning
+      message: Wireless scope present but the client onboarding flow per device class is not declared (MAC-based, certificate-based, PSK, 802.1X, MDM, guest captive portal).
+      suggested_open_question: 'What wireless device onboarding flow applies per device class: MAC-based, certificate-based, PSK, 802.1X/RADIUS, MDM, or guest captive portal?'
+      evidence:
+        any_regex:
+        - \b(device\s+onboarding|client\s+onboarding|cert(?:ificate)?[- ]?based\s+(?:auth|onboarding)|mab\b|mac[- ]?based\s+auth)\b
+        - \b(mdm|intune|jamf|airwatch|workspace\s+one)\b
   security_access:
     display_name: Security Access Control
+    inference_threshold: 10
+    inference_min_hits: 16
     scope_triggers:
     - \b(access control|card reader|badge reader|door controller|hid|mercury|lenel|synergis|rex|dps|maglock|electric
       strike)\b
@@ -311,6 +516,8 @@ domains:
         - \b(door cycle test|audit log|badge test|access level test|acceptance|commissioning)\b
   security_camera:
     display_name: Security Camera / VMS
+    inference_threshold: 10
+    inference_min_hits: 16
     scope_triggers: &id001
     - \b(camera|vms|video management|genetec|axis|hanwha|milestone|avigilon|nvr|ptz|video retention)\b
     checks: &id002
@@ -401,10 +608,14 @@ domains:
         - \b(fov|field of view|retention audit|uptime sla|camera naming|stream health|view review|commissioning|acceptance)\b
   camera_vms_operations:
     display_name: Camera VMS Operations
+    inference_threshold: 10
+    inference_min_hits: 16
     scope_triggers: *id001
     checks: *id002
   paging_mass_notification:
     display_name: Paging / Mass Notification
+    inference_threshold: 10
+    inference_min_hits: 16
     scope_triggers:
     - \b(paging|intercom|public address|pa system|mass notification|bell schedule|speaker|strobe|informacast|alertus|rave|singlewire|valcom|bogen)\b
     checks:
@@ -451,6 +662,8 @@ domains:
         - \b(spl|intelligibility|sti|drill test|acceptance|sound level|db)\b
   fire_safety:
     display_name: Fire Safety
+    inference_threshold: 10
+    inference_min_hits: 16
     scope_triggers:
     - \b(fire alarm|facp|nfpa\s?72|smoke detector|heat detector|pull station|horn strobe|annunciator|nac|ahj)\b
     checks:
@@ -496,6 +709,8 @@ domains:
         - \b(sprinkler excluded|electrical excluded|ahj fees excluded|permit excluded|not included|out of scope)\b
   das:
     display_name: Distributed Antenna System
+    inference_threshold: 10
+    inference_min_hits: 16
     scope_triggers:
     - \b(das|distributed antenna|errcs|bda|public safety radio|donor antenna|signal booster|p25|ber|uplink)\b
     checks:
@@ -534,6 +749,8 @@ domains:
         - \b(signal strength|ber|da q|grid test|walk test|ahj|acceptance|errcs standard)\b
   electrical:
     display_name: Electrical / Power
+    inference_threshold: 8
+    inference_min_hits: 14
     scope_triggers:
     - \b(panelboard|breaker|circuit|conduit|raceway|receptacle|ups|generator|ats|grounding|bonding|nema|load test)\b
     checks:
@@ -571,6 +788,22 @@ domains:
         - \b(load test|megger|ground resistance|commissioning|acceptance test|infrared scan)\b
   audio_visual:
     display_name: Audio Visual
+    inference_threshold: 8
+    inference_min_hits: 14
+    # Boss-review v8 F8 — AV inference must additionally see at least
+    # one of these AV-equipment-specific anchors, not just generic
+    # tokens "AV no signal" appearing inside a runbook trigger or
+    # "security/AV/IoT VLAN" appearing inside a VLAN map.
+    required_anchor_min_distinct_hits: 3
+    required_anchor_regex_any:
+      # Requires AT LEAST 3 distinct AV-equipment tokens before AV
+      # completeness rules run. Generic "AV" mentions in runbooks or
+      # VLAN names no longer qualify on their own.
+      - \b(display|projector|video\s+wall|microphone(?:\s+array)?)\b
+      - \b(biamp|q[- ]?sys|crestron|extron|qsc|shure|symetrix|tesira|polycom|cisco\s+(?:room\s+kit|webex)|logitech\s+rally)\b
+      - \b(dante|aes67|\bndi\b|sdi|hdbaset)\b
+      - \b(teams\s+room|zoom\s+room|google\s+meet\s+room|huddle\s+room|conference\s+room\s+(?:av|audio|video)|classroom\s+(?:av|audio|video))\b
+      - \b(control\s+(?:processor|panel)|video\s+codec|av\s+codec|av\s+(?:rack|equipment|design|drawings?))\b
     scope_triggers:
     - \b(av|audio visual|display|projector|microphone|biamp|q[- ]?sys|crestron|extron|teams room|zoom room|dante|hdmi|usb[-
       ]?c|assistive listening)\b
@@ -619,6 +852,8 @@ domains:
         - \b(spl|lipsync|latency|call quality|commissioning|programming|acceptance)\b
   building_management_systems:
     display_name: BMS / BAS
+    inference_threshold: 10
+    inference_min_hits: 16
     scope_triggers:
     - \b(bms|bas|building management|building automation|tridium|niagara|jace|bacnet|modbus|metasys|desigo|vav|damper|sequence
       of operations)\b
@@ -749,6 +984,8 @@ domains:
         - \b(power on|post check|label|photo|rack elevation|as[- ]?built|acceptance)\b
   msp:
     display_name: Managed Services / NOC / SOC
+    inference_threshold: 5
+    inference_min_hits: 8
     scope_triggers:
     - \b(noc|soc|managed services|service desk|sla|pagerduty|servicenow|logicmonitor|sentinel|alert routing|runbook|cmdb|patching
       window)\b
@@ -818,8 +1055,95 @@ domains:
       evidence:
         any_regex:
         - \b(onboarding|go[- ]?live|cmdb freeze|runbook|knowledge transfer|readiness checklist|acceptance)\b
+    # --- 2-case-review boss additions (MSP) ---
+    - id: msp.exit_transition_clause_missing
+      label: Exit / transition clause
+      severity: blocker
+      message: MSP scope present but exit/transition terms (data return, runbook handover, knowledge-transfer, last-day clause) are not declared.
+      suggested_open_question: What exit / transition terms apply at end-of-term — data return, runbook handover, transition assistance hours, last-day responsibilities?
+      evidence:
+        any_regex:
+        - \b(exit\s+(plan|clause|terms)|transition\s+(plan|out|assistance)|runbook\s+handover|data\s+return|disengagement)\b
+    - id: msp.backup_dr_rto_rpo_missing
+      label: Backup / DR / RTO / RPO targets
+      severity: blocker
+      message: MSP scope present but backup, DR, RTO, and RPO targets are not declared.
+      suggested_open_question: 'What are the backup, DR, RTO, and RPO targets for each covered system tier?'
+      evidence:
+        any_regex:
+        - \b(backup|disaster\s+recovery|\bdr\b|rto|rpo|recovery\s+(time|point)\s+objective)\b
+    - id: msp.license_entitlement_boundary_missing
+      label: License / entitlement ownership boundary
+      severity: warning
+      message: MSP scope present but license/entitlement ownership boundary (who owns SmartNet, DNA Adv, Sentinel, Defender, Microsoft 365, etc.) is not declared.
+      suggested_open_question: Who owns and renews each software license and OEM entitlement (SmartNet, DNA Advantage, Sentinel, M365, etc.)?
+      evidence:
+        any_regex:
+        - \b(license\s+ownership|license\s+holder|entitlement\s+(owner|holder|boundary)|renewal\s+(owner|holder|responsibility))\b
+    - id: msp.cyber_liability_insurance_boundary_missing
+      label: Cyber liability / insurance boundary
+      severity: warning
+      message: MSP scope present but cyber liability insurance and per-incident liability cap are not declared.
+      suggested_open_question: What cyber liability and E&O insurance carries each party, what is the per-incident liability cap, and what indemnity applies?
+      evidence:
+        any_regex:
+        - \b(cyber\s+liability|errors\s+and\s+omissions|\be&o\b|liability\s+cap|indemnif|insurance\s+(coverage|certificate))\b
+    - id: msp.on_call_rotation_backup_missing
+      label: On-call rotation + backup engineer
+      severity: warning
+      message: MSP scope present but the on-call rotation cadence and backup-engineer policy are not declared.
+      suggested_open_question: What is the on-call rotation cadence, primary/backup engineer, and after-hours dispatch SLA?
+      evidence:
+        any_regex:
+        - \b(on[- ]?call\s+(rotation|schedule|primary|backup)|backup\s+engineer|after[- ]?hours\s+(dispatch|response))\b
+    # --- v8 boss additions (MSP) ---
+    - id: msp.sla_credit_penalty_structure_missing
+      label: SLA credit / penalty structure
+      severity: warning
+      message: MSP scope present but the SLA-miss credit / penalty / liquidated-damage structure is not declared.
+      suggested_open_question: What service credits, penalties, or liquidated damages apply when SLA targets are missed, and at what cumulative cap?
+      evidence:
+        any_regex:
+        - \b(service\s+credit|sla\s+credit|liquidated\s+damages|penalty\s+(structure|clause)|credit\s+cap|monthly\s+credit\s+cap)\b
+    - id: msp.after_hours_dispatch_radius_missing
+      label: After-hours dispatch + geographic radius
+      severity: warning
+      message: MSP scope present but the after-hours dispatch policy and geographic dispatch radius / mileage / drive-time SLA are not declared.
+      suggested_open_question: What after-hours dispatch SLA applies and what is the geographic dispatch radius (miles / drive time / metro coverage)?
+      evidence:
+        any_regex:
+        - \bdispatch\s+(radius|coverage|metro|mileage|drive[- ]?time|response\s+time)\b
+        - \b(geographic|service)\s+area\b
+    - id: msp.subcontractor_flowdown_missing
+      label: Subcontractor flow-down terms
+      severity: warning
+      message: MSP scope present but flow-down terms to subcontractors (background checks, insurance, NDA, badge policy) are not declared.
+      suggested_open_question: What flow-down terms apply to subcontractors — background checks, insurance, NDA, badge / customer-site access policy, and SLA back-to-back?
+      evidence:
+        any_regex:
+        - \b(flow[- ]?down|sub[- ]?contractor|subcontractor|sub\s+pm|sub\s+tech|1099|w[- ]?9)\b.{0,80}\b(insurance|nda|background|badge|sla|terms?|policy)\b
+        - \bback[- ]?to[- ]?back\s+sla\b
+    # --- v9 boss additions (MSP) ---
+    - id: msp.privileged_access_management_jit_missing
+      label: PAM / JIT privileged access
+      severity: warning
+      message: Managed admin access / MFA mentioned but PAM / JIT elevation, session logging, and privileged-role review are not declared.
+      suggested_open_question: Is privileged access managed through PAM/JIT, who approves elevation, are sessions logged, and how often are privileged roles and break-glass accounts reviewed?
+      evidence:
+        any_regex:
+        - \b(pam|privileged\s+access\s+management|jit\s+(?:elevation|access)|just[- ]?in[- ]?time\s+access|break[- ]?glass|cyberark|beyondtrust|delinea|hashicorp\s+boundary)\b
+    - id: msp.itil_change_failure_kpi_missing
+      label: ITIL / change-failure KPI in monthly reporting
+      severity: info
+      message: Patch / firmware / CAB / monthly reporting scope present but ITIL maturity and change-failure KPIs are not declared.
+      suggested_open_question: 'What ITIL/change-management KPIs should appear in monthly or QBR reporting: change failure rate, emergency change rate, rollback rate, MTTR, recurring incidents, problem backlog?'
+      evidence:
+        any_regex:
+        - \b(change\s+failure\s+rate|cfr\b|emergency\s+change\s+rate|rollback\s+rate|mttr|problem\s+backlog|recurring\s+incidents?)\b
   network_maintenance:
     display_name: Network Maintenance / Operations
+    inference_threshold: 5
+    inference_min_hits: 8
     scope_triggers:
     - \b(network maintenance|switch audit|router|smartnet|jtac|dna advantage|firmware|vlan audit|wan circuit|bgp|ospf|failover|thousandeyes|solarwinds)\b
     checks:
@@ -863,8 +1187,53 @@ domains:
       evidence:
         any_regex:
         - \b(bgp|ospf|eigrp|static route|peering|failover test|ha test)\b
+    # --- 2-case-review boss additions (network maintenance) ---
+    - id: network_maintenance.firmware_baseline_missing
+      label: Firmware baseline (gold image) missing
+      severity: warning
+      message: Network-maintenance scope present but the firmware baseline / gold image per platform family is not declared.
+      suggested_open_question: 'What is the gold-image firmware baseline per device family (IOS-XE, NX-OS, JunOS, PAN-OS, ArubaOS) and how is drift detected?'
+      evidence:
+        any_regex:
+        - \b(gold\s+image|firmware\s+baseline|target\s+(version|firmware)|standard\s+(image|firmware)|baseline\s+drift)\b
+    - id: network_maintenance.patch_window_change_calendar_missing
+      label: Patch window + change calendar
+      severity: warning
+      message: Network-maintenance scope present but the recurring patch window + change-calendar cadence is not declared.
+      suggested_open_question: 'What is the recurring patch / change window (e.g., 3rd Saturday 22:00-04:00) and where is the change calendar published?'
+      evidence:
+        any_regex:
+        - \b(patch\s+window|change\s+(window|calendar|cadence)|maintenance\s+window|cab\s+meeting|cab\s+approval)\b
+        - \b(monthly|quarterly|weekly)\s+(patch|maintenance|change)\b
+    - id: network_maintenance.oem_tac_escalation_missing
+      label: OEM TAC escalation path
+      severity: warning
+      message: Network-maintenance scope present but the OEM TAC (Cisco TAC, Juniper JTAC, Aruba TAC) escalation path is not declared.
+      suggested_open_question: Which OEM TAC contracts cover each device family, and what is the L2-to-OEM escalation path?
+      evidence:
+        any_regex:
+        - \b(cisco\s+tac|jtac|aruba\s+tac|tac\s+case|oem\s+tac|tac\s+escalation|smartnet\s+(case|ticket))\b
+    # --- v9 boss additions (network maintenance) ---
+    - id: network_maintenance.vlan_port_audit_cadence_missing
+      label: VLAN / port audit cadence
+      severity: warning
+      message: VLAN / port-map / switch-maintenance evidence present but the recurring VLAN/port audit cadence and remediation expectations are not declared.
+      suggested_open_question: What recurring VLAN and port audit cadence is required, what exceptions are remediated, and what report format is delivered?
+      evidence:
+        any_regex:
+        - \b(vlan\s+audit|port\s+audit|switch\s+port\s+audit|monthly\s+port\s+audit|quarterly\s+vlan\s+audit|audit\s+cadence)\b
+    - id: network_maintenance.circuit_demarc_responsibility_missing
+      label: Carrier circuit demarcation responsibility
+      severity: warning
+      message: WAN / provider / circuit evidence present but carrier demarc, ticketing, outage credits, and failover responsibility are not declared.
+      suggested_open_question: Where are the carrier demarc points, who opens carrier tickets, who owns inside wiring past demarc, and how are outage credits / failover tests handled?
+      evidence:
+        any_regex:
+        - \b(demarc(?:ation)?|inside\s+wiring|carrier\s+ticket|carrier\s+(?:owns|owner|responsibility)|outage\s+credit|sla\s+credit\s+(?:carrier|provider))\b
   imac:
     display_name: IMAC
+    inference_threshold: 8
+    inference_min_hits: 14
     scope_triggers:
     - \b(imac|install move add change|workstation move|desktop move|endpoint refresh|seat move|asset tag|post[-
       ]?move login)\b
@@ -903,6 +1272,8 @@ domains:
         - \b(post[- ]?move|login test|acceptance|user sign[- ]?off|validation)\b
   itad:
     display_name: ITAD
+    inference_threshold: 10
+    inference_min_hits: 16
     scope_triggers:
     - \b(itad|asset disposal|data destruction|chain of custody|certificate of destruction|nist\s?sp\s?800[- ]?88|r2v3|e[-
       ]?stewards|recycle|resale)\b
@@ -949,6 +1320,8 @@ domains:
         - \b(r2v3|e[- ]?stewards|iso\s?14001|recycle|refurbish|resale|landfill)\b
   commercial:
     display_name: Commercial
+    inference_threshold: 8
+    inference_min_hits: 14
     scope_triggers:
     - \b(commercial|pricing|fixed fee|t&m|time and materials|nte|not to exceed|milestone billing|rate card|change
       order|net\s?\d+)\b
@@ -980,6 +1353,8 @@ domains:
         - \b(change order|scope change|approval|rate card|out of scope|not to exceed)\b
   procurement_finance:
     display_name: Procurement / Finance
+    inference_threshold: 8
+    inference_min_hits: 14
     scope_triggers:
     - \b(procurement|purchase order|po\b|quote|distributor|graybar|wesco|anixter|scansource|td synnex|capex|opex|gl
       code|lead time|invoice)\b
@@ -1010,6 +1385,8 @@ domains:
         - \b(capex|opex|gl code|cost code|budget code|allocation)\b
   hardware:
     display_name: Hardware
+    inference_threshold: 8
+    inference_min_hits: 14
     scope_triggers:
     - \b(hardware|sku|part number|manufacturer|model|serial|asset tag|warranty|rma|receive|staging)\b
     checks:
@@ -1039,6 +1416,8 @@ domains:
         - \b(receiving|staging|warehouse|asset tag|inventory|ship to|delivery)\b
   telecom:
     display_name: Telecom
+    inference_threshold: 8
+    inference_min_hits: 14
     scope_triggers:
     - \b(telecom|carrier|circuit|demarc|wan turn[- ]?up|ucaas|voip|number port|e911|dispatchable location|sip|did)\b
     checks:
@@ -1068,6 +1447,8 @@ domains:
         - \b(ucaas|voip|sip|did|number port|porting|handset|e911|dispatchable location)\b
   professional_services:
     display_name: Professional Services
+    inference_threshold: 8
+    inference_min_hits: 14
     scope_triggers:
     - \b(discovery|assessment|design|workshop|future state|current state|requirements|recommendations|deliverable|professional
       services)\b
@@ -1099,6 +1480,8 @@ domains:
         - \b(acceptance|sign[- ]?off|review cycle|approval|final deliverable)\b
   audit:
     display_name: Audit / Site Readiness
+    inference_threshold: 8
+    inference_min_hits: 14
     scope_triggers:
     - \b(audit|site readiness|as[- ]?built|walkthrough|photo log|punch list|readiness assessment|finding)\b
     checks:
@@ -1166,6 +1549,8 @@ domains:
         - \b(validation|reconciliation|acceptance|user sign[- ]?off|error report)\b
   alm:
     display_name: ALM / Release Governance
+    inference_threshold: 8
+    inference_min_hits: 14
     scope_triggers:
     - \b(alm|release|environment|workflow|approval|change advisory|jira|servicenow|devops|release train)\b
     checks:
@@ -1225,6 +1610,8 @@ domains:
         - \b(timesheet|approval|deliverable|manager approval|weekly report|status report)\b
   delivery_execution:
     display_name: Delivery Execution
+    inference_threshold: 8
+    inference_min_hits: 14
     scope_triggers:
     - \b(project plan|delivery|raid log|risk register|cutover validation|acceptance checklist|hypercare|go[- ]?live
       readiness)\b
@@ -1255,9 +1642,59 @@ domains:
         - \b(acceptance|sign[- ]?off|validation|checklist|customer approval|closeout)\b
   site_structure:
     display_name: Site Structure
+    inference_threshold: 4
+    inference_min_hits: 6
     scope_triggers:
     - \b(site list|site roster|building|floor|room|mdf|idf|address|access constraint|wan provider|critical systems)\b
     checks:
+    # --- 2-case-review boss addition: site_roster row MUST publish ---
+    - id: site_structure.site_roster_must_publish
+      label: site_roster atom must produce publishable site cluster
+      severity: blocker
+      message: A site_roster atom exists but no publishable physical-site cluster was produced from it.
+      suggested_open_question: 'Why did the customer-supplied site roster row not publish as a physical-site cluster? (Verify Site Reality v5 site_roster promotion path.)'
+      evidence:
+        requires_atom_type: [site_roster]
+        requires_site_cluster: true
+    # Boss-review v8 F1 — every published site cluster must
+    # explicitly carry kind=physical_site and cite member atoms.
+    # The validator can't inspect cluster fields directly today, so
+    # this is documented as a meta-rule whose machine equivalent
+    # lives in the regression contract; we still emit it so the
+    # boss bundle clearly shows the gate exists.
+    - id: site_structure.cluster_kind_and_evidence_required
+      label: Site cluster kind + evidence provenance
+      severity: warning
+      message: Every published site cluster must declare kind=physical_site and cite the source atoms / artifacts that prove the site identity (address, MDF, IDFs, providers, access).
+      suggested_open_question: 'Verify each published site cluster carries kind=physical_site and that member_atom_ids / artifact_ids are populated; if not, the synthesis rendering or model is broken.'
+      evidence:
+        requires_atom_type: [site_roster]
+        requires_site_cluster: true
+    # --- v9 boss additions (site structure) ---
+    - id: site_structure.after_hours_escort_billing_missing
+      label: After-hours escort / site-staff billing
+      severity: warning
+      message: Escort / badge / restricted-hours / after-hours work present but billing & ownership for escorts, custodial coverage, and site supervision are not declared.
+      suggested_open_question: Who provides and pays for after-hours / weekend escorts, custodial coverage, lift access, and building supervision during restricted work windows?
+      evidence:
+        any_regex:
+        - \b(escort\s+(?:billing|cost|hourly|fee)|custodial\s+(?:coverage|fee|after[- ]?hours)|after[- ]?hours\s+(?:escort|supervision)|weekend\s+escort|noisy\s+work\s+after)\b
+    - id: site_structure.after_hours_hvac_reservation_missing
+      label: After-hours HVAC / building-system reservation
+      severity: info
+      message: After-hours site work present but HVAC / lighting / building-system reservation is not declared.
+      suggested_open_question: Is after-hours HVAC, lighting, elevator, and building-system access required, who reserves it, and who confirms the building is usable during the work window?
+      evidence:
+        any_regex:
+        - \b(after[- ]?hours\s+(?:hvac|lighting|building|access)|hvac\s+reservation|building\s+system\s+reservation|elevator\s+(?:reservation|access\s+window))\b
+    - id: site_structure.elevator_dock_key_badge_missing
+      label: Elevator / dock / key / badge logistics
+      severity: info
+      message: Municipal / school / public-counter site work present but elevator, dock/loading, key, and badge issuance logistics are not declared.
+      suggested_open_question: Who issues elevator keys, loading-dock access, room keys, badges, and security/lobby approvals for materials and crews?
+      evidence:
+        any_regex:
+        - \b(loading\s+dock|dock\s+access|elevator\s+(?:key|access|reserv|use)|materials\s+staged|staging\s+area|lobby\s+approval|materials\s+lobby)\b
     - id: site_structure.site_roster
       label: Site roster with physical site evidence
       severity: blocker

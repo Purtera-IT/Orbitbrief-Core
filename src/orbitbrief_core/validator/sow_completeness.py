@@ -261,47 +261,81 @@ def _canonical_pack_ids(selected_pack_ids: Iterable[str], rules: Mapping[str, An
     return out
 
 
+_DEFAULT_INFERENCE_THRESHOLD = 8
+_DEFAULT_INFERENCE_MIN_HITS = 12
+
+
+def _domain_required_anchor_satisfied(
+    domain_id: str, domain: Mapping[str, Any], corpus: "CorpusView"
+) -> bool:
+    """Boss-review v8 F6/F8 — some domains require an additional
+    "real scope" anchor before activating, so generic-vocabulary
+    matches can't pull them in.
+
+    Driven by ``domain.required_anchor_regex_any`` (default
+    threshold = 2 distinct matches) and
+    ``domain.required_anchor_min_distinct_hits`` (override).
+    """
+    anchors = domain.get("required_anchor_regex_any") or []
+    if not anchors:
+        return True
+    min_hits = int(domain.get("required_anchor_min_distinct_hits") or 2)
+    text = corpus.all_text
+    distinct: set[str] = set()
+    for pattern in anchors:
+        try:
+            compiled = re.compile(pattern, re.I)
+        except re.error:
+            continue
+        for m in compiled.finditer(text):
+            distinct.add(m.group(0).lower())
+            if len(distinct) >= min_hits:
+                return True
+    return False
+
+
 def _infer_domains_from_evidence(corpus: CorpusView, rules: Mapping[str, Any]) -> set[str]:
-    """Activate a domain by evidence only when it has STRONG signal.
+    """Activate a domain by evidence only when signal is OVERWHELMING.
 
-    The original behavior (any single regex match) over-activated:
-    a paging-onboarding intake that mentions "fire alarm bypass"
-    would activate fire_safety and emit blocker findings for FACP
-    model / NFPA references / smoke detectors / etc. That's noise.
+    Boss-review F9 (post-2-case review) found that the
+    ``>=4 distinct alternatives`` threshold was still too loose:
+    cabling-only intakes activated security_camera and
+    camera_vms_operations because BOM rows happened to mention
+    "AXIS camera adapter" or "video patch panel" enough times.
 
-    Stronger rule: count distinct trigger-pattern matches across
-    the corpus text and require at least 2 distinct patterns to
-    fire (or 3+ matches of the same pattern). This filters out
-    incidental mentions while still letting "Cat6 + RJ45 + drops"
-    activate low_voltage_cabling even when the router put the case
-    in 'other'.
+    New rule:
+    * inference is a SAFETY NET, not the primary activation
+      mechanism. The router's ``selected_pack_ids`` is the
+      primary activation signal (passed in by the caller).
+    * to auto-activate via evidence, a domain must clear BOTH:
+        - at least ``inference_threshold`` distinct trigger
+          alternatives appear in the corpus, AND
+        - at least ``inference_min_hits`` total trigger matches.
+    * default thresholds are intentionally high (8 distinct, 12
+      total). Per-domain overrides live in the YAML rulebook
+      under ``domains.<id>.inference_threshold`` /
+      ``inference_min_hits`` for cases where a smaller cluster
+      should still fire (e.g., low_voltage_cabling = 4 distinct
+      because cabling vocabulary is narrower).
     """
     inferred: set[str] = set()
     for domain_id, domain in (rules.get("domains") or {}).items():
         triggers = domain.get("scope_triggers") or []
         if not triggers:
             continue
-        # Count how many distinct trigger patterns hit, plus the
-        # total hit count.
         compiled = _compile(triggers)
         text = corpus.all_text
-        # Count DISTINCT alternative-strings that matched (not just
-        # how many patterns fired). Each trigger pattern is usually
-        # one big alternation like ``cat6|drops|fluke|tia-568|...``;
-        # we want to know how many of those alternatives the text
-        # actually contains.
         distinct_alternatives: set[str] = set()
+        total_hits = 0
         for pattern in compiled:
             for m in pattern.finditer(text):
                 distinct_alternatives.add(m.group(0).lower())
-        # Tuned against the 17-case corpus: a domain activates when
-        # at least 4 DISTINCT trigger alternatives appear in the
-        # corpus text. A single incidental mention of "fire alarm
-        # bypass" doesn't activate fire_safety; a real fire-safety
-        # scope (FACP + NFPA-72 + smoke detector + horn-strobe +
-        # pull station) does.
-        if len(distinct_alternatives) >= 4:
-            inferred.add(str(domain_id))
+                total_hits += 1
+        threshold = int(domain.get("inference_threshold") or _DEFAULT_INFERENCE_THRESHOLD)
+        min_hits = int(domain.get("inference_min_hits") or _DEFAULT_INFERENCE_MIN_HITS)
+        if len(distinct_alternatives) >= threshold and total_hits >= min_hits:
+            if _domain_required_anchor_satisfied(str(domain_id), domain, corpus):
+                inferred.add(str(domain_id))
     return inferred
 
 
@@ -412,6 +446,18 @@ def evaluate_sow_completeness(
     if infer_domains:
         active |= _infer_domains_from_evidence(corpus, rulebook)
     active = {d for d in active if d in (rulebook.get("domains") or {})}
+
+    # Boss-review v8 F6/F8 — the router can over-select packs (e.g.
+    # ``wireless`` and ``audio_visual`` for a cabling-only case
+    # because of incidental keyword matches). Apply the same
+    # ``required_anchor_regex_any`` gate to ROUTER-selected domains,
+    # not just inferred ones, so wireless rules don't run on a
+    # cabling case that only happens to mention "Aruba" once.
+    domains_def = rulebook.get("domains") or {}
+    active = {
+        d for d in active
+        if _domain_required_anchor_satisfied(d, domains_def.get(d) or {}, corpus)
+    }
 
     checks_to_run: list[tuple[str, Mapping[str, Any]]] = []
     if include_global:

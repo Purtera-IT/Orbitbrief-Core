@@ -192,6 +192,57 @@ def main(argv: list[str] | None = None) -> int:
     )
     result = pipeline.compile(envelope_path, out_dir=args.out)
 
+    # Final PM/SA presentation layer — this is what the user actually
+    # consumes. Render markdown + html + json into the same case
+    # output directory so the substrate dir doubles as the PM
+    # handoff. Failures here never block compile completion.
+    try:
+        from orbitbrief_core.pm_handoff import (
+            build_pm_handoff,
+            render_pm_executive_markdown,
+            render_solution_architect_markdown,
+            render_pm_handoff_markdown,
+        )
+        from orbitbrief_core.pm_handoff.render_html import (
+            render_pm_executive_html,
+            render_solution_architect_html,
+            render_pm_handoff_html,
+        )
+        from pathlib import Path as _Path
+        out_dir = _Path(args.out)
+        handoff = build_pm_handoff(out_dir)
+        (out_dir / "PM_EXECUTIVE_SUMMARY.md").write_text(
+            render_pm_executive_markdown(handoff), encoding="utf-8"
+        )
+        (out_dir / "SA_REVIEW_PACKET.md").write_text(
+            render_solution_architect_markdown(handoff), encoding="utf-8"
+        )
+        (out_dir / "PM_HANDOFF.md").write_text(
+            render_pm_handoff_markdown(handoff), encoding="utf-8"
+        )
+        (out_dir / "PM_EXECUTIVE_SUMMARY.html").write_text(
+            render_pm_executive_html(handoff), encoding="utf-8"
+        )
+        (out_dir / "SA_REVIEW_PACKET.html").write_text(
+            render_solution_architect_html(handoff), encoding="utf-8"
+        )
+        (out_dir / "PM_HANDOFF.html").write_text(
+            render_pm_handoff_html(handoff), encoding="utf-8"
+        )
+        (out_dir / "PM_HANDOFF.json").write_text(
+            json.dumps(handoff.to_dict(), indent=2), encoding="utf-8"
+        )
+        if not args.quiet:
+            print(
+                f"compile_brief: PM handoff written ({handoff.status.upper()}: "
+                f"{len([g for g in handoff.gaps if g.severity == 'blocker'])} blocker / "
+                f"{len([g for g in handoff.gaps if g.severity == 'warning'])} warning)",
+                file=sys.stderr,
+            )
+    except Exception as exc:
+        if not args.quiet:
+            print(f"compile_brief: PM handoff render skipped: {exc}", file=sys.stderr)
+
     if not args.quiet:
         manifest = json.loads(result.artifacts.manifest_path.read_text(encoding="utf-8"))
         json.dump(manifest, sys.stdout, indent=2, ensure_ascii=False)

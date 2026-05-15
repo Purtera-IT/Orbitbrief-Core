@@ -506,6 +506,17 @@ packs:
   - 8x8
 - id: wireless
   display_name: Wireless
+  # Boss-review v9 C001-F1 — pack-level anchor gate. wireless brain
+  # only runs when the corpus has 2+ distinct AP/WLAN equipment
+  # tokens. Mirrors the SOW validator anchor.
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(access\s+points?|wlc|wireless\s+controller|wireless\s+lan\s+controller|wlan\s+controller)\b
+  - \b(wi[- ]?fi\s+heatmap|wireless\s+heatmap|rf\s+heatmap)\b
+  - \b802\.11(?:ac|ax|be|n|g)\b
+  - \b(wlan\s+(?:install|deployment|design|cabling)|ap\s+install|ap\s+(?:cabling|drop)s?|access\s+point\s+(?:install|drop|cable)s?)\b
+  - \b(ssid|wpa[23]|802\.1x\s+wireless|radius\s+wireless|wireless\s+psk)\b
+  - \b(meraki\s+mr\d{2,3}|aruba\s+ap[- ]?\d{2,3}|cisco\s+(?:cw|air[- ]?(?:ap|cap))\d{2,4}|mist\s+ap\d|ruckus\s+r\d{3}|catalyst\s+9166|cw9166|cw9162|cw9164)\b
   intake_aliases:
   - wireless
   subdomain_labels:
@@ -693,6 +704,15 @@ packs:
   - ats
 - id: audio_visual
   display_name: Audio Visual
+  # Boss-review v9 C002-F1 — pack-level anchor gate. AV brain only
+  # runs when the corpus has 3+ distinct AV equipment tokens.
+  required_anchor_min_distinct_hits: 3
+  required_anchor_regex_any:
+  - \b(display|projector|video\s+wall|microphone(?:\s+array)?)\b
+  - \b(biamp|q[- ]?sys|crestron|extron|qsc|shure|symetrix|tesira|polycom|cisco\s+(?:room\s+kit|webex)|logitech\s+rally)\b
+  - \b(dante|aes67|\bndi\b|sdi|hdbaset)\b
+  - \b(teams\s+room|zoom\s+room|google\s+meet\s+room|huddle\s+room|conference\s+room\s+(?:av|audio|video)|classroom\s+(?:av|audio|video))\b
+  - \b(control\s+(?:processor|panel)|video\s+codec|av\s+codec|av\s+(?:rack|equipment|design|drawings?))\b
   intake_aliases: []
   subdomain_labels:
   - AV Conference Room Build-Out
