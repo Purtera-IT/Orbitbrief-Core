@@ -13,16 +13,19 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from orbitbrief_core.brains.audio_visual import AudioVisualBrain
+from orbitbrief_core.brains.audit import AuditBrain
 from orbitbrief_core.brains.building_management_systems import (
     BuildingManagementSystemsBrain,
 )
 from orbitbrief_core.brains.camera_vms_operations import CameraVmsOperationsBrain
 from orbitbrief_core.brains.datacenter import DatacenterBrain
+from orbitbrief_core.brains.electrical import ElectricalBrain
 from orbitbrief_core.brains.imac import ImacBrain
 from orbitbrief_core.brains.low_voltage_cabling import LowVoltageCablingBrain
 from orbitbrief_core.brains.managed_services import ManagedServicesBrain
 from orbitbrief_core.brains.network_maintenance import NetworkMaintenanceBrain
 from orbitbrief_core.brains.procurement_finance import ProcurementFinanceBrain
+from orbitbrief_core.brains.professional_services import ProfessionalServicesBrain
 from orbitbrief_core.brains.rack_and_stack import RackAndStackBrain
 from orbitbrief_core.brains.wireless import WirelessBrain
 from orbitbrief_core.inference.client import ChatClient
@@ -94,6 +97,15 @@ def default_brain_registry() -> BrainRegistry:
         "procurement_finance",
         lambda chat: ProcurementFinanceBrain(chat_client=chat),
     )
+    # Phase 7.5 expansion — close the gap on packs that pack-prior was
+    # selecting but had no registered brain (silent skip in the
+    # manifest). These three plug straight into the briefing template.
+    reg.register("electrical", lambda chat: ElectricalBrain(chat_client=chat))
+    reg.register(
+        "professional_services",
+        lambda chat: ProfessionalServicesBrain(chat_client=chat),
+    )
+    reg.register("audit", lambda chat: AuditBrain(chat_client=chat))
     return reg
 
 
@@ -111,4 +123,7 @@ BRIEFING_PACK_IDS: frozenset[str] = frozenset({
     "network_maintenance",
     "camera_vms_operations",
     "procurement_finance",
+    "electrical",
+    "professional_services",
+    "audit",
 })

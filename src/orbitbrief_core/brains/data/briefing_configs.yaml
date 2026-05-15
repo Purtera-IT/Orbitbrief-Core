@@ -1318,3 +1318,62 @@ domains:
       - "Money flow, not engineering."
       - "Capture milestone-billing schedules and any cap-ex / op-ex distinction."
       - "Subcontractor procurement (Graybar, Wesco, Anixter) is in scope; their installation work is not."
+  electrical:
+    display_name: Electrical and Power
+    operating_rules:
+      cite_circuit: "Always cite the panelboard / breaker / circuit number and amperage when the source provides them."
+      separate_low_voltage: "120/208/277/480 V branch power, UPS, generators, transfer switches, grounding, and bonding belong here. Cat6 / Cat6A / fiber drops are low_voltage_cabling, not electrical."
+      acceptance: "Acceptance must reference licensed-electrician sign-off, AHJ inspection or permit close-out, and load-tested commissioning evidence."
+      preserve_units_as_shown: true
+      treat_unanswered_questions_as_open_items: true
+    normalization:
+      voltage_classes: ["120V", "208V", "240V", "277V", "480V"]
+      ups_brands: [APC, Eaton, Vertiv, "Schneider Electric", Tripp Lite]
+      generator_brands: [Generac, Cummins, Kohler, Caterpillar]
+      transfer_switch_types: [ATS, "manual transfer switch", "static transfer switch"]
+      ground_targets: ["TGB", "TMGB", "ground bar", "Telecommunications Grounding Busbar", "Telecommunications Main Grounding Busbar"]
+    fields: {}
+    artifact_labels: ["Panel schedule", "One-line diagram", "UPS sizing worksheet", "Permit / AHJ inspection record"]
+    subdomain_notes:
+      - "Branch circuits, receptacles, dedicated 20 A / 30 A whips for racks and APs."
+      - "UPS sizing must reference connected load + runtime target."
+      - "Generator scope must capture fuel type, ATS coordination, and transfer time."
+      - "Grounding / bonding scope follows TIA-607 / J-STD-607 — cite the standard when applicable."
+      - "Permit + licensed-electrician requirements are jurisdictional — flag missing AHJ data as open_items."
+  professional_services:
+    display_name: Professional Services
+    operating_rules:
+      cite_phase: "Always cite the phase (discovery, assessment, design, workshop) and any deliverable artifact name (HLD, LLD, MoP, ATP, BOM)."
+      separate_implementation: "Professional services scope is workshops, discovery, assessment, design output, and SOW authoring — not the install / cutover labor (which lives in the relevant infra pack)."
+      acceptance: "Acceptance must reference signed deliverable (HLD/LLD/MoP/SOW), discovery report receipt, or workshop attendance + sign-off."
+      preserve_units_as_shown: true
+      treat_unanswered_questions_as_open_items: true
+    normalization:
+      deliverable_types: [HLD, LLD, MoP, ATP, "design package", "discovery report", "as-is assessment", "to-be design", "BOM", "RACI", "test plan"]
+      phase_labels: [discovery, assessment, design, workshop, "design review", "design validation", "stakeholder workshop"]
+      hour_units: ["hours", "person-hours", "labor hours", "billable hours"]
+    fields: {}
+    artifact_labels: ["Discovery report", "High-level design (HLD)", "Low-level design (LLD)", "Method of procedure (MoP)", "Workshop minutes", "Statement of work (SOW)"]
+    subdomain_notes:
+      - "Hours-based engagements (T&M / NTE) require a billable-hour cap and a rate sheet — flag if missing."
+      - "Each deliverable should map to one acceptance criterion (HLD signed, LLD signed, etc.)."
+      - "Workshops have a definite agenda + attendee list; missing either is an open_item."
+      - "Design validation typically occurs before BOM finalization; capture the dependency."
+  audit:
+    display_name: Audit and Site Readiness
+    operating_rules:
+      cite_evidence: "Every finding must cite a photo, walkthrough log entry, punch-list item, or test reading. Findings without evidence become open_items, not assumptions."
+      separate_remediation: "Audit scope is observation, documentation, and gap reporting — remediation work belongs in the relevant infra pack (low_voltage_cabling, electrical, etc.) and must be flagged as a follow-on dependency."
+      acceptance: "Acceptance must reference signed walkthrough report, photo log delivery, and a closed-out punch list."
+      treat_unanswered_questions_as_open_items: true
+    normalization:
+      audit_types: ["site readiness", "as-built", "post-install QA", "pre-cutover", "punch-list close-out", "compliance audit"]
+      severity_labels: [critical, major, minor, observational, informational]
+      evidence_artifacts: ["photo log", "walkthrough notes", "punch-list spreadsheet", "test reading", "label inventory"]
+    fields: {}
+    artifact_labels: ["Site readiness report", "As-built drawing red-line", "Photo log", "Punch list", "Walkthrough sign-off sheet"]
+    subdomain_notes:
+      - "Photo evidence is the bedrock — every critical / major finding must have at least one photo locator."
+      - "Punch-list items must include severity + responsible party + target close date."
+      - "Capture any compliance regime (NFPA, BICSI, OSHA, AHJ) the audit is grounded in."
+      - "As-built deltas (planned vs installed) are often the highest-value output; surface them prominently in scope_overview."
