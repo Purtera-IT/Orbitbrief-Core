@@ -1,3 +1,4 @@
+
 # OrbitBrief — Frontend Integration & Capability Reference
 
 > Audience: **frontend / integration engineer** plugging Purpulse UI on top of the OrbitBrief stack.
@@ -955,6 +956,117 @@ Yes. `tests/managed_services_sow_artifact_pack/COPPER_00*` are intentionally syn
 
 ---
 
+## 14. Azure footguns — what your cloud + frontend engineer must know
+
+> **TL;DR:** the Azure layer cannot touch OrbitBrief's actual output quality (all extraction / synthesis runs on the Mac). But it can absolutely degrade *user experience* if you don't respect the constraints below.
+
+### 14.1 What Azure cannot break
+
+The atom extraction, packet certification, site reality clustering, SOW validation, brain composition, and PM handoff rendering all execute on the Mac. Azure is just **transport** (Function App routes), **storage** (Blob), and **identity** (Entra). The `PM_HANDOFF.json` that lands in Blob is byte-identical to the one written on disk on the Mac.
+
+### 14.2 What Azure WILL break if you let it
+
+| Risk | Why it matters | The non-negotiable rule |
+|---|---|---|
+| **Function App 230s HTTP timeout** | Substrate-only runs are 10–15s but full LLM runs are 5–30 min. A synchronous call dies mid-brain → partial output. | The async pattern in §9 is mandatory. SPA polls. Function App just kicks off + serves Blob. |
+| **`dist/vite.azure-api-plugin.cjs` fallback** (`PURPULSE_AZURE_ARCHITECTURE.md` §3.2) | Routes can silently land in the bundled fallback instead of the native handler. Pure footgun for the engineer maintaining the proxy. | Doesn't touch OrbitBrief output quality. Just document which route lives where; grep `purpulse-frontend` builds before claiming "handler missing." |
+| **Two `/api` segments in URLs** | `/api/proxy/api/data/...` looks wrong; people "fix" it and break the SPA. | Already documented in `PURPULSE_AZURE_ARCHITECTURE.md` §2 — leave it. |
+| **autossh tunnel drops** | Mac becomes unreachable, Function App queues back up. Pure availability issue. | LaunchAgent that auto-restarts autossh on `ServerAliveCountMax 3`. SPA renders an "OrbitBrief is degraded" health banner from `GET /health` on the bastion. |
+| **Cold starts on consumption plan** | First request after 20 min idle takes 5–30s. PM thinks it hung. | Either (a) timer trigger that hits `/api/proxy/api/deploy-health` every 5 min, (b) move to App Service Plan (~$50/mo), or (c) live with it on pilot. |
+| **Container Apps job for parser-os** | If you put parser-os inside the Function App, big PDFs (70-page rack drawings) blow the request window. | Use Container Apps jobs (or self-hosted GHA runner). Function App must never run parser-os in-process. |
+| **Blob write race** | If the Mac runner crashes mid-upload, Blob has a partial run. UI shows half a dashboard. | Atomic uploads: write to `…runs/{runId}.tmp/`, then `mv` to `…runs/{runId}/`. Status flips to `done` only after the rename. |
+| **`/api/proxy/api/...` double prefix** | The proxy strips a leading `/api/proxy` and rewrites `/data/...` → `/api/data/...` (`PURPULSE_AZURE_ARCHITECTURE.md` §3.1). | Don't `URL.canonicalize` the path on the SPA — let the proxy do it. |
+| **HubSpot manual-docs sync is async** (`PURPULSE_AZURE_ARCHITECTURE.md` §5.4) | If your OrbitBrief route relies on HubSpot-side documents, they may be hours behind. | Don't trigger OrbitBrief from a HubSpot push; trigger from a deal-artifact upload event. |
+| **Deal Kit v3 "blob" naming collision** | "blob" in `DEALKIT_V3_STORAGE_ADR.md` means **JSON** in `opportunities.quote_data->deal_kit_v3`. **Not** Azure Blob. | Use `quote_v3.source = 'orbitbrief'` + `quote_v3.run_id` to link a hydrated quote to its OrbitBrief run; the binary outputs live in the **`orbitbrief-artifacts`** container, **not** in `opportunities.quote_data`. |
+
+### 14.3 The actual sketchy part — the bastion
+
+The bastion + autossh reverse tunnel from the Mac is the **weakest link** in the whole architecture. Not because it's slow — it's plenty fast — but because:
+
+- autossh has known reconnect bugs on macOS network changes (Wi-Fi switch, sleep-wake)
+- the bastion is a single point of failure (single Linux VM)
+- the Mac is on a residential / office ISP with no SLA
+
+**For pilot + first 5–10 real customer cases:** fine. Ship as-is.
+
+**Within 6 months of paying customers**, pick one of these to retire the bastion:
+
+1. **Tailscale** instead of autossh — same model, way better resilience. `tailscale up` on Mac, install on the bastion (or skip the bastion entirely and put Tailscale on the Function App's VNet integration target). Drops 80% of §9 complexity.
+2. **Move Ollama to an Azure NC-series VM** (GPU). ~$1.20/hr for an `NC4as_T4_v3` running `qwen3:14b`; ~$3.50/hr for an `NC24ads_A100_v4` running `qwen3:32b`. Same model, same code, hosted in Azure. Drops the bastion entirely.
+3. **Use a managed inference endpoint** for Qwen 32B (Azure ML serverless, Together.ai, Fireworks, etc.). Keep Mac for dev only. The `OpenAIChatClient` interface in `inference/client.py` already accepts arbitrary `base_url + api_key` — no code changes needed.
+
+### 14.4 What "ok enough" actually means
+
+| Phase | Verdict | Reason |
+|---|---|---|
+| **Demo to PM team** | Ship as-is | Nothing in Azure layer degrades what the PM sees on `PM_EXECUTIVE_SUMMARY.html` — same file your code wrote on the Mac. |
+| **First 5–10 paying customers** | Ship as-is + monitor autossh | Plus a "OrbitBrief degraded" health banner so demos don't die on a tunnel reconnect. |
+| **100+ concurrent runs** | Replace autossh with Tailscale **or** move models to Azure | Single-bastion architecture won't survive real concurrency. |
+
+### 14.5 First-month gotchas (bookmark these)
+
+These are guaranteed to happen. None affect output quality; all affect demos.
+
+1. **autossh dies during a live PM demo.**
+   - Mitigation: `caffeinate -i -d` while OrbitBrief is in active demo mode + LaunchDaemon restarts autossh on exit.
+   - Backup: have a `?fallback=local` query param in the SPA that bypasses Azure and hits a local Vite dev plugin during the demo.
+
+2. **First Function App request after lunch takes 28 seconds.**
+   - Mitigation: 5-minute Azure Functions timer trigger that hits `/api/proxy/api/deploy-health`.
+
+3. **A 70-page PDF takes 11 minutes to compile.**
+   - Mitigation: SPA shows real progress (Stage 10 of 90 / Stage 40 of 90 [3/8 brains]…), not a spinner. Surface `pipeline_log.json` rows in real time via SSE or polling `GET /runs/:runId/log`.
+
+4. **A new domain pack ships and the SPA doesn't know its display label.**
+   - Mitigation: never hardcode `domain_id → display_name` in the SPA. Always render `domains[].label` from `PM_HANDOFF.json`. The Core ships the canonical label.
+
+5. **A PM clicks "Run OrbitBrief" twice.**
+   - Mitigation: idempotency key. The Function App should derive `runId` from `sha256(envelope_sha256 + chat_model + escalated_model + sow_rules_version)`. Second click returns the same `runId`. No duplicate Mac runs.
+
+6. **The Mac runs out of disk because no one cleans `/Users/orbitbrief/runs/`.**
+   - Mitigation: `find /Users/orbitbrief/runs/ -mtime +14 -delete` in a daily LaunchDaemon. Blob is the truth; the local copy is throwaway.
+
+7. **An engineer "fixes" the double `/api/proxy/api` URL.**
+   - Mitigation: `PURPULSE_AZURE_ARCHITECTURE.md` §2 already documents this. Quote it in any code review touching `purpulse-frontend/src/lib/data-backend/config.ts`.
+
+### 14.6 What the cloud engineer ships first
+
+Concrete checklist for the cloud engineer's first sprint:
+
+- [ ] **Container Apps job** named `orbitbrief-parser` running parser-os against Blob `deals/{dealId}/artifacts/...`. Triggered by Service Bus message from `pm-orbitbrief-routes.js`. Writes the envelope back to `deals/{dealId}/orbitbrief/{runId}/envelope.json`.
+- [ ] **Bastion VM** (`Standard_B1s`, ~$10/mo) in `eastus2` with public DNS `orbitbrief-bastion.<your-domain>`. nginx + Let's Encrypt + Function App outbound IP allowlist (or Azure Private Link if available).
+- [ ] **autossh LaunchDaemon** on the Mac (§9.2). Test by `kill -9` the autossh process; it should respawn within 5s.
+- [ ] **Mac runner FastAPI service** (§9.4) at `127.0.0.1:9090` with `~/Library/LaunchAgents/com.purtera.orbitbrief-runner.plist` autostart.
+- [ ] **Bastion Node service** (§9.3) at `127.0.0.1:8080` with systemd unit `orbitbrief-bastion.service`. nginx reverse-proxies `https://bastion/run` → `127.0.0.1:8080/run`.
+- [ ] **Function App route** `pm-orbitbrief-routes.js` registered in `proxy/index.js` AFTER `pm-deal-artifacts-routes` and BEFORE `pm-dealkit-v3-routes`.
+- [ ] **App settings** added to all three slots:
+  - `ORBITBRIEF_BASTION_URL=https://orbitbrief-bastion.<your-domain>`
+  - `ORBITBRIEF_BASTION_TOKEN=<from-keyvault>`
+  - `ORBITBRIEF_RUNNER_TIMEOUT_MS=900000` (15 min)
+- [ ] **Capability mapping** in `route-capabilities.js` per §8.3.
+- [ ] **Smoke test in CI**: `curl https://<function-app>.azurewebsites.net/api/proxy/api/quoting/deal/<known-fixture-deal-id>/orbitbrief/health` returns `{ "ollama": true, "runner": "up" }`.
+- [ ] **Pre-warm timer trigger** that hits `/api/proxy/api/deploy-health` every 5 minutes during business hours (cron: `0 */5 13-23 * * 1-5` UTC).
+- [ ] **Daily Mac cleanup LaunchDaemon** that removes runs older than 14 days from `/Users/orbitbrief/runs/`.
+
+### 14.7 What the frontend engineer ships first
+
+- [ ] **Type stubs** from §10.1 dropped into `purpulse-frontend/src/types/orbitbrief.ts`.
+- [ ] **`useOrbitBriefRun(dealId, runId)` hook** that polls `GET /api/quoting/deal/:dealId/orbitbrief/runs/:runId` every 3s while `status !== 'done' && status !== 'failed'`.
+- [ ] **`<OrbitBriefStatusBanner status status_label />`** — renders the 🔴/🟡/🟢 banner at the top of the deal page.
+- [ ] **`<OrbitBriefScorecard metrics />`** — 6 tiles from §11.
+- [ ] **`<OrbitBriefSites sites />`** — confirmed-sites table with kind + evidence count.
+- [ ] **`<OrbitBriefWorkstreams domains />`** — routed/active table.
+- [ ] **`<OrbitBriefBlockers gaps />`** — must-resolve red panel with action buttons (Send to customer / Assign to SA / Mark answered).
+- [ ] **`<OrbitBriefEvidenceDrawer facts_by_category />`** — right-rail tabbed by category with source citation.
+- [ ] **`<OrbitBriefAuditLink runId />`** — opens `91_inspection_report.html` in a new tab via `GET /api/quoting/deal/:dealId/orbitbrief/runs/:runId/inspection.html`.
+- [ ] **`POST /feedback`** plumbing for every action button per §11.1.
+- [ ] **Portfolio view** (`<PMPortfolioGrid />`) consuming `GET /api/quoting/orbitbrief/portfolio` (= `PM_PORTFOLIO_DASHBOARD.json`). One row per case.
+- [ ] **Question-queue export** button: `<a download href="/api/quoting/orbitbrief/questions.csv?org={orgId}">`.
+- [ ] **Degraded-mode banner** that shows when `GET /api/proxy/api/quoting/orbitbrief/health` returns `{ runner: "down" }`. Tells the PM "OrbitBrief is currently unavailable; run results will be queued."
+
+---
+
 ## Document history
 
 - **2026-05-15** — Initial frontend-integration README; describes parser-os atom + parser inventory, Orbitbrief-Core 12 pipeline stages, the 8 per-case + 4 portfolio artifacts, `PM_HANDOFF.json` schema, suggested Function App routes, the bastion-tunnel Mac SSH transport, and answers to master-plan open questions.
+- **2026-05-15 (later)** — Added §14: Azure footguns + cloud-engineer-first-sprint checklist + frontend-engineer-first-sprint checklist + first-month-gotcha list.
