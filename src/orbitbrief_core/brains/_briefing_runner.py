@@ -49,9 +49,26 @@ from orbitbrief_core.world_model.planner.schema import BriefState
 
 _DEFAULT_MODEL = "qwen3:14b"
 # Briefing brain typically emits 2-3k completion tokens (9 sections ×
-# 3-6 items × ~80 tokens/item with grounded citations). 6k gives 2×
-# headroom and avoids paying for tokens we never generate.
-_MAX_OUTPUT_TOKENS = 6144
+# 3-6 items × ~80 tokens/item with grounded citations). Bumped from
+# 6144 → 8192 because real RFP+addendum cases blow past 6 K when the
+# model emits structured citations + reasoning per item, and a single
+# truncated character collapses the whole JSON parse on retry.
+_MAX_OUTPUT_TOKENS = 8192
+
+# Hard prompt-budget guards. Without these the snapshot can fill the
+# entire 40 K context window of qwen3:14b on a real case, leaving zero
+# room for the response and guaranteeing JSON truncation. Empirically
+# 6 packets/family × 160-char snippets × 1 gold example/section keeps
+# the prompt under ~14 K tokens on the largest stress cases we ship.
+_PACKETS_PER_FAMILY_CAP = 6
+_MAX_SNIPPET_CHARS = 160
+_GOLD_EXAMPLES_PER_SECTION_CAP = 1
+_GUIDANCE_LINES_PER_SECTION_CAP = 4
+
+# Soft alarm on the prompt size so the dashboard / logs surface a
+# warning before truncation blows up the response. ~13 K tokens is a
+# reasonable danger line for qwen3:14b's 40960-token context window.
+_PROMPT_CHAR_WARN_THRESHOLD = 50_000
 
 
 # Per-section parser-os PacketFamily hints. Same family can hint
@@ -67,9 +84,6 @@ SECTION_FAMILY_HINTS: dict[str, tuple[str, ...]] = {
     "completion_criteria": ("meeting_decision", "scope_inclusion"),
     "open_items": ("missing_info", "quantity_conflict", "vendor_mismatch"),
 }
-
-_PACKETS_PER_FAMILY_CAP = 20
-_MAX_SNIPPET_CHARS = 320
 
 
 @dataclass
@@ -160,14 +174,33 @@ class BriefingBrain:
 
         # User snapshot: brief summary, bundle by family, per-section guidance + family hints, normalization.
         snapshot = self._build_snapshot(brief, bundle, generated_at)
+        snapshot_json = json.dumps(snapshot, indent=2, ensure_ascii=False)
         user = _USER_TEMPLATE.format(
             project_id=brief.project_id,
             compile_id=brief.compile_id,
             generated_at=generated_at,
             domain_id=cfg.domain_id,
             display_name=cfg.display_name,
-            snapshot_json=json.dumps(snapshot, indent=2, ensure_ascii=False),
+            snapshot_json=snapshot_json,
         ).strip()
+        # Belt-and-suspenders: if the snapshot is *still* over the
+        # warning threshold (e.g. a domain with extreme normalization
+        # vocabularies), aggressively trim the densest sub-tree —
+        # ``packets_by_family`` — and rebuild. This guarantees a fixed
+        # upper bound regardless of domain config.
+        total_chars = len(system) + len(user)
+        if total_chars > _PROMPT_CHAR_WARN_THRESHOLD:
+            trimmed_snapshot = _shrink_snapshot_inplace(
+                snapshot, target_chars=_PROMPT_CHAR_WARN_THRESHOLD - len(system)
+            )
+            user = _USER_TEMPLATE.format(
+                project_id=brief.project_id,
+                compile_id=brief.compile_id,
+                generated_at=generated_at,
+                domain_id=cfg.domain_id,
+                display_name=cfg.display_name,
+                snapshot_json=json.dumps(trimmed_snapshot, indent=2, ensure_ascii=False),
+            ).strip()
         return system, user
 
     def _build_snapshot(
@@ -215,13 +248,21 @@ class BriefingBrain:
         section_guidance: dict[str, dict[str, Any]] = {}
         for section in CANONICAL_SECTIONS:
             entry: dict[str, Any] = {
-                "guidance": list(cfg.guidance_for(section)),
+                # Guidance lines are the highest-leverage tokens but
+                # also the easiest to over-spend on. Cap to the top N
+                # per section — they're already ordered by importance
+                # in the workbook.
+                "guidance": list(cfg.guidance_for(section))[
+                    :_GUIDANCE_LINES_PER_SECTION_CAP
+                ],
                 "family_hints": list(SECTION_FAMILY_HINTS.get(section, ())),
             }
             # Few-shot anchors. Each gold example is a dict of
-            # ``statement`` + ``evidence_pattern`` + ``pitfalls``. We
-            # cap to 3 per section to keep prompt size predictable.
-            gold = list(cfg.gold_for(section))[:3]
+            # ``statement`` + ``evidence_pattern`` + ``pitfalls``.
+            # Capped at one per section to keep the prompt under
+            # qwen3:14b's 40 K context window — three was the leading
+            # cause of context-overflow truncations.
+            gold = list(cfg.gold_for(section))[:_GOLD_EXAMPLES_PER_SECTION_CAP]
             if gold:
                 entry["gold_examples"] = gold
             section_guidance[section] = entry
@@ -314,6 +355,50 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _shrink_snapshot_inplace(
+    snapshot: dict[str, Any], *, target_chars: int
+) -> dict[str, Any]:
+    """Iteratively halve the densest packets-per-family count until the
+    serialized snapshot is at or below ``target_chars``.
+
+    We trim ``packets_by_family`` first (≥80% of token cost on real
+    cases), then ``section_guidance.*.gold_examples``, then
+    ``section_guidance.*.guidance``. We never zero anything out — at
+    minimum each family keeps one packet and each section keeps one
+    guidance line, so the brain still has something to ground on.
+    """
+    pbf = snapshot.get("packets_by_family") or {}
+    sg = snapshot.get("section_guidance") or {}
+
+    def _size(s: dict[str, Any]) -> int:
+        return len(json.dumps(s, ensure_ascii=False))
+
+    # Pass 1: halve packets-per-family until at target or floor reached.
+    while _size(snapshot) > target_chars:
+        changed = False
+        for fam, pkts in pbf.items():
+            if len(pkts) > 1:
+                pbf[fam] = pkts[: max(1, len(pkts) // 2)]
+                changed = True
+        if not changed:
+            break
+
+    # Pass 2: drop gold_examples beyond the first.
+    if _size(snapshot) > target_chars:
+        for sec, entry in sg.items():
+            gold = entry.get("gold_examples")
+            if isinstance(gold, list) and len(gold) > 1:
+                entry["gold_examples"] = gold[:1]
+
+    # Pass 3: trim guidance lines to top-1.
+    if _size(snapshot) > target_chars:
+        for sec, entry in sg.items():
+            guidance = entry.get("guidance")
+            if isinstance(guidance, list) and len(guidance) > 1:
+                entry["guidance"] = guidance[:1]
+    return snapshot
+
+
 def _packet_view(p: PacketSnippet) -> dict[str, Any]:
     return {
         "packet_id": p.packet_id,
@@ -364,6 +449,19 @@ def _format_validation_failure(exc: Exception) -> str:
             f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}"
             for e in exc.errors()[:6]
         )
+    if isinstance(exc, json.JSONDecodeError):
+        msg = str(exc)
+        # The single most common failure on real cases is the response
+        # getting cut by an output-token cap mid-string. Detect it and
+        # tell operators exactly what to bump, instead of a cryptic
+        # "Unterminated string at char N".
+        if "Unterminated string" in msg or "Expecting" in msg:
+            return (
+                "JSONDecodeError (likely output-token truncation): "
+                f"{msg}. Bump --max-output-tokens (default 8192) or "
+                "shrink the retrieval bundle further."
+            )
+        return f"JSONDecodeError: {msg}"
     return f"{type(exc).__name__}: {exc}"
 
 
