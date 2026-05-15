@@ -393,6 +393,10 @@ def build_inspection_report(artifacts: BriefArtifacts) -> dict[str, Any]:
         "token_cost": refined_brief.get("token_cost"),
     }
 
+    verification_summary = _compute_verification_summary(
+        envelope.get("atoms") or (), artifacts_view
+    )
+
     return {
         "project_id": envelope.get("project_id"),
         "compile_id": envelope.get("compile_id"),
@@ -401,6 +405,7 @@ def build_inspection_report(artifacts: BriefArtifacts) -> dict[str, Any]:
         "pack_prior": pack_prior_summary,
         "site_reality": site_reality_summary,
         "refined_brief": refined_brief_summary,
+        "verification": verification_summary,
         "artifacts": artifacts_view,
         "atom_lineage": atom_lineage,
         "entities": entity_view,
@@ -438,6 +443,87 @@ def build_inspection_report(artifacts: BriefArtifacts) -> dict[str, Any]:
 
 
 # ────────────────────────────── per-artifact view ──────────────────────
+
+
+def _compute_verification_summary(
+    atoms: Any, artifacts_view: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Aggregate parser-os atom verification status across the corpus.
+
+    Parser-os tags every atom with a ``verified`` field
+    (``unverified|failed|verified|partial|unsupported``) that records
+    whether the parser could replay the source bytes back to the
+    extracted text. ``failed`` atoms are the canary for parser drift —
+    the source PDF / XLSX changed in a way the parser couldn't follow.
+
+    The dashboard uses this rollup to surface:
+
+    * Corpus-wide verified/failed/partial/unverified counts.
+    * The failure rate as a percentage.
+    * The top N artifacts ranked by raw failed-atom count, so a
+      reviewer can click straight into the noisy file.
+    """
+    counts: dict[str, int] = {}
+    failed_by_artifact: dict[str, int] = {}
+    artifact_meta: dict[str, dict[str, Any]] = {}
+    for art in artifacts_view:
+        aid = art.get("artifact_id")
+        if aid:
+            artifact_meta[aid] = {
+                "filename": art.get("filename"),
+                "artifact_type": art.get("artifact_type"),
+                "atom_count": art.get("atom_count", 0),
+            }
+    total_with_status = 0
+    for atom in atoms or ():
+        status = (atom.get("verified") or "unverified") or "unverified"
+        counts[status] = counts.get(status, 0) + 1
+        total_with_status += 1
+        if status == "failed":
+            art_id = atom.get("artifact_id") or ""
+            if art_id:
+                failed_by_artifact[art_id] = failed_by_artifact.get(art_id, 0) + 1
+
+    failed = counts.get("failed", 0)
+    partial = counts.get("partial", 0)
+    verified = counts.get("verified", 0)
+    unverified = counts.get("unverified", 0)
+    unsupported = counts.get("unsupported", 0)
+
+    def _pct(n: int) -> float:
+        return round(100.0 * n / total_with_status, 1) if total_with_status else 0.0
+
+    top_failed = sorted(
+        (
+            {
+                "artifact_id": aid,
+                "filename": (artifact_meta.get(aid) or {}).get("filename"),
+                "artifact_type": (artifact_meta.get(aid) or {}).get("artifact_type"),
+                "failed_atoms": n,
+                "atom_count": (artifact_meta.get(aid) or {}).get("atom_count", 0),
+            }
+            for aid, n in failed_by_artifact.items()
+        ),
+        key=lambda r: -r["failed_atoms"],
+    )[:10]
+
+    return {
+        "atom_total": total_with_status,
+        "counts": counts,
+        "verified_count": verified,
+        "failed_count": failed,
+        "partial_count": partial,
+        "unverified_count": unverified,
+        "unsupported_count": unsupported,
+        "verified_pct": _pct(verified),
+        "failed_pct": _pct(failed),
+        "partial_pct": _pct(partial),
+        # Health = % of atoms that the parser could fully replay.
+        # < 95 % is the "look closely" threshold; < 80 % is the
+        # "parser regression suspected" threshold.
+        "health_pct": _pct(verified),
+        "top_failed_artifacts": top_failed,
+    }
 
 
 def _artifact_view(

@@ -45,6 +45,7 @@ def render_inspection_html(report: dict[str, Any], pm_handoff: dict[str, Any] | 
     if pm_handoff:
         parts.append(_pm_handoff_block(pm_handoff))
     parts.append(_funnel_block(funnel))
+    parts.append(_verification_block(report.get("verification") or {}))
     parts.append(_pack_prior_block(report.get("pack_prior") or {}))
     parts.append(_site_reality_block(report.get("site_reality") or {}))
     parts.append(_artifacts_block(report.get("artifacts") or []))
@@ -153,6 +154,7 @@ def _header_block(project: str, compile_id: str, funnel: dict, report: dict, has
   <nav class="anchors">
     {pm_anchor}
     <a href="#funnel">Funnel</a>
+    <a href="#verification">Verification</a>
     <a href="#pack-prior">Pack prior</a>
     <a href="#site-reality">Site reality</a>
     <a href="#artifacts">Source artifacts</a>
@@ -604,6 +606,69 @@ def _brain_outputs_block(brain_items: dict, validations: dict, calibrations: dic
     return _section("Brain outputs — what each brain emitted", "\n".join(blocks), anchor="brains")
 
 
+def _verification_block(v: dict) -> str:
+    """Render the parser-os verified-status rollup.
+
+    Surfaced near the top so reviewers see corpus-level parser health
+    before they start clicking through individual atoms. The "top
+    failed artifacts" table is the operator's first lead when the
+    parser starts drifting on a customer's PDF/XLSX format.
+    """
+    if not v or not v.get("atom_total"):
+        body = "<p class='muted'>(no verification telemetry — envelope had no atoms)</p>"
+        return _section("Source verification", body, anchor="verification")
+    health_pct = float(v.get("health_pct") or 0.0)
+    failed = int(v.get("failed_count") or 0)
+    partial = int(v.get("partial_count") or 0)
+    verified = int(v.get("verified_count") or 0)
+    unverified = int(v.get("unverified_count") or 0)
+    unsupported = int(v.get("unsupported_count") or 0)
+    total = int(v.get("atom_total") or 0)
+    if health_pct >= 95:
+        css, label = "ok", f"{health_pct:.1f}% atoms replayed clean"
+    elif health_pct >= 80:
+        css, label = "warn", f"{health_pct:.1f}% atoms replayed clean — look closely"
+    else:
+        css, label = "bad", (
+            f"{health_pct:.1f}% atoms replayed clean — parser regression suspected"
+        )
+    badge = (
+        f'<span class="mode-badge mode-{css}">{_esc(label)}</span>'
+    )
+    top_rows = "\n".join(
+        f"<tr><td>{_esc(r.get('filename') or r.get('artifact_id'))}</td>"
+        f"<td>{_esc(r.get('artifact_type'))}</td>"
+        f"<td class='num'>{_esc(r.get('failed_atoms'))}</td>"
+        f"<td class='num'>{_esc(r.get('atom_count'))}</td>"
+        f"<td><code class='aid'>{_esc(r.get('artifact_id'))}</code></td></tr>"
+        for r in (v.get("top_failed_artifacts") or [])
+    ) or "<tr><td colspan='5' class='muted'>(no failed atoms — parser is clean on this corpus)</td></tr>"
+    body = f"""
+<div style="margin-bottom: 8px;">{badge}</div>
+<div class="kpi">
+  <div><strong class="ok">{_esc(verified)}</strong> verified</div>
+  <div><strong class="bad">{_esc(failed)}</strong> failed</div>
+  <div><strong class="warn">{_esc(partial)}</strong> partial</div>
+  <div><strong>{_esc(unverified)}</strong> unverified</div>
+  <div><strong>{_esc(unsupported)}</strong> unsupported</div>
+  <div class="muted">{_esc(total)} atoms total</div>
+</div>
+<h3 class="sub">Top artifacts by failed-atom count</h3>
+<table class="wide">
+  <thead><tr><th>Filename</th><th>Type</th><th class='num'>Failed</th><th class='num'>Total atoms</th><th>Artifact id</th></tr></thead>
+  <tbody>{top_rows}</tbody>
+</table>
+<p class="muted small">
+  <strong>How to read this:</strong> parser-os tags every extracted atom with a
+  <code>verified</code> status by replaying the source bytes. <code>failed</code> means
+  the bytes drifted from what was extracted (likely parser regression on this
+  artifact). Click into the artifact row in the &quot;Source artifacts&quot; section
+  below to see which specific atoms failed.
+</p>
+"""
+    return _section("Source verification — parser-os atom replay", body, anchor="verification")
+
+
 def _composed_summary_block(s: dict, manifest: dict | None = None) -> str:
     if not s:
         mode = _run_mode(manifest or {})
@@ -776,6 +841,7 @@ span.status-skipped  { background: #f4f5f7; color: var(--muted); }
 .mode-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; vertical-align: middle; }
 .mode-ok    { background: rgba(44,138,77,0.20); color: #6ee7a3; }
 .mode-warn  { background: rgba(179,89,0,0.25); color: #ffd591; }
+.mode-bad   { background: rgba(179,38,30,0.25); color: #ff9e94; }
 .mode-muted { background: #2d333b; color: #cdd6e0; }
 
 /* Empty-state callouts (e.g. no brains because substrate-only). */

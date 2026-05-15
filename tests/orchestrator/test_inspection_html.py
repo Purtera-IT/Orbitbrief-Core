@@ -136,3 +136,68 @@ def test_render_never_throws_with_minimal_manifest(manifest: dict[str, Any]) -> 
     html = render_inspection_html(_base_report(manifest=manifest))
     assert "<html" in html
     assert "</html>" in html
+
+
+def test_verification_block_surfaces_failed_atom_health() -> None:
+    """The Source verification block must show health %, the failed
+    counts, and the top failed artifact when the parser is drifting.
+
+    Regression guard for the case the user flagged: ``verified=failed``
+    was already in the data but invisible in the dashboard, so parser
+    drift could go unnoticed for entire engagements.
+    """
+    report = _base_report(manifest={"brains_run": ["msp"]})
+    report["verification"] = {
+        "atom_total": 10,
+        "counts": {"verified": 6, "failed": 3, "partial": 1},
+        "verified_count": 6,
+        "failed_count": 3,
+        "partial_count": 1,
+        "unverified_count": 0,
+        "unsupported_count": 0,
+        "verified_pct": 60.0,
+        "failed_pct": 30.0,
+        "partial_pct": 10.0,
+        "health_pct": 60.0,
+        "top_failed_artifacts": [
+            {
+                "artifact_id": "art_abc",
+                "filename": "RFP_addendum.pdf",
+                "artifact_type": "pdf",
+                "failed_atoms": 3,
+                "atom_count": 7,
+            }
+        ],
+    }
+    html = render_inspection_html(report)
+    assert "Source verification" in html
+    # 60% should hit the warn band (< 80% would be the bad band, but
+    # exactly 60 is bad). Either way the bad/warn badge must show.
+    assert "parser regression suspected" in html or "look closely" in html
+    # Counts must be in the KPI strip.
+    assert ">3</strong> failed" in html
+    assert ">6</strong> verified" in html
+    # Top failed artifact must be linkable.
+    assert "RFP_addendum.pdf" in html
+
+
+def test_verification_block_clean_corpus_shows_ok_badge() -> None:
+    report = _base_report(manifest={"brains_run": ["msp"]})
+    report["verification"] = {
+        "atom_total": 100,
+        "counts": {"verified": 100},
+        "verified_count": 100,
+        "failed_count": 0,
+        "partial_count": 0,
+        "unverified_count": 0,
+        "unsupported_count": 0,
+        "verified_pct": 100.0,
+        "failed_pct": 0.0,
+        "partial_pct": 0.0,
+        "health_pct": 100.0,
+        "top_failed_artifacts": [],
+    }
+    html = render_inspection_html(report)
+    assert "100.0% atoms replayed clean" in html
+    assert "mode-ok" in html
+    assert "no failed atoms" in html
