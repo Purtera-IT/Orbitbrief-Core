@@ -1314,6 +1314,43 @@ def build_audit_manifest(
 # ────────────────────────────── Multi-currency → USD-equivalent ──────────────────────────────
 
 
+@dataclass(frozen=True)
+class OcrBackendStatus:
+    """Snapshot of which OCR backends were reachable during compile.
+
+    Surfaced in PM_HANDOFF so the PM can see whether image / scanned
+    pages would have been OCR'd. ``available`` is the list of
+    backends that fired (or could have fired) on this run;
+    ``install_hints`` is a list of explicit install suggestions
+    when nothing was reachable.
+    """
+    available: list[str] = field(default_factory=list)
+    install_hints: list[str] = field(default_factory=list)
+
+
+def build_ocr_backend_status() -> OcrBackendStatus:
+    """Best-effort probe — returns the list of OCR backends the
+    parser would have used on this compile, with install hints when
+    nothing was reachable."""
+    available: list[str] = []
+    hints: list[str] = []
+    try:
+        # parser-os ships the ocr_chain in app.parsers; we import
+        # opportunistically here so OrbitBrief-Core works even when
+        # parser-os isn't installed in the same environment.
+        from app.parsers._ocr_chain import available_backends as _avail
+        available = list(_avail())
+    except Exception:
+        pass
+    if not available:
+        hints.extend([
+            "Install Tesseract on the host (Windows: github.com/UB-Mannheim/tesseract/wiki; Mac: `brew install tesseract`; Linux: `apt install tesseract-ocr`) and PyMuPDF will OCR scanned PDFs automatically.",
+            "Or `pip install pytesseract easyocr pillow-heif` for additional fallbacks.",
+            "Or `ollama pull llava` on the configured Ollama server to enable vision-LLM OCR (set PARSER_OS_OCR_OLLAMA_BASE_URL + PARSER_OS_OCR_OLLAMA_VISION_MODEL).",
+        ])
+    return OcrBackendStatus(available=available, install_hints=hints)
+
+
 FX_TO_USD: dict[str, float] = {
     "USD": 1.00,
     "EUR": 1.08, "GBP": 1.27, "CAD": 0.74, "AUD": 0.66, "JPY": 0.0067,
@@ -1323,8 +1360,71 @@ FX_TO_USD: dict[str, float] = {
 }
 
 
+_FX_LIVE_CACHE: dict[str, dict[str, float]] = {}
+
+
+def _fetch_live_fx_rates() -> dict[str, float]:
+    """Best-effort fetch of mid-market FX rates against USD.
+
+    Uses Frankfurter (ECB-backed, no API key, generous rate limit).
+    Cached for 4 hours per-process via ``_FX_LIVE_CACHE``. Failures
+    silently fall back to the static ``FX_TO_USD`` snapshot — the
+    UI still works without a network connection.
+
+    Set ``ORBITBRIEF_FX_API_URL`` to a custom endpoint (Bloomberg /
+    Reuters / OpenExchange wire-up) for SOX-grade accuracy. The
+    response shape must be a dict with a ``rates`` mapping of
+    {currency: rate-against-base}. Set ``ORBITBRIEF_FX_DISABLE=1``
+    to force the static snapshot.
+    """
+    import os as _os
+    import time as _time
+    import urllib.request as _urlreq
+    import json as _json
+
+    if _os.environ.get("ORBITBRIEF_FX_DISABLE", "").strip().lower() in {"1", "true", "yes"}:
+        return {}
+
+    cache_key = _os.environ.get("ORBITBRIEF_FX_API_URL", "frankfurter")
+    now = _time.time()
+    cached = _FX_LIVE_CACHE.get(cache_key)
+    if cached and (now - cached.get("_fetched_at", 0)) < 4 * 3600:
+        return {k: v for k, v in cached.items() if k != "_fetched_at"}
+
+    # Frankfurter quotes "1 base = N target", so we request base=USD
+    # and INVERT to match our "1 unit of currency in USD" convention.
+    url = _os.environ.get("ORBITBRIEF_FX_API_URL")
+    if not url:
+        symbols = ",".join(c for c in FX_TO_USD if c != "USD")
+        url = f"https://api.frankfurter.app/latest?from=USD&to={symbols}"
+    try:
+        req = _urlreq.Request(url, headers={"User-Agent": "OrbitBrief/1.0"})
+        with _urlreq.urlopen(req, timeout=5) as resp:
+            body = _json.loads(resp.read().decode("utf-8") or "{}")
+        rates_raw = body.get("rates") or {}
+        # Invert: rate = 1 / (USD-base rate to target)
+        rates = {
+            curr: (1.0 / float(rate)) if float(rate) > 0 else 0.0
+            for curr, rate in rates_raw.items()
+        }
+        rates["USD"] = 1.0
+        rates["_fetched_at"] = now
+        _FX_LIVE_CACHE[cache_key] = rates
+        return {k: v for k, v in rates.items() if k != "_fetched_at"}
+    except Exception:
+        return {}
+
+
+def _effective_fx_rate(currency: str) -> float:
+    """Return the FX rate to use — live if reachable, static otherwise."""
+    live = _fetch_live_fx_rates()
+    if live and currency.upper() in live:
+        return live[currency.upper()]
+    return FX_TO_USD.get(currency.upper(), 0.0)
+
+
 def usd_equivalent(amount: int, currency: str) -> int:
-    rate = FX_TO_USD.get((currency or "USD").upper(), 0.0)
+    rate = _effective_fx_rate((currency or "USD"))
     if rate <= 0:
         return 0
     return int(round(amount * rate))
@@ -1346,13 +1446,15 @@ class CurrencyConversion:
 
 
 def build_currency_conversions(currency_mentions: list[dict[str, Any]]) -> list[CurrencyConversion]:
+    """Project ``CurrencyMention`` dicts into USD-equivalent rows
+    using live FX rates when reachable, static fallback otherwise."""
     out: list[CurrencyConversion] = []
     for cm in currency_mentions:
         curr = (cm.get("currency") or "").upper()
         amount = int(cm.get("amount") or 0)
         if not curr or amount <= 0:
             continue
-        rate = FX_TO_USD.get(curr, 0.0)
+        rate = _effective_fx_rate(curr)
         if rate <= 0:
             continue
         out.append(CurrencyConversion(
@@ -1426,13 +1528,95 @@ def _normalize_part_number(value: str) -> str:
     return (value or "").upper().replace("‐", "-").replace(" ", "").strip()
 
 
+def _query_cisco_eox(part_numbers: list[str]) -> dict[str, tuple[str, str]]:
+    """Cisco EoX lookup adapter.
+
+    Returns ``{part_number: (status, replacement_hint)}`` for the
+    subset Cisco knows about. Requires the user to set:
+
+      CISCO_EOX_OAUTH_TOKEN  — OAuth2 bearer token from
+                                api.cisco.com (registered apps).
+
+    Silently returns {} when the token is missing or the endpoint
+    is unreachable so the brief still renders with the static
+    ``_KNOWN_EOL_PARTS`` fallback. The static list ships with the
+    most-encountered SKUs so this live path is upside, not a
+    prerequisite.
+    """
+    import os as _os
+    import urllib.request as _urlreq
+    import json as _json
+    token = _os.environ.get("CISCO_EOX_OAUTH_TOKEN", "").strip()
+    if not token or not part_numbers:
+        return {}
+    out: dict[str, tuple[str, str]] = {}
+    # Cisco EoX accepts up to 20 SKUs per request.
+    for batch_start in range(0, len(part_numbers), 20):
+        batch = part_numbers[batch_start : batch_start + 20]
+        sku_str = ",".join(batch)
+        url = f"https://apix.cisco.com/supporttools/eox/rest/5/EOXByProductID/1/{sku_str}"
+        try:
+            req = _urlreq.Request(
+                url,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/json",
+                },
+            )
+            with _urlreq.urlopen(req, timeout=10) as resp:
+                body = _json.loads(resp.read().decode("utf-8") or "{}")
+        except Exception:
+            continue
+        for record in body.get("EOXRecord") or []:
+            pid = (record.get("EOLProductID") or "").strip()
+            if not pid:
+                continue
+            end_of_sale = (record.get("EndOfSaleDate") or {}).get("value") or ""
+            end_of_support = (record.get("LastDateOfSupport") or {}).get("value") or ""
+            replacement = ""
+            for mig in record.get("EOXMigrationDetails") or []:
+                replacement = (mig.get("MigrationProductInfoURL") or
+                               mig.get("MigrationProductId") or
+                               mig.get("MigrationInformation") or "")
+                if replacement:
+                    break
+            if end_of_support:
+                status = "EOL"
+            elif end_of_sale:
+                status = "EOS"
+            else:
+                continue
+            out[pid] = (status, replacement[:140] or "see Cisco EoX bulletin")
+    return out
+
+
 def build_eol_flags(report: dict[str, Any]) -> list[EolFlag]:
+    """Match every BOM ``part_number`` against the static EOL list,
+    augmented with a live Cisco EoX lookup when the OAuth token
+    env var is set. The live lookup is upside — static list always
+    fires so the brief is deterministic without any external deps.
+    """
     out: list[EolFlag] = []
     seen: set[str] = set()
     norm_lookup: dict[str, tuple[str, str, str]] = {
         _normalize_part_number(pn): (pn, status, hint)
         for pn, (status, hint) in _KNOWN_EOL_PARTS.items()
     }
+    # Collect every distinct BOM part_number once so we batch the
+    # live Cisco EoX query into a single roundtrip.
+    bom_part_numbers: list[str] = []
+    seen_pns: set[str] = set()
+    for atom, _filename in _iter_atoms_with_files(report):
+        if atom.get("atom_type") != "vendor_line_item":
+            continue
+        s = atom.get("structured") or {}
+        if not isinstance(s, dict):
+            continue
+        pn = (str(s.get("part_number") or "")).strip()
+        if pn and pn.upper() not in seen_pns:
+            seen_pns.add(pn.upper())
+            bom_part_numbers.append(pn)
+    live_eox = _query_cisco_eox(bom_part_numbers)
     for atom, filename in _iter_atoms_with_files(report):
         if atom.get("atom_type") != "vendor_line_item":
             continue
@@ -1449,6 +1633,10 @@ def build_eol_flags(report: dict[str, Any]) -> list[EolFlag]:
                 if k and k in norm:
                     match = v
                     break
+        # Live Cisco EoX override — wins over static list when present.
+        live = live_eox.get(raw_pn)
+        if live:
+            match = (raw_pn, live[0], live[1])
         if not match:
             continue
         key = raw_pn + filename

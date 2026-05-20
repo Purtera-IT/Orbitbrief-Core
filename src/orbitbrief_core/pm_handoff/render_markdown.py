@@ -59,6 +59,7 @@ def render_pm_handoff_markdown(handoff: PMHandoff) -> str:
     lines.extend(_render_known_facts(handoff))
     lines.extend(_render_solution_architect_view(handoff))
     lines.extend(_render_source_inventory(handoff))
+    lines.extend(_render_ocr_backend_status(handoff))
     lines.extend(_render_customer_email(handoff))
     lines.extend(_render_stakeholder_pagers(handoff))
     return "\n".join(lines).rstrip() + "\n"
@@ -941,6 +942,31 @@ def _render_resource_conflicts(handoff: PMHandoff) -> list[str]:
         phases = ", ".join(c.get("phases", []))
         windows = ", ".join(f"{s}→{e}" for s, e in c.get("overlap_windows", []))
         lines.append(f"- **{c.get('owner','?')}** — overlaps in: {phases} (windows: {windows})")
+    lines.append("")
+    return lines
+
+
+def _render_ocr_backend_status(handoff: PMHandoff) -> list[str]:
+    status = handoff.ocr_backend_status or {}
+    avail = status.get("available") or []
+    hints = status.get("install_hints") or []
+    if not avail and not hints:
+        return []
+    lines = ["## OCR backend status", ""]
+    if avail:
+        lines.append(
+            f"Image-only PDF pages + image artifacts will be OCR'd via the "
+            f"first reachable backend: **{', '.join(avail)}**."
+        )
+    else:
+        lines.append(
+            "⚠ **No OCR backend is currently reachable.** Image artifacts "
+            "and scanned PDF pages produce a marker atom only. Install one "
+            "of the following to recover text from those files:"
+        )
+        lines.append("")
+        for h in hints:
+            lines.append(f"- {h}")
     lines.append("")
     return lines
 

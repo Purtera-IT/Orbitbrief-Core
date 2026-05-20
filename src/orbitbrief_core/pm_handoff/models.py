@@ -159,6 +159,7 @@ class PMHandoff:
     phase_dependencies: list[dict[str, Any]] = field(default_factory=list)
     critical_path_chain: list[str] = field(default_factory=list)
     comparable_deals: list[dict[str, Any]] = field(default_factory=list)
+    ocr_backend_status: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
