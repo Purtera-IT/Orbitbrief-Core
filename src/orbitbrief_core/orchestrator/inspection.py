@@ -562,7 +562,11 @@ def _artifact_view(
                 "authority_class": atom.get("authority_class"),
                 "confidence": atom.get("confidence"),
                 "verified": atom.get("verified"),
-                "text": (atom.get("text") or "")[:280],
+                # Lifted to 1200 chars (was 280) so the SOW draft +
+                # PM_HANDOFF reconciliation can detect full payment
+                # schedules and similar multi-clause sentences that
+                # used to be cut off mid-phrase.
+                "text": (atom.get("text") or "")[:1200],
                 "locator": atom.get("locator") or {},
                 "in_bundle": in_bundle,
                 "cited_by_brain": in_brain,

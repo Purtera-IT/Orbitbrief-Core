@@ -1023,7 +1023,22 @@ def build_change_order_triggers(report: dict[str, Any]) -> list[ChangeOrderTrigg
             m = pat.search(text)
             if not m:
                 continue
-            snippet = text[max(0, m.start() - 40): m.end() + 80][:200].strip()
+            # Start the snippet at the nearest preceding sentence
+            # boundary so the result reads as a complete clause
+            # ("Substitutions require written approval...")
+            # rather than mid-sentence ("Atlanta staging facility...").
+            pre_window = text[max(0, m.start() - 200): m.start()]
+            sentence_break = max(
+                pre_window.rfind(". "),
+                pre_window.rfind("! "),
+                pre_window.rfind("? "),
+                pre_window.rfind("\n"),
+            )
+            if sentence_break >= 0:
+                start = m.start() - (len(pre_window) - sentence_break - 2)
+            else:
+                start = m.start()
+            snippet = text[max(0, start): m.end() + 120][:240].strip()
             key = (kind, snippet[:80])
             if key in seen:
                 continue
