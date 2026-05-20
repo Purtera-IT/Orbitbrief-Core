@@ -567,6 +567,12 @@ def _artifact_view(
                 "in_bundle": in_bundle,
                 "cited_by_brain": in_brain,
                 "in_composed_brief": in_brief,
+                # A5: surface entity_keys + structured value so PM_HANDOFF
+                # can build cross-doc reconciliation tables (money / date
+                # / risk values), per-site pricing rollups (B6), and the
+                # risk register (B2) without re-parsing the envelope.
+                "entity_keys": list(atom.get("entity_keys") or ()),
+                "structured": dict(atom.get("structured") or {}),
             }
         )
 

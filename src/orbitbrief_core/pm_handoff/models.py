@@ -89,6 +89,14 @@ class PMHandoff:
     source_files: list[SourceFileSummary] = field(default_factory=list)
     sa_focus: list[str] = field(default_factory=list)
     customer_questions: list[GapCard] = field(default_factory=list)
+    # A5: cross-doc numeric / date reconciliation tables. These are
+    # plain-dict snapshots of MoneyMention / DateMention /
+    # ReconciliationFlag so PMHandoff stays JSON-serializable via
+    # ``to_dict`` without circular imports of the reconciliation
+    # module. The markdown renderer reads them directly.
+    money_mentions: list[dict[str, Any]] = field(default_factory=list)
+    date_mentions: list[dict[str, Any]] = field(default_factory=list)
+    reconciliation_flags: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

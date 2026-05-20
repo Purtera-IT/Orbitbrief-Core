@@ -24,6 +24,7 @@ def render_pm_handoff_markdown(handoff: PMHandoff) -> str:
     lines.extend(_render_scorecard(handoff))
     lines.extend(_render_domains(handoff))
     lines.extend(_render_sites(handoff))
+    lines.extend(_render_reconciliation(handoff))
     lines.extend(_render_questions(handoff))
     lines.extend(_render_known_facts(handoff))
     lines.extend(_render_solution_architect_view(handoff))
@@ -145,6 +146,81 @@ def _render_solution_architect_view(handoff: PMHandoff) -> list[str]:
         for g in technical[:20]:
             lines.append(f"- **{g.label}:** {g.suggested_open_question or g.message}")
         lines.append("")
+    return lines
+
+
+def _render_reconciliation(handoff: PMHandoff) -> list[str]:
+    """A5: Cross-doc money + date reconciliation tables.
+
+    Two tables and an optional flagged-pairs block. The intent is
+    PM-actionable at a glance — "do the docs agree on the contract
+    value and the dates?" — without an LLM in the loop.
+
+    Suppressed entirely when both tables are empty so a single-doc
+    intake doesn't render a useless header.
+    """
+    money = handoff.money_mentions or []
+    dates = handoff.date_mentions or []
+    flags = handoff.reconciliation_flags or []
+    if not money and not dates:
+        return []
+
+    lines: list[str] = ["## Cross-document reconciliation", ""]
+
+    if flags:
+        lines.extend([
+            "### Values that may need PM reconciliation",
+            "",
+            "Pairs of money values close enough to plausibly refer to the same line item but not equal. The PM should confirm which one is authoritative before SOW lock.",
+            "",
+        ])
+        for f in flags:
+            lines.append(f"- **{f.get('label', '')}**")
+            for v in f.get("values", []):
+                src_files = sorted({s.get("filename", "") for s in v.get("sources", [])})
+                files_str = ", ".join(f"`{x}`" for x in src_files if x)
+                lines.append(f"  - {v.get('display','')} — seen in {files_str}")
+        lines.append("")
+
+    if money:
+        # Cap at 25 distinct values so the worst-case (a BOM with
+        # 100 line-item prices) doesn't overwhelm the doc; 25 is
+        # enough to show every "total / subtotal / contingency"
+        # together with the largest line items.
+        lines.extend([
+            "### Money mentioned across documents",
+            "",
+            "| Value | Files | Sample text |",
+            "|---:|---|---|",
+        ])
+        for m in money[:25]:
+            sources = m.get("sources") or []
+            files = sorted({s.get("filename", "") for s in sources})
+            files_str = "<br>".join(f"`{x}`" for x in files if x)
+            sample = (sources[0].get("snippet", "") if sources else "").replace("|", "\\|")
+            lines.append(f"| {m.get('display','')} | {files_str} | {sample} |")
+        if len(money) > 25:
+            lines.append(f"| _… {len(money) - 25} more money values not shown_ | | |")
+        lines.append("")
+
+    if dates:
+        # Surface only cross-doc dates here — single-doc dates
+        # rarely tell the PM anything new at this layer.
+        cross_doc_dates = [d for d in dates if len({s.get("filename", "") for s in (d.get("sources") or [])}) >= 2]
+        if cross_doc_dates:
+            lines.extend([
+                "### Dates mentioned in multiple documents",
+                "",
+                "| Date | Files |",
+                "|---|---|",
+            ])
+            for d in cross_doc_dates[:25]:
+                files = sorted({s.get("filename", "") for s in (d.get("sources") or [])})
+                files_str = ", ".join(f"`{x}`" for x in files if x)
+                lines.append(f"| {d.get('iso','')} | {files_str} |")
+            if len(cross_doc_dates) > 25:
+                lines.append(f"| _… {len(cross_doc_dates) - 25} more cross-doc dates not shown_ | |")
+            lines.append("")
     return lines
 
 

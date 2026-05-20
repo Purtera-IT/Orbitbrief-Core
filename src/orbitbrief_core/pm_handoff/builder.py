@@ -27,6 +27,12 @@ from orbitbrief_core.pm_handoff.models import (
     SourceFileSummary,
     SourcePointer,
 )
+from orbitbrief_core.pm_handoff.reconciliation import (
+    build_date_mentions,
+    build_money_mentions,
+    build_reconciliation_flags,
+)
+from dataclasses import asdict
 
 MAX_FACTS_PER_CATEGORY = 12
 
@@ -58,6 +64,14 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     customer_questions = [g for g in gaps if g.severity in {"blocker", "warning"}]
     one_line = _build_one_line_summary(case_id, domains, sites, gaps)
 
+    # A5 reconciliation: build money / date mentions and near-value
+    # flags from the inspection report. These are stored as dicts so
+    # PMHandoff.to_dict() stays JSON-clean (no dataclass nesting
+    # depth quirks across versions).
+    money = build_money_mentions(report)
+    dates = build_date_mentions(report)
+    flags = build_reconciliation_flags(money)
+
     return PMHandoff(
         case_id=case_id,
         status=status,
@@ -71,6 +85,9 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         source_files=source_files,
         sa_focus=sa_focus,
         customer_questions=customer_questions,
+        money_mentions=[asdict(m) for m in money],
+        date_mentions=[asdict(d) for d in dates],
+        reconciliation_flags=[asdict(f) for f in flags],
     )
 
 

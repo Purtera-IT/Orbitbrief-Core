@@ -116,6 +116,13 @@ class EnvelopeAtom(_Lenient):
     # ``unsupported`` / ``unverified``. Kept open as a string so a
     # future verifier state doesn't break the consumer.
     verified: str = "unverified"
+    # A5: parser-os now surfaces ``entity_keys`` and the parser's
+    # structured value on every compact atom so consumers can group
+    # atoms by logical entity (e.g. ``money:total_contract_value``)
+    # and detect cross-doc value contradictions, build risk register
+    # tables, roll up per-site pricing, etc.
+    entity_keys: list[str] = Field(default_factory=list)
+    structured: dict[str, Any] = Field(default_factory=dict)
 
 
 # ────────────────────────────── entities ───────────────────────────────
