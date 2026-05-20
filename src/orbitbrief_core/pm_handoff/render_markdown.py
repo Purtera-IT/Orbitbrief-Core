@@ -38,11 +38,14 @@ def render_pm_handoff_markdown(handoff: PMHandoff) -> str:
     lines.extend(_render_critical_path(handoff))
     lines.extend(_render_resource_conflicts(handoff))
     lines.extend(_render_lead_time_flags(handoff))
+    lines.extend(_render_eol_flags(handoff))
     lines.extend(_render_license_items(handoff))
     lines.extend(_render_subcontractors(handoff))
     lines.extend(_render_sla_penalties(handoff))
     lines.extend(_render_change_order_triggers(handoff))
     lines.extend(_render_currencies_taxes(handoff))
+    lines.extend(_render_currency_conversions(handoff))
+    lines.extend(_render_comparable_deals(handoff))
     lines.extend(_render_action_items(handoff))
     lines.extend(_render_actions_by_week(handoff))
     lines.extend(_render_acceptance_checklist(handoff))
@@ -942,6 +945,30 @@ def _render_resource_conflicts(handoff: PMHandoff) -> list[str]:
     return lines
 
 
+def _render_eol_flags(handoff: PMHandoff) -> list[str]:
+    flags = handoff.eol_flags or []
+    if not flags:
+        return []
+    lines = [
+        "## End-of-life / end-of-sale hardware",
+        "",
+        "BOM line items on the known vendor lifecycle list. **PM must propose replacements before the customer signs the BOM** — these parts may be unbuyable or in extended-support-only state.",
+        "",
+        "| Status | Part # | Description | Qty | Suggested replacement | Source |",
+        "|:--|---|---|---:|---|---|",
+    ]
+    status_emoji = {"EOL": "❌", "EOS": "⚠️", "extended_support_only": "🟡"}
+    for f in flags:
+        emoji = status_emoji.get(f.get("eol_status",""), "")
+        lines.append(
+            f"| {emoji} {f.get('eol_status','')} | `{f.get('part_number','')}` | "
+            f"{f.get('description','')} | {f.get('quantity', 0)} | "
+            f"{f.get('replacement_hint','')} | `{f.get('source','')}` |"
+        )
+    lines.append("")
+    return lines
+
+
 def _render_lead_time_flags(handoff: PMHandoff) -> list[str]:
     flags = handoff.lead_time_flags or []
     if not flags:
@@ -1084,6 +1111,55 @@ def _render_currencies_taxes(handoff: PMHandoff) -> list[str]:
                 f"in `{t.get('source','')}`: \"{t.get('snippet','')[:160]}\""
             )
         lines.append("")
+    return lines
+
+
+def _render_currency_conversions(handoff: PMHandoff) -> list[str]:
+    convs = handoff.currency_conversions or []
+    if not convs:
+        return []
+    lines = [
+        "## Multi-currency → USD reconciliation",
+        "",
+        "Non-USD amounts converted to USD-equivalent at the snapshot FX rate. PM should verify the rate vs the contract's stated FX clause.",
+        "",
+        "| Original amount | FX rate | USD equivalent | Source | Snippet |",
+        "|---|---:|---:|---|---|",
+    ]
+    for c in convs:
+        amt = int(c.get("amount", 0))
+        curr = c.get("currency", "")
+        usd = int(c.get("usd_equivalent", 0))
+        rate = c.get("fx_rate_used", 0)
+        snip = (c.get("snippet", "") or "").replace("|", "\\|")
+        lines.append(
+            f"| {curr} {amt:,} | {rate:.4f} | ${usd:,} | `{c.get('source','')}` | {snip[:140]} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _render_comparable_deals(handoff: PMHandoff) -> list[str]:
+    deals = handoff.comparable_deals or []
+    if not deals:
+        return []
+    lines = [
+        "## Comparable past deals",
+        "",
+        "Closest matches from the corpus history. Use as a benchmark for schedule duration + final margin %.",
+        "",
+        "| Case | Closed | Value (USD) | Domains | Sites | Phases | Final margin % | Outcome |",
+        "|---|---|---:|---|---:|---:|---:|---|",
+    ]
+    for d in deals:
+        domains = ", ".join(d.get("domains") or [])[:80]
+        lines.append(
+            f"| `{d.get('case_id','')}` | {d.get('closed_at','—')} | "
+            f"${int(d.get('deal_value_usd',0)):,} | {domains} | "
+            f"{d.get('sites_count', 0)} | {d.get('phase_count', 0)} | "
+            f"{d.get('final_margin_pct', 0):.1f}% | {d.get('outcome','—')} |"
+        )
+    lines.append("")
     return lines
 
 

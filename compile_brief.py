@@ -243,6 +243,29 @@ def main(argv: list[str] | None = None) -> int:
                 (out_dir / "RFP_DRAFT.md").write_text(rfp_md, encoding="utf-8")
         except Exception:
             pass
+        # Append the brief's snapshot to the corpus history ledger
+        # so future runs can surface comparable past deals.
+        try:
+            from orbitbrief_core.pm_handoff.pm_intelligence import write_corpus_history
+            import os as _os
+            history_path = _os.environ.get(
+                "ORBITBRIEF_CORPUS_HISTORY",
+                str((out_dir / ".orbitbrief_history.jsonl").resolve()),
+            )
+            domains_active = [d.label for d in handoff.domains if d.active_for_sow]
+            margin = handoff.margin_view or {}
+            write_corpus_history(history_path, {
+                "case_id": handoff.case_id,
+                "closed_at": "",
+                "deal_value_usd": int(margin.get("deal_total") or 0),
+                "domains": domains_active,
+                "sites_count": len(handoff.sites),
+                "phase_count": len(handoff.schedule_phases),
+                "final_margin_pct": float(margin.get("margin_pct") or 0),
+                "outcome": "",
+            })
+        except Exception:
+            pass
         (out_dir / "PM_EXECUTIVE_SUMMARY.html").write_text(
             render_pm_executive_html(handoff), encoding="utf-8"
         )

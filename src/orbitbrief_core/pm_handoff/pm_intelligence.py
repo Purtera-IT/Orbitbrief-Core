@@ -578,42 +578,202 @@ class SubcontractorMention:
 
 
 _KNOWN_SUBS_DISTRIBUTORS = {
-    # distributors
+    # ── distributors ──
     "graybar": "Distributor",
     "wesco": "Distributor",
     "anixter": "Distributor",
     "scansource": "Distributor",
     "td synnex": "Distributor",
     "synnex": "Distributor",
+    "tech data": "Distributor",
+    "ingram micro": "Distributor",
+    "arrow electronics": "Distributor",
+    "avnet": "Distributor",
+    "exclusive networks": "Distributor",
+    "westcon": "Distributor",
+    "comstor": "Distributor",
+    "rexel": "Distributor",
+    "consolidated electrical distributors": "Distributor",
+    "advanced electronics": "Distributor",
+    "powell electronics": "Distributor",
+    # ── VARs / Resellers ──
     "eplus": "VAR / Reseller",
     "cdw": "VAR / Reseller",
     "shi": "VAR / Reseller",
-    # installers
+    "softchoice": "VAR / Reseller",
+    "computacenter": "VAR / Reseller",
+    "softcat": "VAR / Reseller",
+    "insight": "VAR / Reseller",
+    "connection": "VAR / Reseller",
+    "zones": "VAR / Reseller",
+    "groupware technology": "VAR / Reseller",
+    # ── National MSPs / Integrators ──
     "presidio": "Installer / Integrator",
     "convergeone": "Installer / Integrator",
     "world wide technology": "Installer / Integrator",
     "wwt": "Installer / Integrator",
     "logicalis": "Installer / Integrator",
     "diversified": "Installer / Integrator",
-    "ais": "Installer / Integrator",
     "av-iq": "AV integrator",
-    # major OEMs (vendor, not sub, but often called subs in MSP-speak)
-    "cisco": "OEM",
-    "juniper": "OEM",
-    "arista": "OEM",
-    "fortinet": "OEM",
-    "palo alto": "OEM",
-    "crestron": "OEM",
-    "biamp": "OEM",
-    "qsc": "OEM",
-    "extron": "OEM",
-    "shure": "OEM",
-    "logitech": "OEM",
-    "poly": "OEM",
-    "genetec": "OEM",
-    "milestone": "OEM",
-    "avigilon": "OEM",
-    "axis": "OEM",
+    "ais": "Installer / Integrator",
+    "kyndryl": "MSP / Integrator",
+    "ntt data": "MSP / Integrator",
+    "accenture": "MSP / Integrator",
+    "deloitte": "MSP / Integrator",
+    "dxc technology": "MSP / Integrator",
+    "ibm services": "MSP / Integrator",
+    "hcl": "MSP / Integrator",
+    "tcs": "MSP / Integrator",
+    "infosys": "MSP / Integrator",
+    "wipro": "MSP / Integrator",
+    "capgemini": "MSP / Integrator",
+    "atos": "MSP / Integrator",
+    "fujitsu": "MSP / Integrator",
+    "unisys": "MSP / Integrator",
+    "leidos": "MSP / Integrator",
+    "general dynamics it": "MSP / Integrator",
+    "sirius computer solutions": "MSP / Integrator",
+    "ahead": "MSP / Integrator",
+    "trace3": "MSP / Integrator",
+    "optiv": "Security Integrator",
+    "guidepoint": "Security Integrator",
+    "gotham technology group": "MSP / Integrator",
+    # ── Cabling / Low-voltage subs ──
+    "windstream": "Carrier / ISP",
+    "lumen": "Carrier / ISP",
+    "att": "Carrier / ISP",
+    "at&t": "Carrier / ISP",
+    "verizon": "Carrier / ISP",
+    "comcast business": "Carrier / ISP",
+    "spectrum business": "Carrier / ISP",
+    "cox business": "Carrier / ISP",
+    "frontier": "Carrier / ISP",
+    "level 3": "Carrier / ISP",
+    "zayo": "Carrier / ISP",
+    # ── Major Networking OEMs ──
+    "cisco": "OEM (Networking)",
+    "meraki": "OEM (Networking)",
+    "juniper": "OEM (Networking)",
+    "arista": "OEM (Networking)",
+    "fortinet": "OEM (Security)",
+    "palo alto": "OEM (Security)",
+    "check point": "OEM (Security)",
+    "sonicwall": "OEM (Security)",
+    "watchguard": "OEM (Security)",
+    "barracuda": "OEM (Security)",
+    "f5": "OEM (Networking)",
+    "aruba": "OEM (Networking)",
+    "ruckus": "OEM (Networking)",
+    "extreme networks": "OEM (Networking)",
+    "ubiquiti": "OEM (Networking)",
+    "mist": "OEM (Networking)",
+    "cradlepoint": "OEM (Networking)",
+    "peplink": "OEM (Networking)",
+    # ── AV / Collaboration OEMs ──
+    "crestron": "OEM (AV)",
+    "biamp": "OEM (AV)",
+    "qsc": "OEM (AV)",
+    "extron": "OEM (AV)",
+    "shure": "OEM (AV)",
+    "sennheiser": "OEM (AV)",
+    "logitech": "OEM (AV)",
+    "poly": "OEM (AV)",
+    "polycom": "OEM (AV)",
+    "yealink": "OEM (AV)",
+    "neat": "OEM (AV)",
+    "huddly": "OEM (AV)",
+    "barco": "OEM (AV)",
+    "samsung": "OEM (Display)",
+    "lg": "OEM (Display)",
+    "nec display": "OEM (Display)",
+    "sharp": "OEM (Display)",
+    "planar": "OEM (Display)",
+    "atlona": "OEM (AV)",
+    "kramer": "OEM (AV)",
+    "lightware": "OEM (AV)",
+    # ── Security / Surveillance ──
+    "genetec": "OEM (VMS)",
+    "milestone": "OEM (VMS)",
+    "avigilon": "OEM (VMS)",
+    "axis": "OEM (Camera)",
+    "hanwha": "OEM (Camera)",
+    "bosch": "OEM (Camera)",
+    "hikvision": "OEM (Camera)",
+    "dahua": "OEM (Camera)",
+    "verkada": "OEM (Camera)",
+    "rhombus": "OEM (Camera)",
+    "exacqvision": "OEM (VMS)",
+    "lenel": "OEM (Access Control)",
+    "honeywell": "OEM (Access Control)",
+    "software house": "OEM (Access Control)",
+    "ccure": "OEM (Access Control)",
+    "kantech": "OEM (Access Control)",
+    "openpath": "OEM (Access Control)",
+    "brivo": "OEM (Access Control)",
+    "kisi": "OEM (Access Control)",
+    # ── Power / Environment ──
+    "apc": "OEM (Power)",
+    "eaton": "OEM (Power)",
+    "vertiv": "OEM (Power)",
+    "schneider electric": "OEM (Power)",
+    "tripp lite": "OEM (Power)",
+    "generac": "OEM (Generator)",
+    "cummins": "OEM (Generator)",
+    "kohler": "OEM (Generator)",
+    "caterpillar": "OEM (Generator)",
+    "siemens": "OEM (BMS)",
+    "trane": "OEM (HVAC)",
+    "carrier": "OEM (HVAC)",
+    "york": "OEM (HVAC)",
+    "daikin": "OEM (HVAC)",
+    "mitsubishi": "OEM (HVAC)",
+    "stulz": "OEM (Cooling)",
+    "liebert": "OEM (Cooling)",
+    # ── Servers / Storage / Endpoints ──
+    "dell": "OEM (Server/Endpoint)",
+    "hpe": "OEM (Server)",
+    "hp inc": "OEM (Endpoint)",
+    "lenovo": "OEM (Endpoint)",
+    "supermicro": "OEM (Server)",
+    "ibm": "OEM (Server)",
+    "oracle": "OEM (Server)",
+    "netapp": "OEM (Storage)",
+    "pure storage": "OEM (Storage)",
+    "nutanix": "OEM (HCI)",
+    "vmware": "OEM (Virtualization)",
+    "vmware aria": "OEM (Cloud)",
+    "veeam": "OEM (Backup)",
+    "rubrik": "OEM (Backup)",
+    "cohesity": "OEM (Backup)",
+    "commvault": "OEM (Backup)",
+    "zerto": "OEM (Backup)",
+    "datto": "OEM (Backup)",
+    # ── Identity / Endpoint / Tools ──
+    "microsoft": "OEM (Software / Cloud)",
+    "office 365": "OEM (Software)",
+    "intune": "OEM (Endpoint mgmt)",
+    "okta": "OEM (IAM)",
+    "entra": "OEM (IAM)",
+    "duo": "OEM (MFA)",
+    "azure": "OEM (Cloud)",
+    "aws": "OEM (Cloud)",
+    "gcp": "OEM (Cloud)",
+    "amazon web services": "OEM (Cloud)",
+    "google cloud": "OEM (Cloud)",
+    "salesforce": "OEM (SaaS)",
+    "servicenow": "OEM (SaaS)",
+    "atlassian": "OEM (SaaS)",
+    "splunk": "OEM (SIEM)",
+    "datadog": "OEM (Observability)",
+    "new relic": "OEM (Observability)",
+    "crowdstrike": "OEM (EDR)",
+    "sentinelone": "OEM (EDR)",
+    "carbon black": "OEM (EDR)",
+    "tenable": "OEM (Vuln mgmt)",
+    "qualys": "OEM (Vuln mgmt)",
+    "rapid7": "OEM (SIEM)",
+    "wiz": "OEM (CNAPP)",
+    "lacework": "OEM (CNAPP)",
 }
 
 
@@ -1149,3 +1309,320 @@ def build_audit_manifest(
         "generated_at": generated_at,
         "deliverables": manifest_entries,
     }
+
+
+# ────────────────────────────── Multi-currency → USD-equivalent ──────────────────────────────
+
+
+FX_TO_USD: dict[str, float] = {
+    "USD": 1.00,
+    "EUR": 1.08, "GBP": 1.27, "CAD": 0.74, "AUD": 0.66, "JPY": 0.0067,
+    "CHF": 1.13, "SEK": 0.094, "NOK": 0.094, "DKK": 0.145,
+    "CNY": 0.139, "RMB": 0.139, "INR": 0.0120, "MXN": 0.058, "BRL": 0.20,
+    "SGD": 0.74, "HKD": 0.128, "AED": 0.272, "ZAR": 0.054,
+}
+
+
+def usd_equivalent(amount: int, currency: str) -> int:
+    rate = FX_TO_USD.get((currency or "USD").upper(), 0.0)
+    if rate <= 0:
+        return 0
+    return int(round(amount * rate))
+
+
+@dataclass(frozen=True)
+class CurrencyConversion:
+    """One non-USD amount converted to its USD-equivalent.
+
+    FX rates come from the static FX_TO_USD table. For SOX / contract
+    use, replace with a live FX feed keyed to the deal close date.
+    """
+    currency: str
+    amount: int
+    usd_equivalent: int
+    fx_rate_used: float
+    source: str
+    snippet: str
+
+
+def build_currency_conversions(currency_mentions: list[dict[str, Any]]) -> list[CurrencyConversion]:
+    out: list[CurrencyConversion] = []
+    for cm in currency_mentions:
+        curr = (cm.get("currency") or "").upper()
+        amount = int(cm.get("amount") or 0)
+        if not curr or amount <= 0:
+            continue
+        rate = FX_TO_USD.get(curr, 0.0)
+        if rate <= 0:
+            continue
+        out.append(CurrencyConversion(
+            currency=curr,
+            amount=amount,
+            usd_equivalent=int(round(amount * rate)),
+            fx_rate_used=rate,
+            source=cm.get("source", ""),
+            snippet=cm.get("snippet", ""),
+        ))
+    return out
+
+
+# ────────────────────────────── Hardware EOL/EOS ──────────────────────────────
+
+
+@dataclass(frozen=True)
+class EolFlag:
+    """A BOM line whose part number is on the known EOL/EOS list."""
+    part_number: str
+    description: str
+    quantity: int
+    eol_status: str
+    replacement_hint: str
+    source: str
+
+
+_KNOWN_EOL_PARTS: dict[str, tuple[str, str]] = {
+    # Cisco Catalyst
+    "C9200-24P": ("EOS", "Catalyst 9300X-24P or Catalyst 9200CX-24P"),
+    "C9300-24T-A": ("EOS", "Catalyst 9300X-24T"),
+    "C9200L-24T-4G-A": ("extended_support_only", "Catalyst 9200CX-24T"),
+    "WS-C2960X-24PD-L": ("EOL", "Catalyst 9200CX-24P"),
+    "WS-C3850-24P-L": ("EOL", "Catalyst 9300-24P"),
+    "WS-C3850-48P-L": ("EOL", "Catalyst 9300-48P"),
+    "C8200-1N-4T": ("EOS", "C8300 platform"),
+    "ISR4321/K9": ("extended_support_only", "C8200-1N-4T"),
+    "ISR4331/K9": ("EOL", "C8300-1N1S-6T"),
+    "ASA5505-K9": ("EOL", "Firepower 1010"),
+    "ASA5510-K9": ("EOL", "Firepower 1120"),
+    # Meraki
+    "MR42": ("EOS", "MR46"),
+    "MR52": ("EOL", "MR57"),
+    "MR84": ("EOL", "MR55"),
+    "MX64": ("EOS", "MX67"),
+    "MX84": ("EOS", "MX85 / MX95"),
+    "MS220-8P": ("EOL", "MS130-8P"),
+    "MS320-24P": ("EOL", "MS390-24P"),
+    # Aruba
+    "JL357A": ("EOS", "Aruba CX 6300M"),
+    "AP-225": ("EOL", "AP-535 / AP-635"),
+    "AP-305": ("EOS", "AP-505"),
+    # Crestron
+    "DM-MD8X8": ("EOL", "DM-NVX 360"),
+    "DM-MD16X16": ("EOL", "DM-NVX 360 fabric"),
+    "DMC-HD": ("EOL", "DM-NVX-D30"),
+    # Polycom/Poly
+    "GROUP 310": ("EOL", "Poly G7500 / Studio X"),
+    "GROUP 500": ("EOL", "Studio X70"),
+    "GROUP 700": ("EOL", "Studio X70 + multi-camera"),
+    # Cisco Webex
+    "CS-ROOM-KIT-K9": ("EOS", "Cisco Room Kit Pro / Room Bar"),
+    "CS-MX800-K9": ("EOL", "Room Bar Pro"),
+    # Software lifecycle
+    "SECURITY CENTER 5.10": ("extended_support_only", "Security Center 5.12"),
+    "XPROTECT 2020 R3": ("EOS", "XProtect 2024 R1"),
+}
+
+
+def _normalize_part_number(value: str) -> str:
+    return (value or "").upper().replace("‐", "-").replace(" ", "").strip()
+
+
+def build_eol_flags(report: dict[str, Any]) -> list[EolFlag]:
+    out: list[EolFlag] = []
+    seen: set[str] = set()
+    norm_lookup: dict[str, tuple[str, str, str]] = {
+        _normalize_part_number(pn): (pn, status, hint)
+        for pn, (status, hint) in _KNOWN_EOL_PARTS.items()
+    }
+    for atom, filename in _iter_atoms_with_files(report):
+        if atom.get("atom_type") != "vendor_line_item":
+            continue
+        s = atom.get("structured") or {}
+        if not isinstance(s, dict):
+            continue
+        raw_pn = str(s.get("part_number") or "")
+        if not raw_pn:
+            continue
+        norm = _normalize_part_number(raw_pn)
+        match = norm_lookup.get(norm)
+        if not match:
+            for k, v in norm_lookup.items():
+                if k and k in norm:
+                    match = v
+                    break
+        if not match:
+            continue
+        key = raw_pn + filename
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            qty = int(float(s.get("quantity") or 0))
+        except (ValueError, TypeError):
+            qty = 0
+        out.append(EolFlag(
+            part_number=raw_pn,
+            description=str(s.get("description") or "")[:200],
+            quantity=qty,
+            eol_status=match[1],
+            replacement_hint=match[2],
+            source=filename,
+        ))
+    return out
+
+
+# ────────────────────────────── Real critical-path with dependencies ──────────────────────────────
+
+
+@dataclass(frozen=True)
+class PhaseDependency:
+    """One detected upstream→downstream phase dependency."""
+    upstream: str
+    downstream: str
+    evidence: str
+    source: str
+
+
+_DEPENDENCY_RE = re.compile(
+    r"\b("
+    r"after\s+(?P<after>[A-Z][\w\s]{2,40})\s+(?:is\s+)?(?:complete|completes?|done|finished|signed|accepted)|"
+    r"depends\s+on\s+(?P<deps>[A-Z][\w\s]{2,40})|"
+    r"prerequisite[:\s]+(?P<prereq>[A-Z][\w\s]{2,40})|"
+    r"blocked\s+by\s+(?P<block>[A-Z][\w\s]{2,40})|"
+    r"requires\s+(?P<req>[A-Z][\w\s]{2,40})\s+(?:to\s+(?:complete|finish|be\s+done))"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def build_phase_dependencies(report: dict[str, Any]) -> list[PhaseDependency]:
+    out: list[PhaseDependency] = []
+    for atom, filename in _iter_atoms_with_files(report):
+        text = atom.get("text") or ""
+        if not text:
+            continue
+        for m in _DEPENDENCY_RE.finditer(text):
+            upstream = (
+                m.group("after") or m.group("deps") or m.group("prereq")
+                or m.group("block") or m.group("req") or ""
+            ).strip()
+            if not upstream or len(upstream) > 60:
+                continue
+            pre = text[max(0, m.start() - 80): m.start()]
+            phase_m = re.search(r"\b([A-Z][\w]+(?:\s+[A-Z][\w]+){0,3})\b", pre[::-1])
+            downstream = phase_m.group(1)[::-1].strip() if phase_m else ""
+            if downstream and downstream != upstream:
+                out.append(PhaseDependency(
+                    upstream=upstream,
+                    downstream=downstream,
+                    evidence=text[max(0, m.start() - 40): m.end() + 60][:200],
+                    source=filename,
+                ))
+    return out
+
+
+def critical_path_from_dependencies(
+    phases: list[dict[str, Any]],
+    dependencies: list[PhaseDependency],
+) -> list[str]:
+    """Compute critical-path phase chain via dep-graph longest path.
+    Falls back to sequential ordering when no real deps detected."""
+    if not dependencies:
+        return [p.get("phase", "") for p in phases if p.get("start") and p.get("end")]
+    adj: dict[str, set[str]] = defaultdict(set)
+    nodes: set[str] = set()
+    for p in phases:
+        name = (p.get("phase") or "").strip()
+        if name:
+            nodes.add(name)
+    for d in dependencies:
+        u = d.upstream.strip()
+        dn = d.downstream.strip()
+        if u in nodes and dn in nodes:
+            adj[u].add(dn)
+    memo: dict[str, list[str]] = {}
+    def longest(n: str) -> list[str]:
+        if n in memo:
+            return memo[n]
+        best: list[str] = []
+        for nxt in adj.get(n, set()):
+            cand = longest(nxt)
+            if len(cand) > len(best):
+                best = cand
+        memo[n] = [n] + best
+        return memo[n]
+    chains = [longest(n) for n in nodes]
+    return max(chains, key=len, default=[])
+
+
+# ────────────────────────────── Historical bench data ──────────────────────────────
+
+
+@dataclass(frozen=True)
+class ComparableDeal:
+    """One past-deal entry from the append-only corpus history."""
+    case_id: str
+    closed_at: str
+    deal_value_usd: int
+    domains: list[str]
+    sites_count: int
+    phase_count: int
+    final_margin_pct: float = 0.0
+    outcome: str = ""
+
+
+def write_corpus_history(history_path: Any, snapshot: dict[str, Any]) -> None:
+    """Append-only ledger of every brief generated. Each row carries
+    the salient PM-facing metrics for ``load_comparable_deals``."""
+    import json as _json
+    from pathlib import Path as _Path
+    p = _Path(history_path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open("a", encoding="utf-8") as f:
+        f.write(_json.dumps(snapshot, ensure_ascii=False) + "\n")
+
+
+def load_comparable_deals(
+    history_path: Any,
+    *,
+    target_value_usd: int = 0,
+    target_domains: list[str] | None = None,
+    limit: int = 5,
+) -> list[ComparableDeal]:
+    """Return the N past deals closest to ``target_value_usd`` /
+    overlapping ``target_domains``. Empty list when corpus is empty."""
+    import json as _json
+    import math
+    from pathlib import Path as _Path
+    p = _Path(history_path)
+    if not p.exists():
+        return []
+    target_domains_set = set(target_domains or [])
+    candidates: list[tuple[float, ComparableDeal]] = []
+    with p.open(encoding="utf-8") as f:
+        for line in f:
+            try:
+                row = _json.loads(line)
+            except _json.JSONDecodeError:
+                continue
+            try:
+                deal = ComparableDeal(
+                    case_id=str(row.get("case_id", "")),
+                    closed_at=str(row.get("closed_at", "")),
+                    deal_value_usd=int(row.get("deal_value_usd") or 0),
+                    domains=list(row.get("domains") or []),
+                    sites_count=int(row.get("sites_count") or 0),
+                    phase_count=int(row.get("phase_count") or 0),
+                    final_margin_pct=float(row.get("final_margin_pct") or 0),
+                    outcome=str(row.get("outcome", "")),
+                )
+            except (TypeError, ValueError):
+                continue
+            if deal.deal_value_usd > 0 and target_value_usd > 0:
+                value_dist = abs(math.log(deal.deal_value_usd) - math.log(target_value_usd))
+            else:
+                value_dist = 10.0
+            overlap = len(target_domains_set & set(deal.domains))
+            score = value_dist - 0.5 * overlap
+            candidates.append((score, deal))
+    candidates.sort(key=lambda x: x[0])
+    return [d for _, d in candidates[:limit]]

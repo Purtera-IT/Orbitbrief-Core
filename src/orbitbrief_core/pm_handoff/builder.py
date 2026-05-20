@@ -50,19 +50,24 @@ from orbitbrief_core.pm_handoff.reconciliation import (
 from orbitbrief_core.pm_handoff.pm_intelligence import (
     build_change_order_triggers,
     build_critical_path,
+    build_currency_conversions,
     build_currency_mentions,
     build_engagement_model,
+    build_eol_flags,
     build_intake_completeness,
     build_lead_time_flags,
     build_license_items,
     build_margin_view,
+    build_phase_dependencies,
     build_resource_conflicts,
     build_risk_aging,
     build_sla_penalties,
     build_subcontractor_mentions,
     build_tax_clauses,
+    critical_path_from_dependencies,
     group_acceptance_by_site,
     group_actions_by_week,
+    load_comparable_deals,
     risk_numeric_score,
 )
 from dataclasses import asdict
@@ -157,6 +162,23 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     site_keys = [s.name for s in sites]
     accept_dicts = [asdict(a) for a in accept_checks]
     accept_by_site = group_acceptance_by_site(accept_dicts, site_keys=site_keys)
+    # Final universality wave: currency conversions, EOL flags,
+    # dependency-aware critical path, historical bench
+    currency_convs = build_currency_conversions([asdict(c) for c in currencies])
+    eol = build_eol_flags(report)
+    phase_deps = build_phase_dependencies(report)
+    cp_chain = critical_path_from_dependencies(phase_dicts, phase_deps)
+    import os as _os
+    history_path = _os.environ.get(
+        "ORBITBRIEF_CORPUS_HISTORY",
+        str((case_dir / ".orbitbrief_history.jsonl").resolve()),
+    )
+    comparable = load_comparable_deals(
+        history_path,
+        target_value_usd=margin.deal_total,
+        target_domains=[d.label for d in domains if d.active_for_sow],
+        limit=5,
+    )
     completeness = build_intake_completeness(
         has_deal_total=bool(margin.deal_total),
         has_publishable_site=any(s.publishable for s in sites),
@@ -219,6 +241,11 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         actions_by_week=actions_weekly,
         acceptance_by_site=accept_by_site,
         intake_completeness=[asdict(g) for g in completeness],
+        currency_conversions=[asdict(c) for c in currency_convs],
+        eol_flags=[asdict(e) for e in eol],
+        phase_dependencies=[asdict(d) for d in phase_deps],
+        critical_path_chain=list(cp_chain),
+        comparable_deals=[asdict(c) for c in comparable],
     )
 
 

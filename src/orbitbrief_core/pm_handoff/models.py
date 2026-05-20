@@ -153,6 +153,12 @@ class PMHandoff:
     actions_by_week: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     acceptance_by_site: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     intake_completeness: list[dict[str, Any]] = field(default_factory=list)
+    # Final universality wave
+    currency_conversions: list[dict[str, Any]] = field(default_factory=list)
+    eol_flags: list[dict[str, Any]] = field(default_factory=list)
+    phase_dependencies: list[dict[str, Any]] = field(default_factory=list)
+    critical_path_chain: list[str] = field(default_factory=list)
+    comparable_deals: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
