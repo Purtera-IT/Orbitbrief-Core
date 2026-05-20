@@ -185,10 +185,24 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         has_deal_total=bool(margin.deal_total),
         has_publishable_site=any(s.publishable for s in sites),
         has_schedule_phase=bool(phases),
+        # An exec sponsor is detected when ANY contact directory row
+        # has a sponsor-shaped role label OR a sponsor-shaped role
+        # cell appeared in any structured atom. The previous logic
+        # only checked gap messages — gaps never contain "sponsor"
+        # so this was always false on every project.
         has_executive_stakeholder=any(
-            "sponsor" in (g.message or "").lower() or "executive" in (g.message or "").lower()
-            for g in gaps
-        ) or bool([c for c in contacts if c.role]),
+            any(token in (c.role or "").lower() for token in (
+                "sponsor", "executive", "vp", "vice president",
+                "ceo", "cfo", "cto", "cio", "ciso", "head of",
+                "director of", "managing director", "chief",
+            ))
+            for c in contacts
+        ) or any(
+            "executive sponsor" in (a.get("text") or "").lower()
+            or "vp " in (a.get("text") or "").lower()
+            for art in (report.get("artifacts") or [])
+            for a in (art.get("atoms") or [])
+        ),
         has_vendor_line=bool(rfp_items),
         has_risk=bool(risks),
         has_exit_criteria=bool(accept_checks),
@@ -328,6 +342,21 @@ def _build_site_summaries(report: dict[str, Any], case_dir: Path | None = None) 
         artifact_count = _count_any(cluster.get("artifact_ids")) or _count_any(
             st.get("artifact_ids")
         )
+        # Audit fix: orphan / micro-cluster sites are usually false
+        # positives from address-line parsing ("Building C" inside
+        # an address) or device-acronym parsing ("warehouse RF"
+        # where RF is read as a site code). Drop when:
+        #   * tiny cluster (≤ 2 atoms from ≤ 2 artifacts), OR
+        #   * canonical name's tail token is a known device
+        #     acronym (rf / ap / vms / dc / ip / poe / etc.)
+        device_acronym_suffixes = {
+            "rf", "ap", "aps", "vms", "ip", "poe", "ups", "pdu",
+            "dc", "msa", "nda", "sla", "kvm", "san", "lan", "wan",
+        }
+        last_tok = name.lower().split()[-1] if name else ""
+        looks_device_shaped = last_tok in device_acronym_suffixes
+        if (member_count <= 2 and artifact_count <= 2) or looks_device_shaped:
+            continue
         out.append(
             SiteSummary(
                 name=name,

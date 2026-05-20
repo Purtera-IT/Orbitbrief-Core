@@ -109,11 +109,11 @@ class MarginView:
 
 
 _SERVICES_SUBTOTAL_RE = re.compile(
-    r"services?\s+subtotal[:\s]+\$?([\d,]+(?:\.\d+)?)",
+    r"services?\s+subtotal(?:\s+target)?[:\s]+\$?([\d,]+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 _HARDWARE_SUBTOTAL_RE = re.compile(
-    r"hardware\s+subtotal[:\s]+\$?([\d,]+(?:\.\d+)?)",
+    r"hardware\s+subtotal(?:\s+target)?[:\s]+\$?([\d,]+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 _LOGISTICS_SUBTOTAL_RE = re.compile(
@@ -123,7 +123,22 @@ _LOGISTICS_SUBTOTAL_RE = re.compile(
 
 
 def build_margin_view(report: dict[str, Any]) -> MarginView:
-    """Compute a margin view from BOM line items + total-value mentions."""
+    """Compute a margin view from BOM line items + text-matched subtotals.
+
+    Authority order:
+      1. When the source explicitly says ``Hardware subtotal: $X``,
+         ``Services subtotal: $Y``, ``Logistics/contingency: $Z``,
+         use those values as authoritative (they are the customer's
+         own breakdown — no risk of double-counting).
+      2. Only when those text matches are missing do we fall back to
+         summing ``qty × unit_price`` from the BOM atoms.
+
+    The previous version added the BOM sum AND the text-matched
+    services_subtotal, double-counting labor lines on OPTBOT
+    ($1,556,712 BOM-sum + $536,030 text-svc = $2,092,742 vs the
+    customer's actual $1,847,250 total — produced a fake -0.3%
+    margin). With the new precedence the answer matches the source.
+    """
     notes: list[str] = []
     # ── deal total: largest money entity_key ≥ $100k ──
     money_values: set[int] = set()
@@ -136,8 +151,24 @@ def build_margin_view(report: dict[str, Any]) -> MarginView:
                     pass
     deal_total = max((v for v in money_values if v >= 100_000), default=0)
 
-    # ── hardware subtotal from BOM atoms ──
-    hardware_subtotal = 0
+    # ── text-matched subtotals (hardware / services / logistics) ──
+    text_hw = 0
+    text_svc = 0
+    text_other = 0
+    for atom, _ in _iter_atoms_with_files(report):
+        text = atom.get("text") or ""
+        m = _HARDWARE_SUBTOTAL_RE.search(text)
+        if m:
+            text_hw = max(text_hw, _money_int(m.group(1)))
+        m = _SERVICES_SUBTOTAL_RE.search(text)
+        if m:
+            text_svc = max(text_svc, _money_int(m.group(1)))
+        m = _LOGISTICS_SUBTOTAL_RE.search(text)
+        if m:
+            text_other = max(text_other, _money_int(m.group(1)))
+
+    # ── BOM qty × unit_price sum — used only when text matches absent ──
+    bom_sum = 0
     for atom, _ in _iter_atoms_with_files(report):
         if atom.get("atom_type") != "vendor_line_item":
             continue
@@ -150,40 +181,51 @@ def build_margin_view(report: dict[str, Any]) -> MarginView:
         except (TypeError, ValueError):
             continue
         if qty > 0 and unit > 0:
-            hardware_subtotal += qty * unit
+            bom_sum += qty * unit
 
-    # ── text-matched subtotals (services, logistics) ──
-    services_subtotal = 0
-    other_subtotal = 0
-    for atom, _ in _iter_atoms_with_files(report):
-        text = atom.get("text") or ""
-        m = _SERVICES_SUBTOTAL_RE.search(text)
-        if m:
-            services_subtotal = max(services_subtotal, _money_int(m.group(1)))
-        m = _LOGISTICS_SUBTOTAL_RE.search(text)
-        if m:
-            other_subtotal = max(other_subtotal, _money_int(m.group(1)))
+    # Authority precedence (no double-counting):
+    if text_hw and text_svc:
+        hardware_subtotal = text_hw
+        services_subtotal = text_svc
+        other_subtotal = text_other
+        confidence = "high"
+    elif text_hw or text_svc:
+        # Partial text match — combine what we have with BOM remainder.
+        # Conservative: take text values where present, fall back to BOM
+        # for what's missing. Only count BOM ONCE (not double).
+        hardware_subtotal = text_hw or bom_sum
+        services_subtotal = text_svc
+        other_subtotal = text_other
+        confidence = "medium"
+    else:
+        # No text subtotals — use BOM sum as a single "total cost" line.
+        hardware_subtotal = bom_sum
+        services_subtotal = 0
+        other_subtotal = text_other
+        confidence = "low"
 
     total_cost = hardware_subtotal + services_subtotal + other_subtotal
     gross = deal_total - total_cost if deal_total and total_cost else 0
     margin_pct = (gross / deal_total * 100.0) if deal_total else 0.0
 
-    # Confidence:
-    sig_count = sum(1 for v in (deal_total, hardware_subtotal, services_subtotal) if v)
-    confidence = "high" if sig_count >= 3 else ("medium" if sig_count == 2 else "low")
-
     if hardware_subtotal == 0:
-        notes.append("Hardware subtotal could not be computed — no vendor_line_item atoms with quantity × unit_price.")
+        notes.append("Hardware subtotal could not be computed — no vendor_line_item atoms with quantity × unit_price and no text-matched subtotal.")
     if deal_total and total_cost and gross < 0:
         notes.append(
             f"⚠ Costs exceed deal total ({_display_money(total_cost)} > "
             f"{_display_money(deal_total)}). PM must reconcile — the SOW "
             f"will lose money as currently scoped."
         )
-    if margin_pct and margin_pct < 15:
+    if margin_pct and 0 < margin_pct < 15:
         notes.append(
             f"⚠ Margin {margin_pct:.1f}% is below typical 15% MSP floor — "
             f"flag for finance review."
+        )
+    elif margin_pct == 0 and total_cost and deal_total:
+        notes.append(
+            f"⚠ Zero-margin SOW: deal total exactly matches computed cost. "
+            f"PM should add margin or confirm this is intentional "
+            f"(pass-through pricing)."
         )
 
     return MarginView(

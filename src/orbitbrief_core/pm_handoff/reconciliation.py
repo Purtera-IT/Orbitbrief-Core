@@ -409,6 +409,13 @@ def build_stakeholder_pagers(
 
         action_lines: list[str] = []
         for g in gaps:
+            # Audit fix: stakeholder pagers must filter parser-os
+            # internal correctness questions (Site Reality v5
+            # verification, kind=physical_site checks, etc.) — they
+            # belong on the SA lane, not in a CFO / IT / Procurement
+            # one-pager. Mirror the customer-email filter.
+            if _is_internal_gap(g):
+                continue
             label = getattr(g, "label", "") or getattr(g, "domain_label", "")
             text = (
                 getattr(g, "suggested_open_question", "")
@@ -717,15 +724,46 @@ def _proximity_email_for_name(text: str, name: str) -> str:
 def build_stakeholder_contacts(report: dict[str, Any]) -> list[StakeholderContact]:
     """Walk atoms for name + role + email/phone rosters.
 
-    Two paths:
+    Three paths:
       1. Structured roster rows where canonical_cells carry the
          four fields directly. Highest-fidelity path.
-      2. Free-text atoms where a stakeholder name appears near
-         an email / phone pattern. Uses proximity matching so an
-         email pairs with the closest name, not the first.
+      2. Free-text pipe-separated roster: ``Name | Title | Email
+         | Role | ...``. Common pattern in DOCX exec briefs.
+      3. Free-text atoms where a stakeholder name appears near
+         an email / phone pattern. Uses proximity matching.
     """
     out: list[StakeholderContact] = []
     seen: set[str] = set()  # name_norm dedup across the whole project
+
+    # Path 2: pipe-separated roster rows. Detect blocks of text
+    # where lines/segments match ``Name | Title | email@domain | ...``.
+    import re as _re
+    pipe_roster_re = _re.compile(
+        r"([A-Z][\w\-']+(?:\s+[A-Z][\w\-']+){1,3})"
+        r"\s*\|\s*"
+        r"([A-Z][\w\s,\-/&]+?)"
+        r"\s*\|\s*"
+        r"([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})"
+    )
+    for atom, filename in _iter_atoms_with_files(report):
+        text = atom.get("text") or ""
+        if "|" not in text or "@" not in text:
+            continue
+        for m in pipe_roster_re.finditer(text):
+            name = m.group(1).strip()
+            role = m.group(2).strip()[:80]
+            email = m.group(3).strip()
+            name_norm = name.lower().strip()
+            if name_norm in seen:
+                continue
+            seen.add(name_norm)
+            out.append(StakeholderContact(
+                name=name,
+                role=role,
+                email=email,
+                phone="",
+                source=filename,
+            ))
 
     for atom, filename in _iter_atoms_with_files(report):
         structured = atom.get("structured") or {}
@@ -1192,6 +1230,35 @@ class ActionItem:
     severity: str = ""  # "blocker" / "warning" / "" — only meaningful for gap items
 
 
+# Parser-os internal correctness questions that should NOT show up in the
+# PM action checklist — they are SA / developer concerns ("verify each
+# published site cluster carries kind=physical_site...") that leaked into
+# the gap list. The customer-email renderer filters these too. Keep the
+# two filters in sync.
+_INTERNAL_GAP_TOKENS = (
+    "verify",
+    "synthesis rendering",
+    "model is broken",
+    "promotion path",
+    "site reality v",
+    "parser-os",
+    "orbitbrief",
+    "publish as a physical-site cluster",
+    "kind=physical_site",
+    "member_atom_ids",
+    "artifact_ids",
+)
+
+
+def _is_internal_gap(gap: Any) -> bool:
+    text = (
+        (getattr(gap, "suggested_open_question", "") or "")
+        + " "
+        + (getattr(gap, "message", "") or "")
+    ).lower()
+    return any(token in text for token in _INTERNAL_GAP_TOKENS)
+
+
 def build_action_items(
     *,
     gaps: list[Any],
@@ -1204,11 +1271,18 @@ def build_action_items(
     priority (already pre-sorted in risk_rows), then phases sorted
     by start (already pre-sorted in schedule_phases). Owner=""
     means the PM has to assign the action manually.
+
+    Audit fix: parser-os internal correctness questions (Site
+    Reality v5 promotion, "kind=physical_site" verification, etc.)
+    are filtered out — they belong on the SA review lane, not in
+    the PM's action queue.
     """
     items: list[ActionItem] = []
     for g in gaps:
         sev = getattr(g, "severity", "")
         if sev not in {"blocker", "warning"}:
+            continue
+        if _is_internal_gap(g):
             continue
         label = getattr(g, "suggested_open_question", "") or getattr(g, "message", "")
         prefix = "Resolve" if sev == "blocker" else "Confirm"

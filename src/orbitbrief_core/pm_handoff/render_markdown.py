@@ -1193,6 +1193,14 @@ def _render_risk_aging(handoff: PMHandoff) -> list[str]:
     aging = handoff.risk_aging or []
     if not aging:
         return []
+    # Audit fix: when every risk shows 0 days open (because the intake
+    # date proxy is today's date — the project hasn't started yet),
+    # the table just repeats the risk register with no signal. Suppress
+    # in that case so we don't waste PM attention. The whole section
+    # only fires once a real "risk_created_at" timestamp lands on
+    # the atom (a Phase 2.0 follow-up).
+    if all(int(a.get("days_open", 0)) == 0 for a in aging):
+        return []
     lines = [
         "## Risk aging",
         "",
