@@ -34,6 +34,7 @@ from orbitbrief_core.pm_handoff.reconciliation import (
     build_date_mentions,
     build_money_mentions,
     build_reconciliation_flags,
+    build_rfp_line_items,
     build_risk_register,
     build_schedule_phases,
     build_site_rollups,
@@ -93,6 +94,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     compliance = build_compliance_callouts(report)
     allocations = parse_bom_allocations(report)
     accept_checks = build_acceptance_checks(report)
+    rfp_items = build_rfp_line_items(report)
 
     return PMHandoff(
         case_id=case_id,
@@ -118,6 +120,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         compliance_callouts=[asdict(c) for c in compliance],
         site_allocations=[asdict(a) for a in allocations],
         acceptance_checks=[asdict(a) for a in accept_checks],
+        rfp_line_items=[asdict(r) for r in rfp_items],
     )
 
 

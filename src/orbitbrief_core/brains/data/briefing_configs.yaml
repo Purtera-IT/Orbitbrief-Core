@@ -1258,6 +1258,14 @@ domains:
       - "Conference rooms, auditoriums, board rooms, signage walls."
       - "Always identify control system (Crestron / QSC Q-SYS / Extron) and DSP family."
       - "Network video conferencing (Teams / Zoom) is in scope when the room hardware is being installed."
+    risk_patterns:
+      - "Room cabling not in scope (HDMI/HDBaseT runs missing from low-voltage subcontract)."
+      - "Codec firmware version mismatch between Teams Rooms / Zoom Rooms appliances."
+      - "Dante / AES67 networking on a shared VLAN with QoS not configured."
+      - "Signal-loss surprises on long HDBaseT pulls past 100m without extender plan."
+      - "Acoustic treatment / SPL targets not measured at customer-acceptance."
+    compliance_frameworks:
+      - "Workplace ADA compliance for assistive listening / closed captioning."
   building_management_systems:
     display_name: Building Management Systems
     operating_rules:
@@ -1303,6 +1311,16 @@ domains:
       - "Operational ownership of an existing camera + VMS plant."
       - "Capture retention SLA in days and any compliance regime (criminal justice, HIPAA, PCI)."
       - "Truck-roll repair coverage area + dispatch SLA must be explicit."
+    risk_patterns:
+      - "Retention period SLA mismatch between sites (e.g. 30 days vs 90 days)."
+      - "VMS license shortage on adding cameras."
+      - "Camera firmware not on supported VMS version; loss of analytics."
+      - "Insufficient storage / write throughput for the configured retention window."
+      - "Privacy mask / RBAC rules not enforced uniformly across sites."
+    compliance_frameworks:
+      - "Footage retention requirements per jurisdiction (criminal justice, HIPAA, PCI-DSS)."
+      - "Privacy / data residency rules (GDPR, CCPA) — esp. for cloud-recorded VMS."
+      - "SOC 2 audit trail expectations on access logs."
   procurement_finance:
     display_name: Procurement and Finance
     operating_rules:
@@ -1339,6 +1357,16 @@ domains:
       - "UPS sizing must reference connected load + runtime target."
       - "Generator scope must capture fuel type, ATS coordination, and transfer time."
       - "Grounding / bonding scope follows TIA-607 / J-STD-607 — cite the standard when applicable."
+    risk_patterns:
+      - "Permit timeline slip — AHJ inspection availability windows."
+      - "Existing panel out of capacity; subpanel install adds weeks."
+      - "Load study undersized; UPS runtime misses target."
+      - "ATS coordination missed during cutover; transfer time exceeds critical-load tolerance."
+      - "Grounding compliance gap with TIA-607 / J-STD-607."
+    compliance_frameworks:
+      - "TIA-607 / J-STD-607 grounding & bonding"
+      - "NEC code compliance for the AHJ"
+      - "Permit + inspection records for AHJ closeout"
       - "Permit + licensed-electrician requirements are jurisdictional — flag missing AHJ data as open_items."
   professional_services:
     display_name: Professional Services

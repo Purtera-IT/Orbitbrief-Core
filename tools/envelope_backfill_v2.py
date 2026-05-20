@@ -188,6 +188,31 @@ Hard rules:
    - Vendor names that match a device class word (UPS, switch, AP, camera, controller, firewall). These refer to the device type, not a vendor brand.
 6. If unsure, SKIP. False positives cost more than misses.
 
+EXAMPLES
+
+Example A — money + stakeholder hit, generic site miss:
+INPUT: "The grand total is two million one hundred thousand dollars per Renee Watkins. \
+Work covers various office areas including hubs and warehouses."
+GOOD OUTPUT:
+{"new_entities": [
+  {"entity_type": "money", "canonical_value": "2100000", "raw_text_span": "two million one hundred thousand dollars", "confidence": 0.92, "rationale": "Written-out amount."},
+  {"entity_type": "stakeholder", "canonical_value": "Renee Watkins", "raw_text_span": "Renee Watkins", "confidence": 0.95, "rationale": "Named approver context."}
+]}
+SKIPPED: "various office areas" / "hubs" / "warehouses" — generic noun phrases, no specific named facility.
+
+Example B — relative date + missed site:
+INPUT: "Acceptance review happens 30 days after kickoff at the Madrid Innovation Center."
+GOOD OUTPUT:
+{"new_entities": [
+  {"entity_type": "date", "canonical_value": "kickoff+30d", "raw_text_span": "30 days after kickoff", "confidence": 0.85, "rationale": "Relative date anchored to kickoff."},
+  {"entity_type": "site", "canonical_value": "Madrid Innovation Center", "raw_text_span": "Madrid Innovation Center", "confidence": 0.9, "rationale": "Proper-noun facility name."}
+]}
+
+Example C — vendor-class noun should NOT be emitted as vendor:
+INPUT: "Each rack gets a managed switch and a UPS for power."
+GOOD OUTPUT: {"new_entities": []}
+RATIONALE: "switch" and "UPS" are device classes, not vendor brand names.
+
 /no_think"""
 
 
@@ -344,6 +369,27 @@ Output JSON shape:
 Only emit risks with confidence ≥ 0.8 AND a clear risk_id pattern (R-NN or similar).
 If no risks present, return {"new_risks": []}.
 
+EXAMPLE
+
+INPUT: "Risk R-04: ATL-WEST carrier circuit could miss the procurement window. \
+Mitigation is to stage a temporary 5G failover kit. Owner Renee Watkins, weekly review."
+GOOD OUTPUT:
+{"new_risks": [
+  {
+    "risk_id": "R-04",
+    "description": "ATL-WEST carrier circuit could miss the procurement window",
+    "probability": "medium",
+    "impact": "high",
+    "mitigation": "Stage a temporary 5G failover kit",
+    "owner_name": "Renee Watkins",
+    "review_cadence": "weekly",
+    "affected_site_slug": "atl_west",
+    "confidence": 0.92,
+    "raw_text_span": "Risk R-04: ATL-WEST carrier circuit could miss the procurement window",
+    "rationale": "Explicit risk ID with mitigation and owner."
+  }
+]}
+
 /no_think"""
 
 
@@ -435,6 +481,24 @@ Output JSON shape:
 Only emit phases with confidence ≥ 0.8 AND both dates in ISO format.
 If no phase schedule present, return {"new_phases": []}.
 
+EXAMPLE
+
+INPUT: "Phase 3 Site implementation | 2026-07-06 to 2026-07-24 | \
+install site waves, commission rooms, validate Wi-Fi, reconcile assets."
+GOOD OUTPUT:
+{"new_phases": [
+  {
+    "phase_number": 3,
+    "phase_name": "Site implementation",
+    "start_date": "2026-07-06",
+    "end_date": "2026-07-24",
+    "activities": ["install site waves", "commission rooms", "validate Wi-Fi", "reconcile assets"],
+    "confidence": 0.95,
+    "raw_text_span": "Phase 3 Site implementation | 2026-07-06 to 2026-07-24",
+    "rationale": "Explicit numbered phase with ISO start + end."
+  }
+]}
+
 /no_think"""
 
 
@@ -520,6 +584,18 @@ Output JSON shape:
 Only emit terms with confidence ≥ 0.8.
 If no payment schedule present, return {"new_payment_terms": []}.
 
+EXAMPLE
+
+INPUT: "Payment schedule: 30% at order acceptance, 40% on equipment receipt, \
+20% at site acceptance, 10% after hypercare closeout."
+GOOD OUTPUT:
+{"new_payment_terms": [
+  {"percentage": 30, "milestone_label": "order acceptance", "milestone_slug": "order_acceptance", "confidence": 0.95, "raw_text_span": "30% at order acceptance", "rationale": "Explicit % + milestone."},
+  {"percentage": 40, "milestone_label": "equipment receipt", "milestone_slug": "equipment_receipt", "confidence": 0.95, "raw_text_span": "40% on equipment receipt", "rationale": "Explicit % + milestone."},
+  {"percentage": 20, "milestone_label": "site acceptance", "milestone_slug": "site_acceptance", "confidence": 0.95, "raw_text_span": "20% at site acceptance", "rationale": "Explicit % + milestone."},
+  {"percentage": 10, "milestone_label": "hypercare closeout", "milestone_slug": "hypercare_closeout", "confidence": 0.92, "raw_text_span": "10% after hypercare closeout", "rationale": "Explicit % + milestone."}
+]}
+
 /no_think"""
 
 
@@ -600,6 +676,22 @@ Output JSON shape:
 
 Only emit approvals with confidence ≥ 0.8.
 If no approvals present, return {"new_approvals": []}.
+
+EXAMPLES
+
+Example A — threshold approval:
+INPUT: "CFO approval required over $1,500,000."
+GOOD OUTPUT:
+{"new_approvals": [
+  {"kind": "threshold", "approver_role": "CFO", "approver_name": null, "amount_usd": 1500000, "condition_text": null, "subject": "spend over threshold", "confidence": 0.95, "raw_text_span": "CFO approval required over $1,500,000", "rationale": "Explicit role + dollar threshold."}
+]}
+
+Example B — conditional approval:
+INPUT: "Jordan Ames: Approved business case pending final cutover calendar."
+GOOD OUTPUT:
+{"new_approvals": [
+  {"kind": "conditional", "approver_role": null, "approver_name": "Jordan Ames", "amount_usd": null, "condition_text": "final cutover calendar", "subject": "business case", "confidence": 0.93, "raw_text_span": "Jordan Ames: Approved business case pending final cutover calendar", "rationale": "Conditional approval with explicit pending clause."}
+]}
 
 /no_think"""
 
@@ -721,6 +813,22 @@ Output JSON shape:
 
 Only emit rules with confidence ≥ 0.8.
 If no rules present, return {"new_rules": []}.
+
+EXAMPLES
+
+Example A — substitution rule:
+INPUT: "Substitutions require written approval from Priya Narang and an updated BOM workbook."
+GOOD OUTPUT:
+{"new_rules": [
+  {"rule_kind": "substitution", "trigger": "BOM line-item substitution", "required_action": "obtain written approval and update BOM workbook", "approver_name": "Priya Narang", "approver_role": null, "site_slug": null, "confidence": 0.93, "raw_text_span": "Substitutions require written approval from Priya Narang", "rationale": "Explicit substitution-control clause with named approver."}
+]}
+
+Example B — escort + site:
+INPUT: "ATL-WEST after-hours installation requires a customer-supplied escort."
+GOOD OUTPUT:
+{"new_rules": [
+  {"rule_kind": "escort", "trigger": "after-hours installation at ATL-WEST", "required_action": "customer must supply an escort", "approver_name": null, "approver_role": null, "site_slug": "atl_west", "confidence": 0.9, "raw_text_span": "ATL-WEST after-hours installation requires a customer-supplied escort", "rationale": "Explicit site + escort obligation."}
+]}
 
 /no_think"""
 

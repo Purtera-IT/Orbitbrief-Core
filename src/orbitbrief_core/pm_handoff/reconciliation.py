@@ -442,6 +442,118 @@ def build_stakeholder_pagers(
     return pagers
 
 
+# ────────────────────────────── B8 vendor RFP packet ──────────────────────────────
+
+
+@dataclass(frozen=True)
+class RFPLineItem:
+    """One row in a vendor RFP packet.
+
+    Built directly from ``atom_type == 'vendor_line_item'`` atoms
+    with their ``structured`` part_number / description / quantity
+    / unit_price_raw / lead_time fields. Category is inferred from
+    the description so the RFP can be split into vendor-shaped
+    sections even when the source BOM has no material_family
+    column.
+    """
+
+    category: str  # "Network", "AV / Collaboration", "Power", ...
+    part_number: str
+    description: str
+    quantity: int
+    unit_price: int  # whole dollars; 0 if missing
+    lead_time: str
+    notes: str
+    source: str
+
+
+# Description-keyword → category mapping. Generous on purpose —
+# better to over-categorize than miss a line item; the PM can
+# re-bucket if needed.
+_RFP_CATEGORY_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Network & Wireless", (
+        "access point", "wi-fi", "wifi", "ap ", "switch", "router",
+        "firewall", "vpn", "wlan", "vlan", "poe", "patch panel",
+    )),
+    ("AV / Collaboration", (
+        "video bar", "video conferencing", "camera", "microphone",
+        "speaker", "soundbar", "monitor", "display", "signage",
+        "scheduling panel", "interactive panel", "huddle",
+    )),
+    ("Power & Environmentals", (
+        "ups", "uninterruptible", "pdu", "battery", "power",
+        "rack", "cooling", "hvac",
+    )),
+    ("Endpoints / IT Devices", (
+        "tablet", "laptop", "desktop", "workstation", "printer",
+        "label printer", "scanner", "barcode", "rugged",
+    )),
+    ("Structured Cabling", (
+        "cable", "fiber", "patch", "jack", "tray", "raceway",
+        "conduit", "j-hook",
+    )),
+    ("Security / Surveillance", (
+        "ip camera", "vms", "access control", "badge reader",
+        "intrusion", "alarm", "intercom",
+    )),
+    ("Services & Labor", (
+        "installation", "training", "discovery", "design",
+        "project management", "support", "adoption", "labor",
+        "after-hours", "weekend",
+    )),
+)
+
+
+def _categorize_line_item(description: str) -> str:
+    d = (description or "").lower()
+    for category, keywords in _RFP_CATEGORY_KEYWORDS:
+        if any(k in d for k in keywords):
+            return category
+    return "Miscellaneous"
+
+
+def build_rfp_line_items(report: dict[str, Any]) -> list[RFPLineItem]:
+    """Project every ``vendor_line_item`` atom into an RFP row.
+
+    Items without a description AND without a part_number are
+    dropped — they're usually placeholder rows in the BOM (blank
+    services line, header row, etc.).
+    """
+    out: list[RFPLineItem] = []
+    for atom, filename in _iter_atoms_with_files(report):
+        if atom.get("atom_type") != "vendor_line_item":
+            continue
+        s = atom.get("structured") or {}
+        if not isinstance(s, dict):
+            continue
+        description = str(s.get("description") or "")
+        part_number = str(s.get("part_number") or "")
+        if not description and not part_number:
+            continue
+        try:
+            qty = int(float(s.get("quantity") or 0))
+        except (ValueError, TypeError):
+            qty = 0
+        try:
+            unit_price = int(float(str(s.get("unit_price_raw") or 0).replace(",", "")))
+        except (ValueError, TypeError):
+            unit_price = 0
+        category = _categorize_line_item(description)
+        out.append(
+            RFPLineItem(
+                category=category,
+                part_number=part_number,
+                description=description[:200],
+                quantity=qty,
+                unit_price=unit_price,
+                lead_time=str(s.get("lead_time") or "")[:60],
+                notes=str(s.get("notes") or "")[:160],
+                source=filename,
+            )
+        )
+    return out
+
+
 # ────────────────────────────── B9 acceptance checklist ──────────────────────────────
 
 
@@ -729,6 +841,7 @@ class SiteAllocationLine:
     quantity: int
     unit_price: int  # in dollars (no cents — matches money_mentions canonical)
     extended: int  # quantity × unit_price
+    source: str = ""  # C3 source-provenance click-through
 
 
 # Pattern: a device name, then "X units x $Y", then "| allocated SITE n, SITE n, ..."
@@ -760,7 +873,7 @@ def parse_bom_allocations(report: dict[str, Any]) -> list[SiteAllocationLine]:
     resolution context).
     """
     out: list[SiteAllocationLine] = []
-    for atom, _filename in _iter_atoms_with_files(report):
+    for atom, filename in _iter_atoms_with_files(report):
         text = atom.get("text") or ""
         if "allocated" not in text.lower():
             continue
@@ -790,6 +903,7 @@ def parse_bom_allocations(report: dict[str, Any]) -> list[SiteAllocationLine]:
                         quantity=qty,
                         unit_price=unit_price,
                         extended=qty * unit_price,
+                        source=filename,
                     )
                 )
     return out

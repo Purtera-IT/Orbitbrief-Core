@@ -204,6 +204,7 @@ def main(argv: list[str] | None = None) -> int:
             render_pm_handoff_markdown,
             render_sow_draft,
         )
+        from orbitbrief_core.pm_handoff.rfp_draft import render_rfp_draft
         from orbitbrief_core.pm_handoff.render_html import (
             render_pm_executive_html,
             render_solution_architect_html,
@@ -230,6 +231,16 @@ def main(argv: list[str] | None = None) -> int:
                 (out_dir / "SOW_DRAFT.md").write_text(
                     render_sow_draft(handoff, _report), encoding="utf-8"
                 )
+        except Exception:
+            pass
+        # B8: vendor RFP draft — only written when the intake has
+        # vendor_line_item atoms. ``render_rfp_draft`` returns ""
+        # when there's nothing to RFP, so the file is skipped in
+        # that case.
+        try:
+            rfp_md = render_rfp_draft(handoff)
+            if rfp_md:
+                (out_dir / "RFP_DRAFT.md").write_text(rfp_md, encoding="utf-8")
         except Exception:
             pass
         (out_dir / "PM_EXECUTIVE_SUMMARY.html").write_text(

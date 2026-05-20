@@ -39,6 +39,17 @@ class DomainBriefingConfig:
     # section. Empty-tuple-friendly: domains without gold_examples
     # blocks just don't get few-shot anchors.
     gold_examples: dict[str, tuple[dict[str, Any], ...]] = field(default_factory=dict)
+    # D6: per-domain risk archetypes ("Permit timeline slip", "Codec
+    # firmware mismatch", etc.) — the brain mentions these in its
+    # risks_or_dependencies prompt context so the LLM can recognize
+    # domain-typical risks even when the source text uses indirect
+    # phrasing. Empty for domains that haven't been filled in yet.
+    risk_patterns: tuple[str, ...] = field(default_factory=tuple)
+    # D6: compliance frameworks the domain typically intersects with
+    # (NEC for electrical, HIPAA for healthcare, etc.). The brain
+    # uses these to recognize compliance language the parser-os
+    # framework matcher missed (e.g. domain-specific acronyms).
+    compliance_frameworks: tuple[str, ...] = field(default_factory=tuple)
 
     def guidance_for(self, field: str) -> tuple[str, ...]:
         return self.fields.get(field, ())
@@ -105,6 +116,8 @@ def load_briefing_config(domain_id: str) -> DomainBriefingConfig:
         artifact_labels=tuple(raw.get("artifact_labels") or ()),
         subdomain_notes=tuple(raw.get("subdomain_notes") or ()),
         gold_examples=gold,
+        risk_patterns=tuple(str(p) for p in (raw.get("risk_patterns") or ())),
+        compliance_frameworks=tuple(str(p) for p in (raw.get("compliance_frameworks") or ())),
     )
 
 

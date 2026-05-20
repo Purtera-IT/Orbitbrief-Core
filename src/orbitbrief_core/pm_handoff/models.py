@@ -122,6 +122,9 @@ class PMHandoff:
     # list with owner / timing / evidence-required fields so the
     # field team has a deterministic execution checklist.
     acceptance_checks: list[dict[str, Any]] = field(default_factory=list)
+    # B8: vendor RFP line items — auto-categorized vendor_line_item
+    # atoms used by ``render_rfp_draft`` to generate RFP_DRAFT.md.
+    rfp_line_items: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

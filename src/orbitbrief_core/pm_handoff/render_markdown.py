@@ -46,18 +46,60 @@ def render_portfolio_markdown(handoffs: Iterable[PMHandoff]) -> str:
     red = sum(1 for h in handoffs if h.status == "red")
     yellow = sum(1 for h in handoffs if h.status == "yellow")
     green = sum(1 for h in handoffs if h.status == "green")
+    # C5 polish: roll up money + risk + schedule signal across the
+    # portfolio so the PM sees the cross-deal picture in one shot.
+    total_money_at_stake = 0
+    for h in handoffs:
+        money = (h.money_mentions or [])
+        if money:
+            # Largest single money value per case approximates "deal size"
+            total_money_at_stake += max(int(m.get("value", 0)) for m in money)
+    total_risks = sum(len(h.risk_register or []) for h in handoffs)
+    total_high_risks = sum(
+        1
+        for h in handoffs
+        for r in (h.risk_register or [])
+        if (r.get("likelihood","").lower(), r.get("impact","").lower()) in {
+            ("high", "high"), ("high", "medium"), ("medium", "high"),
+        }
+    )
+    total_compliance_callouts = sum(len(h.compliance_callouts or []) for h in handoffs)
+
     lines = [
         "# OrbitBrief PM Portfolio Dashboard",
         "",
         f"**Cases:** {len(handoffs)}  ·  🔴 {red} red  ·  🟡 {yellow} yellow  ·  🟢 {green} green",
         "",
-        "| Case | Status | Sites | Workstreams | Blockers | Warnings | Evidence items |",
-        "|---|---|---:|---|---:|---:|---:|",
+        "## Portfolio totals",
+        "",
+        f"- **Aggregate deal value across cases (largest money value per case):** ${total_money_at_stake:,}",
+        f"- **Total risks tracked:** {total_risks} ({total_high_risks} high-priority)",
+        f"- **Total compliance callouts requiring legal review:** {total_compliance_callouts}",
+        "",
+        "## Case index",
+        "",
+        "| Case | Status | Sites | Workstreams | Blockers | Warnings | Evidence | Deal value | High risks |",
+        "|---|---|---:|---|---:|---:|---:|---:|---:|",
     ]
     for h in handoffs:
         domains = ", ".join(d.label for d in h.domains if d.selected_by_router or d.active_for_sow)
+        case_money = max(
+            (int(m.get("value", 0)) for m in (h.money_mentions or [])),
+            default=0,
+        )
+        case_high_risks = sum(
+            1
+            for r in (h.risk_register or [])
+            if (r.get("likelihood","").lower(), r.get("impact","").lower()) in {
+                ("high", "high"), ("high", "medium"), ("medium", "high"),
+            }
+        )
         lines.append(
-            f"| `{h.case_id}` | {_STATUS_ICON.get(h.status, '⚪')} {h.status_label} | {h.metrics.get('sites_published', 0)} | {domains[:130]} | {h.metrics.get('blockers', 0)} | {h.metrics.get('warnings', 0)} | {h.metrics.get('evidence_items_extracted', 0)} |"
+            f"| `{h.case_id}` | {_STATUS_ICON.get(h.status, '⚪')} {h.status_label} | "
+            f"{h.metrics.get('sites_published', 0)} | {domains[:120]} | "
+            f"{h.metrics.get('blockers', 0)} | {h.metrics.get('warnings', 0)} | "
+            f"{h.metrics.get('evidence_items_extracted', 0)} | "
+            f"{'$' + format(case_money, ',') if case_money else '—'} | {case_high_risks} |"
         )
     lines.extend(["", "## PM follow-up queue", ""])
     for h in handoffs:
@@ -68,6 +110,19 @@ def render_portfolio_markdown(handoffs: Iterable[PMHandoff]) -> str:
         for g in blockers[:10]:
             lines.append(f"- **{g.domain_label}: {g.label}** — {g.suggested_open_question or g.message}")
         lines.append("")
+    # C5 polish: cross-deal reconciliation pull-up — show every
+    # reconciliation flag the portfolio carries so the PM can spot
+    # systematic money mismatches across multiple deals.
+    any_flags = any(h.reconciliation_flags for h in handoffs)
+    if any_flags:
+        lines.extend(["## Cross-deal money reconciliation queue", ""])
+        for h in handoffs:
+            if not h.reconciliation_flags:
+                continue
+            lines.append(f"**{h.case_id}**")
+            for f in h.reconciliation_flags:
+                lines.append(f"- {f.get('label','')}")
+            lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -291,12 +346,13 @@ def _render_site_allocations(handoff: PMHandoff) -> list[str]:
         grand_total += site_total
         lines.append(f"### {site} — ${site_total:,}")
         lines.append("")
-        lines.append("| Device | Qty | Unit price | Extended |")
-        lines.append("|---|---:|---:|---:|")
+        lines.append("| Device | Qty | Unit price | Extended | Source |")
+        lines.append("|---|---:|---:|---:|---|")
         for r in sorted(site_rows, key=lambda x: -int(x.get("extended", 0))):
             lines.append(
                 f"| {r.get('device','')} | {r.get('quantity', 0)} | "
-                f"${int(r.get('unit_price', 0)):,} | ${int(r.get('extended', 0)):,} |"
+                f"${int(r.get('unit_price', 0)):,} | ${int(r.get('extended', 0)):,} | "
+                f"`{r.get('source','')}` |"
             )
         lines.append("")
     lines.append(f"**Allocated total across sites: ${grand_total:,}**")
@@ -346,6 +402,9 @@ def _render_risk_register(handoff: PMHandoff) -> list[str]:
 
     One row per ``atom_type=risk`` atom. Sorted by Likelihood ×
     Impact descending so the highest-priority risks are first.
+
+    C3: every row now ends with the source filename so the PM /
+    SA can click through to the underlying spreadsheet row.
     """
     rows = handoff.risk_register or []
     if not rows:
@@ -353,16 +412,18 @@ def _render_risk_register(handoff: PMHandoff) -> list[str]:
     lines: list[str] = [
         "## Risk register",
         "",
-        "| ID | Risk | Likelihood | Impact | Mitigation | Owner | Sites |",
-        "|---|---|:-:|:-:|---|---|---|",
+        "| ID | Risk | Likelihood | Impact | Mitigation | Owner | Sites | Source |",
+        "|---|---|:-:|:-:|---|---|---|---|",
     ]
     for r in rows:
         sites = ", ".join(r.get("sites") or []) or "—"
         desc = (r.get("description") or "").replace("|", "\\|")
         miti = (r.get("mitigation") or "").replace("|", "\\|")
+        source = r.get("source") or "—"
         lines.append(
             f"| {r.get('risk_id','')} | {desc} | {r.get('likelihood','')} | "
-            f"{r.get('impact','')} | {miti} | {r.get('owner','')} | {sites} |"
+            f"{r.get('impact','')} | {miti} | {r.get('owner','')} | {sites} | "
+            f"`{source}` |"
         )
     lines.append("")
     return lines
