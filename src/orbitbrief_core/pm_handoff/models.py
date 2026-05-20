@@ -137,6 +137,22 @@ class PMHandoff:
     # Quantity claims + cross-doc quantity reconciliation flags.
     quantity_claims: list[dict[str, Any]] = field(default_factory=list)
     quantity_contradictions: list[dict[str, Any]] = field(default_factory=list)
+    # Tier 1-4 PM intelligence
+    margin_view: dict[str, Any] = field(default_factory=dict)
+    critical_path: list[dict[str, Any]] = field(default_factory=list)
+    lead_time_flags: list[dict[str, Any]] = field(default_factory=list)
+    engagement_model: dict[str, Any] = field(default_factory=dict)
+    license_items: list[dict[str, Any]] = field(default_factory=list)
+    currency_mentions: list[dict[str, Any]] = field(default_factory=list)
+    tax_clauses: list[dict[str, Any]] = field(default_factory=list)
+    subcontractor_mentions: list[dict[str, Any]] = field(default_factory=list)
+    sla_penalties: list[dict[str, Any]] = field(default_factory=list)
+    resource_conflicts: list[dict[str, Any]] = field(default_factory=list)
+    change_order_triggers: list[dict[str, Any]] = field(default_factory=list)
+    risk_aging: list[dict[str, Any]] = field(default_factory=list)
+    actions_by_week: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    acceptance_by_site: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    intake_completeness: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

@@ -21,18 +21,32 @@ def render_pm_handoff_markdown(handoff: PMHandoff) -> str:
     ]
     # Executive summary at the very top — 3-line PM briefing.
     lines.extend(_render_executive_summary(handoff))
+    lines.extend(_render_intake_completeness(handoff))
     lines.append("This report translates the intake package into evidence, SOW gaps, customer questions, and SA review work.")
     lines.append("")
     lines.extend(_render_scorecard(handoff))
+    lines.extend(_render_margin_view(handoff))
+    lines.extend(_render_engagement_model(handoff))
     lines.extend(_render_domains(handoff))
     lines.extend(_render_sites(handoff))
     lines.extend(_render_stakeholder_contacts(handoff))
     lines.extend(_render_site_rollups(handoff))
     lines.extend(_render_site_allocations(handoff))
     lines.extend(_render_risk_register(handoff))
+    lines.extend(_render_risk_aging(handoff))
     lines.extend(_render_schedule(handoff))
+    lines.extend(_render_critical_path(handoff))
+    lines.extend(_render_resource_conflicts(handoff))
+    lines.extend(_render_lead_time_flags(handoff))
+    lines.extend(_render_license_items(handoff))
+    lines.extend(_render_subcontractors(handoff))
+    lines.extend(_render_sla_penalties(handoff))
+    lines.extend(_render_change_order_triggers(handoff))
+    lines.extend(_render_currencies_taxes(handoff))
     lines.extend(_render_action_items(handoff))
+    lines.extend(_render_actions_by_week(handoff))
     lines.extend(_render_acceptance_checklist(handoff))
+    lines.extend(_render_acceptance_by_site(handoff))
     lines.extend(_render_compliance_callouts(handoff))
     lines.extend(_render_exclusions(handoff))
     lines.extend(_render_responsibilities(handoff))
@@ -807,6 +821,344 @@ def _render_stakeholder_pagers(handoff: PMHandoff) -> list[str]:
             lines.append("")
             lines.extend(p["action_lines"])
             lines.append("")
+    return lines
+
+
+def _render_intake_completeness(handoff: PMHandoff) -> list[str]:
+    items = handoff.intake_completeness or []
+    if not items:
+        return []
+    total = len(items)
+    present = sum(1 for i in items if i.get("present"))
+    pct = (present / total * 100) if total else 0
+    bar_len = 20
+    filled = int(pct / 100 * bar_len)
+    bar = "█" * filled + "░" * (bar_len - filled)
+    lines = [
+        "## Intake completeness",
+        "",
+        f"**Coverage: {present}/{total} ({pct:.0f}%)**  `{bar}`",
+        "",
+    ]
+    for i in items:
+        mark = "✅" if i.get("present") else "❌"
+        lines.append(f"- {mark} {i.get('item','')}")
+    lines.append("")
+    return lines
+
+
+def _render_margin_view(handoff: PMHandoff) -> list[str]:
+    m = handoff.margin_view or {}
+    if not (m.get("deal_total") or m.get("hardware_cost_subtotal")):
+        return []
+    lines = ["## Margin & profitability", ""]
+    if m.get("confidence") == "low":
+        lines.append("> _Computed from partial signals — treat as indicative, not contractual._")
+        lines.append("")
+    lines.append("| Line | Value |")
+    lines.append("|---|---:|")
+    if m.get("deal_total"):
+        lines.append(f"| Deal total (largest money ≥ $100k) | ${int(m['deal_total']):,} |")
+    if m.get("hardware_cost_subtotal"):
+        lines.append(f"| Hardware cost (BOM qty × unit) | ${int(m['hardware_cost_subtotal']):,} |")
+    if m.get("services_subtotal"):
+        lines.append(f"| Services subtotal (text-matched) | ${int(m['services_subtotal']):,} |")
+    if m.get("other_cost_subtotal"):
+        lines.append(f"| Logistics / freight / contingency / tax | ${int(m['other_cost_subtotal']):,} |")
+    if m.get("total_cost"):
+        lines.append(f"| **Total cost** | **${int(m['total_cost']):,}** |")
+    if m.get("gross_profit"):
+        lines.append(f"| Gross profit | ${int(m['gross_profit']):,} |")
+    if m.get("margin_pct"):
+        lines.append(f"| **Margin %** | **{m['margin_pct']:.1f}%** |")
+    lines.append(f"| Confidence | {m.get('confidence','low')} |")
+    lines.append("")
+    for n in m.get("notes") or []:
+        lines.append(f"- {n}")
+    if m.get("notes"):
+        lines.append("")
+    return lines
+
+
+def _render_engagement_model(handoff: PMHandoff) -> list[str]:
+    em = handoff.engagement_model or {}
+    model = em.get("detected_model") or "unknown"
+    if model == "unknown" and not em.get("has_tm_cap"):
+        return []
+    pretty = {
+        "fixed_fee": "Fixed Fee", "tm": "T&M", "subscription": "Subscription",
+        "mixed": "Mixed (multiple models detected)", "unknown": "Unknown",
+    }
+    lines = [
+        "## Engagement model", "",
+        f"**Detected model:** {pretty.get(model, model)}",
+        "",
+    ]
+    if em.get("has_tm_cap"):
+        lines.append(f"- T&M / NTE cap: ${int(em['tm_cap_amount']):,}")
+    for e in em.get("evidence") or []:
+        lines.append(f"- {e}")
+    lines.append("")
+    return lines
+
+
+def _render_critical_path(handoff: PMHandoff) -> list[str]:
+    cp = handoff.critical_path or []
+    if not cp:
+        return []
+    lines = [
+        "## Critical path",
+        "",
+        "Phases marked **critical** have zero slack to the project end. A slip here pushes everything downstream. Non-critical phases have a buffer.",
+        "",
+        "| Phase | Start | End | Duration (days) | Critical? |",
+        "|---|---|---|---:|:-:|",
+    ]
+    for p in cp:
+        mark = "🔴 yes" if p.get("is_critical") else ""
+        lines.append(
+            f"| {p.get('phase','')} | {p.get('start','')} | {p.get('end','')} | "
+            f"{p.get('duration_days', 0)} | {mark} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _render_resource_conflicts(handoff: PMHandoff) -> list[str]:
+    confs = handoff.resource_conflicts or []
+    if not confs:
+        return []
+    lines = [
+        "## Resource conflicts",
+        "",
+        "Owners assigned to phases whose date ranges overlap. PM must rebalance or confirm coverage.",
+        "",
+    ]
+    for c in confs:
+        phases = ", ".join(c.get("phases", []))
+        windows = ", ".join(f"{s}→{e}" for s, e in c.get("overlap_windows", []))
+        lines.append(f"- **{c.get('owner','?')}** — overlaps in: {phases} (windows: {windows})")
+    lines.append("")
+    return lines
+
+
+def _render_lead_time_flags(handoff: PMHandoff) -> list[str]:
+    flags = handoff.lead_time_flags or []
+    if not flags:
+        return []
+    lines = [
+        "## Lead-time risk",
+        "",
+        "BOM items whose lead times may gate the project schedule. Order early or accept slip risk.",
+        "",
+        "| Tier | Part # | Description | Qty | Lead time | Source |",
+        "|:--|---|---|---:|---|---|",
+    ]
+    tier_emoji = {"extreme": "🚨", "long": "⚠️", "medium": "⏰", "unknown": "❓"}
+    for f in flags[:25]:
+        emoji = tier_emoji.get(f.get("risk_tier",""), "")
+        lines.append(
+            f"| {emoji} {f.get('risk_tier','')} | `{f.get('part_number','')}` | "
+            f"{f.get('description','')} | {f.get('quantity', 0)} | "
+            f"{f.get('lead_time_text','')} | `{f.get('source','')}` |"
+        )
+    lines.append("")
+    return lines
+
+
+def _render_license_items(handoff: PMHandoff) -> list[str]:
+    items = handoff.license_items or []
+    if not items:
+        return []
+    lines = [
+        "## Recurring software & licenses",
+        "",
+        "Items billed as licenses, subscriptions, or maintenance — different P&L treatment than hardware capex.",
+        "",
+        "| Part # | Description | Qty | Unit price | Term | Source |",
+        "|---|---|---:|---:|---|---|",
+    ]
+    for li in items[:25]:
+        up = li.get("unit_price", 0)
+        up_disp = f"${int(up):,}" if up else "—"
+        lines.append(
+            f"| `{li.get('part_number','')}` | {li.get('description','')[:80]} | "
+            f"{li.get('quantity', 0)} | {up_disp} | {li.get('term_text','') or '—'} | "
+            f"`{li.get('source','')}` |"
+        )
+    lines.append("")
+    return lines
+
+
+def _render_subcontractors(handoff: PMHandoff) -> list[str]:
+    subs = handoff.subcontractor_mentions or []
+    if not subs:
+        return []
+    lines = [
+        "## Subcontractors & vendors named",
+        "",
+        "Parties referenced in the intake. PM should confirm contract status with each.",
+        "",
+        "| Name | Likely role | Source | Mention |",
+        "|---|---|---|---|",
+    ]
+    for s in subs:
+        lines.append(
+            f"| **{s.get('name','')}** | {s.get('role_hint','') or '—'} | "
+            f"`{s.get('source','')}` | {s.get('snippet','')[:160]} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _render_sla_penalties(handoff: PMHandoff) -> list[str]:
+    pens = handoff.sla_penalties or []
+    if not pens:
+        return []
+    pretty = {
+        "liquidated_damages": "Liquidated damages",
+        "sla_credit": "SLA service credit",
+        "termination_right": "Termination right",
+        "uptime_sla": "Uptime / availability SLA",
+        "response_sla": "Response-time SLA",
+        "late_delivery": "Late delivery penalty",
+    }
+    lines = [
+        "## SLA penalties & liquidated damages",
+        "",
+        "**Route to legal review.** Any of these can produce a contractual penalty if the project misses targets.",
+        "",
+        "| Kind | Source | Snippet |",
+        "|---|---|---|",
+    ]
+    for p in pens:
+        lines.append(
+            f"| {pretty.get(p.get('kind',''), p.get('kind',''))} | "
+            f"`{p.get('source','')}` | {p.get('snippet','')[:180].replace('|','\\|')} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _render_change_order_triggers(handoff: PMHandoff) -> list[str]:
+    co = handoff.change_order_triggers or []
+    if not co:
+        return []
+    lines = [
+        "## Change-order triggers detected",
+        "",
+        "Clauses that will require a Change Order if invoked. PM should pre-stage CO templates.",
+        "",
+    ]
+    for c in co:
+        kind = c.get("kind","")
+        snippet = (c.get("snippet","") or "").replace("|", "\\|")
+        lines.append(f"- **{kind}**: {snippet} _(source: `{c.get('source','')}`)_")
+    lines.append("")
+    return lines
+
+
+def _render_currencies_taxes(handoff: PMHandoff) -> list[str]:
+    cur = handoff.currency_mentions or []
+    tax = handoff.tax_clauses or []
+    if not (cur or tax):
+        return []
+    lines = ["## Currencies & tax", ""]
+    if cur:
+        lines.append("**Non-USD currency mentions detected:**")
+        lines.append("")
+        for c in cur:
+            lines.append(
+                f"- {c.get('currency','?')} {int(c.get('amount',0)):,} "
+                f"in `{c.get('source','')}`: \"{c.get('snippet','')[:160]}\""
+            )
+        lines.append("")
+    if tax:
+        lines.append("**Tax clauses:**")
+        lines.append("")
+        for t in tax:
+            rate = t.get("rate_pct", 0)
+            rate_disp = f"{rate}%" if rate else "(inclusive/exclusive language)"
+            lines.append(
+                f"- **{t.get('label','')}** {rate_disp} "
+                f"in `{t.get('source','')}`: \"{t.get('snippet','')[:160]}\""
+            )
+        lines.append("")
+    return lines
+
+
+def _render_risk_aging(handoff: PMHandoff) -> list[str]:
+    aging = handoff.risk_aging or []
+    if not aging:
+        return []
+    lines = [
+        "## Risk aging",
+        "",
+        "How long each risk has been open. Stale risks (≥30 days) need escalation.",
+        "",
+        "| ID | Severity | Days open | Bucket | Description |",
+        "|---|:-:|---:|:--|---|",
+    ]
+    bucket_emoji = {"fresh": "🟢", "active": "🟡", "stale": "🔴"}
+    for a in aging:
+        emoji = bucket_emoji.get(a.get("aging_bucket",""), "")
+        lines.append(
+            f"| {a.get('risk_id','')} | {a.get('severity','')} | "
+            f"{a.get('days_open', 0)} | {emoji} {a.get('aging_bucket','')} | "
+            f"{a.get('description','')[:120].replace('|','\\|')} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _render_actions_by_week(handoff: PMHandoff) -> list[str]:
+    buckets = handoff.actions_by_week or {}
+    if not any(buckets.values()):
+        return []
+    titles = {
+        "this_week": "This week",
+        "next_week": "Next week",
+        "later": "Later",
+        "no_date": "No date set",
+    }
+    lines = ["## Action items by due-date week", ""]
+    for k in ("this_week", "next_week", "later", "no_date"):
+        items = buckets.get(k) or []
+        if not items:
+            continue
+        lines.append(f"### {titles[k]}")
+        lines.append("")
+        for a in items:
+            owner = a.get("owner") or "PM"
+            due = f" — due {a.get('due')}" if a.get("due") else ""
+            sev = a.get("severity") or ""
+            sev_tag = f" **[{sev}]**" if sev in {"blocker", "warning"} else ""
+            lines.append(f"- [ ]{sev_tag} {a.get('label','')} (owner: {owner}{due})")
+        lines.append("")
+    return lines
+
+
+def _render_acceptance_by_site(handoff: PMHandoff) -> list[str]:
+    by_site = handoff.acceptance_by_site or {}
+    if not by_site:
+        return []
+    # Suppress when project_wide is the only bucket (covered by main checklist).
+    if list(by_site.keys()) == ["project_wide"]:
+        return []
+    lines = [
+        "## Acceptance criteria by site",
+        "",
+        "The same exit-criteria list, but grouped by site so each field crew sees their slice.",
+        "",
+    ]
+    for site, checks in sorted(by_site.items()):
+        if not checks:
+            continue
+        lines.append(f"### {site}")
+        lines.append("")
+        for c in checks:
+            lines.append(f"- [ ] {c.get('criterion','')} (owner: {c.get('owner','—')})")
+        lines.append("")
     return lines
 
 

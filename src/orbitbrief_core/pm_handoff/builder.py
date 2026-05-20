@@ -47,6 +47,24 @@ from orbitbrief_core.pm_handoff.reconciliation import (
     find_quantity_contradictions,
     parse_bom_allocations,
 )
+from orbitbrief_core.pm_handoff.pm_intelligence import (
+    build_change_order_triggers,
+    build_critical_path,
+    build_currency_mentions,
+    build_engagement_model,
+    build_intake_completeness,
+    build_lead_time_flags,
+    build_license_items,
+    build_margin_view,
+    build_resource_conflicts,
+    build_risk_aging,
+    build_sla_penalties,
+    build_subcontractor_mentions,
+    build_tax_clauses,
+    group_acceptance_by_site,
+    group_actions_by_week,
+    risk_numeric_score,
+)
 from dataclasses import asdict
 
 MAX_FACTS_PER_CATEGORY = 12
@@ -117,6 +135,43 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         sites=sites,
         domains=domains,
     )
+    # Tier 1-4 PM intelligence
+    margin = build_margin_view(report)
+    phase_dicts = [asdict(p) for p in phases]
+    cp = build_critical_path(phase_dicts)
+    lt_flags = build_lead_time_flags(report)
+    eng_model = build_engagement_model(report)
+    licenses = build_license_items(report)
+    currencies = build_currency_mentions(report)
+    taxes = build_tax_clauses(report)
+    subs = build_subcontractor_mentions(report)
+    sla_pen = build_sla_penalties(report)
+    res_conflicts = build_resource_conflicts(phase_dicts)
+    co_triggers = build_change_order_triggers(report)
+    # risk aging proxied by earliest phase start as intake date
+    intake_iso = phase_dicts[0]["start"] if phase_dicts else None
+    risk_dicts = [asdict(r) for r in risks]
+    aging = build_risk_aging(risk_dicts, intake_date_iso=intake_iso)
+    action_dicts = [asdict(a) for a in actions]
+    actions_weekly = group_actions_by_week(action_dicts)
+    site_keys = [s.name for s in sites]
+    accept_dicts = [asdict(a) for a in accept_checks]
+    accept_by_site = group_acceptance_by_site(accept_dicts, site_keys=site_keys)
+    completeness = build_intake_completeness(
+        has_deal_total=bool(margin.deal_total),
+        has_publishable_site=any(s.publishable for s in sites),
+        has_schedule_phase=bool(phases),
+        has_executive_stakeholder=any(
+            "sponsor" in (g.message or "").lower() or "executive" in (g.message or "").lower()
+            for g in gaps
+        ) or bool([c for c in contacts if c.role]),
+        has_vendor_line=bool(rfp_items),
+        has_risk=bool(risks),
+        has_exit_criteria=bool(accept_checks),
+        has_payment_term=eng_model.detected_model != "unknown",
+        has_exclusion=bool(exclusions),
+        has_compliance_callout=bool(compliance),
+    )
 
     return PMHandoff(
         case_id=case_id,
@@ -149,6 +204,21 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         responsibilities=[asdict(r) for r in responsibilities],
         quantity_claims=[asdict(q) for q in qty_claims],
         quantity_contradictions=list(qty_contradictions),
+        margin_view=asdict(margin),
+        critical_path=[asdict(c) for c in cp],
+        lead_time_flags=[asdict(f) for f in lt_flags],
+        engagement_model=asdict(eng_model),
+        license_items=[asdict(li) for li in licenses],
+        currency_mentions=[asdict(c) for c in currencies],
+        tax_clauses=[asdict(t) for t in taxes],
+        subcontractor_mentions=[asdict(s) for s in subs],
+        sla_penalties=[asdict(s) for s in sla_pen],
+        resource_conflicts=[asdict(r) for r in res_conflicts],
+        change_order_triggers=[asdict(c) for c in co_triggers],
+        risk_aging=[asdict(a) for a in aging],
+        actions_by_week=actions_weekly,
+        acceptance_by_site=accept_by_site,
+        intake_completeness=[asdict(g) for g in completeness],
     )
 
 
