@@ -149,10 +149,44 @@ def _render_solution_architect_view(handoff: PMHandoff) -> list[str]:
 
 
 def _render_source_inventory(handoff: PMHandoff) -> list[str]:
-    lines = ["## Source inventory read", "", "| File | Type | Parser | Evidence items |", "|---|---|---|---:|"]
+    # A6 graceful degradation: include a per-file status column and a
+    # callout box for any file that wasn't cleanly parsed. The PM sees
+    # immediately which files succeeded vs which need manual review.
+    _STATUS_GLYPH = {
+        "ok": "✅",
+        "ok_empty": "⚠️ (no atoms)",
+        "failed_parse": "❌ failed",
+        "skipped_no_parser": "⏭️ skipped",
+        "unknown": "❓",
+    }
+    lines = [
+        "## Source inventory read",
+        "",
+        "| File | Type | Parser | Evidence items | Status |",
+        "|---|---|---|---:|:--|",
+    ]
     for s in handoff.source_files:
-        lines.append(f"| `{s.filename}` | {s.artifact_type} | {s.parser_name} | {s.evidence_items} |")
+        glyph = _STATUS_GLYPH.get(s.status, s.status)
+        lines.append(
+            f"| `{s.filename}` | {s.artifact_type} | {s.parser_name} | "
+            f"{s.evidence_items} | {glyph} |"
+        )
     lines.append("")
+    # Degraded-files callout — only render when there's something to flag.
+    degraded = [s for s in handoff.source_files if s.status not in {"ok", "unknown"}]
+    if degraded:
+        lines.extend([
+            "### ⚠ Files requiring manual review",
+            "",
+            "These files did not produce clean evidence. Verify the source manually:",
+            "",
+        ])
+        for s in degraded:
+            line = f"- **`{s.filename}`** — {s.status}"
+            if s.status_reason:
+                line += f": {s.status_reason}"
+            lines.append(line)
+        lines.append("")
     return lines
 
 

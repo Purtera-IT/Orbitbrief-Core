@@ -21,6 +21,15 @@ class SourceFileSummary:
     artifact_type: str
     parser_name: str
     evidence_items: int
+    # A6 graceful degradation: per-file parse outcome surfaced from
+    # parser-os' envelope. ``status`` is one of: ok / ok_empty /
+    # failed_parse / skipped_no_parser / unknown. ``status_reason``
+    # is the human-readable failure cause (e.g. "FileDataError: ...").
+    # PM_HANDOFF renderers show degraded files in a separate callout
+    # so the systems engineer knows which files to manually inspect
+    # instead of silently producing an envelope with fewer atoms.
+    status: str = "ok"
+    status_reason: str | None = None
 
 
 @dataclass(frozen=True)

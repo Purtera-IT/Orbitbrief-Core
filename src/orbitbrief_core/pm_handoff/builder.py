@@ -97,12 +97,22 @@ def _build_source_files(report: dict[str, Any]) -> tuple[list[SourceFileSummary]
     for art in report.get("artifacts") or []:
         artifact_id = str(art.get("artifact_id") or "")
         by_id[artifact_id] = art
+        # A6 graceful degradation: pull per-file parse outcome from
+        # the inspection-report artifact. parser-os surfaces this as
+        # ``parse_outcome`` on each document. Defaults to ``ok`` when
+        # an older envelope without the field is passed in.
+        outcome = art.get("parse_outcome") or {}
         files.append(
             SourceFileSummary(
                 filename=str(art.get("filename") or artifact_id or "unknown"),
                 artifact_type=str(art.get("artifact_type") or "unknown"),
                 parser_name=str(art.get("parser_name") or "unknown"),
                 evidence_items=int(art.get("atom_count") or 0),
+                status=str(outcome.get("status") or "ok"),
+                status_reason=(
+                    str(outcome.get("reason"))[:280]
+                    if outcome.get("reason") else None
+                ),
             )
         )
     return files, by_id

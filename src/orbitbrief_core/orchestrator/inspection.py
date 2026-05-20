@@ -585,6 +585,14 @@ def _artifact_view(
         "atoms_in_bundle": bundled_atoms,
         "atoms_cited_by_brain": cited_by_brain,
         "atoms_in_composed_brief": used_in_brief,
+        # A6 graceful degradation: pass parse_outcome through from
+        # envelope.documents[*] to inspection-report.artifacts[*] so
+        # PM_HANDOFF can render "Files requiring manual review."
+        "parse_outcome": doc.get("parse_outcome") or {
+            "status": "ok" if len(atom_ids) > 0 else "ok_empty",
+            "atom_count": len(atom_ids),
+            "warning_count": 0,
+        },
         "preview": preview,
         "atoms": atom_records,
     }
