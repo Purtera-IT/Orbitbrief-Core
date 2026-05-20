@@ -307,6 +307,140 @@ def build_risk_register(report: dict[str, Any]) -> list[RiskRow]:
     return rows
 
 
+# ────────────────────────────── B4 stakeholder one-pagers ──────────────────────────────
+
+
+@dataclass(frozen=True)
+class StakeholderPager:
+    """One stakeholder-shaped view of the intake package.
+
+    "Stakeholder" here means a role lens (CFO, IT, Procurement),
+    not a literal person. Each lens picks the slice of atoms /
+    risks / gaps a stakeholder in that role would care about,
+    plus the headline numbers from the money table.
+
+    Three default lenses ship in v1; future lenses can be added
+    by registering a (label, predicate) pair in the builder.
+    """
+
+    role: str  # "cfo" / "it" / "procurement"
+    title: str  # human-friendly "Chief Financial Officer"
+    summary_lines: list[str] = field(default_factory=list)
+    money_lines: list[str] = field(default_factory=list)
+    risk_lines: list[str] = field(default_factory=list)
+    action_lines: list[str] = field(default_factory=list)
+
+
+# Keyword patterns that identify a risk / gap / action as relevant
+# to each lens. These are intentionally broad — better to over-include
+# (PM can ignore) than miss something the stakeholder needs.
+_LENS_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "cfo": (
+        "budget", "cost", "price", "approval", "cfo", "finance", "commercial",
+        "procurement", "pricing", "payment", "invoice", "discount", "po", "vendor",
+        "contract value", "total", "subtotal", "tax", "freight", "logistics",
+    ),
+    "it": (
+        "circuit", "carrier", "vlan", "ip", "wireless", "wi-fi", "wifi",
+        "switch", "router", "ap ", "access point", "cabling", "rack",
+        "security", "camera", "vms", "compliance", "siem", "firewall",
+        "patch", "network", "tls", "vpn", "monitoring",
+    ),
+    "procurement": (
+        "vendor", "lead time", "shipping", "freight", "po", "purchase",
+        "rfp", "rfq", "bid", "warranty", "license", "support tier",
+        "msrp", "discount", "subscription", "renewal", "logistics",
+    ),
+}
+
+
+def _lens_match(text: str, lens: str) -> bool:
+    t = (text or "").lower()
+    return any(k in t for k in _LENS_KEYWORDS.get(lens, ()))
+
+
+def build_stakeholder_pagers(
+    *,
+    gaps: list[Any],
+    risk_rows: list["RiskRow"],
+    money_mentions: list[MoneyMention],
+    reconciliation_flags: list[ReconciliationFlag],
+    case_id: str,
+) -> list[StakeholderPager]:
+    """Build one StakeholderPager per default lens.
+
+    Each pager is intentionally short — a single page when
+    rendered, focused on the few decisions / numbers / risks the
+    stakeholder cares about. v1 ships CFO / IT / Procurement.
+    """
+    pagers: list[StakeholderPager] = []
+    lens_titles = {
+        "cfo": "CFO — finance & approvals",
+        "it": "IT — technical scope & risk",
+        "procurement": "Procurement — vendors & logistics",
+    }
+
+    # Shared: top 3 money values become the executive headline.
+    top_money = [m.display for m in money_mentions[:3] if m.value >= 10_000]
+    headline_money = ", ".join(top_money) if top_money else ""
+
+    for lens in ("cfo", "it", "procurement"):
+        title = lens_titles[lens]
+        summary: list[str] = []
+        if headline_money:
+            summary.append(f"Headline figures across the intake: {headline_money}.")
+
+        money_lines: list[str] = []
+        if lens == "cfo":
+            money_lines = [
+                f"- {m.display} — seen in {', '.join(sorted({s['filename'] for s in (m.sources or [])}))}"
+                for m in money_mentions[:8]
+                if m.value >= 10_000
+            ]
+            for f in reconciliation_flags:
+                money_lines.append(f"- **Reconcile**: {f.label}")
+
+        risk_lines = [
+            f"- **{r.risk_id}** ({r.likelihood}/{r.impact}): {r.description} — mitigation: {r.mitigation}"
+            for r in risk_rows
+            if _lens_match(r.description, lens) or _lens_match(r.mitigation, lens) or lens == "cfo" and "approval" in (r.description + r.mitigation).lower()
+        ][:5]
+
+        action_lines: list[str] = []
+        for g in gaps:
+            label = getattr(g, "label", "") or getattr(g, "domain_label", "")
+            text = (
+                getattr(g, "suggested_open_question", "")
+                or getattr(g, "message", "")
+            )
+            domain = getattr(g, "domain_label", "")
+            if (
+                _lens_match(label, lens)
+                or _lens_match(text, lens)
+                or _lens_match(domain, lens)
+            ):
+                sev = getattr(g, "severity", "")
+                sev_prefix = "**[blocker]** " if sev == "blocker" else (
+                    "[warning] " if sev == "warning" else ""
+                )
+                action_lines.append(f"- {sev_prefix}{text}")
+
+        # If no domain-specific items, fall back to a generic note.
+        if not risk_lines and not action_lines:
+            summary.append("No domain-specific risks or open items were detected for this lens — review the full PM_HANDOFF.")
+        pagers.append(
+            StakeholderPager(
+                role=lens,
+                title=title,
+                summary_lines=summary,
+                money_lines=money_lines,
+                risk_lines=risk_lines,
+                action_lines=action_lines[:10],
+            )
+        )
+    return pagers
+
+
 # ────────────────────────────── B3 action items ──────────────────────────────
 
 

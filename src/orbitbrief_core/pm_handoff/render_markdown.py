@@ -34,6 +34,7 @@ def render_pm_handoff_markdown(handoff: PMHandoff) -> str:
     lines.extend(_render_solution_architect_view(handoff))
     lines.extend(_render_source_inventory(handoff))
     lines.extend(_render_customer_email(handoff))
+    lines.extend(_render_stakeholder_pagers(handoff))
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -410,11 +411,44 @@ def _render_source_inventory(handoff: PMHandoff) -> list[str]:
     return lines
 
 
+_INTERNAL_QUESTION_TOKENS = (
+    "verify",
+    "synthesis rendering",
+    "model is broken",
+    "promotion path",
+    "site reality v",
+    "parser-os",
+    "orbitbrief",
+    "publish as a physical-site cluster",
+    "kind=physical_site",
+)
+
+
+def _is_customer_facing(text: str) -> bool:
+    """Filter PM-internal questions (parser-os correctness checks)
+    from the customer-facing email starter. PM still sees them in
+    the "Questions to resolve before SOW" section above."""
+    if not text:
+        return False
+    low = text.lower()
+    return not any(tok in low for tok in _INTERNAL_QUESTION_TOKENS)
+
+
 def _render_customer_email(handoff: PMHandoff) -> list[str]:
-    questions = handoff.customer_questions[:18]
+    # B7 — filter out parser-os internal correctness questions so
+    # the email starter is safe to copy/paste to the customer
+    # without redacting first. The PM still has the full question
+    # list in the "Questions to resolve before SOW" section.
+    customer_safe = [
+        g for g in handoff.customer_questions
+        if _is_customer_facing(g.suggested_open_question or g.message)
+    ][:18]
     lines = ["## Customer clarification email starter", ""]
-    if not questions:
-        return lines + ["No clarification email is required from the current rulebook output.", ""]
+    if not customer_safe:
+        return lines + ["No customer-facing clarifications are required from the current rulebook output.", ""]
+    # Group by severity so the customer reads blockers before nice-to-haves.
+    blockers = [g for g in customer_safe if g.severity == "blocker"]
+    warnings = [g for g in customer_safe if g.severity == "warning"]
     lines.extend([
         "```text",
         "Subject: Clarifications needed before SOW draft",
@@ -424,17 +458,71 @@ def _render_customer_email(handoff: PMHandoff) -> list[str]:
         "We reviewed the intake package and need the following clarifications before we can finalize the SOW:",
         "",
     ])
-    for i, g in enumerate(questions, 1):
-        lines.append(f"{i}. {g.suggested_open_question or g.message}")
+    counter = 1
+    if blockers:
+        lines.append("MUST-ANSWER before we can draft scope:")
+        for g in blockers:
+            lines.append(f"  {counter}. {g.suggested_open_question or g.message}")
+            counter += 1
+        lines.append("")
+    if warnings:
+        lines.append("CONFIRMATIONS that will shape commercial terms and assumptions:")
+        for g in warnings:
+            lines.append(f"  {counter}. {g.suggested_open_question or g.message}")
+            counter += 1
+        lines.append("")
     lines.extend([
-        "",
-        "Once we have these answers, we can update the scope, assumptions, exclusions, acceptance criteria, and commercial terms.",
+        "Once we have these answers, we can finalize the scope, assumptions, exclusions, acceptance criteria, and commercial terms.",
         "",
         "Thanks,",
         "Project team",
         "```",
         "",
     ])
+    return lines
+
+
+def _render_stakeholder_pagers(handoff: PMHandoff) -> list[str]:
+    """B4: Stakeholder one-pagers — CFO / IT / Procurement lenses.
+
+    Each pager is a self-contained section the PM can copy out to
+    forward to that specific stakeholder. The section heading is
+    the role title; sub-sections cover headline money, risks, and
+    action items the lens picked.
+    """
+    pagers = handoff.stakeholder_pagers or []
+    if not pagers:
+        return []
+    lines: list[str] = [
+        "---",
+        "",
+        "# Stakeholder one-pagers",
+        "",
+        "Each section below is a self-contained briefing for one stakeholder lens. Forward as-is.",
+        "",
+    ]
+    for p in pagers:
+        lines.append(f"## {p.get('title','')}")
+        lines.append("")
+        for s in p.get("summary_lines", []) or []:
+            lines.append(s)
+        if p.get("summary_lines"):
+            lines.append("")
+        if p.get("money_lines"):
+            lines.append("**Money items:**")
+            lines.append("")
+            lines.extend(p["money_lines"])
+            lines.append("")
+        if p.get("risk_lines"):
+            lines.append("**Risks for this lens:**")
+            lines.append("")
+            lines.extend(p["risk_lines"])
+            lines.append("")
+        if p.get("action_lines"):
+            lines.append("**Open items for this lens:**")
+            lines.append("")
+            lines.extend(p["action_lines"])
+            lines.append("")
     return lines
 
 

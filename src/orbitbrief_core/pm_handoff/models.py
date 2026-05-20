@@ -107,6 +107,9 @@ class PMHandoff:
     site_rollups: list[dict[str, Any]] = field(default_factory=list)
     # B3: consolidated PM action items from gaps + risks + phases.
     action_items: list[dict[str, Any]] = field(default_factory=list)
+    # B4: role-lens one-pagers (CFO / IT / Procurement) — slicing
+    # the intake into stakeholder-shaped summaries.
+    stakeholder_pagers: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

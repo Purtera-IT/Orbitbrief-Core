@@ -35,6 +35,7 @@ from orbitbrief_core.pm_handoff.reconciliation import (
     build_risk_register,
     build_schedule_phases,
     build_site_rollups,
+    build_stakeholder_pagers,
 )
 from dataclasses import asdict
 
@@ -79,6 +80,13 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     phases = build_schedule_phases(report)
     site_rolls = build_site_rollups(report)
     actions = build_action_items(gaps=gaps, risk_rows=risks, schedule_phases=phases)
+    pagers = build_stakeholder_pagers(
+        gaps=gaps,
+        risk_rows=risks,
+        money_mentions=money,
+        reconciliation_flags=flags,
+        case_id=case_id,
+    )
 
     return PMHandoff(
         case_id=case_id,
@@ -100,6 +108,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         schedule_phases=[asdict(p) for p in phases],
         site_rollups=[asdict(s) for s in site_rolls],
         action_items=[asdict(a) for a in actions],
+        stakeholder_pagers=[asdict(p) for p in pagers],
     )
 
 

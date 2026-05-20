@@ -202,6 +202,7 @@ def main(argv: list[str] | None = None) -> int:
             render_pm_executive_markdown,
             render_solution_architect_markdown,
             render_pm_handoff_markdown,
+            render_sow_draft,
         )
         from orbitbrief_core.pm_handoff.render_html import (
             render_pm_executive_html,
@@ -220,6 +221,17 @@ def main(argv: list[str] | None = None) -> int:
         (out_dir / "PM_HANDOFF.md").write_text(
             render_pm_handoff_markdown(handoff), encoding="utf-8"
         )
+        # B1: SOW draft — picks atoms straight from the inspection
+        # report so we don't reload the envelope here.
+        try:
+            _report_path = out_dir / "90_inspection_report.json"
+            if _report_path.exists():
+                _report = json.loads(_report_path.read_text(encoding="utf-8"))
+                (out_dir / "SOW_DRAFT.md").write_text(
+                    render_sow_draft(handoff, _report), encoding="utf-8"
+                )
+        except Exception:
+            pass
         (out_dir / "PM_EXECUTIVE_SUMMARY.html").write_text(
             render_pm_executive_html(handoff), encoding="utf-8"
         )
