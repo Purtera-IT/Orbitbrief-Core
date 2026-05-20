@@ -654,6 +654,425 @@ def build_acceptance_checks(report: dict[str, Any]) -> list[AcceptanceCheck]:
     return out
 
 
+# ────────────────────────────── PM-audit gap fillers ──────────────────────────────
+
+
+@dataclass(frozen=True)
+class StakeholderContact:
+    """One row in the stakeholder contact directory.
+
+    Pulled from atoms whose structured cells expose name + role +
+    email-or-phone. Bare role-context name extractions (the
+    ``stakeholder:*`` entity_keys) are emitted as rows even
+    without email/phone; the PM sees "TBD" in those columns.
+    """
+
+    name: str
+    role: str = ""
+    email: str = ""
+    phone: str = ""
+    site: str = ""  # canonical site key when the row binds to a site
+    source: str = ""
+
+
+_EMAIL_RE = __import__("re").compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+# Phone pattern — require either a country-code prefix (+1, +44) or
+# a standard 3-3-4 / (NNN) NNN-NNNN shape so we don't match ISO
+# dates ("2026-07-27") or part numbers as phones.
+_PHONE_RE = __import__("re").compile(
+    r"(?:\+\d{1,3}[\s\-\.]?)?"
+    r"(?:\(\d{3}\)[\s\-]?|\d{3}[\s\-\.])"
+    r"\d{3}[\s\-\.]\d{4}"
+)
+
+
+def _proximity_email_for_name(text: str, name: str) -> str:
+    """Return the email closest to a name occurrence in text, or empty.
+
+    Prevents pairing every name in a roster paragraph with the FIRST
+    email — the directory would otherwise list 5 stakeholders all
+    sharing one email address. Returns empty when no email is within
+    ±80 chars of a name occurrence.
+    """
+    import re as _re
+    name_re = _re.compile(_re.escape(name), _re.IGNORECASE)
+    name_spans = [(m.start(), m.end()) for m in name_re.finditer(text)]
+    if not name_spans:
+        return ""
+    emails = list(_EMAIL_RE.finditer(text))
+    if not emails:
+        return ""
+    best_email = ""
+    best_dist = 80  # max ±80 chars
+    for n_start, n_end in name_spans:
+        for em in emails:
+            mid = (em.start() + em.end()) // 2
+            dist = min(abs(mid - n_start), abs(mid - n_end))
+            if dist < best_dist:
+                best_dist = dist
+                best_email = em.group(0)
+    return best_email
+
+
+def build_stakeholder_contacts(report: dict[str, Any]) -> list[StakeholderContact]:
+    """Walk atoms for name + role + email/phone rosters.
+
+    Two paths:
+      1. Structured roster rows where canonical_cells carry the
+         four fields directly. Highest-fidelity path.
+      2. Free-text atoms where a stakeholder name appears near
+         an email / phone pattern. Uses proximity matching so an
+         email pairs with the closest name, not the first.
+    """
+    out: list[StakeholderContact] = []
+    seen: set[str] = set()  # name_norm dedup across the whole project
+
+    for atom, filename in _iter_atoms_with_files(report):
+        structured = atom.get("structured") or {}
+        if isinstance(structured, dict):
+            cells = structured.get("canonical_cells") or structured.get("cells") or {}
+            if isinstance(cells, dict):
+                name = (
+                    cells.get("name")
+                    or cells.get("Name")
+                    or cells.get("stakeholder")
+                    or cells.get("Stakeholder")
+                    or ""
+                )
+                role = (
+                    cells.get("role")
+                    or cells.get("Role")
+                    or cells.get("title")
+                    or cells.get("Title")
+                    or cells.get("authority")
+                    or ""
+                )
+                email = cells.get("email") or cells.get("Email") or ""
+                phone = cells.get("phone") or cells.get("Phone") or ""
+                if name and (role or email or phone):
+                    name_norm = str(name).lower().strip()
+                    if name_norm not in seen:
+                        seen.add(name_norm)
+                        out.append(
+                            StakeholderContact(
+                                name=str(name).strip(),
+                                role=str(role).strip(),
+                                email=str(email).strip(),
+                                phone=str(phone).strip(),
+                                source=filename,
+                            )
+                        )
+                        continue
+
+        # Free-text path — match emails / phones in atom text and
+        # pair with the NEAREST stakeholder name (not just any).
+        text = atom.get("text") or ""
+        if not (_EMAIL_RE.search(text) or _PHONE_RE.search(text)):
+            continue
+        stakeholders = [
+            k.split(":", 1)[1].replace("_", " ").title()
+            for k in atom.get("entity_keys") or ()
+            if isinstance(k, str) and k.startswith("stakeholder:")
+        ]
+        for name in stakeholders:
+            name_norm = name.lower().strip()
+            if name_norm in seen:
+                continue
+            # Proximity-paired email for THIS name; skip if no
+            # email within ±80 chars (avoids the all-share-one-email
+            # bug).
+            email = _proximity_email_for_name(text, name)
+            phones_found = _PHONE_RE.findall(text)
+            if not email and not phones_found:
+                continue
+            seen.add(name_norm)
+            out.append(
+                StakeholderContact(
+                    name=name,
+                    role="",
+                    email=email,
+                    phone=phones_found[0] if phones_found else "",
+                    source=filename,
+                )
+            )
+    out.sort(key=lambda c: (c.name, c.source))
+    return out
+
+
+@dataclass(frozen=True)
+class ExclusionItem:
+    """One out-of-scope item the PM should escalate if the customer
+    expects it.
+
+    Pulled from atoms with ``atom_type == 'exclusion'``. Surfacing
+    these at the top of PM_HANDOFF (in addition to SOW_DRAFT)
+    means the PM can spot-check exclusions during customer
+    review without scrolling to the SOW.
+    """
+
+    text: str
+    source: str = ""
+
+
+def build_exclusions(report: dict[str, Any]) -> list[ExclusionItem]:
+    out: list[ExclusionItem] = []
+    seen: set[str] = set()
+    for atom, filename in _iter_atoms_with_files(report):
+        if atom.get("atom_type") != "exclusion":
+            continue
+        text = (atom.get("text") or "").strip()
+        if not text:
+            continue
+        norm = text[:160].lower()
+        if norm in seen:
+            continue
+        seen.add(norm)
+        out.append(ExclusionItem(text=text[:300], source=filename))
+    return out
+
+
+@dataclass(frozen=True)
+class ResponsibilityItem:
+    """One customer-supplied OR provider-supplied responsibility.
+
+    Built from atoms whose text matches a customer-responsibility
+    pattern ("customer to provide", "customer supplies", "OPTBOT
+    will provide") or a provider-side pattern ("we will provide",
+    "provider supplies").
+
+    These atoms exist as scope_item / customer_instruction today;
+    we surface them in a dedicated section so the PM can verify
+    each side's commitments without reading through every scope
+    bullet.
+    """
+
+    party: str  # "customer" / "provider"
+    text: str
+    source: str = ""
+
+
+_CUSTOMER_RESP_RE = __import__("re").compile(
+    r"\b(customer|client|"
+    r"OPTBOT|the (?:customer|client|company|organization))\s+"
+    r"(?:will|shall|to|must|is responsible for|provides?|supplies)\b",
+    __import__("re").IGNORECASE,
+)
+_PROVIDER_RESP_RE = __import__("re").compile(
+    r"\b(?:we|provider|vendor|contractor|the (?:provider|vendor|contractor))\s+"
+    r"(?:will|shall|to|provides?|supplies|are responsible for)\b",
+    __import__("re").IGNORECASE,
+)
+
+
+def build_responsibilities(report: dict[str, Any]) -> list[ResponsibilityItem]:
+    out: list[ResponsibilityItem] = []
+    seen: set[tuple[str, str]] = set()
+    for atom, filename in _iter_atoms_with_files(report):
+        atype = atom.get("atom_type") or ""
+        if atype not in {"scope_item", "customer_instruction", "constraint", "assumption"}:
+            continue
+        text = (atom.get("text") or "").strip()
+        if not text:
+            continue
+        is_customer = _CUSTOMER_RESP_RE.search(text)
+        is_provider = _PROVIDER_RESP_RE.search(text)
+        if not (is_customer or is_provider):
+            continue
+        party = "customer" if is_customer else "provider"
+        norm = (party, text[:160].lower())
+        if norm in seen:
+            continue
+        seen.add(norm)
+        out.append(ResponsibilityItem(party=party, text=text[:300], source=filename))
+    return out
+
+
+@dataclass(frozen=True)
+class QuantityClaim:
+    """One numeric quantity claim about a device / service / scope.
+
+    Built from atoms that include a ``device:*`` or ``part:*``
+    entity_key alongside a quantity. PM uses the resulting table
+    to spot quantity contradictions across documents (the
+    A5-equivalent for hardware counts: "94 APs in one doc, 92 in
+    another").
+    """
+
+    target: str  # canonical device/part slug
+    quantity: int
+    snippet: str
+    source: str = ""
+
+
+def build_quantity_claims(report: dict[str, Any]) -> list[QuantityClaim]:
+    """Pull (device or part, quantity) from atoms with both signals."""
+    import re as _re
+    qty_re = _re.compile(r"\b(\d{1,5})\s+units?\b|\b(\d{1,5})\s*x\s*\$", _re.IGNORECASE)
+    out: list[QuantityClaim] = []
+    seen: set[tuple[str, int, str]] = set()
+    for atom, filename in _iter_atoms_with_files(report):
+        text = atom.get("text") or ""
+        if not text:
+            continue
+        # Find device/part keys on this atom
+        targets = [
+            k.split(":", 1)[1]
+            for k in atom.get("entity_keys") or ()
+            if isinstance(k, str) and (k.startswith("device:") or k.startswith("part:"))
+        ]
+        if not targets:
+            continue
+        # Find quantities in the text
+        for m in qty_re.finditer(text):
+            raw = m.group(1) or m.group(2)
+            if not raw:
+                continue
+            try:
+                qty = int(raw)
+            except ValueError:
+                continue
+            if qty <= 0 or qty > 50_000:
+                continue
+            # Use the first matching target as the comparison key
+            target = targets[0]
+            key = (target, qty, filename)
+            if key in seen:
+                continue
+            seen.add(key)
+            snippet = text[max(0, m.start() - 30):m.end() + 60].strip()
+            out.append(
+                QuantityClaim(
+                    target=target,
+                    quantity=qty,
+                    snippet=snippet[:200],
+                    source=filename,
+                )
+            )
+    # Sort by target so contradictions cluster.
+    out.sort(key=lambda q: (q.target, q.source))
+    return out
+
+
+def find_quantity_contradictions(
+    claims: list[QuantityClaim],
+) -> list[dict[str, Any]]:
+    """Group QuantityClaims by target; flag groups with > 1 distinct
+    quantity across different source files.
+
+    Mirrors the money reconciliation: the PM needs to see when
+    two documents disagree on how many APs / cameras / switches
+    a project ships.
+    """
+    by_target: dict[str, list[QuantityClaim]] = defaultdict(list)
+    for c in claims:
+        by_target[c.target].append(c)
+    out: list[dict[str, Any]] = []
+    for target, group in sorted(by_target.items()):
+        qtys = {c.quantity for c in group}
+        if len(qtys) < 2:
+            continue
+        files = sorted({c.source for c in group})
+        if len(files) < 2:
+            continue
+        out.append({
+            "target": target,
+            "values": sorted(qtys),
+            "files": files,
+            "examples": [
+                {"qty": c.quantity, "source": c.source, "snippet": c.snippet}
+                for c in group[:6]
+            ],
+        })
+    return out
+
+
+@dataclass(frozen=True)
+class ExecutiveSummary:
+    """One-paragraph executive brief for the very top of PM_HANDOFF.
+
+    Built deterministically from the handoff fields: headline
+    money + sites + dominant workstream + critical blocker count.
+    No LLM in the loop. PM should be able to read this in 10
+    seconds and know what they're looking at.
+    """
+
+    headline: str
+    health_line: str
+    next_action: str
+
+
+def build_executive_summary(
+    *,
+    case_id: str,
+    status: str,
+    status_label: str,
+    one_line_summary: str,
+    money_mentions: list[MoneyMention],
+    risks: list["RiskRow"],
+    gaps: list[Any],
+    sites: list[Any],
+    domains: list[Any],
+) -> ExecutiveSummary:
+    """Compose the 3-line executive summary from PM-handoff fields."""
+    top_money = next(
+        (m.display for m in money_mentions if m.value >= 100_000),
+        None,
+    )
+    site_count = sum(1 for s in sites if getattr(s, "publishable", False))
+    blocker_count = sum(1 for g in gaps if getattr(g, "severity", "") == "blocker")
+    warning_count = sum(1 for g in gaps if getattr(g, "severity", "") == "warning")
+    high_risks = sum(
+        1
+        for r in risks
+        if (r.likelihood.lower(), r.impact.lower())
+        in {("high", "high"), ("high", "medium"), ("medium", "high")}
+    )
+    workstreams = [d.label for d in domains if getattr(d, "active_for_sow", False)]
+
+    deal_value = f" worth {top_money}" if top_money else ""
+    site_phrase = f"{site_count} confirmed site(s)" if site_count else "no confirmed sites yet"
+    workstream_phrase = (
+        f" covering {', '.join(workstreams[:3])}" if workstreams else ""
+    )
+    headline = (
+        f"**{case_id}**: deal{deal_value} across {site_phrase}{workstream_phrase}."
+    )
+
+    if status == "red":
+        health = (
+            f"Status is **RED**: {blocker_count} blocker(s) and "
+            f"{warning_count} warning(s) need PM resolution before SOW lock."
+        )
+        next_action = (
+            "Resolve the blocker checklist below and confirm the customer "
+            "clarifications email starter. Do not publish a SOW until blockers clear."
+        )
+    elif status == "yellow":
+        health = (
+            f"Status is **YELLOW**: {warning_count} warning(s) need PM review. "
+            f"{high_risks} high-priority risk(s) tracked in the register."
+        )
+        next_action = (
+            "Walk the warnings checklist below, then proceed to SOW drafting "
+            "with the auto-generated SOW_DRAFT.md as the starting point."
+        )
+    else:
+        health = (
+            f"Status is **GREEN**: intake is clean against the current "
+            f"rulebook. {high_risks} high-priority risk(s) being tracked."
+        )
+        next_action = (
+            "Proceed to SOW drafting. Use SOW_DRAFT.md as the starting "
+            "point and confirm pricing + signatures before customer review."
+        )
+
+    return ExecutiveSummary(
+        headline=headline,
+        health_line=health,
+        next_action=next_action,
+    )
+
+
 # ────────────────────────────── B10 compliance callouts ──────────────────────────────
 
 

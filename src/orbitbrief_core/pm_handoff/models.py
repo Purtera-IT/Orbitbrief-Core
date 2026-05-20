@@ -125,6 +125,18 @@ class PMHandoff:
     # B8: vendor RFP line items — auto-categorized vendor_line_item
     # atoms used by ``render_rfp_draft`` to generate RFP_DRAFT.md.
     rfp_line_items: list[dict[str, Any]] = field(default_factory=list)
+    # PM-audit gap fillers:
+    # Executive summary (3-line briefing for the top of PM_HANDOFF).
+    executive_summary: dict[str, Any] = field(default_factory=dict)
+    # Stakeholder contact directory (name / role / email / phone).
+    stakeholder_contacts: list[dict[str, Any]] = field(default_factory=list)
+    # Out-of-scope items surfaced at PM layer (in addition to SOW).
+    exclusions: list[dict[str, Any]] = field(default_factory=list)
+    # Customer- vs provider-supplied responsibilities split.
+    responsibilities: list[dict[str, Any]] = field(default_factory=list)
+    # Quantity claims + cross-doc quantity reconciliation flags.
+    quantity_claims: list[dict[str, Any]] = field(default_factory=list)
+    quantity_contradictions: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

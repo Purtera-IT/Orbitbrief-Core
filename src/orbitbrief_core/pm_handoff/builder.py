@@ -32,13 +32,19 @@ from orbitbrief_core.pm_handoff.reconciliation import (
     build_action_items,
     build_compliance_callouts,
     build_date_mentions,
+    build_exclusions,
+    build_executive_summary,
     build_money_mentions,
+    build_quantity_claims,
     build_reconciliation_flags,
+    build_responsibilities,
     build_rfp_line_items,
     build_risk_register,
     build_schedule_phases,
     build_site_rollups,
+    build_stakeholder_contacts,
     build_stakeholder_pagers,
+    find_quantity_contradictions,
     parse_bom_allocations,
 )
 from dataclasses import asdict
@@ -95,6 +101,22 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     allocations = parse_bom_allocations(report)
     accept_checks = build_acceptance_checks(report)
     rfp_items = build_rfp_line_items(report)
+    contacts = build_stakeholder_contacts(report)
+    exclusions = build_exclusions(report)
+    responsibilities = build_responsibilities(report)
+    qty_claims = build_quantity_claims(report)
+    qty_contradictions = find_quantity_contradictions(qty_claims)
+    exec_summary = build_executive_summary(
+        case_id=case_id,
+        status=status,
+        status_label=status_label,
+        one_line_summary=one_line,
+        money_mentions=money,
+        risks=risks,
+        gaps=gaps,
+        sites=sites,
+        domains=domains,
+    )
 
     return PMHandoff(
         case_id=case_id,
@@ -121,6 +143,12 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         site_allocations=[asdict(a) for a in allocations],
         acceptance_checks=[asdict(a) for a in accept_checks],
         rfp_line_items=[asdict(r) for r in rfp_items],
+        executive_summary=asdict(exec_summary),
+        stakeholder_contacts=[asdict(c) for c in contacts],
+        exclusions=[asdict(e) for e in exclusions],
+        responsibilities=[asdict(r) for r in responsibilities],
+        quantity_claims=[asdict(q) for q in qty_claims],
+        quantity_contradictions=list(qty_contradictions),
     )
 
 

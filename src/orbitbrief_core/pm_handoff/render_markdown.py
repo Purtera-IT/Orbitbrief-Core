@@ -18,12 +18,15 @@ def render_pm_handoff_markdown(handoff: PMHandoff) -> str:
         "",
         f"> {handoff.one_line_summary}",
         "",
-        "This report translates the intake package into evidence, SOW gaps, customer questions, and SA review work.",
-        "",
     ]
+    # Executive summary at the very top — 3-line PM briefing.
+    lines.extend(_render_executive_summary(handoff))
+    lines.append("This report translates the intake package into evidence, SOW gaps, customer questions, and SA review work.")
+    lines.append("")
     lines.extend(_render_scorecard(handoff))
     lines.extend(_render_domains(handoff))
     lines.extend(_render_sites(handoff))
+    lines.extend(_render_stakeholder_contacts(handoff))
     lines.extend(_render_site_rollups(handoff))
     lines.extend(_render_site_allocations(handoff))
     lines.extend(_render_risk_register(handoff))
@@ -31,7 +34,10 @@ def render_pm_handoff_markdown(handoff: PMHandoff) -> str:
     lines.extend(_render_action_items(handoff))
     lines.extend(_render_acceptance_checklist(handoff))
     lines.extend(_render_compliance_callouts(handoff))
+    lines.extend(_render_exclusions(handoff))
+    lines.extend(_render_responsibilities(handoff))
     lines.extend(_render_reconciliation(handoff))
+    lines.extend(_render_quantity_reconciliation(handoff))
     lines.extend(_render_questions(handoff))
     lines.extend(_render_known_facts(handoff))
     lines.extend(_render_solution_architect_view(handoff))
@@ -39,6 +45,110 @@ def render_pm_handoff_markdown(handoff: PMHandoff) -> str:
     lines.extend(_render_customer_email(handoff))
     lines.extend(_render_stakeholder_pagers(handoff))
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _render_executive_summary(handoff: PMHandoff) -> list[str]:
+    """Top-of-doc 3-line executive briefing."""
+    es = handoff.executive_summary or {}
+    if not es:
+        return []
+    lines = ["## Executive summary", ""]
+    if es.get("headline"):
+        lines.append(es["headline"])
+        lines.append("")
+    if es.get("health_line"):
+        lines.append(es["health_line"])
+        lines.append("")
+    if es.get("next_action"):
+        lines.append(f"**Next action:** {es['next_action']}")
+        lines.append("")
+    return lines
+
+
+def _render_stakeholder_contacts(handoff: PMHandoff) -> list[str]:
+    """Stakeholder contact directory — name, role, email, phone."""
+    contacts = handoff.stakeholder_contacts or []
+    if not contacts:
+        return []
+    lines = [
+        "## Stakeholder contact directory",
+        "",
+        "| Name | Role | Email | Phone | Source |",
+        "|---|---|---|---|---|",
+    ]
+    for c in contacts:
+        lines.append(
+            f"| {c.get('name','')} | {c.get('role','') or '—'} | "
+            f"{c.get('email','') or '—'} | {c.get('phone','') or '—'} | "
+            f"`{c.get('source','')}` |"
+        )
+    lines.append("")
+    return lines
+
+
+def _render_exclusions(handoff: PMHandoff) -> list[str]:
+    """Top-level out-of-scope section so the PM doesn't have to dig
+    through SOW_DRAFT to see what's excluded."""
+    items = handoff.exclusions or []
+    if not items:
+        return []
+    lines = [
+        "## Out of scope (explicit exclusions)",
+        "",
+        "These items are explicitly **out of scope** per the intake package. PM should confirm the customer agrees before sending the SOW.",
+        "",
+    ]
+    for e in items:
+        lines.append(f"- {e.get('text','')} _(source: `{e.get('source','')}`)_")
+    lines.append("")
+    return lines
+
+
+def _render_responsibilities(handoff: PMHandoff) -> list[str]:
+    """Customer-supplied vs provider-supplied responsibility split."""
+    items = handoff.responsibilities or []
+    if not items:
+        return []
+    customer_items = [r for r in items if r.get("party") == "customer"]
+    provider_items = [r for r in items if r.get("party") == "provider"]
+    if not (customer_items or provider_items):
+        return []
+    lines = ["## Responsibilities (customer vs provider)", ""]
+    if customer_items:
+        lines.append("### Customer-supplied / customer-responsible")
+        lines.append("")
+        for r in customer_items:
+            lines.append(f"- {r.get('text','')} _(source: `{r.get('source','')}`)_")
+        lines.append("")
+    if provider_items:
+        lines.append("### Provider-supplied / provider-responsible")
+        lines.append("")
+        for r in provider_items:
+            lines.append(f"- {r.get('text','')} _(source: `{r.get('source','')}`)_")
+        lines.append("")
+    return lines
+
+
+def _render_quantity_reconciliation(handoff: PMHandoff) -> list[str]:
+    """Cross-doc quantity contradictions (parallel to money A5)."""
+    contradictions = handoff.quantity_contradictions or []
+    if not contradictions:
+        return []
+    lines = [
+        "## Cross-document quantity reconciliation",
+        "",
+        "Counts of the same device / part that differ across documents. PM must confirm the authoritative count before SOW lock.",
+        "",
+    ]
+    for c in contradictions:
+        target = c.get("target", "")
+        vals = ", ".join(str(v) for v in c.get("values", []))
+        files = ", ".join(f"`{f}`" for f in c.get("files", []))
+        lines.append(f"- **{target}** — counts: {vals} (across: {files})")
+        for ex in c.get("examples", [])[:3]:
+            lines.append(f"  - {ex.get('qty')} from `{ex.get('source','')}`: {ex.get('snippet','')}")
+    lines.append("")
+    return lines
 
 
 def render_portfolio_markdown(handoffs: Iterable[PMHandoff]) -> str:
