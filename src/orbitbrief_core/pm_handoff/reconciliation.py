@@ -46,6 +46,7 @@ the records into PM_HANDOFF.md.
 """
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
@@ -441,6 +442,106 @@ def build_stakeholder_pagers(
     return pagers
 
 
+# ────────────────────────────── B9 acceptance checklist ──────────────────────────────
+
+
+@dataclass(frozen=True)
+class AcceptanceCheck:
+    """One acceptance-criterion line for the PM checklist.
+
+    Pulled from schedule-row atoms whose ``canonical_cells`` carry
+    an ``exit_criteria`` / ``acceptance_criteria`` field, and from
+    cutover-checklist rows whose canonical_cells include a
+    ``checklist_item`` + ``evidence_required`` pair. Rendered as
+    a checkbox list with owner + evidence-needed columns so the
+    PM can hand the block to the field team for execution.
+    """
+
+    phase_or_step: str  # e.g. "Procurement and staging" or "Step 3"
+    criterion: str
+    owner: str = ""
+    evidence_required: str = ""
+    timing: str = ""  # cutover-checklist timing label ("Day-of", "Closeout", ...)
+    source: str = ""
+
+
+def build_acceptance_checks(report: dict[str, Any]) -> list[AcceptanceCheck]:
+    """Walk atoms for both schedule exit_criteria + cutover checklist rows."""
+    out: list[AcceptanceCheck] = []
+    seen: set[tuple[str, str]] = set()
+    for atom, filename in _iter_atoms_with_files(report):
+        structured = atom.get("structured") or {}
+        if not isinstance(structured, dict):
+            continue
+        cells = structured.get("canonical_cells") or structured.get("cells") or {}
+        if not isinstance(cells, dict):
+            continue
+        # Path 1: schedule rows with exit_criteria
+        exit_crit = (
+            cells.get("exit_criteria")
+            or cells.get("Exit Criteria")
+            or cells.get("acceptance_criteria")
+            or cells.get("Acceptance Criteria")
+        )
+        if exit_crit:
+            phase = str(
+                cells.get("name")
+                or cells.get("Name")
+                or cells.get("phase")
+                or cells.get("Phase")
+                or ""
+            )
+            owner = str(cells.get("owner") or cells.get("Owner") or "")
+            key = (phase, str(exit_crit)[:200])
+            if key not in seen:
+                seen.add(key)
+                out.append(
+                    AcceptanceCheck(
+                        phase_or_step=phase or "Schedule",
+                        criterion=str(exit_crit)[:280],
+                        owner=owner,
+                        source=filename,
+                    )
+                )
+        # Path 2: cutover checklist rows with checklist_item + evidence_required
+        checklist = (
+            cells.get("checklist_item")
+            or cells.get("Checklist Item")
+            or cells.get("task")
+            or cells.get("Task")
+        )
+        if checklist:
+            step = str(
+                cells.get("step")
+                or cells.get("Step")
+                or cells.get("order")
+                or ""
+            )
+            timing = str(cells.get("timing") or cells.get("Timing") or "")
+            evidence = str(
+                cells.get("evidence_required")
+                or cells.get("Evidence Required")
+                or ""
+            )
+            owner = str(cells.get("owner") or cells.get("Owner") or "")
+            key = (f"step_{step}_{checklist[:60]}", filename)
+            if key not in seen:
+                seen.add(key)
+                out.append(
+                    AcceptanceCheck(
+                        phase_or_step=(
+                            f"Step {step}" if step else "Cutover"
+                        ),
+                        criterion=str(checklist)[:280],
+                        owner=owner,
+                        evidence_required=evidence[:240],
+                        timing=timing,
+                        source=filename,
+                    )
+                )
+    return out
+
+
 # ────────────────────────────── B10 compliance callouts ──────────────────────────────
 
 
@@ -605,6 +706,93 @@ def build_action_items(
             )
         )
     return items
+
+
+# ────────────────────────────── B6 polish: per-site $ arithmetic ──────────────────────────────
+
+
+@dataclass(frozen=True)
+class SiteAllocationLine:
+    """One line item allocated across sites, with computed per-site cost.
+
+    Built from atoms whose text matches the BOM allocation pattern:
+
+        <device>: <total> units x $<price> | allocated <SITE> <n>, <SITE> <n>, ...
+
+    Each allocation produces one ``SiteAllocationLine`` per site with
+    the count, the unit price, and the computed extended cost. The PM
+    rollup table groups these by site so totals are visible.
+    """
+
+    site: str  # the SITE code as it appeared in the text (e.g. "ATL-HQ")
+    device: str  # the line-item description (e.g. "Wi-Fi 7 APs")
+    quantity: int
+    unit_price: int  # in dollars (no cents — matches money_mentions canonical)
+    extended: int  # quantity × unit_price
+
+
+# Pattern: a device name, then "X units x $Y", then "| allocated SITE n, SITE n, ..."
+# We tolerate whitespace, plus signs in device names ("PoE++"), and
+# both bare $ and currency-suffixed forms. The unit_price comma
+# separators ($6,125) are stripped before parsing.
+_ALLOCATION_RE = re.compile(
+    r"""
+    (?P<device>[A-Za-z][A-Za-z0-9 +\-/]{2,40}?)   # device name (greedy but bounded)
+    \s*:\s*
+    (?P<total>\d+(?:,\d{3})*)                      # total units
+    \s+units?\s*x\s*\$?
+    (?P<price>\d+(?:,\d{3})*(?:\.\d+)?)            # unit price
+    [^|]*?\|\s*allocated\s+
+    (?P<alloc>[A-Z][A-Z0-9\-]+\s+\d+
+        (?:\s*,\s*[A-Z][A-Z0-9\-]+\s+\d+)*)        # SITE n[, SITE n]...
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def parse_bom_allocations(report: dict[str, Any]) -> list[SiteAllocationLine]:
+    """Parse explicit BOM allocation lines into per-site cost rows.
+
+    Only the explicit ``allocated SITE n, SITE n`` shape is parsed
+    here — the natural-language "two at HQ, one at Westside" form
+    is left for a future revision (it requires resolving HQ to a
+    canonical site key, which depends on the project's entity
+    resolution context).
+    """
+    out: list[SiteAllocationLine] = []
+    for atom, _filename in _iter_atoms_with_files(report):
+        text = atom.get("text") or ""
+        if "allocated" not in text.lower():
+            continue
+        for m in _ALLOCATION_RE.finditer(text):
+            device = m.group("device").strip().rstrip(".")
+            try:
+                unit_price = int(float(m.group("price").replace(",", "")))
+            except ValueError:
+                continue
+            alloc_str = m.group("alloc")
+            for piece in alloc_str.split(","):
+                piece = piece.strip()
+                pair = piece.split()
+                if len(pair) < 2:
+                    continue
+                site = pair[0]
+                try:
+                    qty = int(pair[-1])
+                except ValueError:
+                    continue
+                if qty <= 0 or unit_price <= 0:
+                    continue
+                out.append(
+                    SiteAllocationLine(
+                        site=site,
+                        device=device,
+                        quantity=qty,
+                        unit_price=unit_price,
+                        extended=qty * unit_price,
+                    )
+                )
+    return out
 
 
 # ────────────────────────────── B6 per-site rollup ──────────────────────────────

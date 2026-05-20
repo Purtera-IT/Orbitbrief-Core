@@ -28,6 +28,7 @@ from orbitbrief_core.pm_handoff.models import (
     SourcePointer,
 )
 from orbitbrief_core.pm_handoff.reconciliation import (
+    build_acceptance_checks,
     build_action_items,
     build_compliance_callouts,
     build_date_mentions,
@@ -37,6 +38,7 @@ from orbitbrief_core.pm_handoff.reconciliation import (
     build_schedule_phases,
     build_site_rollups,
     build_stakeholder_pagers,
+    parse_bom_allocations,
 )
 from dataclasses import asdict
 
@@ -89,6 +91,8 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         case_id=case_id,
     )
     compliance = build_compliance_callouts(report)
+    allocations = parse_bom_allocations(report)
+    accept_checks = build_acceptance_checks(report)
 
     return PMHandoff(
         case_id=case_id,
@@ -112,6 +116,8 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         action_items=[asdict(a) for a in actions],
         stakeholder_pagers=[asdict(p) for p in pagers],
         compliance_callouts=[asdict(c) for c in compliance],
+        site_allocations=[asdict(a) for a in allocations],
+        acceptance_checks=[asdict(a) for a in accept_checks],
     )
 
 

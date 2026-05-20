@@ -25,9 +25,11 @@ def render_pm_handoff_markdown(handoff: PMHandoff) -> str:
     lines.extend(_render_domains(handoff))
     lines.extend(_render_sites(handoff))
     lines.extend(_render_site_rollups(handoff))
+    lines.extend(_render_site_allocations(handoff))
     lines.extend(_render_risk_register(handoff))
     lines.extend(_render_schedule(handoff))
     lines.extend(_render_action_items(handoff))
+    lines.extend(_render_acceptance_checklist(handoff))
     lines.extend(_render_compliance_callouts(handoff))
     lines.extend(_render_reconciliation(handoff))
     lines.extend(_render_questions(handoff))
@@ -155,6 +157,45 @@ def _render_solution_architect_view(handoff: PMHandoff) -> list[str]:
     return lines
 
 
+def _render_acceptance_checklist(handoff: PMHandoff) -> list[str]:
+    """B9: copy-pasteable acceptance criteria checklist.
+
+    Grouped by phase / step. Each row is a markdown checkbox with
+    owner, evidence-required, and timing metadata so the field
+    team can execute the block directly.
+    """
+    checks = handoff.acceptance_checks or []
+    if not checks:
+        return []
+    lines: list[str] = [
+        "## Acceptance criteria checklist",
+        "",
+        "Copy-paste into the field team's execution doc. One checkbox per criterion; ticking implies the named owner has verified completion and attached the listed evidence.",
+        "",
+    ]
+    from collections import OrderedDict
+    by_phase: OrderedDict[str, list[dict[str, Any]]] = OrderedDict()
+    for c in checks:
+        by_phase.setdefault(c.get("phase_or_step", "Misc"), []).append(c)
+    for phase, items in by_phase.items():
+        lines.append(f"### {phase}")
+        lines.append("")
+        for c in items:
+            owner = c.get("owner") or "—"
+            evidence = c.get("evidence_required") or ""
+            timing = c.get("timing") or ""
+            suffix_bits: list[str] = []
+            if timing:
+                suffix_bits.append(f"timing: {timing}")
+            suffix_bits.append(f"owner: {owner}")
+            if evidence:
+                suffix_bits.append(f"evidence: {evidence}")
+            suffix = " · ".join(suffix_bits)
+            lines.append(f"- [ ] {c.get('criterion','')} _({suffix})_")
+        lines.append("")
+    return lines
+
+
 def _render_compliance_callouts(handoff: PMHandoff) -> list[str]:
     """B10: compliance / legal callouts for legal review.
 
@@ -218,6 +259,48 @@ def _render_action_items(handoff: PMHandoff) -> list[str]:
             sev_str = f" **[{sev}]**" if sev in {"blocker", "warning"} else ""
             lines.append(f"- [ ]{sev_str} {it.get('label','')} (owner: {owner}{due_str})")
         lines.append("")
+    return lines
+
+
+def _render_site_allocations(handoff: PMHandoff) -> list[str]:
+    """B6 polish: per-site $ arithmetic from BOM allocations.
+
+    Groups each parsed allocation line by site so the PM sees one
+    row per (site, device) plus a per-site grand total. Pure
+    arithmetic — values are quantity × unit_price as parsed from
+    the source text, with no LLM rounding.
+    """
+    rows = handoff.site_allocations or []
+    if not rows:
+        return []
+    from collections import defaultdict as _defaultdict
+    by_site: dict[str, list[dict[str, Any]]] = _defaultdict(list)
+    for r in rows:
+        by_site[r.get("site", "?")].append(r)
+
+    lines: list[str] = [
+        "## Per-site BOM allocation (computed)",
+        "",
+        "Computed by multiplying quantity × unit_price for every explicit allocation line in the BOM. Use this to verify the per-site rollup matches the SOW commercial section.",
+        "",
+    ]
+    grand_total = 0
+    for site in sorted(by_site):
+        site_rows = by_site[site]
+        site_total = sum(int(r.get("extended", 0)) for r in site_rows)
+        grand_total += site_total
+        lines.append(f"### {site} — ${site_total:,}")
+        lines.append("")
+        lines.append("| Device | Qty | Unit price | Extended |")
+        lines.append("|---|---:|---:|---:|")
+        for r in sorted(site_rows, key=lambda x: -int(x.get("extended", 0))):
+            lines.append(
+                f"| {r.get('device','')} | {r.get('quantity', 0)} | "
+                f"${int(r.get('unit_price', 0)):,} | ${int(r.get('extended', 0)):,} |"
+            )
+        lines.append("")
+    lines.append(f"**Allocated total across sites: ${grand_total:,}**")
+    lines.append("")
     return lines
 
 

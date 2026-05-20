@@ -105,6 +105,9 @@ class PMHandoff:
     # B6: per-site evidence rollup — devices, money, dates, and
     # stakeholders each site touches, aggregated across all docs.
     site_rollups: list[dict[str, Any]] = field(default_factory=list)
+    # B6 polish: explicit BOM-allocation cost lines (e.g. "ATL-HQ:
+    # 52 Wi-Fi APs × $995 = $51,740") with per-site totals.
+    site_allocations: list[dict[str, Any]] = field(default_factory=list)
     # B3: consolidated PM action items from gaps + risks + phases.
     action_items: list[dict[str, Any]] = field(default_factory=list)
     # B4: role-lens one-pagers (CFO / IT / Procurement) — slicing
@@ -114,6 +117,11 @@ class PMHandoff:
     # legal language pulled from constraint / exclusion / decision
     # atoms so PM can route them to legal review.
     compliance_callouts: list[dict[str, Any]] = field(default_factory=list)
+    # B9: acceptance criteria checklist — schedule exit_criteria +
+    # cutover checklist rows rendered as a copy-pasteable checkbox
+    # list with owner / timing / evidence-required fields so the
+    # field team has a deterministic execution checklist.
+    acceptance_checks: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
