@@ -963,13 +963,28 @@ def _scan_atom_with_lens(
         ChatMessage(role="system", content=lens.system_prompt),
         ChatMessage(role="user", content=user_msg),
     ]
-    try:
-        result = chat.complete_with_usage(
-            messages, model=model, temperature=0.0, max_tokens=2048,
-        )
-    except Exception as exc:
+    # Retry-with-backoff for transport-level errors. On a Tailscale-
+    # relayed Ollama backend, parallel client load occasionally trips
+    # WinError 10060 / connection-refused / read-timeout — the model
+    # itself is fine, the transport just needs a moment. We retry up
+    # to 3 times with 5s/15s/45s backoff.
+    last_exc: Exception | None = None
+    for attempt, delay in enumerate((0, 5, 15, 45), start=1):
+        if delay:
+            time.sleep(delay)
+        try:
+            result = chat.complete_with_usage(
+                messages, model=model, temperature=0.0, max_tokens=2048,
+            )
+            last_exc = None
+            break
+        except Exception as exc:
+            last_exc = exc
+            continue
+    if last_exc is not None:
         sys.stderr.write(
-            f"  llm error on atom={atom['id']} lens={lens.name}: {exc}\n"
+            f"  llm error on atom={atom['id']} lens={lens.name} "
+            f"after retries: {last_exc}\n"
         )
         return []
     payload = _extract_json(result.text)
