@@ -24,6 +24,10 @@ def render_pm_handoff_markdown(handoff: PMHandoff) -> str:
     lines.extend(_render_scorecard(handoff))
     lines.extend(_render_domains(handoff))
     lines.extend(_render_sites(handoff))
+    lines.extend(_render_site_rollups(handoff))
+    lines.extend(_render_risk_register(handoff))
+    lines.extend(_render_schedule(handoff))
+    lines.extend(_render_action_items(handoff))
     lines.extend(_render_reconciliation(handoff))
     lines.extend(_render_questions(handoff))
     lines.extend(_render_known_facts(handoff))
@@ -146,6 +150,146 @@ def _render_solution_architect_view(handoff: PMHandoff) -> list[str]:
         for g in technical[:20]:
             lines.append(f"- **{g.label}:** {g.suggested_open_question or g.message}")
         lines.append("")
+    return lines
+
+
+def _render_action_items(handoff: PMHandoff) -> list[str]:
+    """B3: PM action checklist consolidated from gaps + risks + phases.
+
+    Grouped by ``kind`` (gap / risk / phase) with a checkbox-style
+    markdown list so the PM can copy/paste the block into their
+    PM tool. ``owner`` defaults to "PM" when unassigned.
+    """
+    items = handoff.action_items or []
+    if not items:
+        return []
+    lines: list[str] = ["## PM action checklist", ""]
+    # Render by kind, in the same order action_items is built.
+    by_kind: dict[str, list[dict[str, Any]]] = {}
+    for it in items:
+        by_kind.setdefault(it.get("kind", ""), []).append(it)
+    section_titles = {
+        "gap": "From SOW gap analysis",
+        "risk": "From risk register",
+        "phase": "From schedule",
+    }
+    for kind in ("gap", "risk", "phase"):
+        bucket = by_kind.get(kind) or []
+        if not bucket:
+            continue
+        lines.append(f"### {section_titles.get(kind, kind)}")
+        lines.append("")
+        for it in bucket:
+            owner = it.get("owner") or "PM"
+            due = it.get("due")
+            due_str = f" — due {due}" if due else ""
+            sev = it.get("severity")
+            sev_str = f" **[{sev}]**" if sev in {"blocker", "warning"} else ""
+            lines.append(f"- [ ]{sev_str} {it.get('label','')} (owner: {owner}{due_str})")
+        lines.append("")
+    return lines
+
+
+def _render_site_rollups(handoff: PMHandoff) -> list[str]:
+    """B6: per-site evidence rollup.
+
+    For each site, lists distinct devices, money values, dates, and
+    stakeholders mentioned alongside that site across every
+    document. PM can scan the table to confirm coverage parity
+    across sites and spot orphans (e.g. a site that's mentioned
+    once with no money / device evidence at all).
+    """
+    rolls = handoff.site_rollups or []
+    if not rolls:
+        return []
+    lines: list[str] = [
+        "## Per-site evidence rollup",
+        "",
+        "Aggregated by site across every document. The PM should sanity-check that each site has the device, money, date, and stakeholder coverage the SOW will need.",
+        "",
+        "| Site | Atoms | Devices | Money | Dates | Stakeholders |",
+        "|---|---:|---|---|---|---|",
+    ]
+    for r in rolls:
+        def _cap(seq: list[str], limit: int = 6) -> str:
+            seq = list(seq or [])
+            if len(seq) <= limit:
+                return ", ".join(seq)
+            extra = len(seq) - limit
+            return ", ".join(seq[:limit]) + f" _(+{extra})_"
+
+        lines.append(
+            f"| **{r.get('site_name','')}** | {r.get('atom_count', 0)} | "
+            f"{_cap(r.get('devices'))} | {_cap(r.get('money_values'))} | "
+            f"{_cap(r.get('dates'))} | {_cap(r.get('stakeholders'))} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _render_risk_register(handoff: PMHandoff) -> list[str]:
+    """B2: PM-ready risk register table.
+
+    One row per ``atom_type=risk`` atom. Sorted by Likelihood ×
+    Impact descending so the highest-priority risks are first.
+    """
+    rows = handoff.risk_register or []
+    if not rows:
+        return []
+    lines: list[str] = [
+        "## Risk register",
+        "",
+        "| ID | Risk | Likelihood | Impact | Mitigation | Owner | Sites |",
+        "|---|---|:-:|:-:|---|---|---|",
+    ]
+    for r in rows:
+        sites = ", ".join(r.get("sites") or []) or "—"
+        desc = (r.get("description") or "").replace("|", "\\|")
+        miti = (r.get("mitigation") or "").replace("|", "\\|")
+        lines.append(
+            f"| {r.get('risk_id','')} | {desc} | {r.get('likelihood','')} | "
+            f"{r.get('impact','')} | {miti} | {r.get('owner','')} | {sites} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _render_schedule(handoff: PMHandoff) -> list[str]:
+    """B5: Project schedule — Mermaid Gantt + fallback table.
+
+    Emits a mermaid block when at least one phase has a real start
+    date (so the chart renders cleanly), plus a markdown table
+    that's readable on platforms without mermaid support.
+    """
+    phases = handoff.schedule_phases or []
+    if not phases:
+        return []
+    lines: list[str] = ["## Project schedule", ""]
+    datable = [p for p in phases if p.get("start") and p.get("end")]
+    if datable:
+        lines.extend(["```mermaid", "gantt", "    dateFormat  YYYY-MM-DD", "    title Project Schedule", ""])
+        # Group by source file as Gantt sections so phases from
+        # different docs don't collide visually.
+        by_src: dict[str, list[dict[str, Any]]] = {}
+        for p in datable:
+            by_src.setdefault(p.get("source", ""), []).append(p)
+        for src, items in by_src.items():
+            if src:
+                lines.append(f"    section {src}")
+            for p in items:
+                safe = (p.get("phase", "")).replace(":", " -").replace("\n", " ")[:60] or "phase"
+                lines.append(f"    {safe} :{p['start']}, {p['end']}")
+        lines.extend(["```", ""])
+    lines.extend([
+        "| Phase | Start | End | Owner | Source |",
+        "|---|---|---|---|---|",
+    ])
+    for p in phases:
+        lines.append(
+            f"| {p.get('phase','')} | {p.get('start','—')} | {p.get('end','—')} | "
+            f"{p.get('owner','')} | `{p.get('source','')}` |"
+        )
+    lines.append("")
     return lines
 
 

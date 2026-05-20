@@ -97,6 +97,16 @@ class PMHandoff:
     money_mentions: list[dict[str, Any]] = field(default_factory=list)
     date_mentions: list[dict[str, Any]] = field(default_factory=list)
     reconciliation_flags: list[dict[str, Any]] = field(default_factory=list)
+    # B2: PM-ready risk register projected from atom_type=risk rows.
+    risk_register: list[dict[str, Any]] = field(default_factory=list)
+    # B5: project-schedule rows projected from atom_type=schedule_phase
+    # atoms. Used to render a Mermaid Gantt block + fallback table.
+    schedule_phases: list[dict[str, Any]] = field(default_factory=list)
+    # B6: per-site evidence rollup — devices, money, dates, and
+    # stakeholders each site touches, aggregated across all docs.
+    site_rollups: list[dict[str, Any]] = field(default_factory=list)
+    # B3: consolidated PM action items from gaps + risks + phases.
+    action_items: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

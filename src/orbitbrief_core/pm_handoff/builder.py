@@ -28,9 +28,13 @@ from orbitbrief_core.pm_handoff.models import (
     SourcePointer,
 )
 from orbitbrief_core.pm_handoff.reconciliation import (
+    build_action_items,
     build_date_mentions,
     build_money_mentions,
     build_reconciliation_flags,
+    build_risk_register,
+    build_schedule_phases,
+    build_site_rollups,
 )
 from dataclasses import asdict
 
@@ -71,6 +75,10 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     money = build_money_mentions(report)
     dates = build_date_mentions(report)
     flags = build_reconciliation_flags(money)
+    risks = build_risk_register(report)
+    phases = build_schedule_phases(report)
+    site_rolls = build_site_rollups(report)
+    actions = build_action_items(gaps=gaps, risk_rows=risks, schedule_phases=phases)
 
     return PMHandoff(
         case_id=case_id,
@@ -88,6 +96,10 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         money_mentions=[asdict(m) for m in money],
         date_mentions=[asdict(d) for d in dates],
         reconciliation_flags=[asdict(f) for f in flags],
+        risk_register=[asdict(r) for r in risks],
+        schedule_phases=[asdict(p) for p in phases],
+        site_rollups=[asdict(s) for s in site_rolls],
+        action_items=[asdict(a) for a in actions],
     )
 
 
