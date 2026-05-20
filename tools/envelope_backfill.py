@@ -259,12 +259,19 @@ def _new_atom_from_entity(
         "id": new_id,
         "artifact_id": artifact_id,
         "atom_type": "entity",
-        "authority_class": "derived",
+        # ``machine_extractor`` is the schema's authority bucket for
+        # entities produced by a programmatic extractor (regex, LLM,
+        # heuristic). The original parser-os extractor uses the same
+        # value, so LLM backfills land in the same authority tier.
+        "authority_class": "machine_extractor",
         "confidence": float(confidence),
         "text": text,
         "section_path": list(source_atom.get("section_path") or []),
         "locator": locator,
-        "verified": "derived",
+        # ``unsupported`` matches the schema's ``Verification`` enum;
+        # LLM-backfilled atoms have no replayable source-bytes binding
+        # because the LLM derived the entity, not the underlying text.
+        "verified": "unsupported",
         "entity_keys": [entity_key],
     }
 
