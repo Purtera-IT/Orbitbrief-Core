@@ -220,6 +220,27 @@ def _stable_id(prefix: str, *parts: str) -> str:
     return f"{prefix}_{h}"
 
 
+_WS_NORM_RE = re.compile(r"\s+")
+
+
+def _verify_span(span: str, source: str, *, min_len: int = 8) -> bool:
+    """D2 hallucination guard: does ``span`` actually appear in ``source``?
+
+    Whitespace-collapsed, case-folded substring match. Empty or
+    trivially-short spans (<8 chars after normalization) are kept
+    because the LLM sometimes quotes a single word that's still
+    faithful — verifying every micro-span creates too many false
+    drops. Real hallucinations tend to be paragraph-shaped.
+    """
+    if not span:
+        return True
+    norm_span = _WS_NORM_RE.sub(" ", span).strip().lower()
+    if len(norm_span) < min_len:
+        return True
+    norm_source = _WS_NORM_RE.sub(" ", source or "").lower()
+    return norm_span in norm_source
+
+
 def _new_atom_from_entity(
     *,
     project_id: str,
@@ -357,6 +378,13 @@ def _scan_atom(
                 or entity_key in seen_keys
                 or entity_key in global_keys):
             continue
+        # D2 hallucination guard: drop findings whose raw_text_span
+        # doesn't actually appear in the source atom's text. LLMs
+        # sometimes invent plausible-looking spans — those are
+        # unverifiable as evidence and dangerous to ship.
+        span = str(ent.get("raw_text_span") or "")[:300]
+        if not _verify_span(span, raw_text):
+            continue
         seen_keys.add(entity_key)
         new_atoms.append(
             _new_atom_from_entity(
@@ -365,7 +393,7 @@ def _scan_atom(
                 entity_key=entity_key,
                 entity_type=etype,
                 canonical_value=canonical_value,
-                raw_text_span=str(ent.get("raw_text_span") or "")[:300],
+                raw_text_span=span,
                 confidence=confidence,
                 rationale=str(ent.get("rationale") or "")[:300],
                 model=model,

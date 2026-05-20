@@ -29,6 +29,7 @@ from orbitbrief_core.pm_handoff.models import (
 )
 from orbitbrief_core.pm_handoff.reconciliation import (
     build_action_items,
+    build_compliance_callouts,
     build_date_mentions,
     build_money_mentions,
     build_reconciliation_flags,
@@ -87,6 +88,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         reconciliation_flags=flags,
         case_id=case_id,
     )
+    compliance = build_compliance_callouts(report)
 
     return PMHandoff(
         case_id=case_id,
@@ -109,6 +111,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         site_rollups=[asdict(s) for s in site_rolls],
         action_items=[asdict(a) for a in actions],
         stakeholder_pagers=[asdict(p) for p in pagers],
+        compliance_callouts=[asdict(c) for c in compliance],
     )
 
 

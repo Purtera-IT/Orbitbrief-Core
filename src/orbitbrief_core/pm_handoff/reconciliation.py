@@ -441,6 +441,105 @@ def build_stakeholder_pagers(
     return pagers
 
 
+# ────────────────────────────── B10 compliance callouts ──────────────────────────────
+
+
+@dataclass(frozen=True)
+class ComplianceCallout:
+    """One compliance/legal flag the PM should route to legal review.
+
+    Pulled from atoms that mention named frameworks (SOC2, ISO 27001,
+    HIPAA, PCI-DSS, GDPR, CCPA, NIST, FedRAMP, FERPA, ...) or generic
+    legal/compliance language (warranty, indemnification, audit).
+    The callout carries the atom's text snippet + source file so
+    legal review can verify the language verbatim.
+    """
+
+    framework: str  # canonical framework name e.g. "SOC 2", "HIPAA", "Legal review"
+    snippet: str
+    source: str
+    severity: str = "info"  # "blocker" if from a blocker gap, else "info"
+
+
+# Compliance frameworks we name-match against. Each entry maps a
+# canonical display name to a list of regex-ready aliases. We match
+# case-insensitively and require word boundaries so "soc" doesn't
+# false-match inside "socket".
+_COMPLIANCE_FRAMEWORKS: dict[str, tuple[str, ...]] = {
+    "SOC 2": (r"\bSOC\s?2\b", r"\bSOC-?II\b"),
+    "ISO 27001": (r"\bISO\s?27001\b", r"\bISO\s?27002\b"),
+    "ISO 9001": (r"\bISO\s?9001\b",),
+    "HIPAA": (r"\bHIPAA\b", r"\bPHI\b\s+(?:data|disclosure|handling)"),
+    "PCI-DSS": (r"\bPCI[\s\-]?DSS\b", r"\bPCI\s+compliant\b"),
+    "GDPR": (r"\bGDPR\b", r"\bgeneral data protection\b"),
+    "CCPA / CPRA": (r"\bCCPA\b", r"\bCPRA\b"),
+    "NIST 800-53 / CSF": (r"\bNIST\s?800-?53\b", r"\bNIST\s?CSF\b", r"\bNIST\s?cybersecurity framework\b"),
+    "FedRAMP": (r"\bFedRAMP\b",),
+    "FERPA": (r"\bFERPA\b",),
+    "HITRUST": (r"\bHITRUST\b",),
+    "SOX (Sarbanes-Oxley)": (r"\bSOX\b", r"\bSarbanes[\s\-]?Oxley\b"),
+    "CMMC": (r"\bCMMC\b",),
+    "Indemnification": (r"\bindemnif(?:y|ication|ies|ied)\b",),
+    "Warranty": (r"\bwarrant(?:y|ies|ed)\b",),
+    "Audit rights": (r"\baudit(?:s|ing)?\s+(?:rights|clause|requirement|obligation)?\b",),
+    "Insurance": (r"\b(?:cyber\s+)?insurance\b", r"\bliability\s+coverage\b"),
+    "Data residency": (r"\bdata\s+residency\b", r"\bdata\s+sovereignty\b"),
+    "Right to terminate": (r"\bright\s+to\s+terminat(?:e|ion)\b",),
+    "Force majeure": (r"\bforce\s+majeure\b",),
+    "Confidentiality / NDA": (r"\bNDA\b", r"\bnon-?disclosure\b", r"\bconfidentiality\s+(?:agreement|clause|obligation)\b"),
+    "MSA / Master agreement": (r"\bMSA\b", r"\bmaster\s+services?\s+agreement\b"),
+    "Legal review required": (r"\blegal\s+review\b", r"\blegal\s+approval\b", r"\blegal\s+sign-?off\b"),
+}
+
+# Atoms we consider candidates for compliance callouts. Skip atom
+# types that are unlikely to carry contract language (e.g. quantity,
+# entity-only, action_item).
+_COMPLIANCE_ATOM_TYPES: frozenset[str] = frozenset({
+    "constraint", "exclusion", "scope_item", "decision",
+    "assumption", "customer_instruction",
+})
+
+
+def build_compliance_callouts(report: dict[str, Any]) -> list[ComplianceCallout]:
+    """Scan atoms for named compliance frameworks + generic legal cues.
+
+    Returns one ``ComplianceCallout`` per framework × atom hit.
+    De-duplicated by (framework, snippet) so an exact quote
+    appearing in two atoms only surfaces once.
+    """
+    seen: set[tuple[str, str]] = set()
+    out: list[ComplianceCallout] = []
+    import re as _re
+    compiled = {
+        name: [_re.compile(p, _re.IGNORECASE) for p in patterns]
+        for name, patterns in _COMPLIANCE_FRAMEWORKS.items()
+    }
+    for atom, filename in _iter_atoms_with_files(report):
+        if atom.get("atom_type") not in _COMPLIANCE_ATOM_TYPES:
+            continue
+        text = atom.get("text") or ""
+        if not text:
+            continue
+        for framework, regexes in compiled.items():
+            if not any(rx.search(text) for rx in regexes):
+                continue
+            snippet = text.strip().replace("\n", " ")[:240]
+            key = (framework, snippet)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(
+                ComplianceCallout(
+                    framework=framework,
+                    snippet=snippet,
+                    source=filename,
+                    severity="info",
+                )
+            )
+    out.sort(key=lambda c: (c.framework, c.source))
+    return out
+
+
 # ────────────────────────────── B3 action items ──────────────────────────────
 
 

@@ -110,6 +110,10 @@ class PMHandoff:
     # B4: role-lens one-pagers (CFO / IT / Procurement) — slicing
     # the intake into stakeholder-shaped summaries.
     stakeholder_pagers: list[dict[str, Any]] = field(default_factory=list)
+    # B10: compliance / legal callouts — named-framework + generic-
+    # legal language pulled from constraint / exclusion / decision
+    # atoms so PM can route them to legal review.
+    compliance_callouts: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

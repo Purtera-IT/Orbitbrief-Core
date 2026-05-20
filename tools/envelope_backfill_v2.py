@@ -890,6 +890,36 @@ def _extract_json(text: str) -> dict[str, Any]:
     return {}
 
 
+_WS_NORM_RE = re.compile(r"\s+")
+
+
+def _verify_span(span: str, source: str, *, min_len: int = 8) -> bool:
+    """D2 hallucination guard: does ``span`` actually appear in ``source``?
+
+    Comparison is whitespace-collapsed and case-folded. A finding
+    is kept when its raw_text_span matches verbatim modulo
+    whitespace + case. Empty / trivially-short spans
+    (under ``min_len`` chars after normalization) are kept by
+    default because the LLM sometimes returns a single token
+    (e.g. ``"yes"``, ``"required"``) that's still a faithful
+    quote — verifying every micro-span would create too many
+    false-positive drops. Real hallucinations tend to be
+    paragraph-shaped invented text, which this catches.
+
+    Returns True when the span verifies (or is too short to
+    verify) and the finding should be kept.
+    """
+    if not span:
+        # No span supplied — keep the finding (older lenses may
+        # not emit raw_text_span; the verification is opportunistic).
+        return True
+    norm_span = _WS_NORM_RE.sub(" ", span).strip().lower()
+    if len(norm_span) < min_len:
+        return True
+    norm_source = _WS_NORM_RE.sub(" ", source or "").lower()
+    return norm_span in norm_source
+
+
 def _build_user_message(
     *, raw_text: str, existing_entity_keys: list[str], atom_id: str, atom_type: str,
 ) -> str:
@@ -989,12 +1019,22 @@ def _scan_atom_with_lens(
         return []
     payload = _extract_json(result.text)
     findings = lens.parse_record(payload, atom, global_keys_snapshot)
+    # D2 hallucination guard: drop any LLM finding whose
+    # ``raw_text_span`` doesn't actually appear in the source
+    # atom's text (after whitespace + case normalization). LLMs
+    # sometimes return plausible-looking spans that aren't in the
+    # source — those are unverifiable and dangerous to ship as
+    # evidence-shaped atoms, so we filter them here before they
+    # become atoms.
+    verified_findings = [
+        f for f in findings if _verify_span(f.raw_text_span, raw_text)
+    ]
     new_atoms = [
         _finding_to_atom(
             f, project_id=project_id, source_atom=atom,
             lens_name=lens.name, model=model,
         )
-        for f in findings
+        for f in verified_findings
     ]
     return new_atoms
 

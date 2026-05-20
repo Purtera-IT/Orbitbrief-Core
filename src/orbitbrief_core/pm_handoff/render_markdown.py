@@ -28,6 +28,7 @@ def render_pm_handoff_markdown(handoff: PMHandoff) -> str:
     lines.extend(_render_risk_register(handoff))
     lines.extend(_render_schedule(handoff))
     lines.extend(_render_action_items(handoff))
+    lines.extend(_render_compliance_callouts(handoff))
     lines.extend(_render_reconciliation(handoff))
     lines.extend(_render_questions(handoff))
     lines.extend(_render_known_facts(handoff))
@@ -151,6 +152,35 @@ def _render_solution_architect_view(handoff: PMHandoff) -> list[str]:
         for g in technical[:20]:
             lines.append(f"- **{g.label}:** {g.suggested_open_question or g.message}")
         lines.append("")
+    return lines
+
+
+def _render_compliance_callouts(handoff: PMHandoff) -> list[str]:
+    """B10: compliance / legal callouts for legal review.
+
+    Lists every atom that mentions a named compliance framework
+    (SOC 2, HIPAA, ISO 27001, GDPR, etc.) or generic legal
+    language (indemnification, warranty, audit rights, MSA, ...).
+    PM forwards this block to legal review as a starting point —
+    every line is a copy-pasteable quote from the source.
+    """
+    callouts = handoff.compliance_callouts or []
+    if not callouts:
+        return []
+    lines: list[str] = [
+        "## Compliance & legal callouts",
+        "",
+        "Atoms that mention named compliance frameworks or generic legal language. **Route these to legal review** before SOW signature.",
+        "",
+        "| Framework / clause | Source | Snippet |",
+        "|---|---|---|",
+    ]
+    for c in callouts:
+        snippet = (c.get("snippet") or "").replace("|", "\\|")
+        lines.append(
+            f"| **{c.get('framework','')}** | `{c.get('source','')}` | {snippet} |"
+        )
+    lines.append("")
     return lines
 
 
