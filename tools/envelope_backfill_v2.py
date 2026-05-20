@@ -150,6 +150,12 @@ class Lens:
     system_prompt: str
     json_root_key: str
     parse_record: Callable[[dict[str, Any], dict[str, Any], set[str]], list[LensFinding]]
+    # Quick text-shape precondition: an atom only goes to the LLM if its
+    # text matches this regex. ``None`` means scan every candidate atom
+    # (used by the generic ``entities`` lens). Pre-filtering cuts wall-
+    # clock dramatically on serialized-Ollama backends — for OPTBOT,
+    # this turns ~558 jobs into ~120 jobs without changing output.
+    precondition: re.Pattern[str] | None = None
 
 
 # ─── Lens: entities (v1 + noise filter) ───
@@ -788,30 +794,64 @@ def _parse_rules(
 # ─── Lens registry ───
 
 
+# Pre-condition regexes route only relevant atoms to each lens. This
+# is the biggest single perf win on a serialized-Ollama backend —
+# 558 jobs → ~120 jobs without changing output quality, because most
+# atoms genuinely have no risk/phase/payment content.
+_RE_RISKS = re.compile(r"\bRisk\s+ID\s*:\s*[A-Z]+-?\d+|\bR-\d{1,3}\b", re.IGNORECASE)
+_RE_PHASES = re.compile(
+    r"\bPhase\s*\d+\b.*\b20[2-9][0-9]-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])\b",
+    re.IGNORECASE | re.DOTALL,
+)
+_RE_PAYMENT = re.compile(
+    r"\b\d{1,3}%\s+(?:at|on|upon|after|order|equipment|site|hypercare|"
+    r"acceptance|signoff|installation|completion|delivery|kickoff)",
+    re.IGNORECASE,
+)
+_RE_APPROVALS = re.compile(
+    r"\bapprove(?:s|d|r|d\s+pending|d\s+subject\s+to|d\s+contingent)|"
+    r"\bapproval\s+(?:required|threshold|matrix)|"
+    r"\bCFO\b|\bCISO\b|\bbudget\s+owner|\bsponsor\b",
+    re.IGNORECASE,
+)
+_RE_RULES = re.compile(
+    r"\bsubstitut|\bchange\s+order|\bescort|\blift\s+(?:required|access)|"
+    r"\bbadge(?:d)?\s+access|\bacceptance\s+(?:test|criteria)|"
+    r"\bhypercare|\bblackout\b",
+    re.IGNORECASE,
+)
+
+
 LENSES: dict[str, Lens] = {
     "entities": Lens(
         name="entities", system_prompt=_LENS_ENTITIES_PROMPT,
         json_root_key="new_entities", parse_record=_parse_entities,
+        precondition=None,  # scan all candidate atoms
     ),
     "risks": Lens(
         name="risks", system_prompt=_LENS_RISKS_PROMPT,
         json_root_key="new_risks", parse_record=_parse_risks,
+        precondition=_RE_RISKS,
     ),
     "phases": Lens(
         name="phases", system_prompt=_LENS_PHASES_PROMPT,
         json_root_key="new_phases", parse_record=_parse_phases,
+        precondition=_RE_PHASES,
     ),
     "payment_terms": Lens(
         name="payment_terms", system_prompt=_LENS_PAYMENT_TERMS_PROMPT,
         json_root_key="new_payment_terms", parse_record=_parse_payment_terms,
+        precondition=_RE_PAYMENT,
     ),
     "approvals": Lens(
         name="approvals", system_prompt=_LENS_APPROVALS_PROMPT,
         json_root_key="new_approvals", parse_record=_parse_approvals,
+        precondition=_RE_APPROVALS,
     ),
     "rules": Lens(
         name="rules", system_prompt=_LENS_RULES_PROMPT,
         json_root_key="new_rules", parse_record=_parse_rules,
+        precondition=_RE_RULES,
     ),
 }
 
@@ -985,7 +1025,25 @@ def _enrich_envelope(
             f"existing global entity_keys={len(global_keys)}...",
             file=sys.stderr,
         )
-    jobs = [(atom, lens) for atom in candidates for lens in lens_objs]
+    # Pre-condition routing: skip atom×lens pairs where the atom text
+    # doesn't contain the lens's domain signal (e.g. don't send every
+    # atom to the risks lens — only atoms containing "Risk ID:" or
+    # "R-NN"). Massive perf win on serialized-Ollama backends.
+    jobs: list[tuple[dict[str, Any], Lens]] = []
+    skipped_by_lens: Counter[str] = Counter()
+    for atom in candidates:
+        atom_text_val = _atom_text(atom)
+        for lens in lens_objs:
+            if lens.precondition is not None and not lens.precondition.search(atom_text_val):
+                skipped_by_lens[lens.name] += 1
+                continue
+            jobs.append((atom, lens))
+    if verbose:
+        print(
+            f"envelope_backfill_v2: pre-condition routing → "
+            f"{len(jobs)} jobs (skipped by lens: {dict(skipped_by_lens)})",
+            file=sys.stderr,
+        )
     new_atoms: list[dict[str, Any]] = []
     by_lens: Counter[str] = Counter()
     by_atom_type: Counter[str] = Counter()
