@@ -1368,6 +1368,86 @@ def build_audit_manifest(
     }
 
 
+# ────────────────────────────── CRM export detection (HubSpot / Salesforce) ──────────────────────────────
+
+
+@dataclass(frozen=True)
+class CrmExportDetected:
+    """A CSV / XLSX that looks like a CRM dump (HubSpot / Salesforce / Pipedrive)."""
+    vendor: str  # "hubspot" / "salesforce" / "pipedrive" / "generic_crm"
+    source: str
+    deal_fields: list[str] = field(default_factory=list)  # the matched headers
+    sample_row: dict[str, str] = field(default_factory=dict)  # first non-header row
+
+
+_HUBSPOT_FIELDS = {
+    "deal name", "amount", "deal stage", "close date", "pipeline",
+    "deal type", "deal owner", "hs_object_id", "createdate",
+    "hubspot_owner_id", "hs_deal_stage_probability", "dealname",
+}
+_SALESFORCE_FIELDS = {
+    "account name", "opportunity name", "opportunity owner",
+    "amount", "stage", "stagename", "close date", "closedate",
+    "forecast category", "expected revenue", "sf_id", "salesforce id",
+    "next step", "probability", "lead source", "campaign source",
+}
+_PIPEDRIVE_FIELDS = {
+    "deal title", "value", "currency", "stage", "owner",
+    "expected close date", "lost reason", "pipedrive deal id",
+}
+
+
+def build_crm_detection(report: dict[str, Any]) -> list[CrmExportDetected]:
+    """Scan atom text for CRM-shaped headers and emit one detection
+    per artifact that matches a vendor pattern. The PM_HANDOFF
+    renders these in a CRM-detected callout so the SA knows the
+    deal-context fields are available for cross-referencing."""
+    out: list[CrmExportDetected] = []
+    seen_sources: set[str] = set()
+    for atom, filename in _iter_atoms_with_files(report):
+        if filename in seen_sources:
+            continue
+        text = (atom.get("text") or "").lower()
+        # Quick reject if text has too few comma-separated columns
+        if text.count(",") < 3 and text.count("|") < 3:
+            continue
+        # Tokenize into possible field names
+        tokens = set(re.split(r"[,|\t]\s*", text))
+        tokens = {t.strip() for t in tokens if 3 <= len(t.strip()) <= 50}
+        if not tokens:
+            continue
+        hub_hits = tokens & _HUBSPOT_FIELDS
+        sf_hits = tokens & _SALESFORCE_FIELDS
+        pd_hits = tokens & _PIPEDRIVE_FIELDS
+        if not (hub_hits or sf_hits or pd_hits):
+            continue
+        if hub_hits and len(hub_hits) >= 3:
+            vendor = "hubspot"
+            matched = sorted(hub_hits)
+        elif sf_hits and len(sf_hits) >= 3:
+            vendor = "salesforce"
+            matched = sorted(sf_hits)
+        elif pd_hits and len(pd_hits) >= 3:
+            vendor = "pipedrive"
+            matched = sorted(pd_hits)
+        else:
+            # Need at least 3 distinct CRM-shaped fields across any
+            # vendor before flagging — prevents single-keyword false
+            # positives like "close date" on its own.
+            total = len(hub_hits | sf_hits | pd_hits)
+            if total < 3:
+                continue
+            vendor = "generic_crm"
+            matched = sorted(hub_hits | sf_hits | pd_hits)
+        seen_sources.add(filename)
+        out.append(CrmExportDetected(
+            vendor=vendor,
+            source=filename,
+            deal_fields=matched[:20],
+        ))
+    return out
+
+
 # ────────────────────────────── Multi-currency → USD-equivalent ──────────────────────────────
 
 
@@ -1383,6 +1463,95 @@ class OcrBackendStatus:
     """
     available: list[str] = field(default_factory=list)
     install_hints: list[str] = field(default_factory=list)
+
+
+def build_parser_quality_score(report: dict[str, Any]) -> dict[str, Any]:
+    """A 0-100 KPI summarizing parser-os run quality.
+
+    Weighted components:
+      * parse_outcome_ok_pct (40 pts) — % of files with status==ok
+      * receipt_verified_pct (25 pts) — % of atoms with verified replay
+      * error_free (15 pts) — 15 if 0 errors else 0
+      * warning_health (10 pts) — capped 10 pts; penalize >20 warnings
+      * authority_diversity (10 pts) — bonus when ≥3 authority classes
+        appear (so a brief that mixes customer_current_authored,
+        vendor_quote, meeting_note, machine_extractor scores higher
+        than one that's 100% machine_extractor)
+
+    Returns ``{"score": int, "grade": "A+|A|B|C|D|F", "components": {...}}``
+    so the UI can break down WHY a run scored what it did.
+    """
+    funnel = report.get("funnel") or {}
+    artifacts = report.get("artifacts") or []
+    n_files = len(artifacts)
+    n_ok = sum(
+        1 for a in artifacts
+        if (a.get("parse_outcome") or {}).get("status") == "ok"
+    )
+    parse_ok_pct = (n_ok / n_files) if n_files else 0.0
+
+    verification = report.get("verification") or {}
+    # The inspection report exposes counts under ``verification.counts``
+    # and ``verification.verified_count`` plus a precomputed
+    # ``verified_pct`` / ``health_pct``. Use those directly.
+    verified_pct_raw = float(verification.get("verified_pct") or verification.get("health_pct") or 0.0)
+    receipt_pct = verified_pct_raw / 100.0
+
+    # Errors / warnings live on the per-artifact parse_outcome and
+    # at the run-level under ``manifest.warnings`` / ``manifest.errors``.
+    # The inspection report doesn't surface those today, so we count
+    # degraded files as a warning-equivalent signal.
+    n_errors = sum(
+        1 for a in artifacts
+        if (a.get("parse_outcome") or {}).get("status") == "failed_parse"
+    )
+    n_warnings = sum(
+        int((a.get("parse_outcome") or {}).get("warning_count") or 0)
+        for a in artifacts
+    )
+
+    # Authority diversity
+    auth_set: set[str] = set()
+    for art in artifacts:
+        for atom in (art.get("atoms") or []):
+            ac = atom.get("authority_class") or ""
+            if ac:
+                auth_set.add(ac)
+    auth_diversity_score = min(10, 3 * (len(auth_set) - 1)) if len(auth_set) > 0 else 0
+
+    components = {
+        "parse_outcome_ok_pct": round(parse_ok_pct * 100, 1),
+        "parse_outcome_pts": round(parse_ok_pct * 40, 1),
+        "receipt_verified_pct": round(receipt_pct * 100, 1),
+        "receipt_pts": round(receipt_pct * 25, 1),
+        "error_free_pts": 15 if n_errors == 0 else 0,
+        "n_errors": n_errors,
+        "warning_health_pts": round(max(0, 10 - max(0, n_warnings - 20) * 0.25), 1),
+        "n_warnings": n_warnings,
+        "authority_diversity_pts": auth_diversity_score,
+        "authority_classes_seen": sorted(auth_set),
+    }
+    score = round(
+        components["parse_outcome_pts"]
+        + components["receipt_pts"]
+        + components["error_free_pts"]
+        + components["warning_health_pts"]
+        + components["authority_diversity_pts"]
+    )
+    score = max(0, min(100, int(score)))
+    if score >= 95:
+        grade = "A+"
+    elif score >= 90:
+        grade = "A"
+    elif score >= 80:
+        grade = "B"
+    elif score >= 70:
+        grade = "C"
+    elif score >= 60:
+        grade = "D"
+    else:
+        grade = "F"
+    return {"score": score, "grade": grade, "components": components}
 
 
 def build_ocr_backend_status() -> OcrBackendStatus:

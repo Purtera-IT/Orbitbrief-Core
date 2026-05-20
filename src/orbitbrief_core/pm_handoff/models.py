@@ -160,6 +160,11 @@ class PMHandoff:
     critical_path_chain: list[str] = field(default_factory=list)
     comparable_deals: list[dict[str, Any]] = field(default_factory=list)
     ocr_backend_status: dict[str, Any] = field(default_factory=dict)
+    crm_detections: list[dict[str, Any]] = field(default_factory=list)
+    # UI-mapping additions
+    sow_draft_markdown: str = ""        # Rendered SOW (so the UI can pull it from one payload)
+    rfp_draft_markdown: str = ""        # Rendered RFP
+    parser_quality_score: dict[str, Any] = field(default_factory=dict)  # {score, components}
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

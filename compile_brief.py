@@ -237,12 +237,30 @@ def main(argv: list[str] | None = None) -> int:
         # vendor_line_item atoms. ``render_rfp_draft`` returns ""
         # when there's nothing to RFP, so the file is skipped in
         # that case.
+        rfp_md = ""
         try:
             rfp_md = render_rfp_draft(handoff)
             if rfp_md:
                 (out_dir / "RFP_DRAFT.md").write_text(rfp_md, encoding="utf-8")
         except Exception:
             pass
+        # Embed the rendered SOW + RFP markdown into PM_HANDOFF.json
+        # so a UI consumer can pull all three deliverables (PM brief,
+        # SOW draft, RFP draft) from a single JSON payload.
+        sow_md = ""
+        try:
+            _report_path2 = out_dir / "90_inspection_report.json"
+            if _report_path2.exists():
+                _report2 = json.loads(_report_path2.read_text(encoding="utf-8"))
+                sow_md = render_sow_draft(handoff, _report2)
+        except Exception:
+            pass
+        handoff_dict = handoff.to_dict()
+        handoff_dict["sow_draft_markdown"] = sow_md
+        handoff_dict["rfp_draft_markdown"] = rfp_md
+        (out_dir / "PM_HANDOFF.json").write_text(
+            json.dumps(handoff_dict, indent=2), encoding="utf-8"
+        )
         # Append the brief's snapshot to the corpus history ledger
         # so future runs can surface comparable past deals.
         try:
@@ -274,9 +292,6 @@ def main(argv: list[str] | None = None) -> int:
         )
         (out_dir / "PM_HANDOFF.html").write_text(
             render_pm_handoff_html(handoff), encoding="utf-8"
-        )
-        (out_dir / "PM_HANDOFF.json").write_text(
-            json.dumps(handoff.to_dict(), indent=2), encoding="utf-8"
         )
         if not args.quiet:
             print(

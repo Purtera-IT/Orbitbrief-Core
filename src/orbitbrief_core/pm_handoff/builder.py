@@ -58,7 +58,9 @@ from orbitbrief_core.pm_handoff.pm_intelligence import (
     build_lead_time_flags,
     build_license_items,
     build_margin_view,
+    build_crm_detection,
     build_ocr_backend_status,
+    build_parser_quality_score,
     build_phase_dependencies,
     build_resource_conflicts,
     build_risk_aging,
@@ -175,6 +177,8 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         str((case_dir / ".orbitbrief_history.jsonl").resolve()),
     )
     ocr_status = build_ocr_backend_status()
+    crm_detections = build_crm_detection(report)
+    parser_quality = build_parser_quality_score(report)
     comparable = load_comparable_deals(
         history_path,
         target_value_usd=margin.deal_total,
@@ -263,6 +267,8 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         critical_path_chain=list(cp_chain),
         comparable_deals=[asdict(c) for c in comparable],
         ocr_backend_status=asdict(ocr_status),
+        crm_detections=[asdict(c) for c in crm_detections],
+        parser_quality_score=parser_quality,
     )
 
 
