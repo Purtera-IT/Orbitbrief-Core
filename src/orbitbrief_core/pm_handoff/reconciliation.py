@@ -1259,6 +1259,26 @@ def _is_internal_gap(gap: Any) -> bool:
     return any(token in text for token in _INTERNAL_GAP_TOKENS)
 
 
+def _normalize_action_label(label: str) -> str:
+    """Normalized form used for action-item deduplication.
+
+    Strips leading verb / "Resolve / Confirm / Track / Phase:" prefix,
+    collapses whitespace, lowercases. Two action items with the
+    same normalized form are considered duplicates and only the
+    highest-severity one is kept.
+    """
+    s = (label or "").lower().strip()
+    # Strip leading verb prefixes
+    s = re.sub(
+        r"^(?:resolve|confirm|track|phase|action|review|verify)"
+        r"\s*\([^)]*\)?\s*[:\-]?\s*",
+        "",
+        s,
+    )
+    s = re.sub(r"\s+", " ", s)
+    return s[:200]
+
+
 def build_action_items(
     *,
     gaps: list[Any],
@@ -1310,7 +1330,32 @@ def build_action_items(
                 due=p.start,
             )
         )
-    return items
+    # Audit fix: dedup. Same action surfacing via gap + risk + phase
+    # would otherwise appear 3 times. Pick the highest-severity copy
+    # of each unique action and drop the rest.
+    severity_rank = {"blocker": 3, "warning": 2, "info": 1, "": 0}
+    by_norm: dict[str, ActionItem] = {}
+    for it in items:
+        norm = _normalize_action_label(it.label)
+        if not norm:
+            continue
+        existing = by_norm.get(norm)
+        if existing is None:
+            by_norm[norm] = it
+            continue
+        # Keep the one with higher severity; tie → keep the first
+        if severity_rank.get(it.severity, 0) > severity_rank.get(existing.severity, 0):
+            by_norm[norm] = it
+    # Preserve insertion order for stable rendering
+    seen_norms: set[str] = set()
+    out: list[ActionItem] = []
+    for it in items:
+        norm = _normalize_action_label(it.label)
+        if not norm or norm in seen_norms:
+            continue
+        seen_norms.add(norm)
+        out.append(by_norm[norm])
+    return out
 
 
 # ────────────────────────────── B6 polish: per-site $ arithmetic ──────────────────────────────

@@ -392,10 +392,30 @@ class EngagementModel:
     tm_cap_amount: int = 0
 
 
-_TM_RE = re.compile(r"\b(time\s+and\s+materials|t\s*&\s*m|hourly\s+rate|hours\s+based|nte\b|not[\s\-]to[\s\-]exceed)\b", re.IGNORECASE)
-_FF_RE = re.compile(r"\b(fixed\s+fee|fixed\s+price|firm\s+fixed\s+price|ffp|lump\s+sum|milestone\s+billing)\b", re.IGNORECASE)
-_SUB_RE = re.compile(r"\b(subscription|monthly\s+recurring|annual\s+recurring|mrr|arr|recurring\s+revenue|per[\s\-]month|/month|per\s+year|annually\s+invoiced|subscription\s+fee)\b", re.IGNORECASE)
-_TM_CAP_RE = re.compile(r"(?:nte|cap|not[\s\-]to[\s\-]exceed)\s*(?:of\s+)?\$?([\d,]+(?:\.\d+)?)", re.IGNORECASE)
+_TM_RE = re.compile(
+    r"\b(time\s+and\s+materials|t\s*&\s*m|t/m|hourly\s+rate|hours\s+based|"
+    r"nte\b|not[\s\-]to[\s\-]exceed|billable\s+hours|"
+    r"per\s+hour|/hour|hourly|rate\s+card|rate\s+sheet)\b",
+    re.IGNORECASE,
+)
+_FF_RE = re.compile(
+    r"\b(fixed[\s\-]fee|fixed[\s\-]price|firm[\s\-]fixed[\s\-]price|ffp|"
+    r"lump\s+sum|milestone\s+billing|milestone[\s\-]billed|"
+    r"flat\s+fee|fixed\s+cost|fixed\s+rate)\b",
+    re.IGNORECASE,
+)
+_SUB_RE = re.compile(
+    r"\b(subscription|monthly\s+recurring|annual\s+recurring|"
+    r"mrr|arr|recurring\s+revenue|per[\s\-]month|/month|"
+    r"per\s+year|/year|annually\s+invoiced|subscription\s+fee|"
+    r"saas|managed\s+service\s+fee|monthly\s+service\s+fee|"
+    r"recurring\s+billing)\b",
+    re.IGNORECASE,
+)
+_TM_CAP_RE = re.compile(
+    r"(?:nte|cap|capped\s+at|not[\s\-]to[\s\-]exceed)\s*(?:of\s+)?\$?([\d,]+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
 
 
 def build_engagement_model(report: dict[str, Any]) -> EngagementModel:
@@ -1519,6 +1539,31 @@ def build_parser_quality_score(report: dict[str, Any]) -> dict[str, Any]:
                 auth_set.add(ac)
     auth_diversity_score = min(10, 3 * (len(auth_set) - 1)) if len(auth_set) > 0 else 0
 
+    # Confidence histogram across all atoms — lets auditors see whether
+    # the corpus is high-confidence or borderline. Buckets:
+    #   high     ≥ 0.85
+    #   medium   0.70 ≤ c < 0.85
+    #   low      0.50 ≤ c < 0.70
+    #   poor     < 0.50  (would normally be dropped by confidence_floor)
+    conf_buckets = {"high": 0, "medium": 0, "low": 0, "poor": 0}
+    conf_total = 0
+    for art in artifacts:
+        for atom in (art.get("atoms") or []):
+            try:
+                c = float(atom.get("confidence") or 0.0)
+            except (TypeError, ValueError):
+                continue
+            conf_total += 1
+            if c >= 0.85:
+                conf_buckets["high"] += 1
+            elif c >= 0.70:
+                conf_buckets["medium"] += 1
+            elif c >= 0.50:
+                conf_buckets["low"] += 1
+            else:
+                conf_buckets["poor"] += 1
+    conf_high_pct = (conf_buckets["high"] / conf_total * 100.0) if conf_total else 0.0
+
     components = {
         "parse_outcome_ok_pct": round(parse_ok_pct * 100, 1),
         "parse_outcome_pts": round(parse_ok_pct * 40, 1),
@@ -1530,6 +1575,14 @@ def build_parser_quality_score(report: dict[str, Any]) -> dict[str, Any]:
         "n_warnings": n_warnings,
         "authority_diversity_pts": auth_diversity_score,
         "authority_classes_seen": sorted(auth_set),
+        "confidence_histogram": {
+            "high":   conf_buckets["high"],
+            "medium": conf_buckets["medium"],
+            "low":    conf_buckets["low"],
+            "poor":   conf_buckets["poor"],
+            "total":  conf_total,
+            "high_pct": round(conf_high_pct, 1),
+        },
     }
     score = round(
         components["parse_outcome_pts"]
@@ -1552,6 +1605,315 @@ def build_parser_quality_score(report: dict[str, Any]) -> dict[str, Any]:
     else:
         grade = "F"
     return {"score": score, "grade": grade, "components": components}
+
+
+@dataclass(frozen=True)
+class RunTelemetry:
+    """Per-compile run telemetry bubbled into PM_HANDOFF.json so the
+    UI can show "this brief took 8s / inputs hash X / outputs hash Y"
+    without separately fetching pipeline_log.json + manifest.json.
+    """
+    compile_id: str = ""
+    generated_at: str = ""
+    input_signature: str = ""      # SHA256 of input artifacts
+    output_signature: str = ""     # SHA256 of output atoms
+    total_duration_ms: int = 0
+    stage_durations_ms: dict[str, int] = field(default_factory=dict)
+    stage_status_counts: dict[str, int] = field(default_factory=dict)
+    cache_hits: int = 0
+    cache_misses: int = 0
+    parser_warnings: int = 0
+    parser_errors: int = 0
+
+
+@dataclass(frozen=True)
+class UrgencySignal:
+    """Detected urgency / sentiment marker from email / transcript atoms.
+
+    Pure regex detection of strong-language markers. Lets the PM
+    triage "this customer is hot" without reading every atom. The
+    feature is intentionally lossy — for serious sentiment, route
+    through an LLM lens or production NLP service.
+    """
+    kind: str  # "high_urgency" / "deadline_pressure" / "escalation" / "blocker_language"
+    snippet: str
+    source: str
+
+
+_URGENCY_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("high_urgency", re.compile(
+        r"\b(?:urgent|asap|right\s+away|immediately|critical|"
+        r"top\s+priority|drop\s+everything|need\s+this\s+yesterday|"
+        r"can'?t\s+wait|extremely\s+(?:urgent|important))\b",
+        re.IGNORECASE,
+    )),
+    ("deadline_pressure", re.compile(
+        r"\b(?:deadline\s+(?:looming|approaching|missed|in\s+\d+\s+days?)|"
+        r"must\s+(?:happen|be\s+done|complete)\s+by|"
+        r"end\s+of\s+(?:week|month|quarter|day)|"
+        r"by\s+(?:today|tomorrow|eod|cob)|"
+        r"running\s+out\s+of\s+time)\b",
+        re.IGNORECASE,
+    )),
+    ("escalation", re.compile(
+        r"\b(?:escalat(?:e|ed|ion|ing)|loop(?:ing)?\s+in\s+(?:the\s+)?(?:CEO|CFO|CTO|exec|leadership)|"
+        r"unhappy|frustrated|disappointed|concerns?\s+raised|"
+        r"this\s+isn'?t\s+working|losing\s+confidence)\b",
+        re.IGNORECASE,
+    )),
+    ("blocker_language", re.compile(
+        r"\b(?:blocker|blocking|can'?t\s+proceed|stuck\s+on|"
+        r"showstopper|hard\s+stop|deal[\s\-]breaker|will\s+kill\s+the\s+deal)\b",
+        re.IGNORECASE,
+    )),
+)
+
+
+def build_urgency_signals(report: dict[str, Any]) -> list[UrgencySignal]:
+    """Scan email / transcript / chat atoms for urgency markers."""
+    out: list[UrgencySignal] = []
+    seen: set[tuple[str, str]] = set()
+    for atom, filename in _iter_atoms_with_files(report):
+        # Only urgency-prone atom types
+        a_type = atom.get("atom_type") or ""
+        if a_type not in {"scope_item", "open_question", "decision",
+                          "action_item", "meeting_commitment",
+                          "customer_instruction"}:
+            continue
+        text = atom.get("text") or ""
+        if not text:
+            continue
+        for kind, pat in _URGENCY_PATTERNS:
+            m = pat.search(text)
+            if not m:
+                continue
+            snip = text[max(0, m.start() - 30): m.end() + 80][:240].strip()
+            key = (kind, snip[:80])
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(UrgencySignal(
+                kind=kind, snippet=snip, source=filename,
+            ))
+    return out
+
+
+@dataclass(frozen=True)
+class CustomerAnswerSlot:
+    """Scaffold for ingesting customer answers to gap questions.
+
+    Each open gap-question gets a slot. Today they're empty; once a
+    workflow attaches customer responses (manual entry, email
+    ingestion, or HubSpot integration), the ``answer`` + ``answered_at``
+    + ``answered_by`` fields populate and the UI can show resolved-vs-open.
+
+    This is the data shape — the integration is left to the
+    Azure/UI engineer per the INTEGRATION_GUIDE.md.
+    """
+    question_id: str       # Stable ID (gap.rule_id when available)
+    question: str
+    severity: str          # "blocker" / "warning" / "info"
+    domain: str
+    answer: str = ""       # Empty until populated by a workflow
+    answered_at: str = ""  # ISO timestamp
+    answered_by: str = ""  # Email or stakeholder name
+    status: str = "open"   # "open" / "answered" / "deferred"
+
+
+def build_customer_answer_slots(gaps: list[Any]) -> list[CustomerAnswerSlot]:
+    """One empty slot per gap question, ready for downstream
+    customer-answer wiring."""
+    out: list[CustomerAnswerSlot] = []
+    for g in gaps:
+        sev = getattr(g, "severity", "")
+        if sev not in {"blocker", "warning", "info"}:
+            continue
+        out.append(CustomerAnswerSlot(
+            question_id=str(getattr(g, "rule_id", "") or ""),
+            question=getattr(g, "suggested_open_question", "") or getattr(g, "message", ""),
+            severity=sev,
+            domain=getattr(g, "domain_label", ""),
+        ))
+    return out
+
+
+def build_run_telemetry(report: dict[str, Any], case_dir: Any) -> RunTelemetry:
+    """Extract per-compile telemetry from inspection report + the
+    sibling pipeline_log.json / manifest.json files (when present).
+
+    The pipeline_log.json file lives next to PM_HANDOFF.json in
+    the same out_dir. We read it opportunistically; absent file
+    just means empty telemetry (UI suppresses the panel)."""
+    from pathlib import Path as _Path
+    import json as _json
+    cd = _Path(case_dir) if case_dir else None
+    compile_id = str(report.get("compile_id") or "")
+    funnel = report.get("funnel") or {}
+    stage_durations: dict[str, int] = {}
+    stage_status: dict[str, int] = {}
+    input_sig = ""
+    output_sig = ""
+    cache_hits = 0
+    cache_misses = 0
+    parser_warnings = 0
+    parser_errors = 0
+    generated_at = ""
+
+    # pipeline_log.json — per-stage telemetry from parser-os
+    if cd is not None:
+        pl_path = cd / "pipeline_log.json"
+        if pl_path.exists():
+            try:
+                pl = _json.loads(pl_path.read_text(encoding="utf-8"))
+                if isinstance(pl, dict):
+                    # Some pipeline logs nest under "stages" / "records"
+                    stages = pl.get("stages") or pl.get("records") or pl.get("entries") or []
+                elif isinstance(pl, list):
+                    stages = pl
+                else:
+                    stages = []
+                for s in stages:
+                    if not isinstance(s, dict):
+                        continue
+                    sn = str(s.get("stage") or s.get("name") or "")
+                    if not sn:
+                        continue
+                    dur = int(s.get("duration_ms") or 0)
+                    stage_durations[sn] = stage_durations.get(sn, 0) + dur
+                    st = str(s.get("status") or "")
+                    if st:
+                        stage_status[st] = stage_status.get(st, 0) + 1
+            except Exception:
+                pass
+
+        # manifest.json — input/output signatures, top-level stats
+        for mf_name in ("manifest.json",):
+            mf_path = cd / mf_name
+            if mf_path.exists():
+                try:
+                    mf = _json.loads(mf_path.read_text(encoding="utf-8"))
+                    generated_at = generated_at or str(mf.get("generated_at") or "")
+                    # If stage_status_counts is in the manifest, merge it.
+                    ssc = mf.get("stage_status_counts") or {}
+                    for k, v in ssc.items():
+                        stage_status[k] = stage_status.get(k, 0) + int(v)
+                except Exception:
+                    pass
+
+        # 00_envelope.json — input + output signatures live on
+        # the envelope's manifest section
+        env_path = cd / "00_envelope.json"
+        if env_path.exists():
+            try:
+                env = _json.loads(env_path.read_text(encoding="utf-8"))
+                m = env.get("manifest") or {}
+                input_sig = str(m.get("input_signature") or "")[:64]
+                output_sig = str(m.get("output_signature") or "")[:64]
+                cache_hits = int(m.get("cache_hits") or 0)
+                cache_misses = int(m.get("cache_misses") or 0)
+                warnings_list = m.get("warnings") or []
+                if isinstance(warnings_list, list):
+                    parser_warnings = len(warnings_list)
+                    parser_errors = sum(
+                        1 for w in warnings_list
+                        if isinstance(w, str) and w.startswith("ERROR:")
+                    )
+                generated_at = generated_at or str(env.get("generated_at") or "")
+            except Exception:
+                pass
+
+    total_duration_ms = sum(stage_durations.values())
+
+    return RunTelemetry(
+        compile_id=compile_id,
+        generated_at=generated_at,
+        input_signature=input_sig,
+        output_signature=output_sig,
+        total_duration_ms=total_duration_ms,
+        stage_durations_ms=stage_durations,
+        stage_status_counts=stage_status,
+        cache_hits=cache_hits,
+        cache_misses=cache_misses,
+        parser_warnings=parser_warnings,
+        parser_errors=parser_errors,
+    )
+
+
+@dataclass(frozen=True)
+class DriftSnapshot:
+    """A diff against the previous compile of the same project, bubbled
+    inline into PM_HANDOFF.json. Reads ``.orbitbrief_history.jsonl`` —
+    when the current compile's case_id matches a prior row, computes
+    the delta on key signals (deal_total / margin_pct / blocker_count /
+    sites_count / risk_count).
+
+    Empty drift = first run for this project (UI suppresses the panel).
+    """
+    is_first_run: bool = True
+    last_compile_id: str = ""
+    last_generated_at: str = ""
+    deltas: list[dict[str, Any]] = field(default_factory=list)
+
+
+def build_drift_snapshot(
+    *,
+    case_id: str,
+    current_run: dict[str, Any],
+    history_path: Any,
+) -> DriftSnapshot:
+    """Build a drift snapshot comparing the current compile to the
+    most recent prior entry for the same case_id."""
+    import json as _json
+    from pathlib import Path as _Path
+    p = _Path(history_path) if history_path else None
+    if not (p and p.exists()):
+        return DriftSnapshot(is_first_run=True)
+    prior: dict[str, Any] | None = None
+    try:
+        with p.open(encoding="utf-8") as f:
+            for line in f:
+                try:
+                    row = _json.loads(line)
+                except _json.JSONDecodeError:
+                    continue
+                if str(row.get("case_id", "")) == case_id:
+                    prior = row  # last match wins
+    except Exception:
+        return DriftSnapshot(is_first_run=True)
+    if not prior:
+        return DriftSnapshot(is_first_run=True)
+    deltas: list[dict[str, Any]] = []
+    def _delta(field_name: str, before: Any, after: Any, *, dollar: bool = False) -> None:
+        try:
+            b = float(before or 0)
+            a = float(after or 0)
+        except (TypeError, ValueError):
+            return
+        if b == 0 and a == 0:
+            return
+        diff = a - b
+        pct = (diff / max(abs(b), 1)) * 100.0
+        deltas.append({
+            "field": field_name,
+            "before": int(b) if dollar else b,
+            "after": int(a) if dollar else a,
+            "delta_abs": int(diff) if dollar else round(diff, 2),
+            "delta_pct": round(pct, 1),
+        })
+    _delta("deal_value_usd", prior.get("deal_value_usd"),
+           current_run.get("deal_value_usd"), dollar=True)
+    _delta("final_margin_pct", prior.get("final_margin_pct"),
+           current_run.get("final_margin_pct"))
+    _delta("sites_count", prior.get("sites_count"),
+           current_run.get("sites_count"))
+    _delta("phase_count", prior.get("phase_count"),
+           current_run.get("phase_count"))
+    return DriftSnapshot(
+        is_first_run=False,
+        last_compile_id="",
+        last_generated_at="",
+        deltas=deltas,
+    )
 
 
 def build_ocr_backend_status() -> OcrBackendStatus:

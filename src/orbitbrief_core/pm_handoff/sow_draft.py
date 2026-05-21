@@ -734,9 +734,15 @@ def render_sow_draft(handoff: PMHandoff, report: dict[str, Any]) -> str:
     sn += 1
     lines.extend([
         f"## {sn}. Governing Law", "",
-        "This SOW is governed by and construed under the laws of **[STATE/JURISDICTION TBD]**, without regard to its conflict-of-laws principles. Any dispute is resolved exclusively in the state or federal courts located in **[VENUE TBD]**.",
+        "| Field | Value |",
+        "|---|---|",
+        "| Governing law (state / country) | `[FILL: STATE / COUNTRY]` |",
+        "| Exclusive venue (court / city) | `[FILL: VENUE]` |",
+        "| Conflict-of-laws carve-out | Without regard to its conflict-of-laws principles |",
         "",
-        "[PM to insert customer-mandated jurisdiction or company default per master agreement.]",
+        "This SOW is governed by and construed under the laws of the jurisdiction stated above, without regard to its conflict-of-laws principles. Any dispute is resolved exclusively in the named venue.",
+        "",
+        "_PM action: replace the two `[FILL: …]` fields with the customer-mandated jurisdiction OR the provider's default per the master agreement._",
         "",
     ])
 

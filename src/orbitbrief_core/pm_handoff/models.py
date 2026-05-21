@@ -165,6 +165,11 @@ class PMHandoff:
     sow_draft_markdown: str = ""        # Rendered SOW (so the UI can pull it from one payload)
     rfp_draft_markdown: str = ""        # Rendered RFP
     parser_quality_score: dict[str, Any] = field(default_factory=dict)  # {score, components}
+    # A+ wave: run telemetry + drift + urgency + customer-answer scaffold
+    run_telemetry: dict[str, Any] = field(default_factory=dict)
+    drift_snapshot: dict[str, Any] = field(default_factory=dict)
+    urgency_signals: list[dict[str, Any]] = field(default_factory=list)
+    customer_answer_slots: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

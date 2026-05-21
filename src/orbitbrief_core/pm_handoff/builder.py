@@ -59,8 +59,12 @@ from orbitbrief_core.pm_handoff.pm_intelligence import (
     build_license_items,
     build_margin_view,
     build_crm_detection,
+    build_customer_answer_slots,
+    build_drift_snapshot,
     build_ocr_backend_status,
     build_parser_quality_score,
+    build_run_telemetry,
+    build_urgency_signals,
     build_phase_dependencies,
     build_resource_conflicts,
     build_risk_aging,
@@ -179,6 +183,28 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     ocr_status = build_ocr_backend_status()
     crm_detections = build_crm_detection(report)
     parser_quality = build_parser_quality_score(report)
+    run_tele = build_run_telemetry(report, case_dir)
+    urgency = build_urgency_signals(report)
+    customer_slots = build_customer_answer_slots(gaps)
+    # Drift snapshot uses the corpus history ledger; same logic the
+    # compile_brief.py append step uses, so the comparison is
+    # against the LAST entry for this case_id.
+    import os as _os
+    drift_history_path = _os.environ.get(
+        "ORBITBRIEF_CORPUS_HISTORY",
+        str((case_dir / ".orbitbrief_history.jsonl").resolve()) if case_dir else "",
+    )
+    current_run_for_drift = {
+        "deal_value_usd": int((margin.deal_total or 0)),
+        "final_margin_pct": float(margin.margin_pct or 0),
+        "sites_count": len(sites),
+        "phase_count": len(phases),
+    }
+    drift = build_drift_snapshot(
+        case_id=case_id,
+        current_run=current_run_for_drift,
+        history_path=drift_history_path,
+    )
     comparable = load_comparable_deals(
         history_path,
         target_value_usd=margin.deal_total,
@@ -269,6 +295,10 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         ocr_backend_status=asdict(ocr_status),
         crm_detections=[asdict(c) for c in crm_detections],
         parser_quality_score=parser_quality,
+        run_telemetry=asdict(run_tele),
+        drift_snapshot=asdict(drift),
+        urgency_signals=[asdict(u) for u in urgency],
+        customer_answer_slots=[asdict(c) for c in customer_slots],
     )
 
 
