@@ -119,6 +119,72 @@ def test_validate_rejects_too_short() -> None:
     assert not _validate_polish(raw, polished)
 
 
+def test_validate_rejects_title_cased_site_key() -> None:
+    """parser-os uses lowercase 'atl hq' as a canonical entity key —
+    title-casing breaks downstream joins. The validator must reject."""
+    raw = "Site access at atl hq needs confirmation by 2026-05-30."
+    bad = "Site access at Atlanta HQ needs confirmation by 2026-05-30."
+    assert not _validate_polish(raw, bad)
+
+
+def test_validate_keeps_lowercase_site_key() -> None:
+    raw = "Site access at atl hq needs confirmation by 2026-05-30."
+    good = "Confirm site access at atl hq by 2026-05-30."
+    assert _validate_polish(raw, good)
+
+
+def test_validate_rejects_dropped_part_number() -> None:
+    raw = "Cisco c9166d1 lead time 6-8 weeks; PO must clear by 2026-05-30."
+    bad = "Cisco access points have a 6-8 week lead time; PO must clear by 2026-05-30."
+    assert not _validate_polish(raw, bad)
+
+
+def test_validate_keeps_part_number() -> None:
+    raw = "Cisco c9166d1 lead time 6-8 weeks; PO must clear by 2026-05-30."
+    good = "Cisco c9166d1 lead time is 6-8 weeks; PO must clear by 2026-05-30."
+    assert _validate_polish(raw, good)
+
+
+def test_validate_rejects_lowercased_hyphen_id() -> None:
+    """ATL-West (canonical mixed-case) lowercased to atl-west breaks joins."""
+    raw = "PoE budget at ATL-West appears undersized for 27 access points."
+    bad = "PoE budget at atl-west appears undersized for 27 access points."
+    assert not _validate_polish(raw, bad)
+
+
+def test_validate_keeps_hyphen_id_case() -> None:
+    raw = "PoE budget at ATL-West appears undersized for 27 access points."
+    good = "Address PoE budget at ATL-West for 27 access points."
+    assert _validate_polish(raw, good)
+
+
+def test_validate_rejects_lowercased_title_phrase() -> None:
+    """'Airport Logistics Annex' is the canonical proper noun. \
+    Lowercasing breaks downstream display + joins."""
+    raw = "Confirm site access for Airport Logistics Annex."
+    bad = "Confirm site access for airport logistics annex."
+    assert not _validate_polish(raw, bad)
+
+
+def test_validate_keeps_title_phrase_case() -> None:
+    raw = "Confirm site access for Airport Logistics Annex."
+    good = "Confirm site access for Airport Logistics Annex by 2026-05-30."
+    # Even adding a date is fine — the title-phrase is preserved verbatim
+    assert _validate_polish(raw, good)
+
+
+def test_validate_keeps_net_terms() -> None:
+    raw = "Align net payment terms between RFP (Net-30) and signed quote (Net-45)."
+    good = "Align net payment terms between RFP (Net-30) and signed quote (Net-45)."
+    assert _validate_polish(raw, good)
+
+
+def test_validate_rejects_dropped_net_terms() -> None:
+    raw = "Align net payment terms between RFP (Net-30) and signed quote (Net-45)."
+    bad = "Align net payment terms between RFP and signed quote."
+    assert not _validate_polish(raw, bad)
+
+
 # ────────────────────────────────────────────────────────────────────
 # _parse_polish_response — robust to think tokens + trailing chatter
 # ────────────────────────────────────────────────────────────────────
@@ -235,19 +301,48 @@ def test_polish_items_falls_back_on_llm_failure() -> None:
 
 
 def test_polish_items_falls_back_on_dropped_token() -> None:
-    """LLM returns text missing the guarded $X token → fallback to raw."""
+    """LLM returns text missing the guarded $X token on both attempts → fallback.
+
+    The retry path gives the model one more chance with a stricter
+    prompt. If the second attempt also drops the token, fall back to raw.
+    """
     raw = "BOM total is $51,740 for ATL-HQ"
     item = PolishItem(
         key="k1",
         role="risk.description",
         raw_text=raw,
     )
-    # Model drops the $ amount
-    canned = json.dumps({"items": [{"key": "k1", "polished": "BOM total for ATL-HQ"}]})
-    client = _StubChatClient(canned=[canned])
+    # Both attempts drop the $ amount
+    bad = json.dumps({"items": [{"key": "k1", "polished": "BOM total for ATL-HQ"}]})
+    client = _StubChatClient(canned=[bad, bad])
     out = polish_items([item], chat_client=client, model="qwen3:14b", cache=None)
     assert out["k1"].used_fallback is True
     assert out["k1"].polished_text == raw
+    # Both attempts were made — first attempt + retry
+    assert len(client.calls) == 2
+
+
+def test_polish_items_retry_succeeds_after_initial_failure() -> None:
+    """First LLM attempt drops a token; retry preserves it → polish wins."""
+    raw = "BOM total is $51,740 for ATL-HQ"
+    item = PolishItem(
+        key="k1",
+        role="risk.description",
+        raw_text=raw,
+    )
+    bad = json.dumps({"items": [{"key": "k1", "polished": "BOM total for ATL-HQ"}]})
+    good = json.dumps(
+        {"items": [{"key": "k1", "polished": "BOM total is $51,740 for ATL-HQ."}]}
+    )
+    client = _StubChatClient(canned=[bad, good])
+    out = polish_items([item], chat_client=client, model="qwen3:14b", cache=None)
+    assert out["k1"].used_fallback is False
+    assert "$51,740" in out["k1"].polished_text
+    assert len(client.calls) == 2  # one bad + one retry that succeeded
+    # Retry call carries the stricter prompt suffix
+    retry_messages = client.calls[1][0]
+    retry_system = retry_messages[0].content
+    assert "PRIOR ATTEMPT FAILED" in retry_system
 
 
 def test_polish_items_happy_path() -> None:

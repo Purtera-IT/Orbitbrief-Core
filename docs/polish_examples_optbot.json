@@ -2,27 +2,27 @@
   "model": "qwen3:14b",
   "items_total": 33,
   "items_polished": 33,
-  "elapsed_s": 96.6,
+  "elapsed_s": 145.3,
   "pairs": [
     {
       "role": "gap.message",
       "id": "R-WIFI-001",
       "raw": "Controller deployment topology unresolved for site Airport Logistics Annex; bill-of-materials sensitivity is approximately $18,500 depending on whether the site receives a dedicated WLC9800 or shares the ATL-HQ controller.",
-      "polished": "Resolve controller deployment topology for Airport Logistics Annex; bill-of-materials sensitivity is approximately $18,500 depending on whether the site receives a dedicated WLC9800 or shares the ATL-HQ controller.",
+      "polished": "Resolve controller deployment topology for site Airport Logistics Annex; bill-of-materials sensitivity is $18,500 depending on whether the site receives a dedicated WLC9800 or shares the ATL-HQ controller.",
       "used_fallback": false
     },
     {
       "role": "gap.message",
       "id": "R-WIFI-014",
       "raw": "No predictive RF survey on file for any site. Access-point counts of 52, 27, and 18 are vendor-quoted but not validated by Ekahau or iBwave heatmap output.",
-      "polished": "Validate access-point counts of 52, 27, and 18 using Ekahau or iBwave heatmap output; current vendor-quoted numbers lack validation.",
+      "polished": "Validate predictive RF survey for all sites. Access-point counts (52, 27, 18) are vendor-quoted but lack Ekahau/iBwave validation.",
       "used_fallback": false
     },
     {
       "role": "gap.message",
       "id": "R-PWR-006",
       "raw": "PoE budget at ATL-West appears undersized for 27 Cisco C9166D1 access points operating at full 30W power; existing three Catalyst 9300-48UXM switches each have 90W of PoE headroom.",
-      "polished": "Confirm PoE budget adequacy at ATL-West for 27 Cisco C9166D1 access points operating at full 30W power; existing three Catalyst 9300-48UXM switches have 90W of PoE headroom each.",
+      "polished": "Resolve PoE budget for 27 Cisco C9166D1 access points at ATL-West (30W each); existing Catalyst 9300-48UXM switches have 90W headroom each.",
       "used_fallback": false
     },
     {
@@ -36,63 +36,63 @@
       "role": "gap.message",
       "id": "R-ACCESS-009",
       "raw": "Site access window for Airport Logistics Annex is unconfirmed. TSA badging adds 5 to 7 business days lead time per technician.",
-      "polished": "Confirm site access window for Airport Logistics Annex; TSA badging adds 5 to 7 business days lead time per technician.",
+      "polished": "Confirm site access window for Airport Logistics Annex. TSA badging adds 5–7 business days lead time per technician.",
       "used_fallback": false
     },
     {
       "role": "gap.message",
       "id": "R-CUT-003",
       "raw": "Cutover window restricted to after 18:00 ET per Priya Narang's clarification email; confirm holiday blackouts.",
-      "polished": "Cutover window limited to after 18:00 ET per Priya Narang's clarification email; confirm holiday blackouts.",
+      "polished": "Cutover window restricted to after 18:00 ET (per Priya Narang's email); confirm holiday blackouts.",
       "used_fallback": false
     },
     {
       "role": "gap.message",
       "id": "R-PROC-011",
       "raw": "Cisco C9166D1 lead time 6 to 8 weeks at quoted volume. Order PO must clear by 2026-05-30 to hit cutover.",
-      "polished": "Cisco C9166D1 lead time is 6 to 8 weeks at quoted volume; order PO must clear by 2026-05-30 to hit cutover.",
+      "polished": "Cisco C9166D1 lead time is 6–8 weeks at quoted volume. Order PO must clear by 2026-05-30 to meet cutover.",
       "used_fallback": false
     },
     {
       "role": "gap.message",
       "id": "R-CAM-002",
       "raw": "VMS license count of 16 does not match camera count of 24. Possibly intentional (only 16 priority cameras licensed); confirm.",
-      "polished": "Confirm VMS license count discrepancy (16 licenses vs. 24 cameras); possibly intentional (only 16 priority cameras licensed).",
+      "polished": "VMS license count (16) does not match camera count (24). Possibly intentional (only 16 priority cameras licensed); confirm.",
       "used_fallback": false
     },
     {
       "role": "gap.message",
       "id": "R-COMP-001",
       "raw": "HIPAA flag detected in Airport Annex (medical kiosk). PCI flag detected in retail concourse. Routing to legal.",
-      "polished": "HIPAA flag detected in Airport Annex (medical kiosk); PCI flag detected in retail concourse; routing to legal.",
+      "polished": "HIPAA flag detected in Airport Annex (medical kiosk). PCI flag detected in retail concourse. Routing to legal.",
       "used_fallback": false
     },
     {
       "role": "gap.message",
       "id": "R-SUB-003",
       "raw": "Electrical work at ATL-West likely needs licensed electrician for 480V switchgear feed. Need sub procurement timeline.",
-      "polished": "Electrical work at ATL-West requires licensed electrician for 480V switchgear feed; need sub procurement timeline.",
+      "polished": "Electrical work at ATL-West likely requires licensed electrician for 480V switchgear feed. Confirm sub procurement timeline.",
       "used_fallback": false
     },
     {
       "role": "gap.message",
       "id": "R-SLA-001",
       "raw": "Customer SLA template references 99.95% uptime; Purtera standard is 99.5%. Penalty schedule unclear.",
-      "polished": "Customer SLA template specifies 99.95% uptime; Purtera standard is 99.5%; penalty schedule unclear.",
+      "polished": "Customer SLA template references 99.95% uptime; Purtera standard is 99.5%. Penalty schedule unclear.",
       "used_fallback": false
     },
     {
       "role": "gap.message",
       "id": "R-ADOPT-002",
       "raw": "DNA Spaces opt-in approved verbally in kickoff but not in writing. Add to SOW or pull from BOM.",
-      "polished": "DNA Spaces opt-in approved verbally in kickoff but not in writing; add to SOW or pull from BOM.",
+      "polished": "DNA Spaces opt-in approved verbally in kickoff but not in writing. Add to SOW or remove from BOM.",
       "used_fallback": false
     },
     {
       "role": "gap.question",
       "id": "R-WIFI-001",
       "raw": "Confirm whether Airport Logistics Annex requires a dedicated WLC9800 or will use ATL-HQ controller; BOM sensitivity is $18,500.",
-      "polished": "Confirm whether Airport Logistics Annex requires a dedicated WLC9800 or will use the ATL-HQ controller; BOM sensitivity is $18,500.",
+      "polished": "Confirm whether Airport Logistics Annex requires a dedicated WLC9800 or will use ATL-HQ controller; BOM sensitivity is $18,500.",
       "used_fallback": false
     },
     {
@@ -106,56 +106,56 @@
       "role": "gap.question",
       "id": "R-PWR-006",
       "raw": "Confirm switch model and current PoE budget allocation at ATL-West; 27 APs at full 30W may exceed available headroom.",
-      "polished": "Confirm the switch model and current PoE budget allocation at ATL-West; 27 APs at full 30W may exceed available headroom.",
+      "polished": "Confirm switch model and current PoE budget allocation at ATL-West; 27 APs at full 30W may exceed available headroom.",
       "used_fallback": false
     },
     {
       "role": "gap.question",
       "id": "R-COMM-002",
       "raw": "Which net payment terms govern this engagement: Net-30 per RFP or Net-45 per signed quote?",
-      "polished": "Confirm which net payment terms govern this engagement: Net-30 per RFP or Net-45 per signed quote?",
+      "polished": "Which net payment terms govern this engagement: Net-30 per RFP or Net-45 per signed quote?",
       "used_fallback": false
     },
     {
       "role": "gap.question",
       "id": "R-ACCESS-009",
       "raw": "What is the TSA badging timeline for technicians at Airport Logistics Annex? Purtera needs 14 days notice.",
-      "polished": "Confirm the TSA badging timeline for technicians at Airport Logistics Annex; Purtera needs 14 days notice.",
+      "polished": "What is the TSA badging timeline for technicians at Airport Logistics Annex? Purtera needs 14 days notice.",
       "used_fallback": false
     },
     {
       "role": "risk.description",
       "id": "RSK-001",
       "raw": "PoE budget at ATL-West may be undersized for the proposed 27 access points at full load; aggregate AP power demand exceeds combined switch PoE headroom.",
-      "polished": "Verify that the PoE budget at ATL-West is not undersized for the proposed 27 access points at full load; aggregate AP power demand exceeds combined switch PoE headroom.",
+      "polished": "PoE budget at ATL-West may be undersized for the proposed 27 access points at full load; aggregate AP power demand exceeds combined switch PoE headroom.",
       "used_fallback": false
     },
     {
       "role": "risk.description",
       "id": "RSK-002",
       "raw": "TSA badging for Airport Logistics Annex technicians adds 14 days of lead time, threatening the 2026-08-14 board demonstration commitment.",
-      "polished": "Confirm the TSA badging timeline for Airport Logistics Annex technicians; 14 days of lead time threatens the 2026-08-14 board demonstration commitment.",
+      "polished": "TSA badging for Airport Logistics Annex technicians adds 14 days of lead time, threatening the 2026-08-14 board demonstration commitment.",
       "used_fallback": false
     },
     {
       "role": "risk.description",
       "id": "RSK-003",
       "raw": "Cisco C9166D1 quoted lead time of 6 to 8 weeks is aggressive against the planned cutover window.",
-      "polished": "Confirm the Cisco C9166D1 quoted lead time of 6 to 8 weeks; this conflicts with the planned cutover window.",
+      "polished": "Cisco C9166D1 quoted lead time of 6 to 8 weeks is aggressive against the planned cutover window.",
       "used_fallback": false
     },
     {
       "role": "risk.description",
       "id": "RSK-004",
       "raw": "VMS license count of 16 conflicts with camera count of 24 in the bill of materials versus SOW exhibit.",
-      "polished": "Confirm the VMS license count of 16 conflicts with the camera count of 24 in the bill of materials versus SOW exhibit.",
+      "polished": "VMS license count of 16 conflicts with camera count of 24 in the bill of materials versus SOW exhibit.",
       "used_fallback": false
     },
     {
       "role": "risk.description",
       "id": "RSK-005",
       "raw": "HIPAA and PCI regulated workloads coexist on the Airport Annex shared infrastructure; legal review required before SOW lock.",
-      "polished": "Confirm that HIPAA and PCI regulated workloads coexist on the Airport Annex shared infrastructure; legal review is required before SOW lock.",
+      "polished": "HIPAA and PCI regulated workloads coexist on the Airport Annex shared infrastructure; legal review required before SOW lock.",
       "used_fallback": false
     },
     {
@@ -176,63 +176,63 @@
       "role": "risk.mitigation",
       "id": "RSK-003",
       "raw": "Place PO no later than 2026-05-30; pre-stage 30 percent of inventory at ATL-HQ to de-risk lead time slippage.",
-      "polished": "Place PO by 2026-05-30 and pre-stage 30% of inventory at ATL-HQ to reduce lead time risks.",
+      "polished": "Place PO no later than 2026-05-30. Pre-stage 30 percent of inventory at ATL-HQ to de-risk lead time slippage.",
       "used_fallback": false
     },
     {
       "role": "risk.mitigation",
       "id": "RSK-004",
       "raw": "Confirm with security lead which 16 cameras are licensed; the 8 unlicensed cameras may be evidence-only.",
-      "polished": "Confirm with the security lead which 16 cameras are licensed; the 8 unlicensed cameras may only be used as evidence.",
+      "polished": "Confirm with security lead which 16 cameras are licensed. The 8 unlicensed cameras may be evidence-only.",
       "used_fallback": false
     },
     {
       "role": "risk.mitigation",
       "id": "RSK-005",
       "raw": "Route to legal for review before SOW lock; assess whether separate VRFs are required for HIPAA and PCI segmentation.",
-      "polished": "Route to legal for review before SOW lock and assess if separate VRFs are required for HIPAA and PCI segmentation.",
+      "polished": "Route to legal for review before SOW lock. Assess whether separate VRFs are required for HIPAA and PCI segmentation.",
       "used_fallback": false
     },
     {
       "role": "exec.headline",
       "id": "optbot",
       "raw": "OPTBOT_Atlanta_Office_Refresh_Mock_Deal: deal worth $1,847,250 across 3 confirmed site(s) covering Security camera / VMS, Sites / facilities, Commercial terms.",
-      "polished": "This deal is worth $1,847,250 across 3 confirmed sites covering security cameras/VMS, site facilities, and commercial terms.",
+      "polished": "OPTBOT_Atlanta_Office_Refresh_Mock_Deal: deal worth $1,847,250 across 3 confirmed sites covering Security camera / VMS, Sites / facilities, Commercial terms.",
       "used_fallback": false
     },
     {
       "role": "exec.health_line",
       "id": "optbot",
       "raw": "Status is RED: 5 blocker(s) and 7 warning(s) need PM resolution before SOW lock.",
-      "polished": "Status is RED: 5 blockers and 7 warnings require PM resolution before SOW lock.",
+      "polished": "Status is RED: 5 blockers and 7 warnings need PM resolution before SOW lock.",
       "used_fallback": false
     },
     {
       "role": "exec.next_action",
       "id": "optbot",
       "raw": "Resolve the blocker checklist below and confirm the customer clarifications email starter. Do not publish a SOW until blockers clear.",
-      "polished": "Resolve the blocker checklist and confirm the customer clarifications email starter. Do not publish the SOW until blockers clear.",
+      "polished": "Resolve the blocker checklist below and confirm the customer clarifications email starter. Do not publish a SOW until blockers clear.",
       "used_fallback": false
     },
     {
       "role": "answer_slot.question",
       "id": "R-WIFI-001",
       "raw": "For the Airport Logistics Annex site, do you want a dedicated WLC9800 controller or will the site share the ATL-HQ controller? This drives the bill of materials by approximately $18,500.",
-      "polished": "For the Airport Logistics Annex site, confirm if a dedicated WLC9800 controller is required or if it will share the ATL-HQ controller (this affects the bill of materials by ~$18,500).",
+      "polished": "For the Airport Logistics Annex site, do you want a dedicated WLC9800 controller or will the site share the ATL-HQ controller? This drives the bill of materials by approximately $18,500.",
       "used_fallback": false
     },
     {
       "role": "answer_slot.question",
       "id": "R-PWR-006",
       "raw": "Could you confirm the current switch model and PoE budget allocation at ATL-West? With 27 access points at full 30W, the existing three Catalyst 9300-48UXM switches at 90W each may be undersized.",
-      "polished": "Confirm the current switch model and PoE budget at ATL-West. Existing three Catalyst 9300-48UXM switches (90W each) may be undersized for 27 access points at full 30W.",
+      "polished": "Could you confirm the current switch model and PoE budget allocation at ATL-West? With 27 access points at full 30W, the existing three Catalyst 9300-48UXM switches at 90W each may be undersized.",
       "used_fallback": false
     },
     {
       "role": "answer_slot.question",
       "id": "R-COMM-002",
       "raw": "We see Net-30 in the RFP and Net-45 in the signed quote. Which net payment term governs the SOW?",
-      "polished": "Which net payment term governs the SOW: Net-30 (RFP) or Net-45 (signed quote)?",
+      "polished": "We see Net-30 in the RFP and Net-45 in the signed quote. Which net payment term governs the SOW?",
       "used_fallback": false
     }
   ]

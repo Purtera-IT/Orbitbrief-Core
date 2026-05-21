@@ -148,14 +148,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Don't print the manifest summary to stdout at the end.",
     )
     p.add_argument(
-        "--polish",
+        "--no-polish",
         action="store_true",
         help=(
-            "Run the LLM polish pass (Phase 91) over gaps, risks, customer "
-            "questions, and the executive summary so the text reads in PM-email "
-            "voice. Requires Ollama (or compatible) at $OLLAMA_BASE_URL. "
-            "Caches results to .orbitbrief_polish_cache.jsonl so re-runs are free. "
-            "Falls back to raw text if the LLM is unreachable — never blocks compile."
+            "Skip the Phase 91 LLM polish pass. Polish runs by default and "
+            "rewrites gaps, risks, customer questions, and the executive "
+            "summary in PM-email voice via $OLLAMA_BASE_URL. Cache lives at "
+            ".orbitbrief_polish_cache.jsonl so re-runs are free. Polish "
+            "never blocks compile — falls back to raw text on LLM failure."
         ),
     )
     args = p.parse_args(argv)
@@ -224,10 +224,11 @@ def main(argv: list[str] | None = None) -> int:
         from pathlib import Path as _Path
         out_dir = _Path(args.out)
         handoff = build_pm_handoff(out_dir)
-        # Phase 91 — optional LLM polish pass over gaps / risks /
-        # executive summary / customer-answer slots. Opt-in via
-        # ``--polish`` so the substrate-only fast path stays fast.
-        if getattr(args, "polish", False):
+        # Phase 91 — LLM polish pass over gaps / risks / executive
+        # summary / customer-answer slots / one_line_summary. Runs by
+        # default; ``--no-polish`` opts out. Polish never blocks the
+        # compile — failures fall back to raw text.
+        if not getattr(args, "no_polish", False):
             try:
                 from orbitbrief_core.pm_handoff import polish_pm_handoff
                 from orbitbrief_core.inference.client import OpenAIChatClient

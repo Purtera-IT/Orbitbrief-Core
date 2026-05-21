@@ -76,6 +76,41 @@ _PCT_RE = re.compile(r"\b\d{1,3}(?:\.\d+)?\s*%")
 _ID_RE = re.compile(r"\b[A-Z]{2,4}[-_][A-Z0-9]{2,}[-_]?[A-Z0-9]*\b|\batm_\w+\b|\bcmp_\w+\b")
 _DATE_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 
+# Lowercase site / entity keys the model must preserve verbatim. The
+# parser-os layer treats lowercase tokens like "atl hq", "atl west",
+# "airport logistics annex" as canonical entity keys — title-casing them
+# (which qwen3:14b loves to do) breaks joins between UI rows and atoms.
+# Captures the LOWERCASE pair "<short prefix> <site-suffix>" only — this
+# is narrow on purpose so it never over-captures multi-word noun phrases
+# that aren't actually entity keys. The validator is case-sensitive,
+# so if the polish title-cases either word the match fails.
+_SITE_KEY_RE = re.compile(
+    r"\b[a-z]{2,12}[\s-]"
+    r"(?:hq|west|east|north|south|annex|campus|center|centre|datacenter|"
+    r"datacentre|warehouse|office|branch|lab|plant)\b"
+    # NOTE: deliberately NOT re.IGNORECASE — we only flag the lowercase form
+)
+# Bare-lowercase part numbers / SKUs / domain identifiers — e.g.,
+# "c9166d1", "wlc9800", "n9k-c93180". Match alphanumeric with at least
+# one digit so we don't over-catch English words.
+_PART_NUMBER_RE = re.compile(
+    r"\b(?=[a-z0-9-]*\d)[a-z][a-z0-9-]{2,}\b",
+    re.IGNORECASE,
+)
+# Mixed-case hyphenated identifiers — "ATL-West", "ATL-HQ", "Net-30",
+# "Net-45", "Wi-Fi", "Catalyst-9300", "Cisco-Meraki". Catches both
+# directions of case-changing (lowercasing AND title-casing) because
+# this is the most common shape a customer-facing identifier takes.
+_HYPHEN_ID_RE = re.compile(r"\b[A-Z][A-Za-z0-9]*-[A-Za-z0-9]+\b")
+# Multi-word title-cased proper nouns — "Airport Logistics Annex",
+# "DNA Spaces", "Priya Narang", "Cisco Catalyst". Two or more
+# consecutive Title-Case-or-ALL-CAPS words, but NOT followed by a
+# hyphenated code (so "Controller R-WIFI-001" doesn't trigger).
+# Case-sensitive — the polish must preserve them verbatim.
+_TITLE_PHRASE_RE = re.compile(
+    r"\b[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){1,4}\b"
+)
+
 
 @dataclass(frozen=True)
 class PolishItem:
@@ -161,10 +196,20 @@ def _hash_item(role: str, raw_text: str, model: str) -> str:
 
 
 def _guarded_tokens(raw_text: str) -> set[str]:
-    """Tokens the polished output must preserve verbatim."""
+    """Tokens the polished output must preserve verbatim.
+
+    Case-sensitive matches — the validator rejects both title-casing
+    of lowercase canonical keys ("atl hq" → "Atlanta HQ") AND
+    lowercasing of mixed-case canonical identifiers ("ATL-West" →
+    "atl-west").
+    """
     out: set[str] = set()
     for rx in (_MONEY_RE, _PCT_RE, _ID_RE, _DATE_RE):
         out.update(rx.findall(raw_text))
+    out.update(_SITE_KEY_RE.findall(raw_text))
+    out.update(_PART_NUMBER_RE.findall(raw_text))
+    out.update(_HYPHEN_ID_RE.findall(raw_text))
+    out.update(_TITLE_PHRASE_RE.findall(raw_text))
     return out
 
 
@@ -172,9 +217,10 @@ def _validate_polish(raw_text: str, polished_text: str) -> bool:
     """Reject the polish if it dropped a guarded token or got absurd.
 
     Rules:
-    1. Every guarded token in raw must appear in polished.
-    2. Polished length ≤ 3× raw length (model didn't go wild).
-    3. Polished length ≥ 0.4× raw length (model didn't truncate to nothing).
+    1. Every guarded token in raw must appear in polished — verbatim,
+       case-sensitive. Catches title-casing of canonical site keys.
+    2. Polished length ≤ 3× raw length.
+    3. Polished length ≥ 0.4× raw length.
     """
     if not polished_text or not polished_text.strip():
         return False
@@ -193,35 +239,118 @@ def _validate_polish(raw_text: str, polished_text: str) -> bool:
 # Prompt templates — one per role. Kept tight so batches stay small.
 # ──────────────────────────────────────────────────────────────────
 
-_SYSTEM_PROMPT = """You are a senior project manager at Purtera-IT polishing internal scope text \
-for a customer-facing pre-SOW review. /no_think
+_SYSTEM_PROMPT = """You are a senior project manager at Purtera-IT \
+polishing internal scope text for a customer-facing pre-SOW review. /no_think
 
-Your only job is to REWRITE the supplied raw bullets in a clear, decisive, \
-PM-email voice. You may NOT:
-- invent new facts, sites, names, dollar amounts, dates, IDs, or counts
-- drop any dollar amount, percentage, date, rule ID (e.g. R-WIFI-001), \
-atom id (atm_*, cmp_*), or stakeholder name that appears in the raw
-- pad with hedging language ("we should consider", "perhaps", "it may be")
-- write more than two sentences per item; many should be one sentence
+Your job is to REWRITE each supplied raw item in PM-email voice: clear, \
+decisive, fact-preserving, never longer than the original.
 
-You MAY:
-- replace bureaucratic phrasing with plain English
-- promote a single verb to the front of the sentence
-- add a citation suffix like "(per <source>)" only if the raw text \
-already names the source
-- convert a noun-heavy fragment into a verb-led sentence
+HARD RULES (the validator will REJECT and we will roll back to raw if any \
+of these are violated):
 
-Output is JSON only. Do not include reasoning or markdown."""
+1. PRESERVE EVERY IDENTIFIER VERBATIM, INCLUDING CASE. \
+This applies to: dollar amounts ("$18,500", "$1,847,250"), percentages \
+("99.5%", "30W"), dates in YYYY-MM-DD form ("2026-05-30"), rule IDs \
+("R-WIFI-001"), atom IDs (atm_*, cmp_*), product part numbers \
+("C9166D1", "WLC9800", "9300-48UXM"), hyphenated identifiers \
+("ATL-HQ", "ATL-West", "Net-30", "Net-45", "Wi-Fi"), lowercase site \
+keys ("atl hq", "atl west", "airport logistics annex"), and named \
+proper nouns ("Airport Logistics Annex", "DNA Spaces", "Priya Narang", \
+"Cisco", "Catalyst"). \
+\
+CASE MATTERS. "ATL-West" is NOT the same as "atl-west"; "Airport \
+Annex" is NOT the same as "airport annex"; "atl hq" is NOT the same \
+as "Atlanta HQ". Whatever case the raw uses, the polish uses. Do not \
+title-case lowercase tokens. Do not lowercase title-cased tokens. \
+Do not normalize. The validator is case-sensitive and will reject.
+
+2. DO NOT invent: no new dates, no new dollar amounts, no new percentages, \
+no new sites, no new stakeholders, no new vendors, no new rule IDs. If \
+the raw doesn't mention it, you don't either.
+
+3. NEVER ADD hedge words. Strike on sight (do not introduce these): \
+"approximately", "approx", "around", "roughly", "appears to be", \
+"seems", "may be", "might be", "could be", "possibly", "perhaps", \
+"somewhat", "likely", "generally", "typically". If the raw ALREADY \
+contains a hedge word, leave it alone (it's a fact-preserving \
+constraint). You just must not ADD new ones.
+
+4. ONE sentence per item by default. Two sentences allowed only when \
+the raw genuinely contains two facts and combining them would obscure. \
+Never three sentences.
+
+REWRITE RULES — when to act, when to leave alone:
+
+5. ACTION-NEEDED items (gap.message, gap.question, risk.mitigation, \
+answer_slot.question): if the raw is a noun-phrase fragment or starts \
+with a passive observation, REWRITE so the sentence opens with an \
+imperative verb that names the action the PM should take. \
+EXAMPLES: \
+"Controller scope unresolved" → "Resolve controller scope"; \
+"Net terms contradict" → "Align net terms"; \
+"No RF survey on file" → "Validate the RF survey".
+
+6. OBSERVED-STATE items (risk.description, urgency_signals.snippet, \
+gap.message that begins with "X detected" or "X flagged"): \
+DO NOT force an imperative — preserve the observation. \
+EXAMPLES (KEEP as observations, do NOT make imperative): \
+"HIPAA flag detected in Airport Annex" → keep "detected" \
+(do NOT rewrite to "Detect HIPAA flag"); \
+"Cutover window restricted to after 18:00 ET" → keep "restricted" \
+(do NOT rewrite to "Restrict cutover window"). \
+These describe states already true in the world, not actions to take.
+
+7. PREFER ACTIVE VOICE. "is required" → "requires"; \
+"will be performed by Purtera" → "Purtera will perform".
+
+8. USE PARENTHETICAL CITATIONS for inline source pointers. \
+"per the RFP" → "(per RFP)"; "according to Priya's email" → \
+"(per Priya's email)". Do NOT add a citation if the raw didn't.
+
+9. PLURALIZE NATURALLY. "5 blocker(s) and 7 warning(s)" → \
+"5 blockers and 7 warnings". "site(s)" → "sites" if count > 1.
+
+10. CONSOLIDATE FRAGMENTS. If the raw has two clauses joined by ". ", \
+prefer joining with "; " when the second clause is dependent on the \
+first. Drop low-content connectors. \
+EXAMPLE: \
+"Net payment terms contradict between source documents: the RFP \
+specifies Net-30 while the signed quote specifies Net-45." → \
+"Align net payment terms between RFP (Net-30) and signed quote \
+(Net-45)." — drops "between source documents" because the citations \
+in parens make it redundant.
+
+11. IF RAW IS ALREADY GOOD, return the raw text unchanged. Polish is \
+not a license to fiddle.
+
+OUTPUT FORMAT: JSON object with shape \
+{"items": [{"key": "<key>", "polished": "<rewrite>"}, ...]} \
+exactly matching the keys provided. Do not emit markdown, prose, \
+reasoning, or explanation outside the JSON."""
 
 
-def _build_polish_prompt(items: list[PolishItem]) -> tuple[str, str]:
-    """Return (system, user) prompt for one batch."""
+_RETRY_PROMPT_SUFFIX = """
+
+PRIOR ATTEMPT FAILED the validator. The polish either DROPPED a guarded \
+token (dollar amount, percentage, date, rule ID, part number, stakeholder \
+name) or got the length wrong (must be 0.4× to 3× the raw length). \
+Be more careful this round. Do not paraphrase any token that looks like \
+a number, identifier, or proper noun — copy them character-for-character."""
+
+
+def _build_polish_prompt(
+    items: list[PolishItem], *, retry: bool = False
+) -> tuple[str, str]:
+    """Return (system, user) prompt for one batch.
+
+    When ``retry`` is True the system prompt carries an extra suffix
+    telling the model the previous attempt failed validation so it
+    should be more careful with guarded tokens.
+    """
+    system = _SYSTEM_PROMPT + (_RETRY_PROMPT_SUFFIX if retry else "")
     user_lines: list[str] = [
-        "Rewrite each item below in PM-email voice. Output JSON of the form:",
-        '{"items": [{"key": "<key>", "polished": "<one-or-two-sentence rewrite>"}, ...]}',
-        "",
-        "Preserve every dollar amount, percentage, date, ID token, and named entity exactly as written.",
-        "Do not add facts that are not in the raw.",
+        "Rewrite each item below per the rules. Output JSON only:",
+        '{"items": [{"key": "<key>", "polished": "<rewrite>"}, ...]}',
         "",
         "ITEMS:",
     ]
@@ -233,7 +362,7 @@ def _build_polish_prompt(items: list[PolishItem]) -> tuple[str, str]:
             user_lines.append(ctx)
         user_lines.append(f"  raw: {json.dumps(it.raw_text, ensure_ascii=False)}")
         user_lines.append("")
-    return _SYSTEM_PROMPT, "\n".join(user_lines)
+    return system, "\n".join(user_lines)
 
 
 def _parse_polish_response(text: str) -> dict[str, str]:
@@ -272,6 +401,34 @@ def _batched(seq: list[PolishItem], n: int) -> Iterable[list[PolishItem]]:
         yield seq[i : i + n]
 
 
+def _attempt_batch(
+    batch: list[PolishItem],
+    *,
+    chat_client: ChatClient,
+    model: str,
+    retry: bool,
+) -> dict[str, str]:
+    """One LLM call for a batch. Returns {key: polished_text} for items
+    the model returned (validation happens at the caller).
+    """
+    sys_prompt, user_prompt = _build_polish_prompt(batch, retry=retry)
+    messages = [
+        ChatMessage(role="system", content=sys_prompt),
+        ChatMessage(role="user", content=user_prompt),
+    ]
+    try:
+        response_text = chat_client.complete(
+            messages,
+            model=model,
+            temperature=0.2 if not retry else 0.0,
+            max_tokens=_MAX_OUTPUT_TOKENS,
+            response_format={"type": "json_object"},
+        )
+    except InferenceError:
+        return {}
+    return _parse_polish_response(response_text)
+
+
 def polish_items(
     items: list[PolishItem],
     *,
@@ -284,9 +441,9 @@ def polish_items(
 
     For every item:
     * cache hit → returned with ``used_fallback=False``
-    * cache miss → batched LLM call. On success + validation, the
-      polish is cached. On failure, returns raw with
-      ``used_fallback=True``.
+    * cache miss → batched LLM call (temperature 0.2). On validation
+      failure, ONE retry with a stricter prompt + temperature 0.0.
+      If both attempts fail, returns raw with ``used_fallback=True``.
     """
     out: dict[str, PolishResult] = {}
     pending: list[PolishItem] = []
@@ -299,32 +456,35 @@ def polish_items(
         pending.append(it)
 
     for batch in _batched(pending, batch_size):
-        sys_prompt, user_prompt = _build_polish_prompt(batch)
-        messages = [
-            ChatMessage(role="system", content=sys_prompt),
-            ChatMessage(role="user", content=user_prompt),
-        ]
-        try:
-            response_text = chat_client.complete(
-                messages,
-                model=model,
-                temperature=0.2,
-                max_tokens=_MAX_OUTPUT_TOKENS,
-                response_format={"type": "json_object"},
-            )
-        except InferenceError:
-            for it in batch:
-                out[it.key] = PolishResult(it.key, it.raw_text, used_fallback=True)
-            continue
-        polished_map = _parse_polish_response(response_text)
+        polished_map = _attempt_batch(
+            batch, chat_client=chat_client, model=model, retry=False
+        )
+        # Items the first attempt got right
+        retry_batch: list[PolishItem] = []
         for it in batch:
             polished = polished_map.get(it.key, "").strip()
-            if not polished or not _validate_polish(it.raw_text, polished):
+            if polished and _validate_polish(it.raw_text, polished):
+                if cache is not None:
+                    cache.put(it.key, polished)
+                out[it.key] = PolishResult(it.key, polished, used_fallback=False)
+            else:
+                retry_batch.append(it)
+
+        if not retry_batch:
+            continue
+
+        # Retry the rejects once with a stricter prompt
+        retry_map = _attempt_batch(
+            retry_batch, chat_client=chat_client, model=model, retry=True
+        )
+        for it in retry_batch:
+            polished = retry_map.get(it.key, "").strip()
+            if polished and _validate_polish(it.raw_text, polished):
+                if cache is not None:
+                    cache.put(it.key, polished)
+                out[it.key] = PolishResult(it.key, polished, used_fallback=False)
+            else:
                 out[it.key] = PolishResult(it.key, it.raw_text, used_fallback=True)
-                continue
-            if cache is not None:
-                cache.put(it.key, polished)
-            out[it.key] = PolishResult(it.key, polished, used_fallback=False)
     return out
 
 
@@ -524,6 +684,32 @@ class PolishReport:
         }
 
 
+def _one_line_polish_items(one_line: str, model: str) -> list[PolishItem]:
+    raw = (one_line or "").strip()
+    if not raw:
+        return []
+    return [
+        PolishItem(
+            key=_hash_item("one_line_summary", raw, model),
+            role="one_line_summary",
+            raw_text=raw,
+            context="single-sentence deal summary shown at the top of PM brief",
+        )
+    ]
+
+
+def _apply_one_line_result(
+    one_line: str, results: dict[str, PolishResult], model: str
+) -> str:
+    raw = (one_line or "").strip()
+    if not raw:
+        return one_line
+    r = results.get(_hash_item("one_line_summary", raw, model))
+    if r and not r.used_fallback:
+        return r.polished_text
+    return one_line
+
+
 def polish_pm_handoff(
     handoff: PMHandoff,
     *,
@@ -535,6 +721,22 @@ def polish_pm_handoff(
 
     Cache path defaults to ``$ORBITBRIEF_POLISH_CACHE`` or
     ``.orbitbrief_polish_cache.jsonl`` next to the case directory.
+
+    Polished fields:
+
+    * ``one_line_summary`` (single sentence shown at top of brief)
+    * ``gaps[].message`` and ``gaps[].suggested_open_question``
+    * ``customer_questions[].message`` and
+      ``customer_questions[].suggested_open_question``
+    * ``risk_register[].description`` and ``risk_register[].mitigation``
+    * ``executive_summary.headline``, ``health_line``, ``next_action``
+    * ``customer_answer_slots[].question_text``
+
+    Atom-text fields (``urgency_signals[].snippet``,
+    ``exclusions[].text``, ``responsibilities[].text``,
+    ``compliance_callouts[].snippet``) are intentionally NOT polished —
+    polishing them would break the verbatim-citation property the
+    system relies on for source replay.
     """
     import time
 
@@ -549,6 +751,7 @@ def polish_pm_handoff(
 
     # Collect items across every field that benefits from polish
     items: list[PolishItem] = []
+    items.extend(_one_line_polish_items(handoff.one_line_summary, model))
     items.extend(_gap_polish_items(handoff.gaps, model))
     items.extend(_gap_polish_items(handoff.customer_questions, model))
     items.extend(_risk_polish_items(handoff.risk_register, model))
@@ -575,6 +778,9 @@ def polish_pm_handoff(
     items_polished = sum(1 for r in results.values() if not r.used_fallback)
     items_fallback = sum(1 for r in results.values() if r.used_fallback)
 
+    polished_one_line = _apply_one_line_result(
+        handoff.one_line_summary, results, model
+    )
     polished_gaps = _apply_results_to_gaps(handoff.gaps, results, model)
     polished_customer_qs = _apply_results_to_gaps(handoff.customer_questions, results, model)
     polished_risks = _apply_results_to_risks(handoff.risk_register, results, model)
@@ -587,6 +793,7 @@ def polish_pm_handoff(
 
     polished = replace(
         handoff,
+        one_line_summary=polished_one_line,
         gaps=polished_gaps,
         customer_questions=polished_customer_qs,
         risk_register=polished_risks,
