@@ -1,0 +1,33 @@
+# Embedding-head fine-tune config — SCAFFOLDED, NOT IN PRODUCTION.
+
+base_model: qwen3-embedding:8b                    # FROZEN — only the head trains
+base_dim: 4096
+
+head:
+  hidden_dim: 512
+  out_dim: 256
+  l2_normalize_output: true
+  dropout: 0.1
+
+# Triplet-loss training
+training:
+  epochs: 5
+  learning_rate: 1.0e-4
+  batch_size: 128
+  margin: 0.2                                     # triplet-loss margin
+  hard_negative_mining: true
+
+# Activation gates
+gates:
+  min_triplets: 5000
+  min_r_at_10: 0.75
+  min_uplift_pp: 5
+
+# Inference
+inference:
+  endpoint: ""                                    # e.g. http://embedding-head:8081/encode
+  batch_size: 64
+  fallback_to_base: true
+
+output:
+  model_dir: ./models/embedding_head

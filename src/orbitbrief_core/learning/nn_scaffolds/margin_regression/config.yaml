@@ -1,0 +1,48 @@
+# Margin / outcome regression — SCAFFOLDED, NOT IN PRODUCTION.
+
+model_type: mlp
+features:
+  - atom_type_counts                              # one count per atom_type (13 dims)
+  - packet_family_counts                          # one count per family (11 dims)
+  - parser_quality_score
+  - domain_pack_one_hot                           # 19 packs in the registry
+  - reconciliation_flag_count
+  - urgency_signal_count
+  - has_vendor_quote
+  - has_executive_stakeholder
+  - has_compliance_callout
+  - retrieved_comparable_avg_margin               # from retrieve_similar_deals()
+  - retrieved_comparable_win_rate
+
+architecture:
+  hidden_dims: [64, 32]
+  output_heads:
+    deal_value_est: log_linear
+    margin_est_pct: linear
+    outcome_prob: sigmoid
+  dropout: 0.15
+
+# Training
+training:
+  epochs: 50
+  learning_rate: 1.0e-3
+  batch_size: 32
+  early_stopping_patience: 10
+  loss_weights:
+    deal_value: 1.0
+    margin: 2.0                                   # margin is more business-critical
+    outcome: 1.0
+
+# Activation gates
+gates:
+  min_training_records: 50
+  max_margin_mae_pp: 4
+  max_per_domain_bias_pp: 2
+
+# Inference
+inference:
+  endpoint: ""                                    # e.g. http://margin-regressor:8084/predict
+  fallback_to_heuristic: true
+
+output:
+  model_dir: ./models/margin_regressor

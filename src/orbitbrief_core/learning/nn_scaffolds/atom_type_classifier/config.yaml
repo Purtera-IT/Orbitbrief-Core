@@ -1,0 +1,52 @@
+# Atom-type + authority_class classifier — SCAFFOLDED, NOT IN PRODUCTION.
+
+base_model: distilbert-base-uncased              # ~66M params, CPU inference
+
+# Class vocabularies
+atom_types:
+  - quantity
+  - entity
+  - constraint
+  - exclusion
+  - scope_item
+  - customer_instruction
+  - vendor_line_item
+  - assumption
+  - open_question
+  - decision
+  - action_item
+  - meeting_commitment
+  - compliance
+
+authority_classes:
+  - customer_current_authored
+  - customer_historical_authored
+  - vendor_quote
+  - vendor_meeting
+  - meeting_note
+  - machine_extractor
+  - scanned_unverified
+  - contractual_scope
+
+# Training
+training:
+  epochs: 4
+  learning_rate: 2.0e-5
+  batch_size: 16
+  joint_loss_weight: 0.5                          # authority_class loss weight relative to atom_type
+  max_seq_length: 512
+
+# Activation gates
+gates:
+  min_labeled_atoms: 5000
+  min_macro_f1: 0.78
+  min_uplift_pp: 5
+
+# Inference
+inference:
+  endpoint: ""                                    # e.g. http://atom-classifier:8082/classify
+  batch_size: 32
+  fallback_to_parser_rule: true
+
+output:
+  model_dir: ./models/atom_classifier
