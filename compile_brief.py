@@ -147,6 +147,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Don't print the manifest summary to stdout at the end.",
     )
+    p.add_argument(
+        "--polish",
+        action="store_true",
+        help=(
+            "Run the LLM polish pass (Phase 91) over gaps, risks, customer "
+            "questions, and the executive summary so the text reads in PM-email "
+            "voice. Requires Ollama (or compatible) at $OLLAMA_BASE_URL. "
+            "Caches results to .orbitbrief_polish_cache.jsonl so re-runs are free. "
+            "Falls back to raw text if the LLM is unreachable — never blocks compile."
+        ),
+    )
     args = p.parse_args(argv)
 
     src = Path(args.input)
@@ -213,6 +224,49 @@ def main(argv: list[str] | None = None) -> int:
         from pathlib import Path as _Path
         out_dir = _Path(args.out)
         handoff = build_pm_handoff(out_dir)
+        # Phase 91 — optional LLM polish pass over gaps / risks /
+        # executive summary / customer-answer slots. Opt-in via
+        # ``--polish`` so the substrate-only fast path stays fast.
+        if getattr(args, "polish", False):
+            try:
+                from orbitbrief_core.pm_handoff import polish_pm_handoff
+                from orbitbrief_core.inference.client import OpenAIChatClient
+                import os as _os
+                _ollama_base = _os.environ.get(
+                    "OLLAMA_BASE_URL", "http://localhost:11434"
+                )
+                _polish_model = _os.environ.get(
+                    "ORBITBRIEF_POLISH_MODEL", "qwen3:14b"
+                )
+                _polish_client = OpenAIChatClient(base_url=_ollama_base)
+                _polish_cache = _os.environ.get(
+                    "ORBITBRIEF_POLISH_CACHE",
+                    str((out_dir / ".orbitbrief_polish_cache.jsonl").resolve()),
+                )
+                handoff, _polish_report = polish_pm_handoff(
+                    handoff,
+                    chat_client=_polish_client,
+                    model=_polish_model,
+                    cache_path=_Path(_polish_cache),
+                )
+                (out_dir / "polish_report.json").write_text(
+                    json.dumps(_polish_report.to_dict(), indent=2),
+                    encoding="utf-8",
+                )
+                if not args.quiet:
+                    print(
+                        f"compile_brief: polish stage "
+                        f"({_polish_report.items_polished} polished / "
+                        f"{_polish_report.items_cached} cached / "
+                        f"{_polish_report.items_fallback} fallback)",
+                        file=sys.stderr,
+                    )
+            except Exception as _polish_exc:
+                if not args.quiet:
+                    print(
+                        f"compile_brief: polish stage skipped: {_polish_exc}",
+                        file=sys.stderr,
+                    )
         (out_dir / "PM_EXECUTIVE_SUMMARY.md").write_text(
             render_pm_executive_markdown(handoff), encoding="utf-8"
         )
