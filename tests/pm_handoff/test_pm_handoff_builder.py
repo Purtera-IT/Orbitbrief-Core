@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from orbitbrief_core.pm_handoff import build_pm_handoff, render_pm_handoff_markdown
+from orbitbrief_core.pm_handoff import build_pm_handoff, render_pm_handoff_markdown, render_sow_draft
 
 
 def test_pm_handoff_hides_internal_language(tmp_path: Path):
@@ -57,3 +57,8 @@ def test_pm_handoff_hides_internal_language(tmp_path: Path):
     assert "atom" not in md.lower()
     assert "pack prior" not in md.lower()
     assert "entity graph" not in md.lower()
+
+    sow_md = render_sow_draft(handoff)
+    assert "Statement of Work" in sow_md
+    assert "Spring Lake High School" in sow_md
+    assert "What test standard is required?" in sow_md

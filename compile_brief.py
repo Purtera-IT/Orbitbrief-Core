@@ -202,6 +202,7 @@ def main(argv: list[str] | None = None) -> int:
             render_pm_executive_markdown,
             render_solution_architect_markdown,
             render_pm_handoff_markdown,
+            render_sow_draft,
         )
         from orbitbrief_core.pm_handoff.render_html import (
             render_pm_executive_html,
@@ -231,6 +232,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         (out_dir / "PM_HANDOFF.json").write_text(
             json.dumps(handoff.to_dict(), indent=2), encoding="utf-8"
+        )
+        (out_dir / "SOW_DRAFT.md").write_text(
+            render_sow_draft(handoff), encoding="utf-8"
         )
         if not args.quiet:
             print(

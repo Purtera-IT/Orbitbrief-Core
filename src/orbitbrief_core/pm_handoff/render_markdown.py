@@ -217,6 +217,85 @@ def render_pm_executive_markdown(handoff: PMHandoff) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def render_sow_draft(handoff: PMHandoff) -> str:
+    """Draft Statement of Work markdown for SowSmith / blob ``SOW_DRAFT.md``."""
+    icon = _STATUS_ICON.get(handoff.status, "⚪")
+    active_domains = [d for d in handoff.domains if d.selected_by_router or d.active_for_sow]
+    workstream_labels = ", ".join(d.label for d in active_domains) or "To be confirmed"
+
+    lines: list[str] = [
+        f"# Statement of Work — Draft",
+        "",
+        f"**Project reference:** `{handoff.case_id}`",
+        f"**OrbitBrief readiness:** {icon} **{handoff.status_label}**",
+        "",
+        f"> {handoff.one_line_summary}",
+        "",
+        "_This document is an OrbitBrief Core draft for internal PM review. "
+        "Commercial terms, acceptance criteria, and exclusions require sign-off before customer release._",
+        "",
+        "## 1. Purpose",
+        "",
+        "Purtera-IT proposes to deliver the professional services described below based on the "
+        "customer intake package analyzed by OrbitBrief.",
+        "",
+        "## 2. Scope summary",
+        "",
+        f"**Workstreams in scope:** {workstream_labels}",
+        "",
+    ]
+    lines.extend(_render_domains(handoff))
+    lines.extend(_render_sites(handoff))
+
+    lines.extend([
+        "## 3. Deliverables (draft)",
+        "",
+        "Deliverables will align to the confirmed workstreams and sites above, including:",
+        "",
+        "- Project management and coordination",
+        "- Engineering / solution design per active workstream",
+        "- Field execution planning for confirmed sites",
+        "- Closeout documentation and turnover package",
+        "",
+    ])
+
+    if handoff.facts_by_category:
+        lines.extend(["## 4. Confirmed intake facts", ""])
+        for category in CATEGORY_ORDER:
+            cards = handoff.facts_by_category.get(category) or []
+            if not cards:
+                continue
+            lines.extend([f"### {FACT_CATEGORY_LABELS.get(category, category.title())}", ""])
+            for c in cards[:12]:
+                lines.append(f"- **{c.title}:** {c.text}")
+            if len(cards) > 12:
+                lines.append(f"- _({len(cards) - 12} additional items omitted from draft preview)_")
+            lines.append("")
+
+    lines.extend([
+        "## 5. Assumptions and exclusions",
+        "",
+        "The following items must be resolved or explicitly accepted before SOW lock:",
+        "",
+    ])
+    lines.extend(_render_questions(handoff))
+
+    if handoff.sa_focus:
+        lines.extend(["## 6. Solution architect prerequisites", ""])
+        for item in handoff.sa_focus:
+            lines.append(f"- {item}")
+        lines.append("")
+
+    lines.extend([
+        "## 7. Acceptance",
+        "",
+        "Acceptance criteria will be defined per site and workstream during PM finalization. "
+        "This draft does not constitute a binding commercial offer.",
+        "",
+    ])
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def render_solution_architect_markdown(handoff: PMHandoff) -> str:
     """Detailed SA-facing view: source-backed technical/commercial evidence."""
     lines: list[str] = [
