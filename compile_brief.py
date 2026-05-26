@@ -58,7 +58,10 @@ def _maybe_compile_with_parser_os(
         sys.path.insert(0, str(parser_os_root))
 
     from app.core.compiler import compile_project  # type: ignore
-    from app.core.orbitbrief_envelope import build_orbitbrief_envelope  # type: ignore
+    # Envelope builder now lives in this repo (was app.core.orbitbrief_envelope
+    # in parser-os until envelope migration). The parser-os copy remains as
+    # a deprecation shim that re-exports this same module.
+    from orbitbrief_core.envelope import build_orbitbrief_envelope
 
     project_id = project_id or case_dir.name
     print(
