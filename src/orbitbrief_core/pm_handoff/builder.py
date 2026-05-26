@@ -90,6 +90,17 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         _read_json(case_dir / "inspection_report.json")
         or _read_json(case_dir / "90_inspection_report.json")
     )
+    # Calibrator roll-up: ``BriefPipeline._run_stage`` writes per-pack
+    # ``CalibratorReport`` JSON to ``<case>/60_calibrations/<pack_id>.json``.
+    # We project a single top-level verdict for PM consumption: the
+    # most-blocking individual verdict across every pack wins
+    # (``reject`` > ``needs_review`` > ``auto_accept``). When no
+    # calibration artifacts exist on disk (e.g. PMHandoff was built
+    # directly from an inspection_report without running the full
+    # pipeline), the field stays ``None``. Wiring point for live
+    # integration: ``src/orbitbrief_core/orchestrator/pipeline.py``
+    # populates the ``60_calibrations/`` directory.
+    calibrator_verdict = _rollup_calibrator_verdict(case_dir)
     # SOW missingness — boss-bundle path writes per-case
     # ``sow_missingness.yaml``; auto-derive on the fly when only the
     # raw substrate dir is present.
@@ -299,6 +310,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         drift_snapshot=asdict(drift),
         urgency_signals=[asdict(u) for u in urgency],
         customer_answer_slots=[asdict(c) for c in customer_slots],
+        calibrator_verdict=calibrator_verdict,
     )
 
 
@@ -452,8 +464,9 @@ def _build_gap_cards(sow: dict[str, Any]) -> list[GapCard]:
 
 
 def _build_domains(report: dict[str, Any], sow: dict[str, Any], gaps: list[GapCard]) -> list[DomainSummary]:
-    selected = set((report.get("pack_prior") or {}).get("selected_pack_ids") or [])
-    top = (report.get("pack_prior") or {}).get("top_pack_id")
+    pack_prior = report.get("pack_prior") or {}
+    selected = set(pack_prior.get("selected_pack_ids") or [])
+    top = pack_prior.get("top_pack_id")
     if top:
         selected.add(top)
     active = set(sow.get("active_domain_ids") or [])
@@ -461,6 +474,27 @@ def _build_domains(report: dict[str, Any], sow: dict[str, Any], gaps: list[GapCa
     for g in gaps:
         gap_counts[g.domain_id][g.severity] += 1
     domain_ids = sorted(selected | active | set(gap_counts.keys()))
+    # Per-pack confidence comes from the pack_prior router's ranking
+    # output: ``inspection_report.pack_prior.top_scores[]`` carries
+    # ``{pack_id, raw_score, confidence, matched_keywords}`` rows. We
+    # also include the top-level ``top_confidence`` as a fallback for
+    # ``top_pack_id`` when ``top_scores`` is truncated. If neither
+    # source has a score for a domain id, ``score`` stays None so
+    # consumers can distinguish "unscored" from a real 0.0.
+    score_by_id: dict[str, float] = {}
+    for row in pack_prior.get("top_scores") or []:
+        pid = row.get("pack_id")
+        conf = row.get("confidence")
+        if pid and conf is not None:
+            try:
+                score_by_id[str(pid)] = float(conf)
+            except (TypeError, ValueError):
+                continue
+    if top and top not in score_by_id and pack_prior.get("top_confidence") is not None:
+        try:
+            score_by_id[str(top)] = float(pack_prior.get("top_confidence"))
+        except (TypeError, ValueError):
+            pass
     out = [
         DomainSummary(
             domain_id=d,
@@ -470,6 +504,8 @@ def _build_domains(report: dict[str, Any], sow: dict[str, Any], gaps: list[GapCa
             blockers=gap_counts[d]["blocker"],
             warnings=gap_counts[d]["warning"],
             info=gap_counts[d]["info"],
+            pack_name=domain_label(d) or d,
+            score=score_by_id.get(d),
         )
         for d in domain_ids
     ]
@@ -711,3 +747,46 @@ def _count_any(value: Any) -> int:
     if isinstance(value, (list, tuple, set)):
         return len(value)
     return 0
+
+
+# Verdict precedence for the project-level roll-up. Higher = "worse"
+# / more blocking, so the project verdict is the max precedence
+# observed across every per-pack calibration item.
+_VERDICT_PRECEDENCE: dict[str, int] = {
+    "auto_accept": 0,
+    "needs_review": 1,
+    "reject": 2,
+}
+
+
+def _rollup_calibrator_verdict(case_dir: Path) -> str | None:
+    """Roll up per-pack calibration reports into a single project verdict.
+
+    The orchestrator pipeline writes ``CalibratorReport`` JSON to
+    ``<case_dir>/60_calibrations/<pack_id>.json``. Each item has a
+    ``verdict`` field whose value is one of the
+    :class:`Verdict` enum strings. The most-blocking verdict across
+    every item in every pack wins. Returns ``None`` when no
+    calibration artifacts exist on disk.
+    """
+    cal_dir = case_dir / "60_calibrations"
+    if not cal_dir.is_dir():
+        return None
+    worst_rank = -1
+    worst_label: str | None = None
+    for path in sorted(cal_dir.glob("*.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        for item in payload.get("items") or []:
+            verdict = item.get("verdict")
+            if not isinstance(verdict, str):
+                continue
+            rank = _VERDICT_PRECEDENCE.get(verdict)
+            if rank is None:
+                continue
+            if rank > worst_rank:
+                worst_rank = rank
+                worst_label = verdict
+    return worst_label

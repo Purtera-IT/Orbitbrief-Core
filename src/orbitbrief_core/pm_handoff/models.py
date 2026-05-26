@@ -50,6 +50,16 @@ class DomainSummary:
     blockers: int = 0
     warnings: int = 0
     info: int = 0
+    # Additive gap-fix fields (PMHandoff contract additive update):
+    # ``pack_name`` mirrors ``label`` (or ``domain_id`` when the label
+    # is missing) so the frontend can render a friendly pack name
+    # without having to mirror the domain-label registry.
+    # ``score`` is the per-pack confidence from the pack_prior router
+    # (``pack_prior.top_scores[*].confidence``). ``None`` when the
+    # router didn't surface a score for this domain id, so consumers
+    # never confuse "unscored" with a real 0.0 score.
+    pack_name: str | None = None
+    score: float | None = None
 
 
 @dataclass(frozen=True)
@@ -170,6 +180,22 @@ class PMHandoff:
     drift_snapshot: dict[str, Any] = field(default_factory=dict)
     urgency_signals: list[dict[str, Any]] = field(default_factory=list)
     customer_answer_slots: list[dict[str, Any]] = field(default_factory=list)
+    # PMHandoff contract gap-fix additive fields:
+    # ``calibrator_verdict`` projects the Verdict enum's string value
+    # (``"auto_accept"`` / ``"needs_review"`` / ``"reject"``) so PM
+    # consumers can see whether the calibrated brain output is
+    # auto-acceptable. ``None`` means the calibrator either wasn't
+    # invoked in the build path or no calibration artifact was on
+    # disk. Wired by ``builder.py`` from
+    # ``<case>/60_calibrations/*.json`` when present.
+    calibrator_verdict: str | None = None
+    # ``polish_stage`` exposes the polish telemetry block (phase,
+    # model, polished_count, fallback_count, validator_enforced). A
+    # ``None`` here means polish never ran on this build; an emitted
+    # dict with ``model="none"`` means polish ran as a no-op because
+    # no LLM client was supplied. Populated by ``polish_pm_handoff``
+    # via a ``replace(handoff, polish_stage=...)`` step.
+    polish_stage: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

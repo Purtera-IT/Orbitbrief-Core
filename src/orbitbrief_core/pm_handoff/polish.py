@@ -710,10 +710,35 @@ def _apply_one_line_result(
     return one_line
 
 
+# Phase ordinal for the polish_stage telemetry block. Phase 91 is the
+# PM-voice polish pass that runs after Phase 90 (PMHandoff build);
+# pinned here so the telemetry field is stable across builds.
+_POLISH_PHASE = 91
+
+
+def _polish_stage_telemetry(
+    *,
+    phase: int,
+    model: str,
+    polished_count: int,
+    fallback_count: int,
+    validator_enforced: bool,
+) -> dict[str, Any]:
+    """Shape the polish_stage telemetry dict — single source of truth so
+    the no-op path and the real-LLM path emit identical keys/order."""
+    return {
+        "phase": phase,
+        "model": model,
+        "polished_count": polished_count,
+        "fallback_count": fallback_count,
+        "validator_enforced": validator_enforced,
+    }
+
+
 def polish_pm_handoff(
     handoff: PMHandoff,
     *,
-    chat_client: ChatClient,
+    chat_client: ChatClient | None,
     model: str = DEFAULT_MODEL,
     cache_path: Path | None = None,
 ) -> tuple[PMHandoff, PolishReport]:
@@ -737,10 +762,40 @@ def polish_pm_handoff(
     ``compliance_callouts[].snippet``) are intentionally NOT polished —
     polishing them would break the verbatim-citation property the
     system relies on for source replay.
+
+    When ``chat_client`` is ``None`` polish runs as a no-op: the
+    returned handoff is unchanged but the ``polish_stage`` telemetry
+    block is populated with ``model="none"``, zero counts, and
+    ``validator_enforced=false`` so downstream observability can
+    distinguish "didn't run" from "ran with zero items".
     """
     import time
 
     started = time.monotonic()
+
+    # No-op path: no LLM client supplied. Emit a polish_stage
+    # telemetry block but skip the polish itself. PolishReport mirrors
+    # the same counters so callers reading either surface get
+    # consistent values.
+    if chat_client is None:
+        no_op_telemetry = _polish_stage_telemetry(
+            phase=_POLISH_PHASE,
+            model="none",
+            polished_count=0,
+            fallback_count=0,
+            validator_enforced=False,
+        )
+        no_op_handoff = replace(handoff, polish_stage=no_op_telemetry)
+        no_op_report = PolishReport(
+            items_total=0,
+            items_polished=0,
+            items_fallback=0,
+            items_cached=0,
+            model="none",
+            elapsed_ms=int((time.monotonic() - started) * 1000),
+        )
+        return no_op_handoff, no_op_report
+
     cache: PolishCache | None = None
     if cache_path is not None:
         cache = PolishCache(path=Path(cache_path))
@@ -791,6 +846,18 @@ def polish_pm_handoff(
     )
     polished_slots = _apply_results_to_slots(handoff.customer_answer_slots, results, model)
 
+    # validator_enforced reflects whether _validate_polish was the
+    # gate that decided cache-vs-LLM. polish_items always runs the
+    # validator on LLM output, so this is True whenever LLM polish
+    # actually ran for at least one item.
+    polish_stage = _polish_stage_telemetry(
+        phase=_POLISH_PHASE,
+        model=model,
+        polished_count=items_polished,
+        fallback_count=items_fallback,
+        validator_enforced=bool(deduped),
+    )
+
     polished = replace(
         handoff,
         one_line_summary=polished_one_line,
@@ -799,6 +866,7 @@ def polish_pm_handoff(
         risk_register=polished_risks,
         executive_summary=polished_exec,
         customer_answer_slots=polished_slots,
+        polish_stage=polish_stage,
     )
 
     elapsed_ms = int((time.monotonic() - started) * 1000)
