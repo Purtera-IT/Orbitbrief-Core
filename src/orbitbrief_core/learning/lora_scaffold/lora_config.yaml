@@ -1,0 +1,49 @@
+# LoRA fine-tuning configuration — SCAFFOLDED, NOT IN PRODUCTION.
+#
+# Tune the values below when you activate LoRA training. The values
+# here are reasonable starting points based on Qwen3-14B LoRA reports
+# in the open literature; expect to iterate on them against the
+# eval harness (see eval_harness.py).
+
+base_model: qwen3:14b
+adapter_type: lora
+
+# LoRA hyperparameters
+lora:
+  r: 16                                # rank — 8/16/32 are common
+  alpha: 32                            # scaling factor (alpha / r is the effective scale)
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+
+# Training
+training:
+  epochs: 3
+  learning_rate: 2.0e-4
+  batch_size: 4
+  gradient_accumulation_steps: 8        # effective batch = 32
+  warmup_ratio: 0.03
+  max_seq_length: 4096                  # match brain max prompt size
+
+# Activation gates (refuse to ship below these)
+gates:
+  min_training_pairs: 500
+  min_eval_recall: 0.65
+  min_eval_precision: 0.70
+  required_uplift_pp: 10                # LoRA must beat prompt-only by ≥10 pp recall×precision
+
+# Output
+output:
+  adapter_dir: ./adapters/qwen3-14b-{domain}-lora
+  model_card_template: ./model_card.md.j2
+
+# Routing (when active)
+routing:
+  # Once activated, the orchestrator routes brain calls through this
+  # vLLM endpoint instead of the bare Ollama qwen3:14b. The fallback
+  # to the unadapted model is automatic if the adapter endpoint fails.
+  vllm_endpoint: ""                     # e.g. http://vllm-lora-internal:8000
+  fallback_to_base: true

@@ -21,6 +21,15 @@ class SourceFileSummary:
     artifact_type: str
     parser_name: str
     evidence_items: int
+    # A6 graceful degradation: per-file parse outcome surfaced from
+    # parser-os' envelope. ``status`` is one of: ok / ok_empty /
+    # failed_parse / skipped_no_parser / unknown. ``status_reason``
+    # is the human-readable failure cause (e.g. "FileDataError: ...").
+    # PM_HANDOFF renderers show degraded files in a separate callout
+    # so the systems engineer knows which files to manually inspect
+    # instead of silently producing an envelope with fewer atoms.
+    status: str = "ok"
+    status_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -80,6 +89,87 @@ class PMHandoff:
     source_files: list[SourceFileSummary] = field(default_factory=list)
     sa_focus: list[str] = field(default_factory=list)
     customer_questions: list[GapCard] = field(default_factory=list)
+    # A5: cross-doc numeric / date reconciliation tables. These are
+    # plain-dict snapshots of MoneyMention / DateMention /
+    # ReconciliationFlag so PMHandoff stays JSON-serializable via
+    # ``to_dict`` without circular imports of the reconciliation
+    # module. The markdown renderer reads them directly.
+    money_mentions: list[dict[str, Any]] = field(default_factory=list)
+    date_mentions: list[dict[str, Any]] = field(default_factory=list)
+    reconciliation_flags: list[dict[str, Any]] = field(default_factory=list)
+    # B2: PM-ready risk register projected from atom_type=risk rows.
+    risk_register: list[dict[str, Any]] = field(default_factory=list)
+    # B5: project-schedule rows projected from atom_type=schedule_phase
+    # atoms. Used to render a Mermaid Gantt block + fallback table.
+    schedule_phases: list[dict[str, Any]] = field(default_factory=list)
+    # B6: per-site evidence rollup — devices, money, dates, and
+    # stakeholders each site touches, aggregated across all docs.
+    site_rollups: list[dict[str, Any]] = field(default_factory=list)
+    # B6 polish: explicit BOM-allocation cost lines (e.g. "ATL-HQ:
+    # 52 Wi-Fi APs × $995 = $51,740") with per-site totals.
+    site_allocations: list[dict[str, Any]] = field(default_factory=list)
+    # B3: consolidated PM action items from gaps + risks + phases.
+    action_items: list[dict[str, Any]] = field(default_factory=list)
+    # B4: role-lens one-pagers (CFO / IT / Procurement) — slicing
+    # the intake into stakeholder-shaped summaries.
+    stakeholder_pagers: list[dict[str, Any]] = field(default_factory=list)
+    # B10: compliance / legal callouts — named-framework + generic-
+    # legal language pulled from constraint / exclusion / decision
+    # atoms so PM can route them to legal review.
+    compliance_callouts: list[dict[str, Any]] = field(default_factory=list)
+    # B9: acceptance criteria checklist — schedule exit_criteria +
+    # cutover checklist rows rendered as a copy-pasteable checkbox
+    # list with owner / timing / evidence-required fields so the
+    # field team has a deterministic execution checklist.
+    acceptance_checks: list[dict[str, Any]] = field(default_factory=list)
+    # B8: vendor RFP line items — auto-categorized vendor_line_item
+    # atoms used by ``render_rfp_draft`` to generate RFP_DRAFT.md.
+    rfp_line_items: list[dict[str, Any]] = field(default_factory=list)
+    # PM-audit gap fillers:
+    # Executive summary (3-line briefing for the top of PM_HANDOFF).
+    executive_summary: dict[str, Any] = field(default_factory=dict)
+    # Stakeholder contact directory (name / role / email / phone).
+    stakeholder_contacts: list[dict[str, Any]] = field(default_factory=list)
+    # Out-of-scope items surfaced at PM layer (in addition to SOW).
+    exclusions: list[dict[str, Any]] = field(default_factory=list)
+    # Customer- vs provider-supplied responsibilities split.
+    responsibilities: list[dict[str, Any]] = field(default_factory=list)
+    # Quantity claims + cross-doc quantity reconciliation flags.
+    quantity_claims: list[dict[str, Any]] = field(default_factory=list)
+    quantity_contradictions: list[dict[str, Any]] = field(default_factory=list)
+    # Tier 1-4 PM intelligence
+    margin_view: dict[str, Any] = field(default_factory=dict)
+    critical_path: list[dict[str, Any]] = field(default_factory=list)
+    lead_time_flags: list[dict[str, Any]] = field(default_factory=list)
+    engagement_model: dict[str, Any] = field(default_factory=dict)
+    license_items: list[dict[str, Any]] = field(default_factory=list)
+    currency_mentions: list[dict[str, Any]] = field(default_factory=list)
+    tax_clauses: list[dict[str, Any]] = field(default_factory=list)
+    subcontractor_mentions: list[dict[str, Any]] = field(default_factory=list)
+    sla_penalties: list[dict[str, Any]] = field(default_factory=list)
+    resource_conflicts: list[dict[str, Any]] = field(default_factory=list)
+    change_order_triggers: list[dict[str, Any]] = field(default_factory=list)
+    risk_aging: list[dict[str, Any]] = field(default_factory=list)
+    actions_by_week: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    acceptance_by_site: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    intake_completeness: list[dict[str, Any]] = field(default_factory=list)
+    # Final universality wave
+    currency_conversions: list[dict[str, Any]] = field(default_factory=list)
+    eol_flags: list[dict[str, Any]] = field(default_factory=list)
+    phase_dependencies: list[dict[str, Any]] = field(default_factory=list)
+    critical_path_chain: list[str] = field(default_factory=list)
+    comparable_deals: list[dict[str, Any]] = field(default_factory=list)
+    ocr_backend_status: dict[str, Any] = field(default_factory=dict)
+    crm_detections: list[dict[str, Any]] = field(default_factory=list)
+    # UI-mapping additions
+    sow_draft_markdown: str = ""        # Rendered SOW (so the UI can pull it from one payload)
+    rfp_draft_markdown: str = ""        # Rendered RFP
+    parser_quality_score: dict[str, Any] = field(default_factory=dict)  # {score, components}
+    # A+ wave: run telemetry + drift + urgency + customer-answer scaffold
+    run_telemetry: dict[str, Any] = field(default_factory=dict)
+    drift_snapshot: dict[str, Any] = field(default_factory=dict)
+    urgency_signals: list[dict[str, Any]] = field(default_factory=list)
+    customer_answer_slots: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

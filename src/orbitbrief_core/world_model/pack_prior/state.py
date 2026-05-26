@@ -35,7 +35,11 @@ class PackPriorState(BaseModel):
     top_confidence: float = Field(ge=0.0, le=1.0)
     runner_up_pack_id: str | None = None
     runner_up_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
-    margin: float = Field(default=0.0, ge=0.0, le=1.0)
+    # ``margin`` = top.confidence − runner_up.confidence. CAN be negative
+    # post-LLM-escalation: when the LLM moves a lower-keyword-confidence
+    # pack to the top, the margin against the (now-runner-up) original
+    # keyword winner is negative. Range is therefore [-1, 1], not [0, 1].
+    margin: float = Field(default=0.0, ge=-1.0, le=1.0)
     # If we escalated to an LLM, the unescalated keyword winner. None
     # means the keyword pick stuck.
     escalated: bool = False

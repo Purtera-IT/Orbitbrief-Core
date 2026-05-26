@@ -73,11 +73,31 @@ _GROUNDED_SECTIONS_BY_BRAIN: dict[str, tuple[str, ...]] = {
         "dispatch_readiness_flags",
         "open_questions",
     ),
+    # Phase-7.5 briefing brains (all share the canonical 9-section shape)
     "wireless": _BRIEFING_SECTIONS,
     "low_voltage_cabling": _BRIEFING_SECTIONS,
     "rack_and_stack": _BRIEFING_SECTIONS,
     "datacenter": _BRIEFING_SECTIONS,
     "imac": _BRIEFING_SECTIONS,
+    # PR19 + Phase 7.5 expansion brains — all share the briefing
+    # 9-section template, so we just point at the same tuple. Without
+    # these entries the orchestrator crashes when pack_prior selects
+    # one of these packs as active.
+    "audio_visual": _BRIEFING_SECTIONS,
+    "building_management_systems": _BRIEFING_SECTIONS,
+    "network_maintenance": _BRIEFING_SECTIONS,
+    "camera_vms_operations": _BRIEFING_SECTIONS,
+    "procurement_finance": _BRIEFING_SECTIONS,
+    "electrical": _BRIEFING_SECTIONS,
+    "professional_services": _BRIEFING_SECTIONS,
+    "audit": _BRIEFING_SECTIONS,
+    # `delivery_execution` and `hardware` are pack_prior packs that
+    # don't have brains today; the pipeline skips them at the brain
+    # stage and never reaches the validator for them. They're listed
+    # here as a defensive belt-and-braces in case the pipeline ever
+    # dispatches validation for a no-brain pack.
+    "delivery_execution": _BRIEFING_SECTIONS,
+    "hardware": _BRIEFING_SECTIONS,
 }
 
 # Pack families known to be mutually exclusive in production. ITAD

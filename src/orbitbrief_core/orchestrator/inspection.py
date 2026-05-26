@@ -562,11 +562,21 @@ def _artifact_view(
                 "authority_class": atom.get("authority_class"),
                 "confidence": atom.get("confidence"),
                 "verified": atom.get("verified"),
-                "text": (atom.get("text") or "")[:280],
+                # Lifted to 1200 chars (was 280) so the SOW draft +
+                # PM_HANDOFF reconciliation can detect full payment
+                # schedules and similar multi-clause sentences that
+                # used to be cut off mid-phrase.
+                "text": (atom.get("text") or "")[:1200],
                 "locator": atom.get("locator") or {},
                 "in_bundle": in_bundle,
                 "cited_by_brain": in_brain,
                 "in_composed_brief": in_brief,
+                # A5: surface entity_keys + structured value so PM_HANDOFF
+                # can build cross-doc reconciliation tables (money / date
+                # / risk values), per-site pricing rollups (B6), and the
+                # risk register (B2) without re-parsing the envelope.
+                "entity_keys": list(atom.get("entity_keys") or ()),
+                "structured": dict(atom.get("structured") or {}),
             }
         )
 
@@ -585,6 +595,14 @@ def _artifact_view(
         "atoms_in_bundle": bundled_atoms,
         "atoms_cited_by_brain": cited_by_brain,
         "atoms_in_composed_brief": used_in_brief,
+        # A6 graceful degradation: pass parse_outcome through from
+        # envelope.documents[*] to inspection-report.artifacts[*] so
+        # PM_HANDOFF can render "Files requiring manual review."
+        "parse_outcome": doc.get("parse_outcome") or {
+            "status": "ok" if len(atom_ids) > 0 else "ok_empty",
+            "atom_count": len(atom_ids),
+            "warning_count": 0,
+        },
         "preview": preview,
         "atoms": atom_records,
     }

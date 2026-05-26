@@ -27,6 +27,57 @@ from orbitbrief_core.pm_handoff.models import (
     SourceFileSummary,
     SourcePointer,
 )
+from orbitbrief_core.pm_handoff.reconciliation import (
+    build_acceptance_checks,
+    build_action_items,
+    build_compliance_callouts,
+    build_date_mentions,
+    build_exclusions,
+    build_executive_summary,
+    build_money_mentions,
+    build_quantity_claims,
+    build_reconciliation_flags,
+    build_responsibilities,
+    build_rfp_line_items,
+    build_risk_register,
+    build_schedule_phases,
+    build_site_rollups,
+    build_stakeholder_contacts,
+    build_stakeholder_pagers,
+    find_quantity_contradictions,
+    parse_bom_allocations,
+)
+from orbitbrief_core.pm_handoff.pm_intelligence import (
+    build_change_order_triggers,
+    build_critical_path,
+    build_currency_conversions,
+    build_currency_mentions,
+    build_engagement_model,
+    build_eol_flags,
+    build_intake_completeness,
+    build_lead_time_flags,
+    build_license_items,
+    build_margin_view,
+    build_crm_detection,
+    build_customer_answer_slots,
+    build_drift_snapshot,
+    build_ocr_backend_status,
+    build_parser_quality_score,
+    build_run_telemetry,
+    build_urgency_signals,
+    build_phase_dependencies,
+    build_resource_conflicts,
+    build_risk_aging,
+    build_sla_penalties,
+    build_subcontractor_mentions,
+    build_tax_clauses,
+    critical_path_from_dependencies,
+    group_acceptance_by_site,
+    group_actions_by_week,
+    load_comparable_deals,
+    risk_numeric_score,
+)
+from dataclasses import asdict
 
 MAX_FACTS_PER_CATEGORY = 12
 
@@ -58,6 +109,138 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     customer_questions = [g for g in gaps if g.severity in {"blocker", "warning"}]
     one_line = _build_one_line_summary(case_id, domains, sites, gaps)
 
+    # A5 reconciliation: build money / date mentions and near-value
+    # flags from the inspection report. These are stored as dicts so
+    # PMHandoff.to_dict() stays JSON-clean (no dataclass nesting
+    # depth quirks across versions).
+    money = build_money_mentions(report)
+    dates = build_date_mentions(report)
+    flags = build_reconciliation_flags(money)
+    risks = build_risk_register(report)
+    phases = build_schedule_phases(report)
+    site_rolls = build_site_rollups(report)
+    actions = build_action_items(gaps=gaps, risk_rows=risks, schedule_phases=phases)
+    pagers = build_stakeholder_pagers(
+        gaps=gaps,
+        risk_rows=risks,
+        money_mentions=money,
+        reconciliation_flags=flags,
+        case_id=case_id,
+    )
+    compliance = build_compliance_callouts(report)
+    allocations = parse_bom_allocations(report)
+    accept_checks = build_acceptance_checks(report)
+    rfp_items = build_rfp_line_items(report)
+    contacts = build_stakeholder_contacts(report)
+    exclusions = build_exclusions(report)
+    responsibilities = build_responsibilities(report)
+    qty_claims = build_quantity_claims(report)
+    qty_contradictions = find_quantity_contradictions(qty_claims)
+    exec_summary = build_executive_summary(
+        case_id=case_id,
+        status=status,
+        status_label=status_label,
+        one_line_summary=one_line,
+        money_mentions=money,
+        risks=risks,
+        gaps=gaps,
+        sites=sites,
+        domains=domains,
+    )
+    # Tier 1-4 PM intelligence
+    margin = build_margin_view(report)
+    phase_dicts = [asdict(p) for p in phases]
+    cp = build_critical_path(phase_dicts)
+    lt_flags = build_lead_time_flags(report)
+    eng_model = build_engagement_model(report)
+    licenses = build_license_items(report)
+    currencies = build_currency_mentions(report)
+    taxes = build_tax_clauses(report)
+    subs = build_subcontractor_mentions(report)
+    sla_pen = build_sla_penalties(report)
+    res_conflicts = build_resource_conflicts(phase_dicts)
+    co_triggers = build_change_order_triggers(report)
+    # risk aging proxied by earliest phase start as intake date
+    intake_iso = phase_dicts[0]["start"] if phase_dicts else None
+    risk_dicts = [asdict(r) for r in risks]
+    aging = build_risk_aging(risk_dicts, intake_date_iso=intake_iso)
+    action_dicts = [asdict(a) for a in actions]
+    actions_weekly = group_actions_by_week(action_dicts)
+    site_keys = [s.name for s in sites]
+    accept_dicts = [asdict(a) for a in accept_checks]
+    accept_by_site = group_acceptance_by_site(accept_dicts, site_keys=site_keys)
+    # Final universality wave: currency conversions, EOL flags,
+    # dependency-aware critical path, historical bench
+    currency_convs = build_currency_conversions([asdict(c) for c in currencies])
+    eol = build_eol_flags(report)
+    phase_deps = build_phase_dependencies(report)
+    cp_chain = critical_path_from_dependencies(phase_dicts, phase_deps)
+    import os as _os
+    history_path = _os.environ.get(
+        "ORBITBRIEF_CORPUS_HISTORY",
+        str((case_dir / ".orbitbrief_history.jsonl").resolve()),
+    )
+    ocr_status = build_ocr_backend_status()
+    crm_detections = build_crm_detection(report)
+    parser_quality = build_parser_quality_score(report)
+    run_tele = build_run_telemetry(report, case_dir)
+    urgency = build_urgency_signals(report)
+    customer_slots = build_customer_answer_slots(gaps)
+    # Drift snapshot uses the corpus history ledger; same logic the
+    # compile_brief.py append step uses, so the comparison is
+    # against the LAST entry for this case_id.
+    import os as _os
+    drift_history_path = _os.environ.get(
+        "ORBITBRIEF_CORPUS_HISTORY",
+        str((case_dir / ".orbitbrief_history.jsonl").resolve()) if case_dir else "",
+    )
+    current_run_for_drift = {
+        "deal_value_usd": int((margin.deal_total or 0)),
+        "final_margin_pct": float(margin.margin_pct or 0),
+        "sites_count": len(sites),
+        "phase_count": len(phases),
+    }
+    drift = build_drift_snapshot(
+        case_id=case_id,
+        current_run=current_run_for_drift,
+        history_path=drift_history_path,
+    )
+    comparable = load_comparable_deals(
+        history_path,
+        target_value_usd=margin.deal_total,
+        target_domains=[d.label for d in domains if d.active_for_sow],
+        limit=5,
+    )
+    completeness = build_intake_completeness(
+        has_deal_total=bool(margin.deal_total),
+        has_publishable_site=any(s.publishable for s in sites),
+        has_schedule_phase=bool(phases),
+        # An exec sponsor is detected when ANY contact directory row
+        # has a sponsor-shaped role label OR a sponsor-shaped role
+        # cell appeared in any structured atom. The previous logic
+        # only checked gap messages — gaps never contain "sponsor"
+        # so this was always false on every project.
+        has_executive_stakeholder=any(
+            any(token in (c.role or "").lower() for token in (
+                "sponsor", "executive", "vp", "vice president",
+                "ceo", "cfo", "cto", "cio", "ciso", "head of",
+                "director of", "managing director", "chief",
+            ))
+            for c in contacts
+        ) or any(
+            "executive sponsor" in (a.get("text") or "").lower()
+            or "vp " in (a.get("text") or "").lower()
+            for art in (report.get("artifacts") or [])
+            for a in (art.get("atoms") or [])
+        ),
+        has_vendor_line=bool(rfp_items),
+        has_risk=bool(risks),
+        has_exit_criteria=bool(accept_checks),
+        has_payment_term=eng_model.detected_model != "unknown",
+        has_exclusion=bool(exclusions),
+        has_compliance_callout=bool(compliance),
+    )
+
     return PMHandoff(
         case_id=case_id,
         status=status,
@@ -71,6 +254,51 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         source_files=source_files,
         sa_focus=sa_focus,
         customer_questions=customer_questions,
+        money_mentions=[asdict(m) for m in money],
+        date_mentions=[asdict(d) for d in dates],
+        reconciliation_flags=[asdict(f) for f in flags],
+        risk_register=[asdict(r) for r in risks],
+        schedule_phases=[asdict(p) for p in phases],
+        site_rollups=[asdict(s) for s in site_rolls],
+        action_items=[asdict(a) for a in actions],
+        stakeholder_pagers=[asdict(p) for p in pagers],
+        compliance_callouts=[asdict(c) for c in compliance],
+        site_allocations=[asdict(a) for a in allocations],
+        acceptance_checks=[asdict(a) for a in accept_checks],
+        rfp_line_items=[asdict(r) for r in rfp_items],
+        executive_summary=asdict(exec_summary),
+        stakeholder_contacts=[asdict(c) for c in contacts],
+        exclusions=[asdict(e) for e in exclusions],
+        responsibilities=[asdict(r) for r in responsibilities],
+        quantity_claims=[asdict(q) for q in qty_claims],
+        quantity_contradictions=list(qty_contradictions),
+        margin_view=asdict(margin),
+        critical_path=[asdict(c) for c in cp],
+        lead_time_flags=[asdict(f) for f in lt_flags],
+        engagement_model=asdict(eng_model),
+        license_items=[asdict(li) for li in licenses],
+        currency_mentions=[asdict(c) for c in currencies],
+        tax_clauses=[asdict(t) for t in taxes],
+        subcontractor_mentions=[asdict(s) for s in subs],
+        sla_penalties=[asdict(s) for s in sla_pen],
+        resource_conflicts=[asdict(r) for r in res_conflicts],
+        change_order_triggers=[asdict(c) for c in co_triggers],
+        risk_aging=[asdict(a) for a in aging],
+        actions_by_week=actions_weekly,
+        acceptance_by_site=accept_by_site,
+        intake_completeness=[asdict(g) for g in completeness],
+        currency_conversions=[asdict(c) for c in currency_convs],
+        eol_flags=[asdict(e) for e in eol],
+        phase_dependencies=[asdict(d) for d in phase_deps],
+        critical_path_chain=list(cp_chain),
+        comparable_deals=[asdict(c) for c in comparable],
+        ocr_backend_status=asdict(ocr_status),
+        crm_detections=[asdict(c) for c in crm_detections],
+        parser_quality_score=parser_quality,
+        run_telemetry=asdict(run_tele),
+        drift_snapshot=asdict(drift),
+        urgency_signals=[asdict(u) for u in urgency],
+        customer_answer_slots=[asdict(c) for c in customer_slots],
     )
 
 
@@ -97,12 +325,22 @@ def _build_source_files(report: dict[str, Any]) -> tuple[list[SourceFileSummary]
     for art in report.get("artifacts") or []:
         artifact_id = str(art.get("artifact_id") or "")
         by_id[artifact_id] = art
+        # A6 graceful degradation: pull per-file parse outcome from
+        # the inspection-report artifact. parser-os surfaces this as
+        # ``parse_outcome`` on each document. Defaults to ``ok`` when
+        # an older envelope without the field is passed in.
+        outcome = art.get("parse_outcome") or {}
         files.append(
             SourceFileSummary(
                 filename=str(art.get("filename") or artifact_id or "unknown"),
                 artifact_type=str(art.get("artifact_type") or "unknown"),
                 parser_name=str(art.get("parser_name") or "unknown"),
                 evidence_items=int(art.get("atom_count") or 0),
+                status=str(outcome.get("status") or "ok"),
+                status_reason=(
+                    str(outcome.get("reason"))[:280]
+                    if outcome.get("reason") else None
+                ),
             )
         )
     return files, by_id
@@ -140,6 +378,21 @@ def _build_site_summaries(report: dict[str, Any], case_dir: Path | None = None) 
         artifact_count = _count_any(cluster.get("artifact_ids")) or _count_any(
             st.get("artifact_ids")
         )
+        # Audit fix: orphan / micro-cluster sites are usually false
+        # positives from address-line parsing ("Building C" inside
+        # an address) or device-acronym parsing ("warehouse RF"
+        # where RF is read as a site code). Drop when:
+        #   * tiny cluster (≤ 2 atoms from ≤ 2 artifacts), OR
+        #   * canonical name's tail token is a known device
+        #     acronym (rf / ap / vms / dc / ip / poe / etc.)
+        device_acronym_suffixes = {
+            "rf", "ap", "aps", "vms", "ip", "poe", "ups", "pdu",
+            "dc", "msa", "nda", "sla", "kvm", "san", "lan", "wan",
+        }
+        last_tok = name.lower().split()[-1] if name else ""
+        looks_device_shaped = last_tok in device_acronym_suffixes
+        if (member_count <= 2 and artifact_count <= 2) or looks_device_shaped:
+            continue
         out.append(
             SiteSummary(
                 name=name,

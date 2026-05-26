@@ -1,0 +1,35 @@
+# Gap rule auto-generator — SCAFFOLDED, NOT IN PRODUCTION.
+
+embedding_model: qwen3-embedding:8b              # zero-shot is fine for clustering
+
+# Clustering
+clustering:
+  algorithm: dbscan
+  eps: 0.3                                        # cosine distance
+  min_samples: 5                                  # min cluster size to consider a pattern
+
+# Candidate generation
+generation:
+  min_items_per_cluster: 5
+  min_distinct_deals_per_cluster: 3               # avoid one-deal-noise patterns
+  exemplar_strategy: closest_to_centroid
+
+# Validation gates (per-candidate)
+validation:
+  min_precision: 0.70
+  min_recall: 0.60
+  max_false_positive_rate: 0.20
+
+# Human-in-the-loop
+review:
+  always_require_human_approval: true             # never auto-merge to sow_missingness.yaml
+  reviewer_template: ./candidate_review_template.md
+
+# Activation gates
+gates:
+  min_added_items: 100
+  min_clusters_to_act: 3                          # don't fire the pipeline below 3 distinct patterns
+
+output:
+  candidates_path: ./gap_rule_candidates.jsonl
+  evaluations_path: ./gap_rule_evals.jsonl

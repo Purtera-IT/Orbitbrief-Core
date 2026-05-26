@@ -17,8 +17,14 @@ dependencies = [
   "duckdb>=1.0,<2.0",
   # parser-os: Phase-0 seam. Source of truth for EvidenceAtom, SourceRef,
   # CompileResult, Manifest, and the orbitbrief.input.v2 envelope.
-  # Pin via Git tag in CI; editable local path for dev velocity.
-  "purtera-evidence-mvp @ file:///Users/purtera/dev/purtera/parser-os-repo",
+  #
+  # On the Mac SSH host (original target), the editable file:// URL
+  # below resolves and parser-os imports work out of the box.
+  # On any other platform, install parser-os separately:
+  #     pip install -e <path-to-parser-os-repo>
+  # and point compile_brief at it via:
+  #     export PARSER_OS_ROOT=<path-to-parser-os-repo>
+  "purtera-evidence-mvp @ file:///Users/purtera/dev/purtera/parser-os-repo ; sys_platform == 'darwin'",
 ]
 
 [project.optional-dependencies]

@@ -1,0 +1,38 @@
+# PM-rejection classifier — SCAFFOLDED, NOT IN PRODUCTION.
+
+base_model: distilbert-base-uncased              # ~66M params, CPU inference
+
+# Training
+training:
+  epochs: 4
+  learning_rate: 2.0e-5
+  batch_size: 16
+  max_seq_length: 512
+  class_weight: balanced                          # handle class imbalance
+
+# Thresholds (used at inference time)
+thresholds:
+  suppress_below: 0.30                            # P < 0.30 → don't show to PM
+  auto_approve_above: 0.85                        # P > 0.85 + validator clean → auto-approve
+
+# Safety rules — these always apply, even when IS_ACTIVE = True
+safety:
+  never_suppress_severity: [blocker]
+  never_suppress_category: [compliance, HIPAA, PCI, SOC2, GDPR, NDA]
+
+# Activation gates
+gates:
+  min_decisions: 300
+  min_reject_rate: 0.10
+  min_auc_lift_pp: 5
+  max_false_suppression_rate: 0.02
+  max_blocker_suppression_count: 0                # zero tolerance
+
+# Inference
+inference:
+  endpoint: ""                                    # e.g. http://pm-classifier:8083/predict
+  batch_size: 32
+  fallback_to_platt_only: true                    # if model fails → use Platt verdict alone
+
+output:
+  model_dir: ./models/pm_rejection_classifier

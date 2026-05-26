@@ -256,6 +256,15 @@ domains:
       - statement: Confirm whether post-install passive validation is required after AP deployment by others.
         evidence_pattern: missing_info packet or meeting_decision packet leaving validation timing unresolved
         pitfalls: Do not convert a missing validation decision into an assumed deliverable.
+    risk_patterns:
+      - "Predictive survey doesn't match real RF environment after install (warehouse / hospital / metal-heavy)."
+      - "Channel plan collisions with neighboring tenants / public Wi-Fi."
+      - "AP power budget exceeds available PoE switch capacity."
+      - "Mounting heights / aesthetic constraints invalidate predictive model."
+      - "Regulatory power constraints (DFS / TPC) by region prevent expected throughput."
+    compliance_frameworks:
+      - "FCC Part 15 / regional regulatory limits (DFS, TPC) on power and band usage."
+      - "HIPAA / PCI when WLAN carries patient or payment traffic — segmentation required."
   low_voltage_cabling:
     display_name: Low Voltage Cabling
     operating_rules:
@@ -506,6 +515,18 @@ domains:
           test.
         evidence_pattern: missing_info packet on reuse testing + scope_inclusion packet referencing existing camera drops
         pitfalls: Do not assume reuse certification when only visual inspection is described.
+    risk_patterns:
+      - "Pathway / sleeve / firestop scope by others — drop install blocked."
+      - "Riser capacity unknown until on-site lift access."
+      - "Existing pathway plenum / riser rating doesn't match new cable category."
+      - "Ceiling access restrictions (asbestos / heritage / clean-room) push schedule weeks."
+      - "Certification standard mismatch — Fluke level vs vendor-required."
+      - "After-hours / weekend escort coverage missing for restricted areas."
+    compliance_frameworks:
+      - "ANSI/TIA-568.2-D / TIA-568.3-D certification."
+      - "ANSI/TIA-606-C labeling convention."
+      - "NEC plenum / riser fire ratings."
+      - "ICRA (healthcare) / dust + noise containment requirements."
   rack_and_stack:
     display_name: Rack and Stack
     operating_rules:
@@ -741,6 +762,15 @@ domains:
       - statement: Confirm A/B power feed map, PDU outlet assignments, plug types, and who supplies power cords.
         evidence_pattern: missing_info packet on power whip/PDU details
         pitfalls: Do not bury missing power details as a low-confidence assumption.
+    risk_patterns:
+      - "PDU outlet shortage discovered on install day; project paused for procurement."
+      - "A/B feed mapping wrong — equipment loses redundancy after install."
+      - "Cable management constrains airflow; thermal issues post-cutover."
+      - "Lift / loading-dock window conflicts with shipping arrival."
+      - "Decommissioned gear not pulled before new install — RU shortage."
+    compliance_frameworks:
+      - "ANSI/TIA-942 datacenter facility standard."
+      - "Customer change-management ticketing required for rack moves."
   datacenter:
     display_name: Datacenter
     operating_rules:
@@ -988,6 +1018,16 @@ domains:
       - statement: Confirm PDU outlet map, A/B feed design, plug types, and circuit load limits for Cabinet R12.
         evidence_pattern: missing_info packet on power schedule + quantity_claim packet naming cabinet R12
         pitfalls: Do not assume power capacity from cabinet count or past deployment history.
+    risk_patterns:
+      - "Cooling capacity insufficient for added thermal load post-install."
+      - "Cable / fiber strand count mistakenly under-provisioned; rip-and-replace."
+      - "DC commissioning collides with another customer's maintenance window."
+      - "Hot-aisle / cold-aisle integrity broken during install; hotspots emerge."
+      - "Floor weight load exceeded by new cabinet density."
+    compliance_frameworks:
+      - "ANSI/TIA-942 datacenter classification."
+      - "Customer change-advisory-board approval for prod DC work."
+      - "BICSI ANSI/NECA/BICSI-568-2006 install standards."
   imac:
     display_name: IMAC
     operating_rules:
@@ -1242,6 +1282,15 @@ domains:
       - statement: Confirm whether local profile data outside OneDrive is migrated, skipped, or handled by user backup.
         evidence_pattern: missing_info packet on data migration boundary
         pitfalls: Do not assume cloud backup covers all user data.
+    risk_patterns:
+      - "User absent on wave day; device sits unenrolled and schedule slips."
+      - "App licensing shortage for high-touch users."
+      - "Data migration scope unclear — local profile data lost."
+      - "Asset tracker out of sync after refresh; reconciliation costs labor."
+      - "Approved hardware out of stock; substitute model unsupported by image."
+    compliance_frameworks:
+      - "Customer device disposal / DoD wipe / e-waste rules."
+      - "License entitlement audit (M365, Adobe, etc.)."
 
   audio_visual:
     display_name: Audio Visual
@@ -1258,6 +1307,14 @@ domains:
       - "Conference rooms, auditoriums, board rooms, signage walls."
       - "Always identify control system (Crestron / QSC Q-SYS / Extron) and DSP family."
       - "Network video conferencing (Teams / Zoom) is in scope when the room hardware is being installed."
+    risk_patterns:
+      - "Room cabling not in scope (HDMI/HDBaseT runs missing from low-voltage subcontract)."
+      - "Codec firmware version mismatch between Teams Rooms / Zoom Rooms appliances."
+      - "Dante / AES67 networking on a shared VLAN with QoS not configured."
+      - "Signal-loss surprises on long HDBaseT pulls past 100m without extender plan."
+      - "Acoustic treatment / SPL targets not measured at customer-acceptance."
+    compliance_frameworks:
+      - "Workplace ADA compliance for assistive listening / closed captioning."
   building_management_systems:
     display_name: Building Management Systems
     operating_rules:
@@ -1273,6 +1330,15 @@ domains:
       - "Smart-building controls — HVAC, lighting, energy, occupancy."
       - "Most sites use a controls integrator subcontractor; capture their name."
       - "Open-protocol BACnet/IP is preferred; capture any proprietary back-doors."
+    risk_patterns:
+      - "Proprietary integration cost when interfacing legacy controllers (Metasys ↔ Niagara)."
+      - "Field-device firmware mismatch; commissioning extends weeks."
+      - "Existing graphics package not redrawn — confusion during O&M handoff."
+      - "Sequence-of-operations doc out of date with installed hardware."
+    compliance_frameworks:
+      - "ASHRAE 90.1 / 62.1 — minimum control sequences."
+      - "Local energy code (Title 24, IECC) — required points + reporting."
+      - "Customer cybersecurity standard for OT (NIST SP 800-82)."
   network_maintenance:
     display_name: Network Maintenance / Operations
     operating_rules:
@@ -1288,6 +1354,15 @@ domains:
       - "Switch/router lifecycle, firmware patching, port audits, VLAN audits."
       - "Distinct from msp: network-specific work, not generic ticketing."
       - "Capture WAN failover requirements and BGP/OSPF peering changes."
+    risk_patterns:
+      - "Maintenance window collision with customer business event."
+      - "Firmware bug in target version causes outage; rollback path unclear."
+      - "SmartNet / DNA license expiry mid-cutover."
+      - "Spanning-tree mis-config during STP/MSTP migration causes loop."
+      - "BGP / OSPF re-distribution lists wrong; route leaks across sites."
+    compliance_frameworks:
+      - "Customer change-advisory-board approval required for prod maintenance."
+      - "ITIL change / incident management for production-impacting changes."
   camera_vms_operations:
     display_name: Camera / VMS Operations
     operating_rules:
@@ -1303,6 +1378,16 @@ domains:
       - "Operational ownership of an existing camera + VMS plant."
       - "Capture retention SLA in days and any compliance regime (criminal justice, HIPAA, PCI)."
       - "Truck-roll repair coverage area + dispatch SLA must be explicit."
+    risk_patterns:
+      - "Retention period SLA mismatch between sites (e.g. 30 days vs 90 days)."
+      - "VMS license shortage on adding cameras."
+      - "Camera firmware not on supported VMS version; loss of analytics."
+      - "Insufficient storage / write throughput for the configured retention window."
+      - "Privacy mask / RBAC rules not enforced uniformly across sites."
+    compliance_frameworks:
+      - "Footage retention requirements per jurisdiction (criminal justice, HIPAA, PCI-DSS)."
+      - "Privacy / data residency rules (GDPR, CCPA) — esp. for cloud-recorded VMS."
+      - "SOC 2 audit trail expectations on access logs."
   procurement_finance:
     display_name: Procurement and Finance
     operating_rules:
@@ -1318,6 +1403,16 @@ domains:
       - "Money flow, not engineering."
       - "Capture milestone-billing schedules and any cap-ex / op-ex distinction."
       - "Subcontractor procurement (Graybar, Wesco, Anixter) is in scope; their installation work is not."
+    risk_patterns:
+      - "Distributor lead time exceeds project schedule; pre-order timing critical."
+      - "Allocation / chip-shortage substitution for hardware not on the BOM."
+      - "Customer PO process slow; cash-flow milestones missed."
+      - "Cap-ex vs op-ex categorization disputed by customer finance — invoicing delayed."
+      - "Vendor MSRP discount tier changes between quote validity and order placement."
+    compliance_frameworks:
+      - "Sarbanes-Oxley (SOX) for public-company finance approvals."
+      - "Customer NDA / MSA terms control how pricing is shared."
+      - "FCPA / anti-corruption when working with foreign distributors."
   electrical:
     display_name: Electrical and Power
     operating_rules:
@@ -1339,6 +1434,16 @@ domains:
       - "UPS sizing must reference connected load + runtime target."
       - "Generator scope must capture fuel type, ATS coordination, and transfer time."
       - "Grounding / bonding scope follows TIA-607 / J-STD-607 — cite the standard when applicable."
+    risk_patterns:
+      - "Permit timeline slip — AHJ inspection availability windows."
+      - "Existing panel out of capacity; subpanel install adds weeks."
+      - "Load study undersized; UPS runtime misses target."
+      - "ATS coordination missed during cutover; transfer time exceeds critical-load tolerance."
+      - "Grounding compliance gap with TIA-607 / J-STD-607."
+    compliance_frameworks:
+      - "TIA-607 / J-STD-607 grounding & bonding"
+      - "NEC code compliance for the AHJ"
+      - "Permit + inspection records for AHJ closeout"
       - "Permit + licensed-electrician requirements are jurisdictional — flag missing AHJ data as open_items."
   professional_services:
     display_name: Professional Services
@@ -1359,6 +1464,13 @@ domains:
       - "Each deliverable should map to one acceptance criterion (HLD signed, LLD signed, etc.)."
       - "Workshops have a definite agenda + attendee list; missing either is an open_item."
       - "Design validation typically occurs before BOM finalization; capture the dependency."
+    risk_patterns:
+      - "Hours estimate doesn't include rework cycles when SME unavailable."
+      - "Customer reschedules workshop; design slips, downstream BOM commit delayed."
+      - "Deliverable acceptance ambiguous — 'review' vs 'sign-off' creates dispute."
+      - "T&M cap reached before deliverable complete; change order required."
+    compliance_frameworks:
+      - "Customer engineering-standards / architecture-review-board sign-off."
   audit:
     display_name: Audit and Site Readiness
     operating_rules:
@@ -1377,3 +1489,11 @@ domains:
       - "Punch-list items must include severity + responsible party + target close date."
       - "Capture any compliance regime (NFPA, BICSI, OSHA, AHJ) the audit is grounded in."
       - "As-built deltas (planned vs installed) are often the highest-value output; surface them prominently in scope_overview."
+    risk_patterns:
+      - "Inaccessible areas during walkthrough — critical findings missed."
+      - "Photo evidence lost / unlabeled — punch-list disputes during closeout."
+      - "Severity disagreement with customer — punch list re-opens after sign-off."
+      - "AHJ change between audit and remediation — code reference moves."
+    compliance_frameworks:
+      - "NFPA / OSHA / BICSI / AHJ findings codified per local jurisdiction."
+      - "TIA-606-C labeling / TIA-568.2-D test result audit criteria."
