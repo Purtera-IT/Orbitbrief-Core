@@ -267,6 +267,10 @@ class BriefPipeline:
                 "fallback_used": r.fallback_used,
                 "validation_errors": list(r.validation_errors),
                 "token_cost": r.usage.to_dict(),
+                # v45.2 debug: snippet of raw LLM response so we can
+                # diagnose JSON parse failures without re-running.
+                "raw_response_snippet": (r.raw_response or "")[:2000],
+                "raw_response_length": len(r.raw_response or ""),
             },
             fallback_status=lambda r: (
                 StageStatus.FALLBACK if r.fallback_used else StageStatus.OK
@@ -345,6 +349,12 @@ class BriefPipeline:
                     "unresolved_packet_ids": list(r.unresolved_packet_ids),
                     "unresolved_atom_ids": list(r.unresolved_atom_ids),
                     "token_cost": r.usage.to_dict(),
+                    # v45.2 debug: capture validation errors and a snippet
+                    # of the raw LLM response so we can diagnose why a
+                    # brain fell back instead of guessing.
+                    "validation_errors": list(r.validation_errors or ()),
+                    "raw_response_snippet": (r.raw_response or "")[:1000],
+                    "raw_response_length": len(r.raw_response or ""),
                 },
                 fallback_status=lambda r: (
                     StageStatus.FALLBACK if r.fallback_used else StageStatus.OK

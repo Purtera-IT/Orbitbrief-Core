@@ -433,13 +433,18 @@ class OpenAIChatClient:
         import time
 
         start = time.perf_counter()
-        # v45.2: use streaming so each token flows as an SSE chunk over
-        # TCP.  Through Azure → Tailscale userspace netstack → Mac
-        # Studio, NON-streaming requests on slow generations (~2 min for
-        # 12k BriefState tokens) trigger Tailscale's idle-connection
-        # teardown and the response gets cut mid-stream with
-        # httpx.ReadError.  Streaming keeps the connection active end-to-end.
-        text, last_chunk = _post_chat_streaming(
+        # v45.2: non-streaming POST.  We tried streaming (stream:true with
+        # SSE accumulation) to keep the Tailscale connection active during
+        # the LLM's internal generation, but the ollama-mac-studio-proxy
+        # cuts streaming responses after the first SSE chunk — confirmed
+        # via direct curl test.  Non-streaming through the same proxy
+        # works correctly once the proxy's httpx client lifecycle was
+        # fixed (Platform-infra@bcd0082).  Mac Ollama generates the full
+        # response internally, sends back one HTTP body, proxy forwards
+        # the whole thing.  Long generations (~2 min) survive because the
+        # proxy keeps its upstream httpx client alive until the body
+        # is fully received.
+        data = _post_json(
             self._url("/v1/chat/completions"),
             payload,
             timeout_s=self.timeout_s,
@@ -447,17 +452,29 @@ class OpenAIChatClient:
         )
         latency_ms = int((time.perf_counter() - start) * 1000)
 
-        # Usage is typically in the very last chunk before [DONE].  If the
-        # backend doesn't include it (some streaming impls don't), fall
-        # back to defaults so the rest of the pipeline keeps going.
-        usage_raw = (last_chunk.get("usage") if isinstance(last_chunk, dict) else None) or {}
+        try:
+            msg = data["choices"][0]["message"]
+            # Qwen3 thinking-mode places chain-of-thought in `reasoning`
+            # and the actual answer in `content`.  Prefer content; fall
+            # back to reasoning so we don't lose output if a model that
+            # doesn't separate them is in use.
+            content = msg.get("content") or ""
+            if not content.strip():
+                content = msg.get("reasoning") or ""
+            text = str(content)
+        except (KeyError, IndexError, TypeError) as exc:
+            raise InferenceError(
+                f"unexpected chat response shape: {data!r}"
+            ) from exc
+
+        usage_raw = data.get("usage") or {}
         usage = ChatUsage(
             prompt_tokens=int(usage_raw.get("prompt_tokens", 0) or 0),
             completion_tokens=int(usage_raw.get("completion_tokens", 0) or 0),
             total_tokens=int(usage_raw.get("total_tokens", 0) or 0),
             latency_ms=latency_ms,
         )
-        return ChatResult(text=text, model=model, usage=usage, raw=last_chunk)
+        return ChatResult(text=text, model=model, usage=usage, raw=data)
 
     def _url(self, path: str) -> str:
         return self.base_url.rstrip("/") + path
