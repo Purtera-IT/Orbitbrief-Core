@@ -333,7 +333,17 @@ class OpenAIChatClient:
         )
         latency_ms = int((time.perf_counter() - start) * 1000)
         try:
-            text = str(data["choices"][0]["message"]["content"])
+            msg = data["choices"][0]["message"]
+            # v45.2: Ollama's OpenAI-compat endpoint puts Qwen3 thinking-mode
+            # output in `reasoning` when content is empty.  Fall back to it
+            # so we don't lose the model's actual answer.  Order of precedence:
+            #   1. `content`     — normal OpenAI behavior
+            #   2. `reasoning`   — Ollama Qwen3 thinking-mode default
+            content = msg.get("content") or ""
+            if not content.strip():
+                reasoning = msg.get("reasoning") or ""
+                content = reasoning
+            text = str(content)
         except (KeyError, IndexError, TypeError) as exc:
             raise InferenceError(
                 f"unexpected chat response shape: {data!r}"
