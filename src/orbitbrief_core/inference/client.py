@@ -95,6 +95,96 @@ def _post_json(url: str, payload: dict, *, timeout_s: float, api_key: str | None
         ) from exc
 
 
+def _post_chat_streaming(
+    url: str, payload: dict, *, timeout_s: float, api_key: str | None
+) -> tuple[str, dict]:
+    """POST a /v1/chat/completions request with ``stream: true`` and
+    accumulate the SSE chunks into a single response text.
+
+    Why streaming?  When running through the Azure ollama-mac-studio-proxy
+    (Tailscale userspace netstack), non-streamed responses on slow LLM
+    generations (e.g. qwen3:14b emitting ~12k BriefState JSON tokens, ~2 min
+    of internal generation) trigger Tailscale's idle-connection teardown
+    because NO TCP packets flow between proxy and Mac while Ollama is
+    generating internally.  Streaming sends each token as an SSE chunk →
+    continuous TCP activity → no idle period → Tailscale netstack keeps the
+    connection alive.
+
+    Returns (accumulated_text, last_chunk_dict).  The final chunk is the
+    one carrying usage info on most backends; if a chunk has no usage we
+    return an empty dict — the caller fills in defaults.
+
+    Accumulation handles both OpenAI-style ``delta.content`` and Ollama's
+    Qwen3 thinking-mode ``delta.reasoning``.  When content is non-empty we
+    use it; otherwise fall back to reasoning so we never lose the model's
+    answer.
+    """
+    body = json.dumps({**payload, "stream": True}).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+            **({"Authorization": f"Bearer {api_key}"} if api_key else {}),
+        },
+        method="POST",
+    )
+
+    content_parts: list[str] = []
+    reasoning_parts: list[str] = []
+    last_chunk: dict = {}
+
+    try:
+        with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+            for raw_line in resp:
+                line = raw_line.decode("utf-8", errors="ignore").rstrip("\r\n")
+                if not line.startswith("data:"):
+                    continue
+                payload_str = line[len("data:"):].strip()
+                if not payload_str or payload_str == "[DONE]":
+                    if payload_str == "[DONE]":
+                        break
+                    continue
+                try:
+                    chunk = json.loads(payload_str)
+                except json.JSONDecodeError:
+                    continue
+                last_chunk = chunk
+                try:
+                    choices = chunk.get("choices") or []
+                    if choices:
+                        delta = choices[0].get("delta") or {}
+                        c = delta.get("content")
+                        if c:
+                            content_parts.append(str(c))
+                        r = delta.get("reasoning")
+                        if r:
+                            reasoning_parts.append(str(r))
+                except (AttributeError, TypeError):
+                    continue
+    except urllib.error.HTTPError as exc:
+        try:
+            detail = exc.read().decode("utf-8", errors="replace")[:500]
+        except Exception:
+            detail = ""
+        raise InferenceError(
+            f"HTTP {exc.code} from {url}: {exc.reason}; body={detail!r}"
+        ) from exc
+    except (urllib.error.URLError, socket.timeout) as exc:
+        raise InferenceError(f"transport error against {url}: {exc}") from exc
+
+    content_text = "".join(content_parts).strip()
+    reasoning_text = "".join(reasoning_parts).strip()
+    final_text = content_text or reasoning_text
+    if not final_text:
+        raise InferenceError(
+            f"streaming response produced no content from {url} "
+            f"(last_chunk={last_chunk!r})"
+        )
+    return final_text, last_chunk
+
+
 # ────────────────────────────── implementations ───────────────────────
 
 
@@ -325,41 +415,31 @@ class OpenAIChatClient:
         import time
 
         start = time.perf_counter()
-        data = _post_json(
+        # v45.2: use streaming so each token flows as an SSE chunk over
+        # TCP.  Through Azure → Tailscale userspace netstack → Mac
+        # Studio, NON-streaming requests on slow generations (~2 min for
+        # 12k BriefState tokens) trigger Tailscale's idle-connection
+        # teardown and the response gets cut mid-stream with
+        # httpx.ReadError.  Streaming keeps the connection active end-to-end.
+        text, last_chunk = _post_chat_streaming(
             self._url("/v1/chat/completions"),
             payload,
             timeout_s=self.timeout_s,
             api_key=self.api_key,
         )
         latency_ms = int((time.perf_counter() - start) * 1000)
-        try:
-            msg = data["choices"][0]["message"]
-            # v45.2: Ollama's OpenAI-compat endpoint puts Qwen3 thinking-mode
-            # output in `reasoning` when content is empty.  Fall back to it
-            # so we don't lose the model's actual answer.  Order of precedence:
-            #   1. `content`     — normal OpenAI behavior
-            #   2. `reasoning`   — Ollama Qwen3 thinking-mode default
-            content = msg.get("content") or ""
-            if not content.strip():
-                reasoning = msg.get("reasoning") or ""
-                content = reasoning
-            text = str(content)
-        except (KeyError, IndexError, TypeError) as exc:
-            raise InferenceError(
-                f"unexpected chat response shape: {data!r}"
-            ) from exc
 
-        # OpenAI puts usage at top level; Ollama returns it the same
-        # way under its OpenAI-compatible endpoint. Defensive defaults
-        # in case a backend omits the field entirely.
-        usage_raw = data.get("usage") or {}
+        # Usage is typically in the very last chunk before [DONE].  If the
+        # backend doesn't include it (some streaming impls don't), fall
+        # back to defaults so the rest of the pipeline keeps going.
+        usage_raw = (last_chunk.get("usage") if isinstance(last_chunk, dict) else None) or {}
         usage = ChatUsage(
             prompt_tokens=int(usage_raw.get("prompt_tokens", 0) or 0),
             completion_tokens=int(usage_raw.get("completion_tokens", 0) or 0),
             total_tokens=int(usage_raw.get("total_tokens", 0) or 0),
             latency_ms=latency_ms,
         )
-        return ChatResult(text=text, model=model, usage=usage, raw=data)
+        return ChatResult(text=text, model=model, usage=usage, raw=last_chunk)
 
     def _url(self, path: str) -> str:
         return self.base_url.rstrip("/") + path
