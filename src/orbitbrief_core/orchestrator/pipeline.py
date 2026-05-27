@@ -330,7 +330,10 @@ class BriefPipeline:
             brain = self.brain_registry.get(pack_id)(self.chat_client)  # type: ignore[arg-type,misc]
             return self._run_stage(
                 f"40_brain::{pack_id}",
-                lambda b=brain, br=refined.state, bd=bundles[pack_id]: b.compose(br, bd),
+                # v45.2: use result.refined_brief instead of refined.state so brains
+                # operate on the fallback planner_state when the refiner failed.
+                # See line 290 for the matching defensive None-check.
+                lambda b=brain, br=result.refined_brief, bd=bundles[pack_id]: b.compose(br, bd),
                 artifact=artifacts.brain_output_path(pack_id),
                 payload_extractor=lambda r: r.state,
                 extra_detail=lambda r: {
