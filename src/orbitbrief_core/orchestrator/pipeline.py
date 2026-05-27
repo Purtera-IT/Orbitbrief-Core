@@ -287,7 +287,11 @@ class BriefPipeline:
             payload_extractor=lambda r: r.state,
             extra_detail=lambda r: r.to_dict(),
         )
-        result.refined_brief = refined.state
+        # v45.2 defensive: _run_stage returns (None, record) on exception.
+        # When the refiner LLM call fails, fall back to planner_state so the
+        # 40 brains downstream still have a brief to compose against.  Pairs
+        # with the matching fix at line ~333 (commit 942f0d4).
+        result.refined_brief = refined.state if refined is not None else planner_result.state
         records.append(rec)
 
         # 40 brains per active pack with a registered factory.
