@@ -10,6 +10,10 @@ version: v4
 packs:
 - id: alm
   display_name: ALM
+  brain:
+    intent: none
+    implementation: alm
+    aliases: []
   intake_aliases: []
   subdomain_labels:
   - ALM – Release / Environment / Workflow Governance
@@ -29,6 +33,10 @@ packs:
   - itil
 - id: audit
   display_name: Audit
+  brain:
+    intent: implemented
+    implementation: audit
+    aliases: []
   intake_aliases:
   - audit
   subdomain_labels:
@@ -51,6 +59,10 @@ packs:
   - photo_log
 - id: commercial
   display_name: Commercial
+  brain:
+    intent: none
+    implementation: commercial
+    aliases: []
   intake_aliases: []
   subdomain_labels:
   - Commercial – T&M / NTE
@@ -79,6 +91,10 @@ packs:
   - per_unit
 - id: data_migration
   display_name: Data Migration
+  brain:
+    intent: none
+    implementation: data_migration
+    aliases: []
   intake_aliases: []
   subdomain_labels:
   - Data Migration – User Data / Profile Migration
@@ -102,6 +118,10 @@ packs:
   - cutover_window
 - id: datacenter
   display_name: Datacenter
+  brain:
+    intent: implemented
+    implementation: datacenter
+    aliases: []
   intake_aliases: []
   subdomain_labels:
   - Datacenter – Rack / Stack / Patch
@@ -127,6 +147,11 @@ packs:
   - cdu
 - id: delivery_execution
   display_name: Delivery / Execution
+  brain:
+    intent: none
+    implementation: delivery_execution
+    aliases:
+    - delivery_wave_management
   intake_aliases:
   - delivery_wave_management
   subdomain_labels:
@@ -152,6 +177,10 @@ packs:
   - dock_appointment
 - id: hardware
   display_name: Hardware
+  brain:
+    intent: none
+    implementation: hardware
+    aliases: []
   intake_aliases: []
   subdomain_labels:
   - Hardware – Staging / Imaging / Configuration
@@ -173,6 +202,10 @@ packs:
   - asset_tag
 - id: imac
   display_name: IMAC
+  brain:
+    intent: implemented
+    implementation: imac
+    aliases: []
   intake_aliases: []
   subdomain_labels:
   - IMAC – Refresh / Swap / Move / Add / Change
@@ -191,6 +224,10 @@ packs:
   - move_add_change
 - id: itad
   display_name: ITAD
+  brain:
+    intent: none
+    implementation: itad
+    aliases: []
   intake_aliases:
   - itad
   subdomain_labels:
@@ -216,6 +253,12 @@ packs:
   - secure_disposal
 - id: low_voltage_cabling
   display_name: Low Voltage Cabling
+  brain:
+    intent: implemented
+    implementation: low_voltage_cabling
+    aliases:
+    - copper_cabling
+    - structured_cabling
   intake_aliases:
   - telecom_structured_cabling
   subdomain_labels:
@@ -263,6 +306,11 @@ packs:
   - superior_essex
 - id: msp
   display_name: MSP
+  brain:
+    intent: implemented
+    implementation: managed_services
+    aliases:
+    - managed_services
   intake_aliases:
   - msp
   subdomain_labels:
@@ -309,6 +357,10 @@ packs:
   - kaseya
 - id: other
   display_name: Other / Adjacent
+  brain:
+    intent: none
+    implementation: other
+    aliases: []
   intake_aliases:
   - access_control
   - av
@@ -351,6 +403,10 @@ packs:
   - fortinet
 - id: professional_services
   display_name: Professional Services
+  brain:
+    intent: implemented
+    implementation: professional_services
+    aliases: []
   intake_aliases:
   - professional_services
   subdomain_labels:
@@ -370,6 +426,10 @@ packs:
   - method_of_procedure
 - id: rack_and_stack
   display_name: Rack & Stack
+  brain:
+    intent: implemented
+    implementation: rack_and_stack
+    aliases: []
   intake_aliases: []
   subdomain_labels:
   - Rack & Stack – Device Racking / In-Rack Patch / Dressing
@@ -390,6 +450,12 @@ packs:
   - in_rack_patch
 - id: security_access
   display_name: Security / Access
+  brain:
+    intent: none
+    implementation: security_access
+    aliases:
+    - access_control
+    - eacs
   intake_aliases:
   - access_control
   subdomain_labels:
@@ -434,6 +500,10 @@ packs:
   - background_check
 - id: site_structure
   display_name: Site Structure
+  brain:
+    intent: none
+    implementation: site_structure
+    aliases: []
   intake_aliases:
   - site_structure
   subdomain_labels:
@@ -456,6 +526,10 @@ packs:
   - true_site_count
 - id: staff_augmentation
   display_name: Staff Augmentation
+  brain:
+    intent: none
+    implementation: staff_augmentation
+    aliases: []
   intake_aliases: []
   subdomain_labels:
   - Staff Aug – Onsite Field Surge
@@ -476,6 +550,10 @@ packs:
   - field_engineer
 - id: telecom
   display_name: Telecom
+  brain:
+    intent: none
+    implementation: telecom
+    aliases: []
   intake_aliases:
   - telecom_structured_cabling
   subdomain_labels:
@@ -506,6 +584,10 @@ packs:
   - 8x8
 - id: wireless
   display_name: Wireless
+  brain:
+    intent: implemented
+    implementation: wireless
+    aliases: []
   # Boss-review v9 C001-F1 — pack-level anchor gate. wireless brain
   # only runs when the corpus has 2+ distinct AP/WLAN equipment
   # tokens. Mirrors the SOW validator anchor.
@@ -568,6 +650,14 @@ packs:
   - e_rate_wireless
 - id: security_camera
   display_name: Security Camera and VMS
+  brain:
+    intent: implemented
+    implementation: camera_vms_operations
+    aliases:
+    - video_surveillance
+    - vms
+    - cctv
+    - surveillance
   intake_aliases: []
   subdomain_labels:
   - Camera Deployment
@@ -599,6 +689,12 @@ packs:
   - ip_camera
 - id: paging_mass_notification
   display_name: Paging and Mass Notification
+  brain:
+    intent: none
+    implementation: paging_mass_notification
+    aliases:
+    - paging
+    - emergency_notification
   intake_aliases: []
   subdomain_labels:
   - Paging / Intercom
@@ -628,6 +724,10 @@ packs:
   - emergency_alerting
 - id: fire_safety
   display_name: Fire Safety and Alarm
+  brain:
+    intent: none
+    implementation: fire_safety
+    aliases: []
   intake_aliases: []
   subdomain_labels:
   - Fire Alarm Panel
@@ -654,6 +754,11 @@ packs:
   - sprinkler_monitor
 - id: das
   display_name: Distributed Antenna System
+  brain:
+    intent: none
+    implementation: das
+    aliases:
+    - distributed_antenna_system
   intake_aliases: []
   subdomain_labels:
   - Public Safety DAS / ERRCS
@@ -678,6 +783,10 @@ packs:
   - lte_in_building
 - id: electrical
   display_name: Electrical and Power
+  brain:
+    intent: implemented
+    implementation: electrical
+    aliases: []
   intake_aliases: []
   subdomain_labels:
   - Branch Circuits / Receptacles
@@ -704,6 +813,11 @@ packs:
   - ats
 - id: audio_visual
   display_name: Audio Visual
+  brain:
+    intent: implemented
+    implementation: audio_visual
+    aliases:
+    - av
   # Boss-review v9 C002-F1 — pack-level anchor gate. AV brain only
   # runs when the corpus has 3+ distinct AV equipment tokens.
   required_anchor_min_distinct_hits: 3
@@ -755,6 +869,11 @@ packs:
   - assistive_listening
 - id: building_management_systems
   display_name: Building Management Systems
+  brain:
+    intent: implemented
+    implementation: building_management_systems
+    aliases:
+    - bms
   intake_aliases: []
   subdomain_labels:
   - BMS / BAS Controls
@@ -793,6 +912,11 @@ packs:
   - controls_integrator
 - id: network_maintenance
   display_name: Network Maintenance / Operations
+  brain:
+    intent: implemented
+    implementation: network_maintenance
+    aliases:
+    - networking
   intake_aliases: []
   subdomain_labels:
   - Switch / Router Lifecycle
@@ -831,6 +955,10 @@ packs:
   - stp_loop
 - id: camera_vms_operations
   display_name: Camera / VMS Operations
+  brain:
+    intent: implemented
+    implementation: camera_vms_operations
+    aliases: []
   intake_aliases: []
   subdomain_labels:
   - Camera Health Monitoring
@@ -862,6 +990,10 @@ packs:
   - nvr_health
 - id: procurement_finance
   display_name: Procurement and Finance
+  brain:
+    intent: implemented
+    implementation: procurement_finance
+    aliases: []
   intake_aliases: []
   subdomain_labels:
   - Purchase Order / Quote Approval

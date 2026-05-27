@@ -54,15 +54,21 @@ from orbitbrief_core.pm_handoff.models import (
     PMHandoff,
 )
 
-# Default model. Mirrors the brain runner so re-using the same Ollama
-# instance is friction-free. Caller can override.
-DEFAULT_MODEL = "qwen3:14b"
+# Default model. v46.1 — switched from qwen3:14b (thinking model,
+# 4–6k reasoning tokens per item, ~25 min total wall time for 113
+# items) to qwen2.5:3b (non-thinking, ~1.9 GB, ~5–10× faster
+# generation, plenty of quality for PM-voice prose rewriting).
+# Brains stay on qwen3:14b because they emit structured JSON that
+# benefits from thinking chain-of-thought.  Polish only rewrites
+# short prose — no reasoning needed.
+DEFAULT_MODEL = "qwen2.5:3b"
 
-# Maximum items per batched LLM call. Tuned for the qwen3:14b
-# 40 K-token context window: each item is ~120 tokens system + ~300
-# tokens raw input + ~200 tokens completion. 12 items × ~620 tokens
-# = ~7.4 K — well under the 8192 completion budget.
-_BATCH_SIZE = 12
+# Maximum items per batched LLM call. qwen2.5:3b context is 32 K
+# tokens.  Each item is ~120 tokens system + ~300 tokens raw input
+# + ~200 tokens completion → bumped from 12 to 18 since the smaller
+# model also has lower per-call latency, so larger batches don't
+# bottleneck wall time.
+_BATCH_SIZE = 18
 
 # Hard cap on output tokens per polish call. Mirrors brain runner.
 _MAX_OUTPUT_TOKENS = 4096
@@ -608,20 +614,59 @@ def _apply_results_to_gaps(
 def _apply_results_to_risks(
     risks: list[dict[str, Any]], results: dict[str, PolishResult], model: str
 ) -> list[dict[str, Any]]:
+    """Apply polish results to risk rows with sibling-field collision guard.
+
+    v46.3: a polish-stage failure mode was observed on R-04 where the
+    polished ``description`` was set to the same prose as ``mitigation``
+    (model collapsed the two slots into one).  This guard reverts the
+    polished value to its raw form whenever the polished text would
+    duplicate (or be contained in) the sibling field — eliminates the
+    silent collision the validator's guarded-token check can't catch
+    because mitigations rarely carry $/IDs/dates.
+
+    A future training-data signal (closed deals + PM thumbs) would let a
+    small reranker decide which slot a polished sentence belongs in;
+    until then the validator is the safety net.
+    """
+    def _norm(s: str) -> str:
+        return " ".join((s or "").lower().split())
+
     polished: list[dict[str, Any]] = []
     for r in risks:
         rid = str(r.get("risk_id") or "")
         new = dict(r)
-        desc = r.get("description") or ""
-        if desc:
-            res = results.get(_hash_item(f"risk.description.{rid}", desc, model))
+        desc_raw = r.get("description") or ""
+        mit_raw = r.get("mitigation") or ""
+
+        desc_polished: str | None = None
+        if desc_raw:
+            res = results.get(_hash_item(f"risk.description.{rid}", desc_raw, model))
             if res and not res.used_fallback:
-                new["description"] = res.polished_text
-        mit = r.get("mitigation") or ""
-        if mit:
-            res = results.get(_hash_item(f"risk.mitigation.{rid}", mit, model))
+                desc_polished = res.polished_text
+
+        mit_polished: str | None = None
+        if mit_raw:
+            res = results.get(_hash_item(f"risk.mitigation.{rid}", mit_raw, model))
             if res and not res.used_fallback:
-                new["mitigation"] = res.polished_text
+                mit_polished = res.polished_text
+
+        # Collision guard — applies to whichever polished value duplicated
+        # the sibling slot (raw OR polished form).  Falls back to the raw
+        # value for the offending field; keeps the other side polished.
+        desc_n = _norm(desc_polished) if desc_polished is not None else _norm(desc_raw)
+        mit_n = _norm(mit_polished) if mit_polished is not None else _norm(mit_raw)
+        desc_raw_n = _norm(desc_raw)
+        mit_raw_n = _norm(mit_raw)
+
+        if desc_polished is not None and desc_n and (desc_n == mit_n or desc_n == mit_raw_n):
+            # Polished description matches the mitigation prose — revert.
+            desc_polished = None
+        if mit_polished is not None and mit_n and (mit_n == desc_n or mit_n == desc_raw_n):
+            # Polished mitigation matches the description prose — revert.
+            mit_polished = None
+
+        new["description"] = desc_polished if desc_polished is not None else desc_raw
+        new["mitigation"] = mit_polished if mit_polished is not None else mit_raw
         polished.append(new)
     return polished
 

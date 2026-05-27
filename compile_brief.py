@@ -211,37 +211,88 @@ def main(argv: list[str] | None = None) -> int:
             render_solution_architect_html,
             render_pm_handoff_html,
         )
+        # v45.3: wire polish_pm_handoff so gaps/risks/exec_summary get
+        # PM-voice rewrites instead of raw clinical text.  Same chat
+        # client the brains use — already proven to land through
+        # tailscaled.  Polish caches per (role, raw_text) so identical
+        # input on re-runs is free.
+        from orbitbrief_core.pm_handoff.polish import polish_pm_handoff
+        # v46.0: Risk Propagation Net — three enrichers that lift PM
+        # surface from a 60-field summary to a full graph-grounded
+        # brief.  Track A pipes the envelope's curated views through;
+        # Track B scores graph-feature risk per atom/site/milestone;
+        # Track C scores per-claim cross-authority consensus.  All
+        # train-free at boot — see src/orbitbrief_core/risk_net/.
+        from orbitbrief_core.risk_net import (
+            apply_envelope_passthroughs,
+            apply_risk_signals,
+            apply_claim_consensus,
+            apply_section_narration,
+        )
         from pathlib import Path as _Path
         out_dir = _Path(args.out)
         handoff = build_pm_handoff(out_dir)
+
+        # v46.0 enrichment: load envelope once, layer all three nets.
+        # Missing envelope → enrichers become no-ops (every helper
+        # checks isinstance(envelope, dict) before doing anything).
+        envelope_obj: dict | None = None
+        try:
+            envelope_obj = json.loads(envelope_path.read_text(encoding="utf-8"))
+        except Exception as _exc:
+            envelope_obj = None
+        if isinstance(envelope_obj, dict):
+            handoff = apply_envelope_passthroughs(handoff, envelope_obj)
+            handoff = apply_risk_signals(handoff, envelope_obj)
+            handoff = apply_claim_consensus(handoff, envelope_obj)
+
+        # v46.1 Track D: per-section PM-voice narrator.  One batched
+        # LLM call against qwen2.5:3b produces a single sentence per
+        # section explaining what the numbers mean and what to do.
+        # Falls through to handoff unchanged if chat client is missing
+        # or the call fails — every UI section auto-hides narration
+        # when absent.
+        handoff = apply_section_narration(handoff, chat_client=chat)
+
+        # Polish pass — only meaningful when chat client is wired (--ollama).
+        # Without a client this returns (handoff_unchanged, no_op_report).
+        polished, polish_report = polish_pm_handoff(
+            handoff, chat_client=chat
+        )
+        (out_dir / "polish_report.json").write_text(
+            json.dumps(polish_report.to_dict(), indent=2), encoding="utf-8"
+        )
+
         (out_dir / "PM_EXECUTIVE_SUMMARY.md").write_text(
-            render_pm_executive_markdown(handoff), encoding="utf-8"
+            render_pm_executive_markdown(polished), encoding="utf-8"
         )
         (out_dir / "SA_REVIEW_PACKET.md").write_text(
-            render_solution_architect_markdown(handoff), encoding="utf-8"
+            render_solution_architect_markdown(polished), encoding="utf-8"
         )
         (out_dir / "PM_HANDOFF.md").write_text(
-            render_pm_handoff_markdown(handoff), encoding="utf-8"
+            render_pm_handoff_markdown(polished), encoding="utf-8"
         )
         (out_dir / "PM_EXECUTIVE_SUMMARY.html").write_text(
-            render_pm_executive_html(handoff), encoding="utf-8"
+            render_pm_executive_html(polished), encoding="utf-8"
         )
         (out_dir / "SA_REVIEW_PACKET.html").write_text(
-            render_solution_architect_html(handoff), encoding="utf-8"
+            render_solution_architect_html(polished), encoding="utf-8"
         )
         (out_dir / "PM_HANDOFF.html").write_text(
-            render_pm_handoff_html(handoff), encoding="utf-8"
+            render_pm_handoff_html(polished), encoding="utf-8"
         )
         (out_dir / "PM_HANDOFF.json").write_text(
-            json.dumps(handoff.to_dict(), indent=2), encoding="utf-8"
+            json.dumps(polished.to_dict(), indent=2), encoding="utf-8"
         )
         # SOW_DRAFT.md intentionally NOT written here — owned by SowSmith
         # in parser-os-worker (see v45.2 separation).
         if not args.quiet:
             print(
-                f"compile_brief: PM handoff written ({handoff.status.upper()}: "
-                f"{len([g for g in handoff.gaps if g.severity == 'blocker'])} blocker / "
-                f"{len([g for g in handoff.gaps if g.severity == 'warning'])} warning)",
+                f"compile_brief: PM handoff written ({polished.status.upper()}: "
+                f"{len([g for g in polished.gaps if g.severity == 'blocker'])} blocker / "
+                f"{len([g for g in polished.gaps if g.severity == 'warning'])} warning) "
+                f"polish={polish_report.items_polished}/{polish_report.items_total} "
+                f"({polish_report.items_cached} cached, {polish_report.elapsed_ms}ms)",
                 file=sys.stderr,
             )
     except Exception as exc:

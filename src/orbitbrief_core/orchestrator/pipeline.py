@@ -350,20 +350,36 @@ class BriefPipeline:
         # bundle) tuple is independent. We dispatch the LLM-bound 40_brain
         # stages in parallel up to ``parallel_brains``; the validator
         # and calibrator follow per-pack once their brain finishes.
-        runnable_packs = [p for p in active_packs if self.brain_registry.get(p) is not None]
-        skipped_packs = [p for p in active_packs if self.brain_registry.get(p) is None]
+        #
+        # v45.3: route via ``brain_registry.resolve(pack_id)`` so we get a
+        # full BrainResolution per pack — alias/redirect/intent_none/missing
+        # are all distinguishable, and the rationale lands in the
+        # pipeline_log so future "silent skip" mysteries are impossible.
+        resolutions: dict[str, Any] = {
+            pid: self.brain_registry.resolve(pid) for pid in active_packs
+        }
+        runnable_packs = [p for p, r in resolutions.items() if r.is_runnable()]
+        skipped_packs = [p for p, r in resolutions.items() if not r.is_runnable()]
         for pack_id in skipped_packs:
+            res = resolutions[pack_id]
             records.append(
                 _skipped_record(
                     f"40_brain::{pack_id}",
-                    detail={"reason": "no registered brain for pack_id"},
+                    detail={
+                        "routing_source": res.source,
+                        "rationale": res.rationale,
+                        "canonical_pack_id": res.canonical_pack_id,
+                        "brain_id": res.brain_id,
+                        "aliases_tried": list(res.aliases_tried),
+                    },
                 )
             )
             records.append(_skipped_record(f"50_validator::{pack_id}"))
             records.append(_skipped_record(f"60_calibrator::{pack_id}"))
 
         def _run_brain(pack_id: str):
-            brain = self.brain_registry.get(pack_id)(self.chat_client)  # type: ignore[arg-type,misc]
+            res = resolutions[pack_id]
+            brain = res.factory(self.chat_client)  # type: ignore[arg-type,misc]
             return self._run_stage(
                 f"40_brain::{pack_id}",
                 # v45.2: use result.refined_brief instead of refined.state so brains
@@ -372,7 +388,7 @@ class BriefPipeline:
                 lambda b=brain, br=result.refined_brief, bd=bundles[pack_id]: b.compose(br, bd),
                 artifact=artifacts.brain_output_path(pack_id),
                 payload_extractor=lambda r: r.state,
-                extra_detail=lambda r: {
+                extra_detail=lambda r, _route=res: {
                     "fallback_used": r.fallback_used,
                     "unresolved_packet_ids": list(r.unresolved_packet_ids),
                     "unresolved_atom_ids": list(r.unresolved_atom_ids),
@@ -383,6 +399,10 @@ class BriefPipeline:
                     "validation_errors": list(r.validation_errors or ()),
                     "raw_response_snippet": (r.raw_response or "")[:1000],
                     "raw_response_length": len(r.raw_response or ""),
+                    # v45.3: routing decision for observability.
+                    "routing_source": _route.source,
+                    "brain_id": _route.brain_id,
+                    "routing_rationale": _route.rationale,
                 },
                 fallback_status=lambda r: (
                     StageStatus.FALLBACK if r.fallback_used else StageStatus.OK
