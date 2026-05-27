@@ -407,6 +407,19 @@ class OpenAIChatClient:
             "model": model,
             "temperature": float(temperature),
             "messages": [{"role": m.role, "content": m.content} for m in messages],
+            # v45.2: disable Qwen3 thinking mode.  With thinking on, the
+            # model spends its token budget emitting chain-of-thought into
+            # `reasoning` and never reaches the actual `content`.  Planner /
+            # brains then receive empty content and silently fall back to
+            # planner-state defaults → degraded brief quality.  Setting
+            # think:false matches the parser-os _call_ollama payload (which
+            # is why parser-os has never had this issue).  Ollama-specific
+            # extension on /v1/chat/completions; real OpenAI ignores it.
+            "think": False,
+            # Belt-and-suspenders: also pass the canonical Qwen3 chat
+            # template kwarg in case the Ollama version routes through
+            # the template engine instead of the top-level flag.
+            "chat_template_kwargs": {"enable_thinking": False},
         }
         if max_tokens is not None:
             payload["max_tokens"] = int(max_tokens)
