@@ -407,24 +407,27 @@ class OpenAIChatClient:
             "model": model,
             "temperature": float(temperature),
             "messages": [{"role": m.role, "content": m.content} for m in messages],
-            # v45.2: disable Qwen3 thinking mode on Ollama's OpenAI-compat
-            # endpoint.  With thinking on, the model emits its chain-of-
-            # thought into a separate `reasoning` field and often exhausts
-            # the token budget before reaching the actual `content`.
-            # Planner / brains receive empty content → silent fallback to
-            # planner-state defaults → degraded brief quality.
-            #
-            # Verified on dev: of the three params Ollama might honor,
-            # `reasoning_effort: "none"` (the OpenAI o1-style param) is
-            # the one that actually works.  `think:false` and
-            # `chat_template_kwargs.enable_thinking:false` do NOT disable
-            # thinking on Ollama's OpenAI-compat path.  `/no_think` in the
-            # message body also doesn't.  Sticking with what verifiably
-            # works.
-            "reasoning_effort": "none",
         }
-        if max_tokens is not None:
-            payload["max_tokens"] = int(max_tokens)
+        # v45.2: keep Qwen3 thinking ON for quality (matches the local Mac
+        # behavior the user already verified), but ensure max_tokens is
+        # big enough that thinking output + actual content both fit.
+        #
+        # Why this matters: callers (brains) pass max_output_tokens=
+        # 6144-8192.  That's fine when thinking is OFF, but Qwen3 with
+        # thinking ON typically emits 4-6k reasoning tokens before the
+        # answer phase, leaving only ~1-2k for content.  Then the answer
+        # gets truncated mid-JSON → planner / brain receives unparseable
+        # content → fallback to planner-state defaults.
+        #
+        # Floor of 16384 gives:
+        #   ~6-8k reasoning + ~6-8k content + headroom
+        # Each call now takes ~2-3 min on Qwen3:14b (~100 tok/sec) instead
+        # of ~30-40 sec, so brief gen runs ~10-15 min instead of ~5-10
+        # min.  Trade-off: ~5 extra min wall-clock for full v45.2 brief
+        # quality.  Worth it.
+        MAX_TOKENS_FLOOR = 16384
+        explicit = int(max_tokens) if max_tokens is not None else 0
+        payload["max_tokens"] = max(explicit, MAX_TOKENS_FLOOR)
         if response_format is not None:
             payload["response_format"] = response_format
         import time
