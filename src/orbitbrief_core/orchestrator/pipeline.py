@@ -161,6 +161,26 @@ class BriefPipeline:
 
         try:
             return self._compile_with_runtime(runtime, artifacts, records, envelope_path)
+        except Exception:
+            # v45.2: on ANY unhandled exception inside _compile_with_runtime,
+            # still persist whatever stage records we have so we can
+            # diagnose without re-running.  Without this the crash kills
+            # pipeline_log.json entirely and we lose every stage's detail.
+            import traceback as _tb
+            records.append(StageRecord(
+                stage="99_unhandled_pipeline_exception",
+                status=StageStatus.FAILED,
+                started_at=_iso_now(),
+                finished_at=_iso_now(),
+                duration_ms=0,
+                artifact_path=None,
+                detail={"traceback": _tb.format_exc()[:4000]},
+            ))
+            try:
+                artifacts.write_pipeline_log(records)
+            except Exception:
+                pass
+            raise
         finally:
             runtime.close()
 
@@ -292,10 +312,18 @@ class BriefPipeline:
             extra_detail=lambda r: r.to_dict(),
         )
         # v45.2 defensive: _run_stage returns (None, record) on exception.
-        # When the refiner LLM call fails, fall back to planner_state so the
-        # 40 brains downstream still have a brief to compose against.  Pairs
-        # with the matching fix at line ~333 (commit 942f0d4).
-        result.refined_brief = refined.state if refined is not None else planner_result.state
+        # When the refiner LLM call fails, fall back to planner_state.  AND
+        # when the PLANNER itself fails (planner_result is None), fall
+        # through with refined_brief=None — downstream brain stages already
+        # handle that path.  This keeps the pipeline running so we get a
+        # complete pipeline_log.json with per-stage error details instead
+        # of crashing mid-flight and losing the diagnostic info.
+        if refined is not None:
+            result.refined_brief = refined.state
+        elif planner_result is not None:
+            result.refined_brief = planner_result.state
+        else:
+            result.refined_brief = None
         records.append(rec)
 
         # 40 brains per active pack with a registered factory.
