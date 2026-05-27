@@ -202,8 +202,10 @@ def main(argv: list[str] | None = None) -> int:
             render_pm_executive_markdown,
             render_solution_architect_markdown,
             render_pm_handoff_markdown,
-            render_sow_draft,
         )
+        # v45.2: SOW_DRAFT.md is now rendered by SowSmith
+        # (Purtera-IT/SowSmith) from envelope.json directly, written by
+        # parser-os-worker.  Orbitbrief-Core no longer owns the SOW.
         from orbitbrief_core.pm_handoff.render_html import (
             render_pm_executive_html,
             render_solution_architect_html,
@@ -233,9 +235,8 @@ def main(argv: list[str] | None = None) -> int:
         (out_dir / "PM_HANDOFF.json").write_text(
             json.dumps(handoff.to_dict(), indent=2), encoding="utf-8"
         )
-        (out_dir / "SOW_DRAFT.md").write_text(
-            render_sow_draft(handoff), encoding="utf-8"
-        )
+        # SOW_DRAFT.md intentionally NOT written here — owned by SowSmith
+        # in parser-os-worker (see v45.2 separation).
         if not args.quiet:
             print(
                 f"compile_brief: PM handoff written ({handoff.status.upper()}: "
