@@ -406,9 +406,21 @@ class BriefPipeline:
         # they're cheap (≤ 20 ms each on real envelopes).
         for pack_id in runnable_packs:
             brain_result, brain_rec = brain_outputs[pack_id]
+            records.append(brain_rec)
+            if brain_result is None:
+                # v45.2 defensive: brain.compose raised an exception that
+                # _run_stage caught.  Skip downstream stages for this pack
+                # (validator/calibrator need brain_result.state); record
+                # the fallback marker so composer knows to use planner
+                # state.  Without this we crash with AttributeError on
+                # brain_result.state and lose pipeline_log diagnosis.
+                result.brain_fallbacks[pack_id] = True
+                records.append(_skipped_record(f"50_validator::{pack_id}", detail={"reason": "brain returned None"}))
+                records.append(_skipped_record(f"60_calibrator::{pack_id}", detail={"reason": "brain returned None"}))
+                records.append(_skipped_record(f"70_review_queue::{pack_id}", detail={"reason": "brain returned None"}))
+                continue
             result.brain_states[pack_id] = brain_result.state
             result.brain_fallbacks[pack_id] = bool(brain_result.fallback_used)
-            records.append(brain_rec)
 
             is_briefing = pack_id in BRIEFING_PACK_IDS
             validate_fn = (

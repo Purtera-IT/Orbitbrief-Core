@@ -22,6 +22,7 @@ HTTP/2.
 """
 from __future__ import annotations
 
+import http.client
 import json
 import socket
 import urllib.error
@@ -84,6 +85,17 @@ def _post_json(url: str, payload: dict, *, timeout_s: float, api_key: str | None
             detail = ""
         raise InferenceError(
             f"HTTP {exc.code} from {url}: {exc.reason}; body={detail!r}"
+        ) from exc
+    except http.client.IncompleteRead as exc:
+        # v45.2: Tailscale userspace netstack can cut the connection
+        # mid-body on long-running responses.  urllib raises
+        # IncompleteRead with whatever partial bytes it got.  Convert to
+        # InferenceError so the planner / brain falls back cleanly
+        # instead of crashing the pipeline.
+        partial_len = len(exc.partial) if exc.partial else 0
+        raise InferenceError(
+            f"incomplete read against {url}: got {partial_len} bytes, "
+            f"expected {exc.expected} more"
         ) from exc
     except (urllib.error.URLError, socket.timeout) as exc:
         raise InferenceError(f"transport error against {url}: {exc}") from exc
