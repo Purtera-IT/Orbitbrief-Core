@@ -37,11 +37,16 @@ DOMAIN_LABELS: dict[str, str] = {
 FACT_CATEGORY_LABELS: dict[str, str] = {
     "sites": "Sites, access, and facilities",
     "scope": "Scope and deliverables",
+    "schedule": "Schedule, phases, and milestones",
+    "stakeholders": "Stakeholders, approvers, and signatories",
+    "commercial": "Commercial terms, payment, and approvals",
     "bom": "BOM, procurement, and pricing",
     "assets": "Asset inventory",
     "network": "Network, ports, VLANs, and circuits",
     "msp_ops": "Managed-services operations",
     "acceptance": "Acceptance, validation, cutover, and runbooks",
+    "compliance": "Compliance, classification, and data handling",
+    "integration": "Integration checkpoints and system mappings",
     "risks": "Risks, assumptions, and constraints",
     "exclusions": "Exclusions and commercial boundaries",
     "forms": "Form selections and field states",
@@ -49,12 +54,17 @@ FACT_CATEGORY_LABELS: dict[str, str] = {
 
 CATEGORY_ORDER = [
     "sites",
+    "stakeholders",
+    "schedule",
     "scope",
     "bom",
+    "commercial",
     "assets",
     "network",
     "msp_ops",
     "acceptance",
+    "compliance",
+    "integration",
     "risks",
     "exclusions",
     "forms",
@@ -136,6 +146,72 @@ def classify_fact_category(atom_type: str, text: str) -> str:
         return "exclusions"
     if atom_type == "form_option_state":
         return "forms"
+
+    # v47 — universal deal-packet taxonomy routes
+    if atom_type in {
+        "physical_site",
+        "site_attribute",
+        "site_access_window",
+        "site_access_restriction",
+        "site_infrastructure",
+        "site_room_mix",
+        "site_implementation_note",
+    }:
+        return "sites"
+    if atom_type in {
+        "milestone_phase",
+        "task",
+        "deliverable",
+        "cutover_step",
+        "blackout_date_range",
+    }:
+        return "schedule"
+    if atom_type in {
+        "stakeholder",
+        "approval_authority",
+        "approval_decision",
+        "signatory",
+    }:
+        return "stakeholders"
+    if atom_type in {
+        "bom_line",
+        "site_allocation",
+        "service_line",
+        "site_budget",
+        "lead_time_constraint",
+        "pricing_assumption",
+    }:
+        return "bom"
+    if atom_type in {
+        "deal_metadata",
+        "commercial_total",
+        "payment_term",
+        "change_order_rule",
+    }:
+        return "commercial"
+    if atom_type in {
+        "requirement",
+        "acceptance_criterion",
+        "electrical_acceptance_test",
+    }:
+        return "acceptance"
+    if atom_type in {
+        "compliance_classification",
+        "compliance_rule",
+    }:
+        return "compliance"
+    if atom_type in {
+        "mitigation",
+        "dependency",
+    }:
+        return "risks"
+    if atom_type in {
+        "data_flow_step",
+        "system_mapping",
+        "metadata_requirement",
+        "integration_checkpoint",
+    }:
+        return "integration"
 
     # Keyword fallbacks for less-typed evidence.
     if any(x in t for x in ["address:", "site id", "mdf", "idf", "access"]):

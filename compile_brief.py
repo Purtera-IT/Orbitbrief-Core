@@ -242,8 +242,11 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as _exc:
             envelope_obj = None
         if isinstance(envelope_obj, dict):
+            print("compile_brief: v46 step apply_envelope_passthroughs...", file=sys.stderr)
             handoff = apply_envelope_passthroughs(handoff, envelope_obj)
+            print("compile_brief: v46 step apply_risk_signals...", file=sys.stderr)
             handoff = apply_risk_signals(handoff, envelope_obj)
+            print("compile_brief: v46 step apply_claim_consensus...", file=sys.stderr)
             handoff = apply_claim_consensus(handoff, envelope_obj)
 
         # v46.1 Track D: per-section PM-voice narrator.  One batched
@@ -252,12 +255,20 @@ def main(argv: list[str] | None = None) -> int:
         # Falls through to handoff unchanged if chat client is missing
         # or the call fails — every UI section auto-hides narration
         # when absent.
+        print("compile_brief: v46 step apply_section_narration...", file=sys.stderr)
         handoff = apply_section_narration(handoff, chat_client=chat)
+        print("compile_brief: v46 step section_narration entries =",
+              len(handoff.section_narration or {}), file=sys.stderr)
 
         # Polish pass — only meaningful when chat client is wired (--ollama).
         # Without a client this returns (handoff_unchanged, no_op_report).
+        print("compile_brief: v46 step polish_pm_handoff starting...", file=sys.stderr)
         polished, polish_report = polish_pm_handoff(
             handoff, chat_client=chat
+        )
+        print(
+            f"compile_brief: v46 step polish_pm_handoff done ({polish_report.items_polished}/{polish_report.items_total} polished)",
+            file=sys.stderr,
         )
         (out_dir / "polish_report.json").write_text(
             json.dumps(polish_report.to_dict(), indent=2), encoding="utf-8"
@@ -296,8 +307,18 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
     except Exception as exc:
-        if not args.quiet:
-            print(f"compile_brief: PM handoff render skipped: {exc}", file=sys.stderr)
+        # v46.3: surface full traceback to stderr so the worker log
+        # captures the exact failure point (compile_run.py forwards
+        # stderr to its logs).  Previously a silent "render skipped"
+        # left the blob with stale PM_HANDOFF.json when a downstream
+        # step (passthrough / scorer / consensus / narrator / polish)
+        # raised — no way to diagnose.
+        import traceback as _tb
+        print(
+            f"compile_brief: PM handoff render skipped: {type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        _tb.print_exc(file=sys.stderr)
 
     if not args.quiet:
         manifest = json.loads(result.artifacts.manifest_path.read_text(encoding="utf-8"))
