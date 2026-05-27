@@ -287,7 +287,26 @@ class BriefPipeline:
             payload_extractor=lambda r: r.state,
             extra_detail=lambda r: r.to_dict(),
         )
-        result.refined_brief = refined.state
+        # v45.2 defensive: if refine_brief() raised (network timeout, ollama
+        # unreachable, validator panic, etc.) _run_stage swallows the exception
+        # and returns (None, error_record).  Previously the next line accessed
+        # `refined.state` and the whole pipeline crashed with a confusing
+        # AttributeError that hid the real cause (incident 2026-05-27 00:47).
+        # Now we degrade gracefully: fall back to the planner's pre-refinement
+        # state so brains, polish, and PM_HANDOFF can still produce output.
+        # The failure is still surfaced via `rec` (StageStatus.FAILED with
+        # the error in detail), so operators can see what actually broke.
+        if refined is not None:
+            result.refined_brief = refined.state
+        else:
+            import logging
+            err = (rec.detail or {}).get("error", "no error detail recorded")
+            logging.getLogger(__name__).warning(
+                "31_refiner failed (%s); falling back to planner.state. "
+                "Downstream brains will operate on un-refined brief.",
+                err,
+            )
+            result.refined_brief = planner_result.state
         records.append(rec)
 
         # 40 brains per active pack with a registered factory.
@@ -379,7 +398,10 @@ class BriefPipeline:
 
             validation_report, rec = self._run_stage(
                 f"50_validator::{pack_id}",
-                lambda s=brain_result.state, br=refined.state, bd=bundles[pack_id], fn=validate_fn: (
+                # v45.2: use result.refined_brief instead of refined.state directly
+                # so the validator runs against the fallback planner_state when the
+                # refiner stage failed (refined is None).  See refiner block above.
+                lambda s=brain_result.state, br=result.refined_brief, bd=bundles[pack_id], fn=validate_fn: (
                     fn(s, brief=br, bundle=bd)
                 ),
                 artifact=artifacts.validation_path(pack_id),
@@ -395,7 +417,8 @@ class BriefPipeline:
 
             calibration_report, rec = self._run_stage(
                 f"60_calibrator::{pack_id}",
-                lambda s=brain_result.state, v=validation_report, br=refined.state, bd=bundles[pack_id], fn=calibrate_fn: (
+                # v45.2: same fallback pattern as validator above
+                lambda s=brain_result.state, v=validation_report, br=result.refined_brief, bd=bundles[pack_id], fn=calibrate_fn: (
                     fn(s, validation=v, brief=br, bundle=bd)
                 ),
                 artifact=artifacts.calibration_path(pack_id),
