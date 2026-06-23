@@ -1497,3 +1497,163 @@ domains:
     compliance_frameworks:
       - "NFPA / OSHA / BICSI / AHJ findings codified per local jurisdiction."
       - "TIA-606-C labeling / TIA-568.2-D test result audit criteria."
+  staff_augmentation:
+    display_name: Staff Augmentation
+    operating_rules:
+      bodies_not_outcomes: "Staff aug sells qualified labor hours against a rate card / SOW, NOT a fixed deliverable. Anchor scope on roles, headcount, hours/shift coverage, and supervision model - never imply turnkey outcomes the customer owns."
+      rate_card: "Always surface the rate card: role, bill rate, OT/holiday multiplier, minimum-hours/cancellation terms, and prevailing-wage or union classification when present."
+      clearance_gating: "If the role needs a clearance/badge/background check, treat the clearance lead time as a schedule dependency that gates the start date - call it out explicitly."
+      acceptance: "Acceptance is timesheet/attendance + supervisor sign-off, not a punch list. Flag missing approval/rejection workflow as an open item."
+    normalization:
+      engagement_models: ["onsite field surge", "cleared / specialty resources", "managed staffing", "T&M", "dedicated team"]
+      rate_modifiers: ["straight time", "overtime", "double time", "holiday", "shift differential", "prevailing wage", "union scale"]
+    fields: {}
+    artifact_labels: ["Rate card", "Resource roster", "Coverage schedule", "Timesheet template"]
+    subdomain_notes:
+      - "Onsite field surge and cleared/specialty resources are the two common shapes; cleared work adds clearance + escort dependencies."
+      - "Distinct from professional_services: staff aug supplies bodies under customer direction; professional_services owns an outcome."
+      - "Capture shift pattern, coverage window (e.g. 24x7 vs business hours), and ramp/attrition assumptions."
+    risk_patterns:
+      - "Clearance / background-check lead time slips the start date."
+      - "Resource no-show or attrition mid-engagement; backfill SLA undefined."
+      - "Scope creep beyond the SOW hours with no change-order trigger."
+      - "Prevailing-wage / union classification mismatch creates billing dispute."
+      - "Customer fails to provide direction/equipment, leaving billable resources idle."
+    compliance_frameworks:
+      - "Prevailing wage (Davis-Bacon) / union collective-bargaining classification where applicable."
+      - "Background-check / clearance regime (facility security officer, escort requirements)."
+
+  security_access:
+    display_name: Security / Access Control
+    operating_rules:
+      door_schedule: "Anchor scope on the door/opening schedule: each opening's reader type, lock hardware (strike/maglock/mortise), REX, door position switch, and fail-safe vs fail-secure behavior."
+      egress_code: "Fail-safe vs fail-secure is a life-safety decision - every maglock must release on fire alarm and on egress. Flag any opening where the egress/fire-release path is unstated as a blocker."
+      credential_migration: "When integrating with an existing access-control system, capture the panel/controller make (e.g. Lenel, Genetec, Software House, Avigilon), credential technology (prox vs iCLASS/SEOS/mobile), and the cardholder migration plan."
+      acceptance: "Acceptance must reference a door-by-door functional test (badge grant/deny, REX, forced/held alarms) and integration to the fire alarm for release."
+    normalization:
+      panels: ["Lenel OnGuard", "Genetec Synergis", "Software House C-CURE", "Avigilon ACM", "Brivo", "Openpath", "AMAG"]
+      credential_tech: ["125kHz prox", "iCLASS SE", "SEOS", "MIFARE DESFire", "mobile credential", "biometric"]
+      lock_types: ["electric strike", "maglock", "electrified mortise", "electrified panic", "delayed egress"]
+    fields: {}
+    artifact_labels: ["Door schedule / hardware schedule", "Access control riser", "Cardholder migration plan", "Functional test sheet"]
+    subdomain_notes:
+      - "Badging/credentialing, door hardware, and integration to existing ACS are the recurring scope blocks."
+      - "Distinct from security_camera: this is access control / door hardware, not surveillance/VMS."
+      - "Capture power supply / PoE budget for locks and the head-end controller location."
+    risk_patterns:
+      - "Door hardware (electrified) long lead time slips the cutover."
+      - "Fail-safe/fail-secure and fire-release behavior unspecified - life-safety / AHJ failure."
+      - "Credential migration breaks existing cardholders during cutover."
+      - "Existing panel firmware/license can't accept new controllers."
+      - "Egress code (IBC/NFPA 101) violation on delayed-egress or maglock openings."
+    compliance_frameworks:
+      - "NFPA 101 Life Safety Code / IBC egress requirements for electrified openings."
+      - "ADA hardware mounting/operation; UL 294 access-control system standard."
+
+  paging_mass_notification:
+    display_name: Paging and Mass Notification
+    operating_rules:
+      zones_and_intelligibility: "Anchor scope on paging zones, speaker layout, and intelligibility (STI/CIS) targets per area - coverage without an intelligibility criterion is incomplete."
+      ecs_code: "Emergency / mass-notification audio is a code system (NFPA 72 Chapter 24 ECS). If the system carries emergency messaging it must meet ECS survivability/priority, and fire-alarm audio takes priority over paging."
+      integration: "Capture integration points: fire alarm panel (priority override), bell/PA schedules, SIP/UC paging, and any mass-notification platform (Informacast, Alertus, Singlewire)."
+      acceptance: "Acceptance must reference an intelligibility measurement per zone and a priority/override test against the fire alarm."
+    normalization:
+      platforms: ["Informacast", "Singlewire", "Alertus", "Valcom", "Bogen", "Atlas IED", "Syn-Apps"]
+      message_classes: ["routine paging", "bell schedule", "emergency / mass notification", "lockdown", "weather alert"]
+    fields: {}
+    artifact_labels: ["Speaker coverage / zone plan", "Intelligibility test results", "Message matrix", "Priority/override test sheet"]
+    subdomain_notes:
+      - "Paging/intercom, mass notification/emergency alerting, and bell/PA schedules are the three recurring shapes."
+      - "Emergency messaging pulls in NFPA 72 ECS obligations; routine paging does not - classify early."
+      - "Capture IP vs analog paging and integration with the phone/UC system."
+    risk_patterns:
+      - "Intelligibility (STI) fails acceptance in reverberant/high-ceiling spaces."
+      - "AHJ rejects ECS messaging that doesn't meet NFPA 72 Ch.24 survivability/priority."
+      - "Fire-alarm priority/override not wired - paging overrides life-safety audio."
+      - "Bell/clock schedule fails to sync across IDFs / time source."
+      - "Mass-notification platform license/integration gap leaves alerting partial."
+    compliance_frameworks:
+      - "NFPA 72 Chapter 24 Emergency Communications Systems (where emergency messaging is in scope)."
+      - "ADA visible-notification (strobe) requirements for alerting in occupiable spaces."
+
+  fire_safety:
+    display_name: Fire Safety and Alarm
+    operating_rules:
+      code_and_ahj: "Fire alarm work is permit-and-inspection gated. Always surface the NFPA 72 edition in force, the Authority Having Jurisdiction (AHJ), and the permit/acceptance-test path - an unstated AHJ acceptance is a blocker, not a warning."
+      licensed_labor: "Installation and ITM must be by licensed/certified fire-alarm technicians; flag any scope that implies unlicensed labor or skips required certification."
+      secondary_power: "Capture the panel make/model, device counts, and the secondary-power (battery) calculation requirement - battery sizing and survivability are common acceptance gates."
+      acceptance: "Acceptance must reference an AHJ acceptance test, a record-of-completion, and a 100% device functional test - not a generic sign-off."
+    normalization:
+      panels: ["Notifier", "Simplex", "Edwards EST", "Honeywell Silent Knight", "Fire-Lite", "Gamewell-FCI", "Siemens"]
+      device_classes: ["smoke detector", "heat detector", "pull station", "notification appliance (horn/strobe)", "duct detector", "monitor/control module", "aspirating detection"]
+      monitoring: ["central station (UL listed)", "DACT", "cellular communicator", "IP communicator"]
+    fields: {}
+    artifact_labels: ["Fire alarm device schedule", "Battery calculation", "Record of completion (NFPA 72)", "AHJ acceptance test report"]
+    subdomain_notes:
+      - "Fire alarm panel, smoke/heat detection, and notification appliances are the core scope blocks."
+      - "ITM (inspection, testing, maintenance) recurring contracts are distinct from new install - classify which one."
+      - "Capture monitoring path (central station) and the AHJ + code edition early; they drive the whole schedule."
+    risk_patterns:
+      - "AHJ permit / acceptance-test scheduling slips Certificate of Occupancy."
+      - "Code edition (NFPA 72) in force differs from design assumption - rework."
+      - "Battery / secondary-power calculation fails survivability requirement."
+      - "Notification appliance coverage/candela fails ADA visible-signaling test."
+      - "Central-station monitoring transition leaves a window with no monitoring."
+    compliance_frameworks:
+      - "NFPA 72 National Fire Alarm and Signaling Code (edition per AHJ)."
+      - "NFPA 101 Life Safety Code; UL 864 control-unit listing; local AHJ amendments."
+      - "ADA / NFPA 72 visible (strobe) notification candela requirements."
+
+  das:
+    display_name: Distributed Antenna System (DAS)
+    operating_rules:
+      carrier_or_publicsafety: "Classify first: cellular DAS needs carrier (NOC) approval + RF source; public-safety DAS/ERRCS is AHJ/fire-code gated. The approval body and timeline differ completely - never conflate them."
+      rf_design: "Anchor scope on the RF design: iBwave/predictive model, donor source (off-air vs small cell/BTS), antenna/coax/fiber layout, and a grid/walk-test acceptance plan. Coverage without a measured acceptance grid is incomplete."
+      publicsafety_code: "Public-safety/ERRCS work must cite NFPA 1221/1225 (or IFC 510), required coverage %, battery/secondary power, and AHJ acceptance - flag any of these missing as a blocker."
+      acceptance: "Acceptance must reference a measured grid/walk test (DL/UL signal, DAQ for public safety) signed by the carrier or AHJ, not a visual inspection."
+    normalization:
+      das_classes: ["public safety DAS / ERRCS", "cellular DAS", "active DAS", "passive DAS / hybrid"]
+      donor_sources: ["off-air donor (rooftop antenna)", "small cell", "carrier BTS", "BDA / signal booster"]
+      vendors: ["CommScope", "JMA Wireless", "SOLiD", "Corning", "ADRF", "Comba"]
+    fields: {}
+    artifact_labels: ["iBwave RF design", "Grid/walk-test results", "Carrier NOC approval", "AHJ acceptance (ERRCS)"]
+    subdomain_notes:
+      - "Public-safety DAS/ERRCS, cellular DAS, and commissioning are the recurring shapes; public safety is fire-code gated."
+      - "Head-end space, power, and donor-source access (rooftop/coax riser) are common physical dependencies."
+      - "Capture which carriers/bands are in scope and whether carrier approval is the customer's or the integrator's responsibility."
+    risk_patterns:
+      - "Carrier NOC approval timeline (cellular) slips months and gates turn-up."
+      - "AHJ acceptance (ERRCS) fails coverage % / DAQ on the measured grid."
+      - "Donor signal too weak / no rooftop access - design assumptions invalid."
+      - "Head-end space, power, or riser pathway unavailable at install."
+      - "Battery / secondary-power for public-safety DAS undersized for code runtime."
+    compliance_frameworks:
+      - "NFPA 1221/1225 or IFC 510 public-safety radio coverage (ERRCS) per AHJ."
+      - "FCC signal-booster registration; carrier approval for any cellular re-radiation."
+
+  telecom:
+    display_name: Telecom
+    operating_rules:
+      circuit_dependencies: "For carrier circuit / WAN turn-up, anchor on the LOA/CFA, demarc location, circuit IDs, and the carrier FOC date - the FOC date gates the cutover and is the single biggest schedule risk."
+      porting: "For UCaaS/VoIP with number porting, capture the porting inventory, losing carrier, CSR, and the porting FOC date; partial-port and reject scenarios must have a rollback plan."
+      e911: "If voice is in scope, E911 dispatchable-location and Kari's Law / RAY BAUM's Act compliance is mandatory - flag any voice scope that omits E911 location/notification as a blocker."
+      acceptance: "Acceptance must reference circuit turn-up test (or call-quality/MOS for VoIP) and a verified E911 test call where voice is in scope."
+    normalization:
+      circuit_types: ["DIA / dedicated internet", "MPLS", "SD-WAN underlay", "point-to-point", "POTS replacement", "SIP trunk", "PRI"]
+      voice_platforms: ["Webex Calling", "Teams Phone", "RingCentral", "Zoom Phone", "8x8", "on-prem PBX"]
+      port_artifacts: ["LOA", "CFA", "CSR", "FOC", "demarc extension"]
+    fields: {}
+    artifact_labels: ["Circuit / demarc schedule", "Porting inventory + FOC", "E911 dispatchable-location table", "Turn-up / MOS test results"]
+    subdomain_notes:
+      - "Carrier circuit/demarc/WAN turn-up, UCaaS/VoIP rollout/porting, and E911 are the three recurring shapes."
+      - "Carrier-dependent dates (FOC) are outside the integrator's control - surface them as external dependencies."
+      - "Capture demarc extension / inside-wiring responsibility (carrier vs integrator) - a frequent gap."
+    risk_patterns:
+      - "Carrier FOC date slips and cascades the whole cutover schedule."
+      - "Number port rejected (CSR mismatch) or partial-ports, splitting service."
+      - "E911 dispatchable-location / Kari's Law / RAY BAUM non-compliance."
+      - "Demarc extension / inside-wiring responsibility unassigned at turn-up."
+      - "SIP/VoIP call quality (MOS/jitter) fails over an undersized or untagged WAN."
+    compliance_frameworks:
+      - "Kari's Law (direct 911 dial + notification) and RAY BAUM's Act (dispatchable location)."
+      - "FCC number-porting (LNP) rules; state PUC tariff where applicable."

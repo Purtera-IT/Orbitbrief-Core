@@ -42,15 +42,21 @@ from orbitbrief_core.brains.building_management_systems import (
     BuildingManagementSystemsBrain,
 )
 from orbitbrief_core.brains.camera_vms_operations import CameraVmsOperationsBrain
+from orbitbrief_core.brains.das import DasBrain
 from orbitbrief_core.brains.datacenter import DatacenterBrain
 from orbitbrief_core.brains.electrical import ElectricalBrain
+from orbitbrief_core.brains.fire_safety import FireSafetyBrain
 from orbitbrief_core.brains.imac import ImacBrain
 from orbitbrief_core.brains.low_voltage_cabling import LowVoltageCablingBrain
 from orbitbrief_core.brains.managed_services import ManagedServicesBrain
 from orbitbrief_core.brains.network_maintenance import NetworkMaintenanceBrain
+from orbitbrief_core.brains.paging_mass_notification import PagingMassNotificationBrain
 from orbitbrief_core.brains.procurement_finance import ProcurementFinanceBrain
 from orbitbrief_core.brains.professional_services import ProfessionalServicesBrain
 from orbitbrief_core.brains.rack_and_stack import RackAndStackBrain
+from orbitbrief_core.brains.security_access import SecurityAccessBrain
+from orbitbrief_core.brains.staff_augmentation import StaffAugmentationBrain
+from orbitbrief_core.brains.telecom import TelecomBrain
 from orbitbrief_core.brains.wireless import WirelessBrain
 from orbitbrief_core.inference.client import ChatClient
 
@@ -75,15 +81,21 @@ _BRAIN_IMPLEMENTATIONS: dict[str, Callable[..., object]] = {
     "audit": AuditBrain,
     "building_management_systems": BuildingManagementSystemsBrain,
     "camera_vms_operations": CameraVmsOperationsBrain,
+    "das": DasBrain,
     "datacenter": DatacenterBrain,
     "electrical": ElectricalBrain,
+    "fire_safety": FireSafetyBrain,
     "imac": ImacBrain,
     "low_voltage_cabling": LowVoltageCablingBrain,
     "managed_services": ManagedServicesBrain,
     "network_maintenance": NetworkMaintenanceBrain,
+    "paging_mass_notification": PagingMassNotificationBrain,
     "procurement_finance": ProcurementFinanceBrain,
     "professional_services": ProfessionalServicesBrain,
     "rack_and_stack": RackAndStackBrain,
+    "security_access": SecurityAccessBrain,
+    "staff_augmentation": StaffAugmentationBrain,
+    "telecom": TelecomBrain,
     "wireless": WirelessBrain,
 }
 
@@ -464,6 +476,12 @@ BRIEFING_PACK_IDS: frozenset[str] = frozenset({
     "electrical",
     "professional_services",
     "audit",
+    "das",
+    "fire_safety",
+    "paging_mass_notification",
+    "security_access",
+    "staff_augmentation",
+    "telecom",
     # Packs that redirect to one of the briefing brains above keep emitting
     # BriefingState — list them here so the pipeline picks the briefing
     # validator/calibrator path.

@@ -451,7 +451,7 @@ packs:
 - id: security_access
   display_name: Security / Access
   brain:
-    intent: none
+    intent: implemented
     implementation: security_access
     aliases:
     - access_control
@@ -527,7 +527,7 @@ packs:
 - id: staff_augmentation
   display_name: Staff Augmentation
   brain:
-    intent: none
+    intent: implemented
     implementation: staff_augmentation
     aliases: []
   intake_aliases: []
@@ -551,7 +551,7 @@ packs:
 - id: telecom
   display_name: Telecom
   brain:
-    intent: none
+    intent: implemented
     implementation: telecom
     aliases: []
   intake_aliases:
@@ -690,7 +690,7 @@ packs:
 - id: paging_mass_notification
   display_name: Paging and Mass Notification
   brain:
-    intent: none
+    intent: implemented
     implementation: paging_mass_notification
     aliases:
     - paging
@@ -725,7 +725,7 @@ packs:
 - id: fire_safety
   display_name: Fire Safety and Alarm
   brain:
-    intent: none
+    intent: implemented
     implementation: fire_safety
     aliases: []
   intake_aliases: []
@@ -755,7 +755,7 @@ packs:
 - id: das
   display_name: Distributed Antenna System
   brain:
-    intent: none
+    intent: implemented
     implementation: das
     aliases:
     - distributed_antenna_system
