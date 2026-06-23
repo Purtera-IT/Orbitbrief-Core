@@ -479,6 +479,20 @@ class OpenAIChatClient:
                 f"unexpected chat response shape: {data!r}"
             ) from exc
 
+<<<<<<< Updated upstream
+=======
+        # Reasoning models (Qwen3 etc.) emit a ``<think>...</think>`` block before
+        # the answer. Strip it here, at the one shared egress point, so EVERY
+        # consumer gets clean content. Without this the per-service brains'
+        # strict-JSON parse choked on the think tokens and fell back to a
+        # deterministic skeleton (no brief) — which is why PM_HANDOFF never wrote.
+        if "</think>" in text:
+            text = text.rsplit("</think>", 1)[-1].lstrip()
+
+        # OpenAI puts usage at top level; Ollama returns it the same
+        # way under its OpenAI-compatible endpoint. Defensive defaults
+        # in case a backend omits the field entirely.
+>>>>>>> Stashed changes
         usage_raw = data.get("usage") or {}
         usage = ChatUsage(
             prompt_tokens=int(usage_raw.get("prompt_tokens", 0) or 0),
