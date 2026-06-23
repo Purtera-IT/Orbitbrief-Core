@@ -465,52 +465,29 @@ class OpenAIChatClient:
         import time
 
         start = time.perf_counter()
-        # v45.2: non-streaming POST.  We tried streaming (stream:true with
-        # SSE accumulation) to keep the Tailscale connection active during
-        # the LLM's internal generation, but the ollama-mac-studio-proxy
-        # cuts streaming responses after the first SSE chunk — confirmed
-        # via direct curl test.  Non-streaming through the same proxy
-        # works correctly once the proxy's httpx client lifecycle was
-        # fixed (Platform-infra@bcd0082).  Mac Ollama generates the full
-        # response internally, sends back one HTTP body, proxy forwards
-        # the whole thing.  Long generations (~2 min) survive because the
-        # proxy keeps its upstream httpx client alive until the body
-        # is fully received.
-        data = _post_json(
+        # Stream the completion (stream:true + SSE accumulation). The mac
+        # proxy buffers a non-streamed response, so during the LLM's internal
+        # generation NO bytes flow worker<-proxy and the Container Apps ingress
+        # idle-kills the connection at ~60s -> IncompleteRead -> brain/planner
+        # fallback. That is exactly why the brains kept failing at ~66s while
+        # the faster planner squeaked under the cutoff at ~50s. Streaming emits
+        # an SSE delta per token -> continuous bytes -> no idle period anywhere.
+        # Requires the proxy to stream-passthrough (the Platform-infra proxy now
+        # forwards aiter_raw() instead of buffering r.content).
+        text, last_chunk = _post_chat_streaming(
             self._url("/v1/chat/completions"),
             payload,
             timeout_s=self.timeout_s,
             api_key=self.api_key,
         )
         latency_ms = int((time.perf_counter() - start) * 1000)
+        # _post_chat_streaming already prefers content over reasoning, strips
+        # any inline <think> block, and raises InferenceError on empty output.
 
-        try:
-            msg = data["choices"][0]["message"]
-            # Qwen3 thinking-mode places chain-of-thought in `reasoning`
-            # and the actual answer in `content`.  Prefer content; fall
-            # back to reasoning so we don't lose output if a model that
-            # doesn't separate them is in use.
-            content = msg.get("content") or ""
-            if not content.strip():
-                content = msg.get("reasoning") or ""
-            text = str(content)
-        except (KeyError, IndexError, TypeError) as exc:
-            raise InferenceError(
-                f"unexpected chat response shape: {data!r}"
-            ) from exc
-
-        # Reasoning models (Qwen3 etc.) emit a ``<think>...</think>`` block before
-        # the answer. Strip it here, at the one shared egress point, so EVERY
-        # consumer gets clean content. Without this the per-service brains'
-        # strict-JSON parse choked on the think tokens and fell back to a
-        # deterministic skeleton (no brief) — which is why PM_HANDOFF never wrote.
-        if "</think>" in text:
-            text = text.rsplit("</think>", 1)[-1].lstrip()
-
-        # OpenAI puts usage at top level; Ollama returns it the same
-        # way under its OpenAI-compatible endpoint. Defensive defaults
-        # in case a backend omits the field entirely.
-        usage_raw = data.get("usage") or {}
+        # Usage rides the final SSE chunk when the backend sets
+        # stream_options.include_usage; default to 0 otherwise.
+        data = last_chunk
+        usage_raw = last_chunk.get("usage") or {}
         usage = ChatUsage(
             prompt_tokens=int(usage_raw.get("prompt_tokens", 0) or 0),
             completion_tokens=int(usage_raw.get("completion_tokens", 0) or 0),
