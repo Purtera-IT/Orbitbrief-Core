@@ -79,11 +79,27 @@ def _compact_contested(items: list | None) -> dict | None:
     return {"count": len(items), "examples": examples}
 
 
+def _dim_score(v: object) -> float:
+    """Coerce a dimension value to its numeric score.
+
+    The builder emits ``{name: {"score": float, "signals": {...}}}`` today;
+    older payloads used a bare ``{name: float}``. Support both so the
+    narrator never crashes on the richer shape (sorting dict values raised
+    ``TypeError: '<' not supported between instances of 'dict' and 'dict'``
+    and silently skipped the whole PM handoff render).
+    """
+    if isinstance(v, dict):
+        s = v.get("score")
+        return float(s) if isinstance(s, (int, float)) else 0.0
+    return float(v) if isinstance(v, (int, float)) else 0.0
+
+
 def _compact_sow_dims(b: dict | None) -> dict | None:
     if not b or not b.get("dimensions"):
         return None
     dims = b["dimensions"]
-    lowest = sorted(dims.items(), key=lambda kv: kv[1])[:3]
+    scored = [(name, _dim_score(val)) for name, val in dims.items()]
+    lowest = sorted(scored, key=lambda kv: kv[1])[:3]
     return {
         "grade": b.get("grade"),
         "score": round((b.get("readiness_score") or 0) * 100, 1),
