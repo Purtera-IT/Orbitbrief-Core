@@ -189,6 +189,11 @@ def _post_chat_streaming(
     content_text = "".join(content_parts).strip()
     reasoning_text = "".join(reasoning_parts).strip()
     final_text = content_text or reasoning_text
+    # Some backends stream the Qwen3 ``<think>`` block inline in ``content``
+    # instead of the separate ``reasoning`` field — strip it so the brains'
+    # strict-JSON parse doesn't choke (mirrors the non-streaming path).
+    if "</think>" in final_text:
+        final_text = final_text.rsplit("</think>", 1)[-1].lstrip()
     if not final_text:
         raise InferenceError(
             f"streaming response produced no content from {url} "
