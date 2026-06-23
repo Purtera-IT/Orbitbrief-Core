@@ -420,10 +420,25 @@ class OpenAIChatClient:
     ) -> ChatResult:
         if not messages:
             raise InferenceError("complete: messages list is empty")
+        chat_messages = [{"role": m.role, "content": m.content} for m in messages]
+        # Disable Qwen3 thinking-mode — it was the root cause of brief-gen
+        # flakiness through the mac proxy: (a) 100-200s "thinking" generations
+        # left the client connection idle, so the Container Apps ingress
+        # idle-killed it -> IncompleteRead -> brain/planner fallback (empty
+        # brief, PM_HANDOFF never rewritten); (b) reasoning tokens ate the
+        # output budget, leaving empty `content`. /no_think makes the same
+        # call return clean, complete JSON in ~5-10s. The <think>-strip below
+        # stays as defense-in-depth for any backend that ignores the token.
+        for i in range(len(chat_messages) - 1, -1, -1):
+            if chat_messages[i]["role"] == "user":
+                c = chat_messages[i]["content"] or ""
+                if "/no_think" not in c:
+                    chat_messages[i] = {**chat_messages[i], "content": "/no_think\n" + c}
+                break
         payload: dict = {
             "model": model,
             "temperature": float(temperature),
-            "messages": [{"role": m.role, "content": m.content} for m in messages],
+            "messages": chat_messages,
         }
         # v45.2: keep Qwen3 thinking ON for quality (matches the local Mac
         # behavior the user already verified), but ensure max_tokens is
@@ -484,8 +499,6 @@ class OpenAIChatClient:
                 f"unexpected chat response shape: {data!r}"
             ) from exc
 
-<<<<<<< Updated upstream
-=======
         # Reasoning models (Qwen3 etc.) emit a ``<think>...</think>`` block before
         # the answer. Strip it here, at the one shared egress point, so EVERY
         # consumer gets clean content. Without this the per-service brains'
@@ -497,7 +510,6 @@ class OpenAIChatClient:
         # OpenAI puts usage at top level; Ollama returns it the same
         # way under its OpenAI-compatible endpoint. Defensive defaults
         # in case a backend omits the field entirely.
->>>>>>> Stashed changes
         usage_raw = data.get("usage") or {}
         usage = ChatUsage(
             prompt_tokens=int(usage_raw.get("prompt_tokens", 0) or 0),
