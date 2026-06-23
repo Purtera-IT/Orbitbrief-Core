@@ -84,7 +84,7 @@ class EnvelopeDocument(_Lenient):
 
     artifact_id: str
     filename: str
-    artifact_type: ArtifactType
+    artifact_type: str  # permissive vs parser-os taxonomy growth (see atom_type note)
     sha256: str
     size_bytes: int = Field(ge=0)
     parser_name: str
@@ -106,8 +106,12 @@ class EnvelopeAtom(_Lenient):
 
     id: str
     artifact_id: str
-    atom_type: AtomType
-    authority_class: AuthorityClass
+    # str (not the AtomType enum) so a NEW parser-os atom type (the parser's
+    # taxonomy evolves faster than this consumer) doesn't hard-fail envelope
+    # validation and kill brief-gen. Same intent as ``verified: str`` below.
+    # Downstream stages validate membership only where they actually branch on it.
+    atom_type: str
+    authority_class: str
     confidence: float = Field(ge=0.0, le=1.0)
     text: str
     section_path: list[str] = Field(default_factory=list)
@@ -138,7 +142,7 @@ class EnvelopeEntity(_Lenient):
     aliases: list[str] = Field(default_factory=list)
     artifact_ids: list[str] = Field(default_factory=list)
     source_atom_ids: list[str] = Field(default_factory=list)
-    review_status: ReviewStatus
+    review_status: str  # permissive vs parser-os taxonomy growth (see atom_type note)
     confidence: float = Field(ge=0.0, le=1.0)
 
 
@@ -149,7 +153,7 @@ class EnvelopeEdge(_Lenient):
     """Compact edge row."""
 
     id: str
-    edge_type: EdgeType
+    edge_type: str  # permissive vs parser-os taxonomy growth (see atom_type note)
     from_atom_id: str
     to_atom_id: str
     reason: str
