@@ -1315,6 +1315,23 @@ domains:
       - "Acoustic treatment / SPL targets not measured at customer-acceptance."
     compliance_frameworks:
       - "Workplace ADA compliance for assistive listening / closed captioning."
+    gold_examples:
+      scope_overview:
+      - statement: "Outfit 4 conference rooms with Logitech Rally Bar, 12 Samsung QM65R displays, and a QSC Q-SYS Core for Teams Rooms."
+        evidence_pattern: "quantity_claim packet with room/display counts + scope_inclusion packet naming control/DSP platform"
+        pitfalls: "Do not infer HDMI/HDBaseT cable pulls or electrical drops unless a separate low-voltage or electrical packet supports them."
+      detailed_scope_of_services:
+      - statement: "Mount displays and microphones, program the Q-SYS DSP gain structure, configure the Teams Room appliance, and commission lipsync and call quality."
+        evidence_pattern: "scope_inclusion packet listing AV activities + compliance_clause naming a commissioning checklist (SPL/latency)"
+        pitfalls: "Do not add Dante/AES67 VLAN/QoS network configuration unless a packet names the network design as provider scope."
+      risks_or_dependencies:
+      - statement: "Long HDBaseT pulls past 100m and an unconfirmed Dante VLAN with QoS may degrade signal and call audio at acceptance."
+        evidence_pattern: "missing_info packet on cable run length or network design + scope_inclusion packet naming HDBaseT/Dante"
+        pitfalls: "Do not present extender or QoS readiness as an assumption when it can change BOM, schedule, or acceptance."
+      out_of_scope:
+      - statement: "Structured cabling between AV endpoints, electrical receptacles, acoustic treatment, and shared-VLAN QoS configuration are excluded."
+        evidence_pattern: "scope_exclusion packet naming cabling/electrical + scope_inclusion limited to AV install/programming"
+        pitfalls: "Do not exclude HDMI/HDBaseT runs if a packet explicitly bundles them into the AV scope."
   building_management_systems:
     display_name: Building Management Systems
     operating_rules:
@@ -1339,6 +1356,23 @@ domains:
       - "ASHRAE 90.1 / 62.1 — minimum control sequences."
       - "Local energy code (Title 24, IECC) — required points + reporting."
       - "Customer cybersecurity standard for OT (NIST SP 800-82)."
+    gold_examples:
+      scope_overview:
+      - statement: "Controls upgrade migrating 6 legacy Metasys controllers to a Tridium Niagara front end over BACnet/IP for HVAC and lighting."
+        evidence_pattern: "quantity_claim packet with controller/point counts + scope_inclusion packet naming platform and protocol"
+        pitfalls: "Do not infer sensor/actuator cabling or new field devices unless a separate low-voltage or BOM packet supports them."
+      detailed_scope_of_services:
+      - statement: "Program the sequence of operations, build Niagara graphics, perform point-to-point I/O verification, and commission against the SOO test."
+        evidence_pattern: "scope_inclusion packet listing controls programming + compliance_clause naming sequence-of-operations and I/O verification"
+        pitfalls: "Do not add field-device replacement or cable installation unless a packet names that hardware as provider scope."
+      risks_or_dependencies:
+      - statement: "Proprietary Metasys-to-Niagara integration and field-device firmware mismatches may extend commissioning by weeks."
+        evidence_pattern: "missing_info packet on legacy controller protocol/firmware + scope_inclusion packet naming integration"
+        pitfalls: "Do not present open BACnet/IP interoperability as assumed when proprietary back-doors may be required."
+      out_of_scope:
+      - statement: "Sensor and actuator cabling, mechanical/HVAC equipment work, and existing graphics-package redraw are excluded."
+        evidence_pattern: "scope_exclusion packet naming cabling/mechanical + scope_inclusion limited to controls programming and commissioning"
+        pitfalls: "Do not exclude graphics work if a packet requires the existing graphics package to be redrawn at O&M handoff."
   network_maintenance:
     display_name: Network Maintenance / Operations
     operating_rules:
@@ -1363,6 +1397,23 @@ domains:
     compliance_frameworks:
       - "Customer change-advisory-board approval required for prod maintenance."
       - "ITIL change / incident management for production-impacting changes."
+    gold_examples:
+      scope_overview:
+      - statement: "Firmware patching and VLAN/port audit across 28 Catalyst switches under SmartNet, executed inside an approved maintenance window."
+        evidence_pattern: "quantity_claim packet with device count + scope_inclusion packet naming firmware/audit and coverage tier"
+        pitfalls: "Do not infer generic service-desk or ticketing work; this is network-specific maintenance only."
+      detailed_scope_of_services:
+      - statement: "Stage target IOS-XE images, patch switches in maintenance waves, audit ports and VLANs, and validate STP and HSRP convergence per the rollback plan."
+        evidence_pattern: "scope_inclusion packet listing firmware/audit activities + compliance_clause naming maintenance window and rollback plan"
+        pitfalls: "Do not add BGP/OSPF peering changes or WAN failover redesign unless a packet names them as in scope."
+      risks_or_dependencies:
+      - statement: "A firmware bug in the target version or SmartNet/DNA license expiry mid-cutover may force a rollback during the window."
+        evidence_pattern: "missing_info packet on target version stability or license status + scope_inclusion packet naming firmware cutover"
+        pitfalls: "Do not present a rollback path as defined when the rollback plan is missing or unapproved."
+      out_of_scope:
+      - statement: "Generic MSP service-desk operations, application troubleshooting, and BGP/OSPF redistribution redesign are excluded."
+        evidence_pattern: "scope_exclusion packet naming MSP/routing redesign + scope_inclusion limited to network maintenance"
+        pitfalls: "Do not exclude VLAN or port audit work if the maintenance packet includes it."
   camera_vms_operations:
     display_name: Camera / VMS Operations
     operating_rules:
@@ -1388,6 +1439,23 @@ domains:
       - "Footage retention requirements per jurisdiction (criminal justice, HIPAA, PCI-DSS)."
       - "Privacy / data residency rules (GDPR, CCPA) — esp. for cloud-recorded VMS."
       - "SOC 2 audit trail expectations on access logs."
+    gold_examples:
+      scope_overview:
+      - statement: "Operational health management of an existing 180-camera Genetec Security Center plant across 5 sites with a 90-day retention SLA."
+        evidence_pattern: "quantity_claim packet with camera/site counts + scope_inclusion packet naming VMS platform and retention SLA"
+        pitfalls: "Do not infer initial camera install or cabling; this pack owns ongoing operations of an existing plant."
+      detailed_scope_of_services:
+      - statement: "Monitor camera uptime and frame loss, rebalance VMS storage to hold the retention window, dispatch truck-roll repairs, and produce retention audit reports."
+        evidence_pattern: "scope_inclusion packet listing health/retention activities + compliance_clause naming uptime SLA and retention audit"
+        pitfalls: "Do not add new camera installation or VMS license procurement unless a packet names them as in scope."
+      risks_or_dependencies:
+      - statement: "Retention SLA mismatch between sites and insufficient storage write throughput may break the configured retention window."
+        evidence_pattern: "missing_info packet on per-site retention or storage capacity + scope_inclusion packet naming retention SLA"
+        pitfalls: "Do not present storage headroom as assumed when retention compliance depends on measured write throughput."
+      out_of_scope:
+      - statement: "Initial camera installation, structured cabling, and net-new VMS license procurement are excluded."
+        evidence_pattern: "scope_exclusion packet naming install/cabling + scope_inclusion limited to camera/VMS operations"
+        pitfalls: "Do not exclude truck-roll repair if the operations packet includes a dispatch SLA and coverage area."
   procurement_finance:
     display_name: Procurement and Finance
     operating_rules:
@@ -1413,6 +1481,23 @@ domains:
       - "Sarbanes-Oxley (SOX) for public-company finance approvals."
       - "Customer NDA / MSA terms control how pricing is shared."
       - "FCPA / anti-corruption when working with foreign distributors."
+    gold_examples:
+      scope_overview:
+      - statement: "Sourcing, PO issuance, and milestone billing for the project BOM through Graybar and Wesco under Net 30 terms."
+        evidence_pattern: "pricing/PO packet with quote or PO numbers + scope_inclusion packet naming distributors and net terms"
+        pitfalls: "Do not infer the engineering or installation work itself; this pack covers money flow and sourcing only."
+      detailed_scope_of_services:
+      - statement: "Issue purchase orders against the BOM, track distributor lead times, process vendor invoices, and bill the customer per the milestone schedule."
+        evidence_pattern: "pricing packet with PO lines/quote numbers + milestone packet naming the billing schedule"
+        pitfalls: "Do not add installation, configuration, or warranty registration labor unless a packet names it as in scope."
+      risks_or_dependencies:
+      - statement: "Distributor lead time exceeding the project schedule and a slow customer PO process may miss cash-flow milestones."
+        evidence_pattern: "missing_info packet on lead time or PO approval timeline + milestone packet naming billing dates"
+        pitfalls: "Do not present allocation or chip-shortage substitution as assumed availability when the BOM is not confirmed in stock."
+      out_of_scope:
+      - statement: "Engineering, installation labor, and the subcontractor's field work are excluded; scope is sourcing and invoicing only."
+        evidence_pattern: "scope_exclusion packet naming engineering/install + scope_inclusion limited to procurement and finance"
+        pitfalls: "Do not exclude subcontractor procurement if the source includes sourcing of their materials."
   electrical:
     display_name: Electrical and Power
     operating_rules:
@@ -1445,6 +1530,23 @@ domains:
       - "NEC code compliance for the AHJ"
       - "Permit + inspection records for AHJ closeout"
       - "Permit + licensed-electrician requirements are jurisdictional — flag missing AHJ data as open_items."
+    gold_examples:
+      scope_overview:
+      - statement: "Install eight dedicated 208V/30A whips and an APC Symmetra UPS to support new rack power, tied to panelboard LP-2."
+        evidence_pattern: "quantity_claim packet with circuit count + scope_inclusion packet naming voltage class, UPS brand, and panel"
+        pitfalls: "Do not infer Cat6/fiber drops or rack patching; structured cabling is low_voltage_cabling, not electrical."
+      detailed_scope_of_services:
+      - statement: "Pull branch circuits from LP-2, install A/B PDUs and the UPS, bond to the TGB per TIA-607, and load-test for commissioning sign-off."
+        evidence_pattern: "scope_inclusion packet listing branch power/UPS activities + compliance_clause citing TIA-607 grounding and AHJ inspection"
+        pitfalls: "Do not add generator or ATS scope unless a packet names the generator, fuel type, and transfer requirements."
+      risks_or_dependencies:
+      - statement: "Existing panelboard capacity is unverified and AHJ inspection windows are unconfirmed, either of which can add weeks via a subpanel or permit slip."
+        evidence_pattern: "missing_info packet on panel capacity or permit/AHJ data + scope_inclusion packet naming new circuits"
+        pitfalls: "Do not present available panel capacity or permit timing as assumptions when they can change schedule and cost."
+      out_of_scope:
+      - statement: "Low-voltage cabling, network configuration, generator supply, and mechanical cooling work are excluded."
+        evidence_pattern: "scope_exclusion packet naming cabling/generator + scope_inclusion limited to branch power and UPS"
+        pitfalls: "Do not exclude grounding/bonding if a packet ties the rack power scope to a TIA-607 grounding requirement."
   professional_services:
     display_name: Professional Services
     operating_rules:
@@ -1471,6 +1573,23 @@ domains:
       - "T&M cap reached before deliverable complete; change order required."
     compliance_frameworks:
       - "Customer engineering-standards / architecture-review-board sign-off."
+    gold_examples:
+      scope_overview:
+      - statement: "Discovery and design engagement producing a signed HLD and LLD for a campus network refresh, capped at 240 billable hours."
+        evidence_pattern: "scope_inclusion packet naming phase and deliverable artifacts (HLD/LLD) + pricing packet with hour cap/rate sheet"
+        pitfalls: "Do not infer install or cutover labor; that lives in the relevant infra pack, not professional services."
+      detailed_scope_of_services:
+      - statement: "Run discovery workshops, document the as-is assessment, author the HLD and LLD, and validate the design before BOM finalization."
+        evidence_pattern: "scope_inclusion packet listing discovery/design phases + deliverables packet naming HLD/LLD and design validation"
+        pitfalls: "Do not add implementation, configuration, or MoP execution unless a packet names it as in scope."
+      risks_or_dependencies:
+      - statement: "Customer SME availability and workshop rescheduling drive rework cycles that can exhaust the T&M cap before deliverables are signed."
+        evidence_pattern: "missing_info packet on SME/workshop scheduling + pricing packet naming the hours cap"
+        pitfalls: "Do not present the hours estimate as covering rework when SME availability is unconfirmed."
+      out_of_scope:
+      - statement: "Implementation, install, cutover labor, and hands-on configuration are excluded; scope ends at signed design deliverables."
+        evidence_pattern: "scope_exclusion packet naming implementation + scope_inclusion limited to discovery/design output"
+        pitfalls: "Do not exclude the design package or SOW authoring when those are the named deliverables."
   audit:
     display_name: Audit and Site Readiness
     operating_rules:
@@ -1497,6 +1616,23 @@ domains:
     compliance_frameworks:
       - "NFPA / OSHA / BICSI / AHJ findings codified per local jurisdiction."
       - "TIA-606-C labeling / TIA-568.2-D test result audit criteria."
+    gold_examples:
+      scope_overview:
+      - statement: "Post-install QA walkthrough of 3 floors capturing a photo log and a severity-ranked punch list against the as-built drawings."
+        evidence_pattern: "scope_inclusion packet naming audit type + quantity_claim packet with floor/area count"
+        pitfalls: "Do not infer remediation work; audit scope is observation and gap reporting only."
+      detailed_scope_of_services:
+      - statement: "Walk each area, photo-document findings, record planned-vs-installed as-built deltas, and assign severity, responsible party, and target close date per punch-list item."
+        evidence_pattern: "scope_inclusion packet listing walkthrough/documentation activities + compliance_clause naming photo-log and punch-list evidence"
+        pitfalls: "Do not add fixes or corrective labor; remediation belongs to the relevant infra pack as a follow-on dependency."
+      risks_or_dependencies:
+      - statement: "Inaccessible areas during the walkthrough and unlabeled photo evidence may cause missed critical findings and punch-list disputes at closeout."
+        evidence_pattern: "missing_info packet on area access + scope_inclusion packet naming photo-log evidence requirement"
+        pitfalls: "Do not record an unverifiable finding as an assumption; findings without evidence are open_items."
+      out_of_scope:
+      - statement: "Remediation of any finding, corrective installation, and re-testing of failed items are excluded; this is observation and reporting only."
+        evidence_pattern: "scope_exclusion packet naming remediation + scope_inclusion limited to audit/documentation"
+        pitfalls: "Do not exclude the as-built red-line if the source names it as a deliverable of the audit."
   staff_augmentation:
     display_name: Staff Augmentation
     operating_rules:
@@ -1522,6 +1658,23 @@ domains:
     compliance_frameworks:
       - "Prevailing wage (Davis-Bacon) / union collective-bargaining classification where applicable."
       - "Background-check / clearance regime (facility security officer, escort requirements)."
+    gold_examples:
+      scope_overview:
+      - statement: "Provide 6 cleared low-voltage technicians on a 24x7 two-shift coverage model under customer supervision against the rate card."
+        evidence_pattern: "quantity_claim packet with headcount/shift coverage + pricing packet naming rate card and clearance requirement"
+        pitfalls: "Do not imply turnkey outcomes; staff aug supplies labor hours under customer direction, not a fixed deliverable."
+      detailed_scope_of_services:
+      - statement: "Staff the coverage schedule, track straight-time and overtime hours on the timesheet template, and submit weekly attendance for supervisor sign-off."
+        evidence_pattern: "scope_inclusion packet listing roles/coverage + pricing packet naming rate modifiers and timesheet acceptance"
+        pitfalls: "Do not add scoped engineering outcomes or deliverables the customer owns under their own direction."
+      risks_or_dependencies:
+      - statement: "Clearance and background-check lead time gates the start date, and undefined backfill SLA risks coverage gaps on no-shows or attrition."
+        evidence_pattern: "missing_info packet on clearance lead time or backfill terms + scope_inclusion packet naming cleared roles"
+        pitfalls: "Do not treat clearance timing as an assumption when it determines when billable resources can start."
+      out_of_scope:
+      - statement: "Fixed deliverables, outcome guarantees, equipment supply, and direction of the work are excluded; the customer supervises and directs the resources."
+        evidence_pattern: "scope_exclusion packet naming outcomes/equipment + scope_inclusion limited to labor hours under customer direction"
+        pitfalls: "Do not exclude the rate-card modifiers (OT, prevailing wage, union scale) when the source defines them as billable terms."
 
   security_access:
     display_name: Security / Access Control
@@ -1549,6 +1702,23 @@ domains:
     compliance_frameworks:
       - "NFPA 101 Life Safety Code / IBC egress requirements for electrified openings."
       - "ADA hardware mounting/operation; UL 294 access-control system standard."
+    gold_examples:
+      scope_overview:
+      - statement: "Access-control cutover for 24 openings integrating electrified hardware to an existing Lenel OnGuard panel with iCLASS SE credentials."
+        evidence_pattern: "quantity_claim packet with opening count + scope_inclusion packet naming panel make and credential technology"
+        pitfalls: "Do not infer surveillance/VMS work; this is access control and door hardware, not cameras."
+      detailed_scope_of_services:
+      - statement: "Install readers, electric strikes/maglocks, REX, and door-position switches per the door schedule, wire fire-alarm release, and migrate cardholders to the existing panel."
+        evidence_pattern: "scope_inclusion packet listing door-hardware activities + door-schedule packet naming reader/lock/REX per opening"
+        pitfalls: "Do not assume fail-safe vs fail-secure behavior; an unstated egress/fire-release path is a blocker, not a default."
+      risks_or_dependencies:
+      - statement: "Long-lead electrified hardware and an existing panel firmware/license limit may slip the cutover and break existing cardholders during migration."
+        evidence_pattern: "missing_info packet on hardware lead time or panel firmware/license + scope_inclusion packet naming the migration"
+        pitfalls: "Do not present panel capacity for new controllers as assumed when firmware/license headroom is unverified."
+      out_of_scope:
+      - statement: "Surveillance cameras/VMS, door cabling, power supply provisioning, and any opening without a defined fire-release path are excluded."
+        evidence_pattern: "scope_exclusion packet naming VMS/cabling + scope_inclusion limited to access control and door hardware"
+        pitfalls: "Do not exclude fire-alarm release integration; for maglock openings it is a mandatory life-safety inclusion."
 
   paging_mass_notification:
     display_name: Paging and Mass Notification
@@ -1575,6 +1745,23 @@ domains:
     compliance_frameworks:
       - "NFPA 72 Chapter 24 Emergency Communications Systems (where emergency messaging is in scope)."
       - "ADA visible-notification (strobe) requirements for alerting in occupiable spaces."
+    gold_examples:
+      scope_overview:
+      - statement: "Deploy InformaCast emergency mass notification across 9 paging zones with an STI intelligibility target and fire-alarm priority override per NFPA 72 Ch.24."
+        evidence_pattern: "quantity_claim packet with zone/speaker counts + scope_inclusion packet naming platform and ECS classification"
+        pitfalls: "Do not infer routine paging obligations as ECS, or ECS-grade work for routine paging; classify the message class first."
+      detailed_scope_of_services:
+      - statement: "Lay out speaker coverage per zone, configure the message matrix and bell schedule, wire fire-alarm priority override, and measure intelligibility per area."
+        evidence_pattern: "scope_inclusion packet listing zone/speaker activities + compliance_clause naming intelligibility test and priority/override test"
+        pitfalls: "Do not add ECS survivability scope unless the system is classified as emergency/mass-notification messaging."
+      risks_or_dependencies:
+      - statement: "Reverberant high-ceiling spaces may fail STI intelligibility at acceptance, and an unwired fire-alarm priority override would let paging override life-safety audio."
+        evidence_pattern: "missing_info packet on ceiling/acoustics or fire-alarm integration + scope_inclusion packet naming intelligibility target"
+        pitfalls: "Do not present intelligibility pass as assumed in difficult acoustic spaces; it is a measured acceptance gate."
+      out_of_scope:
+      - statement: "Speaker cabling, fire-alarm panel modifications, and UC/SIP platform changes are excluded unless explicitly bundled."
+        evidence_pattern: "scope_exclusion packet naming cabling/fire-panel + scope_inclusion limited to paging/notification configuration"
+        pitfalls: "Do not exclude the fire-alarm priority/override path when emergency messaging is in scope; NFPA 72 Ch.24 requires it."
 
   fire_safety:
     display_name: Fire Safety and Alarm
@@ -1603,6 +1790,23 @@ domains:
       - "NFPA 72 National Fire Alarm and Signaling Code (edition per AHJ)."
       - "NFPA 101 Life Safety Code; UL 864 control-unit listing; local AHJ amendments."
       - "ADA / NFPA 72 visible (strobe) notification candela requirements."
+    gold_examples:
+      scope_overview:
+      - statement: "Replace a Notifier NFS2-3030 panel and 64 addressable smoke detectors with central-station monitoring, AHJ-permitted under NFPA 72."
+        evidence_pattern: "quantity_claim packet with panel/device counts + scope_inclusion packet naming panel make and monitoring path"
+        pitfalls: "Do not treat an unstated AHJ and code edition as resolved; they gate the permit and acceptance path."
+      detailed_scope_of_services:
+      - statement: "Install the addressable panel and devices with licensed fire-alarm technicians, run the secondary-power battery calculation, and complete a 100% functional and AHJ acceptance test."
+        evidence_pattern: "scope_inclusion packet listing panel/device activities + compliance_clause naming battery calculation and AHJ acceptance test"
+        pitfalls: "Do not imply unlicensed labor or a generic sign-off; installation and ITM require certified technicians and an AHJ acceptance test."
+      risks_or_dependencies:
+      - statement: "AHJ permit and acceptance-test scheduling can slip the Certificate of Occupancy, and a code-edition mismatch or undersized battery calculation forces rework."
+        evidence_pattern: "missing_info packet on AHJ/code edition or battery sizing + scope_inclusion packet naming the panel/device install"
+        pitfalls: "Do not present the NFPA 72 edition in force as assumed; an edition mismatch with design causes rework."
+      out_of_scope:
+      - statement: "Device cabling outside the panel, sprinkler/suppression work, and central-station contract setup are excluded unless explicitly included."
+        evidence_pattern: "scope_exclusion packet naming cabling/suppression + scope_inclusion limited to fire-alarm panel and devices"
+        pitfalls: "Do not exclude the AHJ acceptance test or record of completion; they are mandatory acceptance gates, not optional."
 
   das:
     display_name: Distributed Antenna System (DAS)
@@ -1630,6 +1834,23 @@ domains:
     compliance_frameworks:
       - "NFPA 1221/1225 or IFC 510 public-safety radio coverage (ERRCS) per AHJ."
       - "FCC signal-booster registration; carrier approval for any cellular re-radiation."
+    gold_examples:
+      scope_overview:
+      - statement: "Public-safety ERRCS coverage across 220k sq ft with an iBwave RF design and head-end, AHJ-accepted per NFPA 1221."
+        evidence_pattern: "quantity_claim packet with coverage area + scope_inclusion packet naming DAS class, RF design, and code reference"
+        pitfalls: "Do not conflate public-safety ERRCS (AHJ/fire-code gated) with cellular DAS (carrier/NOC approval) — the approval body differs."
+      detailed_scope_of_services:
+      - statement: "Produce the iBwave predictive model, install head-end, antennas, and coax/fiber, size secondary power, and run a measured grid/walk test for AHJ acceptance."
+        evidence_pattern: "scope_inclusion packet listing RF design/install activities + compliance_clause naming the grid/walk-test acceptance and code coverage %"
+        pitfalls: "Do not add cellular carrier turn-up unless a packet names the carrier, bands, and NOC approval responsibility."
+      risks_or_dependencies:
+      - statement: "Donor signal strength, rooftop/riser access, and AHJ DAQ/coverage-% acceptance on the measured grid can invalidate design assumptions or fail turn-up."
+        evidence_pattern: "missing_info packet on donor source or head-end/riser access + scope_inclusion packet naming the coverage target"
+        pitfalls: "Do not present donor signal or coverage-% pass as assumed; both are measured against an acceptance grid."
+      out_of_scope:
+      - statement: "Carrier NOC approval for cellular re-radiation, head-end electrical/power, and riser pathway construction are excluded unless explicitly included."
+        evidence_pattern: "scope_exclusion packet naming carrier/power/pathway + scope_inclusion limited to public-safety DAS design and install"
+        pitfalls: "Do not exclude secondary-power battery scope for public-safety DAS; code-required runtime is a mandatory inclusion."
 
   telecom:
     display_name: Telecom
@@ -1657,3 +1878,20 @@ domains:
     compliance_frameworks:
       - "Kari's Law (direct 911 dial + notification) and RAY BAUM's Act (dispatchable location)."
       - "FCC number-porting (LNP) rules; state PUC tariff where applicable."
+    gold_examples:
+      scope_overview:
+      - statement: "Cutover 14 sites from POTS to SIP trunks on Webex Calling, including number porting and E911 dispatchable-location setup."
+        evidence_pattern: "quantity_claim packet with site/circuit counts + scope_inclusion packet naming circuit type, voice platform, and porting"
+        pitfalls: "Do not infer inside-wiring or demarc-extension responsibility unless a packet assigns it to the integrator."
+      detailed_scope_of_services:
+      - statement: "Coordinate LOA/CFA and FOC dates, provision SIP trunks, port numbers per the porting inventory, configure E911 dispatchable location, and run turn-up MOS testing."
+        evidence_pattern: "scope_inclusion packet listing circuit/porting/E911 activities + compliance_clause naming turn-up/MOS test and E911 test call"
+        pitfalls: "Do not omit E911 location/notification when voice is in scope; Kari's Law and RAY BAUM's Act make it mandatory."
+      risks_or_dependencies:
+      - statement: "A slipped carrier FOC date and CSR-mismatch port rejections are external dependencies that can cascade the cutover schedule and split service."
+        evidence_pattern: "missing_info packet on FOC date or CSR/porting inventory + scope_inclusion packet naming the cutover"
+        pitfalls: "Do not present carrier FOC dates as controllable; surface them as external dependencies with a rollback plan."
+      out_of_scope:
+      - statement: "Inside-wiring and demarc extension by the carrier, WAN underlay sizing, and on-prem PBX hardware are excluded unless explicitly included."
+        evidence_pattern: "scope_exclusion packet naming inside-wiring/WAN + scope_inclusion limited to circuit/VoIP turn-up and porting"
+        pitfalls: "Do not exclude E911 dispatchable-location configuration when voice is in scope; it is a mandatory compliance inclusion."
