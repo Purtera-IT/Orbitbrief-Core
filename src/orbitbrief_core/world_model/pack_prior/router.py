@@ -255,6 +255,17 @@ class PackPrior:
             anchor_text=anchor_text,
         )
 
+        # Additive override from the trained service-router head. parser-os writes
+        # ``envelope.service_routing`` ({"primary": <pack>, ...}) only when the head
+        # is confident; it abstains otherwise. Prepend its pick so the right brain
+        # runs as PRIMARY — e.g. a TV install the keyword scorer sent to datacenter
+        # now also runs audio_visual. The head IS the evidence, so it bypasses the
+        # keyword anchor gate; it is purely ADDITIVE (never drops a keyword pick).
+        sr = envelope.get("service_routing")
+        sr_primary = (sr.get("primary") or "").strip() if isinstance(sr, dict) else ""
+        if sr_primary:
+            selected_pack_ids = list(dict.fromkeys([sr_primary, *selected_pack_ids]))
+
         return PackPriorState(
             project_id=rk.project_id,
             compile_id=rk.compile_id,
