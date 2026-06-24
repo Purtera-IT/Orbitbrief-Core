@@ -30,6 +30,35 @@ _STATUS_ORDER = {"green": 0, "yellow": 1, "red": 2}
 _SEVERITY_TO_STATUS = {"info": "green", "warning": "yellow", "blocker": "red"}
 _PUBLISHABLE_SITE_KINDS = {"physical_site", "building", "address", "room_or_closet"}
 
+# v9: TRUST the trained service-router head. When it confidently routes a deal to a
+# primary service, restrict the active SOW domains to that primary (+ any secondary
+# it returns + always-on infra) instead of the over-broad pack-prior selection +
+# evidence inference. Without this, a confident `audio_visual` deal still runs the
+# msp / datacenter / low_voltage_cabling checklists — producing phantom blockers
+# from the "Data Center Warehouse" *name* and incidental, explicitly out-of-scope
+# cable mentions. Falls back to the union when the head abstains or scores < TAU.
+_ALWAYS_ON_DOMAINS = frozenset({"commercial", "global"})
+_ROUTER_TRUST_TAU = 0.6
+
+
+def _router_primary(
+    service_routing: Mapping[str, Any] | None,
+) -> tuple[str | None, float]:
+    """(primary_domain, confidence) from a confident, non-abstained service-router
+    head result; (None, 0.0) when missing / disabled / abstained / unparseable."""
+    if not isinstance(service_routing, Mapping):
+        return None, 0.0
+    if not service_routing.get("enabled") or service_routing.get("abstained"):
+        return None, 0.0
+    primary = str(service_routing.get("primary") or "").strip()
+    if not primary:
+        return None, 0.0
+    try:
+        conf = float(service_routing.get("confidence") or 0.0)
+    except (TypeError, ValueError):
+        conf = 0.0
+    return primary, conf
+
 
 def _as_list(value: Any) -> list[Any]:
     if value is None:
@@ -420,6 +449,7 @@ def evaluate_sow_completeness(
     rules: Mapping[str, Any] | None = None,
     infer_domains: bool = True,
     include_global: bool = True,
+    service_routing: Mapping[str, Any] | None = None,
 ) -> SowCompletenessResult:
     """Evaluate SOW completeness across all selected/inferred domains.
 
@@ -445,7 +475,29 @@ def evaluate_sow_completeness(
     active = _canonical_pack_ids(selected_pack_ids, rulebook)
     if infer_domains:
         active |= _infer_domains_from_evidence(corpus, rulebook)
-    active = {d for d in active if d in (rulebook.get("domains") or {})}
+    domains_def_all = rulebook.get("domains") or {}
+    active = {d for d in active if d in domains_def_all}
+
+    # v9: a CONFIDENT service-router head overrides the pack-prior over-selection +
+    # evidence inference. Restrict the active set to the routed primary (+ secondary
+    # + always-on infra) so a confident audio_visual deal stops running
+    # msp/datacenter/cabling checklists (the 29 phantom gaps). The required-anchor
+    # gate below still applies. When the head abstains / scores < TAU we keep the
+    # union (the infer-domains safety net for genuinely misrouted cases).
+    sr_primary, sr_conf = _router_primary(service_routing)
+    trusted_primary = (
+        sr_primary
+        if sr_primary and sr_primary in domains_def_all and sr_conf >= _ROUTER_TRUST_TAU
+        else None
+    )
+    if trusted_primary:
+        secondary = {
+            str(s).strip()
+            for s in ((service_routing or {}).get("secondary") or [])
+            if str(s).strip()
+        }
+        keep = {trusted_primary} | secondary | (_ALWAYS_ON_DOMAINS & active)
+        active = {d for d in keep if d in domains_def_all}
 
     # Boss-review v8 F6/F8 — the router can over-select packs (e.g.
     # ``wireless`` and ``audio_visual`` for a cabling-only case
@@ -453,10 +505,15 @@ def evaluate_sow_completeness(
     # ``required_anchor_regex_any`` gate to ROUTER-selected domains,
     # not just inferred ones, so wireless rules don't run on a
     # cabling case that only happens to mention "Aruba" once.
+    # v9 EXCEPT the confident router-head primary: the trained head is more
+    # authoritative than a keyword anchor, so never anchor-drop it (otherwise the
+    # actual routed domain — e.g. audio_visual — is removed and its OWN completeness
+    # checks never run, leaving only infra gaps).
     domains_def = rulebook.get("domains") or {}
     active = {
         d for d in active
-        if _domain_required_anchor_satisfied(d, domains_def.get(d) or {}, corpus)
+        if d == trusted_primary
+        or _domain_required_anchor_satisfied(d, domains_def.get(d) or {}, corpus)
     }
 
     checks_to_run: list[tuple[str, Mapping[str, Any]]] = []
@@ -532,4 +589,5 @@ def evaluate_from_case_payloads(
         site_clusters=site_reality.get("clusters") or [],
         rules=rules,
         infer_domains=infer_domains,
+        service_routing=envelope.get("service_routing"),
     )

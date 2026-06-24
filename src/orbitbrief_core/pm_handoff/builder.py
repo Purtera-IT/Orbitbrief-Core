@@ -109,10 +109,22 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         sow = _autogen_sow_missingness(case_dir)
     case_id = str(report.get("project_id") or sow.get("case_id") or case_dir.name)
 
+    # v9: the trained service-router head writes envelope.service_routing
+    # ({primary, confidence, ...}); the domain view leads with — and the SOW
+    # activates — that routed primary instead of the old pack-prior top.
+    envelope = (
+        _read_json(case_dir / "00_envelope.json")
+        or _read_json(case_dir / "envelope.json")
+        or {}
+    )
+    service_routing = (
+        envelope.get("service_routing") if isinstance(envelope, dict) else None
+    )
+
     source_files, artifact_by_id = _build_source_files(report)
     sites = _build_site_summaries(report, case_dir)
     gaps = _build_gap_cards(sow)
-    domains = _build_domains(report, sow, gaps)
+    domains = _build_domains(report, sow, gaps, service_routing)
     facts = _build_fact_cards(report, artifact_by_id)
     metrics = _build_metrics(report, sow, facts, gaps, sites)
     status, status_label = _derive_status(gaps, sow, report, sites)
@@ -463,7 +475,12 @@ def _build_gap_cards(sow: dict[str, Any]) -> list[GapCard]:
     return sorted(gaps, key=lambda g: (SEVERITY_SORT.get(g.severity, 9), g.domain_label, g.label))
 
 
-def _build_domains(report: dict[str, Any], sow: dict[str, Any], gaps: list[GapCard]) -> list[DomainSummary]:
+def _build_domains(
+    report: dict[str, Any],
+    sow: dict[str, Any],
+    gaps: list[GapCard],
+    service_routing: dict[str, Any] | None = None,
+) -> list[DomainSummary]:
     pack_prior = report.get("pack_prior") or {}
     selected = set(pack_prior.get("selected_pack_ids") or [])
     top = pack_prior.get("top_pack_id")
@@ -495,6 +512,19 @@ def _build_domains(report: dict[str, Any], sow: dict[str, Any], gaps: list[GapCa
             score_by_id[str(top)] = float(pack_prior.get("top_confidence"))
         except (TypeError, ValueError):
             pass
+    # v9: lead with the trained service-router head's primary (not the pack-prior
+    # top, which can be an incidentally high-scoring pack like cabling) and use the
+    # head's confidence as the domain score — so "Open work by domain" reflects the
+    # actual routed service. Falls back to pack-prior when the head abstains.
+    from orbitbrief_core.validator.sow_completeness import _router_primary
+    sr_primary, sr_conf = _router_primary(service_routing)
+    if sr_primary:
+        selected.add(sr_primary)
+        if sr_primary not in domain_ids:
+            domain_ids = sorted(set(domain_ids) | {sr_primary})
+        if sr_conf > 0:
+            score_by_id[sr_primary] = sr_conf
+        top = sr_primary
     out = [
         DomainSummary(
             domain_id=d,
@@ -509,7 +539,14 @@ def _build_domains(report: dict[str, Any], sow: dict[str, Any], gaps: list[GapCa
         )
         for d in domain_ids
     ]
-    return sorted(out, key=lambda d: (-(d.blockers * 100 + d.warnings * 10 + d.info), d.label))
+    return sorted(
+        out,
+        key=lambda d: (
+            0 if d.domain_id == sr_primary else 1,  # routed primary leads the view
+            -(d.blockers * 100 + d.warnings * 10 + d.info),
+            d.label,
+        ),
+    )
 
 
 def _build_fact_cards(report: dict[str, Any], artifact_by_id: dict[str, dict[str, Any]]) -> dict[str, list[EvidenceCard]]:
