@@ -145,13 +145,82 @@ class PlattCalibrator:
 
 
 @dataclass
+class LearnedCombiner:
+    """Trained logistic head over the 10 SignalVector features -> P(accept).
+
+    The neural head for the brain pipeline. Replaces the hand-tuned linear
+    combiner + identity Platt sigmoid — whose max output sigmoid(1.0)=0.73 can
+    never reach the 0.80 auto-accept threshold, so the rule path auto-accepts
+    NOTHING. Loaded from a tiny JSON artifact (tools/train_calibration_head.py,
+    ~11 floats); no torch/sklearn at runtime. Guess-free: CalibrationModel falls
+    back to the hand-tuned path when no head is configured, and the blocker
+    safety cap is preserved here regardless.
+    """
+
+    weights: dict[str, float]
+    bias: float
+    mean: dict[str, float]
+    std: dict[str, float]
+    features: tuple[str, ...]
+    blocker_cap: float = 0.20
+
+    @classmethod
+    def from_json(cls, path: str) -> "LearnedCombiner":
+        import json
+
+        with open(path, encoding="utf-8") as fh:
+            d = json.load(fh)
+        feats = tuple(d.get("features") or list(d["weights"].keys()))
+        return cls(
+            weights={k: float(v) for k, v in d["weights"].items()},
+            bias=float(d.get("bias", 0.0)),
+            mean={k: float(v) for k, v in (d.get("feature_mean") or {}).items()},
+            std={k: float(v) for k, v in (d.get("feature_std") or {}).items()},
+            features=feats,
+        )
+
+    def prob(self, sig: SignalVector) -> float:
+        s = sig.as_features()
+        z = self.bias
+        for f in self.features:
+            denom = self.std.get(f, 1.0) or 1.0
+            x = (float(s.get(f, 0.0)) - self.mean.get(f, 0.0)) / denom
+            z += self.weights.get(f, 0.0) * x
+        p = _sigmoid(z)
+        # Preserve the hard blocker invariant even when the head is confident.
+        if float(s.get("validator_pass", 1.0)) < 0.5:
+            p = min(p, self.blocker_cap)
+        return _clip(p)
+
+
+def _load_learned_combiner() -> "LearnedCombiner | None":
+    """Load the trained calibration head from ``SOWSMITH_CALIBRATION_HEAD`` (a
+    JSON path), or None to fall back to the hand-tuned combiner."""
+    import os
+
+    path = os.environ.get("SOWSMITH_CALIBRATION_HEAD")
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        return LearnedCombiner.from_json(path)
+    except Exception:
+        return None
+
+
+@dataclass
 class CalibrationModel:
-    """Linear combiner + optional :class:`PlattCalibrator`."""
+    """Linear combiner + optional :class:`PlattCalibrator`.
+
+    When a trained :class:`LearnedCombiner` is configured (env
+    ``SOWSMITH_CALIBRATION_HEAD``), it supersedes the hand-tuned combiner for
+    the P(accept) estimate; otherwise the hand-tuned path runs unchanged.
+    """
 
     weights: SignalWeights = field(default_factory=SignalWeights)
     platt: PlattCalibrator = field(default_factory=PlattCalibrator)
     blocker_cap: float = 0.20
     warning_cap: float = 0.80
+    learned: "LearnedCombiner | None" = field(default_factory=_load_learned_combiner)
 
     def raw_score(self, sig: SignalVector) -> float:
         w = self.weights
@@ -175,6 +244,9 @@ class CalibrationModel:
         return _clip(score)
 
     def calibrated(self, sig: SignalVector) -> float:
+        # Trained head supersedes the hand-tuned combiner when configured.
+        if self.learned is not None:
+            return self.learned.prob(sig)
         return _clip(self.platt.predict(self.raw_score(sig)))
 
     def fit_platt(
