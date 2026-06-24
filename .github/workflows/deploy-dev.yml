@@ -30,7 +30,11 @@ env:
   CONTAINER_APP: orbitbrief-core-worker-dev-eus2
   CONTAINER_APP_RG: purtera-dev-rg
   PARSER_OS_REPO: https://github.com/Purtera-IT/parser-os.git
-  PARSER_OS_REF: v45.2
+  # v9: MUST match the ref parser-os-worker bundles (it writes the envelope the
+  # brief-gen validates). v45.2 drifted — its AtomType enum lacks
+  # acceptance_criterion / service_line / site_implementation_note / etc., so
+  # envelope load fails orbitbrief.input.v2 validation on current parser output.
+  PARSER_OS_REF: feat/clean-rubric-heads
 
 jobs:
   build-and-deploy:
