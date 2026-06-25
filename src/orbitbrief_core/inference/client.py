@@ -439,6 +439,12 @@ class OpenAIChatClient:
             "model": model,
             "temperature": float(temperature),
             "messages": chat_messages,
+            # v62: keep the Mac's qwen3 model RESIDENT so we never pay a cold-load
+            # timeout after idle / a Mac recovery (the repeated brief timeouts).
+            # Ollama honors keep_alive on its OpenAI-compat endpoint; -1 = never
+            # unload. Harmless if the proxy drops it. Belt-and-suspenders to
+            # OLLAMA_KEEP_ALIVE=-1 set on the Mac itself.
+            "keep_alive": -1,
         }
         # v45.2: keep Qwen3 thinking ON for quality (matches the local Mac
         # behavior the user already verified), but ensure max_tokens is
