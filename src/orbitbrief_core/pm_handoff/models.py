@@ -236,5 +236,13 @@ class PMHandoff:
     # risk_net/narrator.py.
     section_narration: dict[str, str] = field(default_factory=dict)
 
+    # Neural-heads outputs (orbitbrief_core.neural_heads). Additive + empty by
+    # default, so a brief with the ORBITBRIEF_NEURAL_HEADS flag OFF serializes
+    # exactly as before. Each is a grounded, deal-specific section that the UI
+    # renders in place of the legacy template/rule output when present.
+    gap_findings: list[dict[str, Any]] = field(default_factory=list)
+    risk_synthesis: list[dict[str, Any]] = field(default_factory=list)
+    commercial_narrative: dict[str, Any] = field(default_factory=dict)
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
