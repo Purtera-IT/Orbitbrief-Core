@@ -46,17 +46,14 @@ jobs:
         with:
           path: Orbitbrief-Core
 
-      - name: Checkout Platform-infra (for worker Dockerfile)
-        uses: actions/checkout@v4
-        with:
-          repository: Purtera-IT/Platform-infra
-          token: ${{ secrets.PLATFORM_INFRA_CHECKOUT_TOKEN }}
-          path: platform-infra-tmp
-
       - name: Stage orbitbrief-core-worker dir at build context root
+        # The worker (Dockerfile + app.py + compile_run.py + requirements) is now
+        # VENDORED in Orbitbrief-Core/orbitbrief-core-worker, so we no longer
+        # checkout Platform-infra. That cross-repo PAT (PLATFORM_INFRA_CHECKOUT_TOKEN)
+        # was the deploy's #1 flake — when it expired/was missing the deploy died
+        # at the very first step. No external token needed now.
         run: |
-          cp -r platform-infra-tmp/orbitbrief-core-worker ./
-          rm -rf platform-infra-tmp
+          cp -r Orbitbrief-Core/orbitbrief-core-worker ./
 
       - name: Clone parser-os at pinned ref
         run: |
