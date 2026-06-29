@@ -466,6 +466,16 @@ def build_sow_readiness_scorecard(
     score_values = [d["score"] for d in dimensions.values()]
     overall = sum(score_values) / max(1, len(score_values))
 
+    # Kept in sync with parser-os build_sow_readiness_scorecard: open blockers
+    # veto a "ready" grade so the scorecard can't say ready_to_sow while the
+    # brief lists blockers.
+    unanswered_questions = sum(
+        1 for a in atoms
+        if _atom_type_str(a) == "open_question"
+        and not (isinstance(a.value, dict) and a.value.get("answered") is True)
+    )
+    blocker_count = unanswered_questions + cross_doc_conflicts
+
     # Grade banding.
     if overall >= 0.85:
         grade = "ready_to_sow"
@@ -476,9 +486,17 @@ def build_sow_readiness_scorecard(
     else:
         grade = "discovery_only"
 
+    capped = False
+    if blocker_count > 0 and grade in ("ready_to_sow", "almost_ready"):
+        grade = "needs_work"
+        capped = True
+
     return {
         "readiness_score": round(overall, 3),
         "grade": grade,
+        "blocker_count": blocker_count,
+        "blocked": blocker_count > 0,
+        "grade_capped_by_blockers": capped,
         "dimensions": dimensions,
         "description_by_dimension": dict(_READINESS_DIMENSIONS),
     }
