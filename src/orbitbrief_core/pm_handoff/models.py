@@ -82,6 +82,12 @@ class EvidenceCard:
     source: SourcePointer
     confidence: float | None = None
     verified: str = ""
+    # Per-atom trust signal from the parser's calibrator/review gate. review_status
+    # is "needs_review" when the deal should double-check this fact; the frontend
+    # renders it as a "check this" badge. calibrated_confidence is the calibrated
+    # probability (vs the raw heuristic `confidence`).
+    review_status: str = ""
+    calibrated_confidence: float | None = None
     internal_id: str = ""
 
 

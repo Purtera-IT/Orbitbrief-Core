@@ -580,7 +580,8 @@ def _build_fact_cards(report: dict[str, Any], artifact_by_id: dict[str, dict[str
         text = str(atom.get("text") or "")
         if len(text) > 500:
             type_bonus -= 20
-        return type_bonus, float(atom.get("confidence") or 0.0)
+        cc = atom.get("calibrated_confidence")
+        return type_bonus, float(cc if cc is not None else (atom.get("confidence") or 0.0))
 
     for atom in sorted(report.get("atom_lineage") or [], key=score, reverse=True):
         atom_type = str(atom.get("atom_type") or "")
@@ -604,8 +605,14 @@ def _build_fact_cards(report: dict[str, Any], artifact_by_id: dict[str, dict[str
                     filename=str(artifact.get("filename") or atom.get("artifact_id") or "unknown source"),
                     locator=_format_locator(atom.get("locator") or {}),
                 ),
-                confidence=_maybe_float(atom.get("confidence")),
+                confidence=_maybe_float(
+                    atom.get("calibrated_confidence")
+                    if atom.get("calibrated_confidence") is not None
+                    else atom.get("confidence")
+                ),
                 verified=str(atom.get("verified") or ""),
+                review_status=str(atom.get("review_status") or ""),
+                calibrated_confidence=_maybe_float(atom.get("calibrated_confidence")),
                 internal_id=str(atom.get("id") or ""),
             )
         )
@@ -685,7 +692,13 @@ def _build_one_line_summary(case_id: str, domains: list[DomainSummary], sites: l
     site_names = [s.name for s in sites if s.publishable]
     blockers = sum(1 for g in gaps if g.severity == "blocker")
     warnings = sum(1 for g in gaps if g.severity == "warning")
-    return f"{case_id}: {', '.join(active[:4]) if active else 'unclassified scope'} at {', '.join(site_names[:2]) if site_names else 'no confirmed site'}; {blockers} blocker and {warnings} warning SOW question(s) need PM/SA review."
+    # Lead with the workstream + site, NOT the raw deal UUID — case_id is a
+    # GUID, and leading with it produced embarrassment-grade headlines like
+    # "5205496d-...: unclassified scope at no confirmed site". Use a human label;
+    # the UUID is metadata elsewhere, not the headline.
+    scope = ", ".join(active[:4]) if active else "Scope not yet classified"
+    where = f" at {', '.join(site_names[:2])}" if site_names else ""
+    return f"{scope}{where} — {blockers} blocker and {warnings} warning SOW question(s) need PM/SA review."
 
 
 def _format_locator(locator: dict[str, Any]) -> str:

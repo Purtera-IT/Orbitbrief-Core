@@ -331,6 +331,22 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         _tb.print_exc(file=sys.stderr)
+        # Write a failure marker beside the artifacts so the worker can upload it
+        # and the PM surface can show "brief regeneration failed — showing the
+        # previous version" instead of silently serving a stale PM_HANDOFF.json.
+        try:
+            root = getattr(getattr(result, "artifacts", None), "root", None)
+            if root is not None:
+                (root / "brief_failed.json").write_text(
+                    json.dumps({
+                        "brief_failed": True,
+                        "stage": "pm_handoff_render",
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }),
+                    encoding="utf-8",
+                )
+        except Exception:
+            pass
 
     if not args.quiet:
         manifest = json.loads(result.artifacts.manifest_path.read_text(encoding="utf-8"))

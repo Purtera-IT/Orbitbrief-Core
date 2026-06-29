@@ -41,6 +41,11 @@ def _sow_readiness_dimensions(env: dict) -> dict:
     return {
         "readiness_score": scorecard.get("readiness_score"),
         "grade": scorecard.get("grade"),
+        # Provenance for the blocker-capped grade so the PM sees WHY a deal
+        # isn't "ready" (was dropped here, leaving the capped grade unexplained).
+        "blocker_count": scorecard.get("blocker_count"),
+        "blocked": scorecard.get("blocked"),
+        "grade_capped_by_blockers": scorecard.get("grade_capped_by_blockers"),
         "dimensions": _safe_dict(scorecard.get("dimensions")),
         "description_by_dimension": _safe_dict(scorecard.get("description_by_dimension")),
     }

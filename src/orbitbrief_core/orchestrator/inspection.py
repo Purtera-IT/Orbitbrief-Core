@@ -219,6 +219,11 @@ def build_inspection_report(artifacts: BriefArtifacts) -> dict[str, Any]:
                 "atom_type": atom.get("atom_type"),
                 "authority_class": atom.get("authority_class"),
                 "confidence": atom.get("confidence"),
+                # Per-atom trust signal from the parser (was dropped here, so the
+                # PM only ever saw the raw heuristic confidence).
+                "calibrated_confidence": atom.get("calibrated_confidence"),
+                "review_status": atom.get("review_status"),
+                "confidence_raw": atom.get("confidence_raw"),
                 "verified": atom.get("verified"),
                 "artifact_id": atom.get("artifact_id"),
                 "text": (atom.get("text") or "")[:300],
