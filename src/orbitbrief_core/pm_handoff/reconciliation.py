@@ -1485,6 +1485,32 @@ def _humanize_canonical(canonical: str) -> str:
     return " ".join(p.capitalize() for p in parts if p)
 
 
+_ZONE_LIKE_SITE_RE = re.compile(
+    r"\b(zones?|areas?|regions?|office\s+areas?|warehouse\s+zones?)\b",
+    re.I,
+)
+
+
+def _is_zone_like_site_key(site_key: str) -> bool:
+    """Coverage zones (warehouse zones, office areas) are not physical sites."""
+    return bool(_ZONE_LIKE_SITE_RE.search(site_key.replace("_", " ")))
+
+
+def _physical_site_slugs(report: dict[str, Any]) -> set[str]:
+    slugs: set[str] = set()
+    indexes = report.get("indexes") or {}
+    for slug in indexes.get("physical_site_slugs") or ():
+        if isinstance(slug, str) and slug.strip():
+            slugs.add(slug.strip())
+    for atom, _filename in _iter_atoms_with_files(report):
+        if atom.get("atom_type") != "physical_site":
+            continue
+        for key in atom.get("entity_keys") or ():
+            if isinstance(key, str) and key.startswith("site:"):
+                slugs.add(key.split(":", 1)[1])
+    return slugs
+
+
 def build_site_rollups(report: dict[str, Any]) -> list[SiteRollup]:
     """Group every atom by every ``site:*`` entity_key it carries.
 
@@ -1496,6 +1522,7 @@ def build_site_rollups(report: dict[str, Any]) -> list[SiteRollup]:
     by_site_dates: dict[str, set[str]] = defaultdict(set)
     by_site_stake: dict[str, set[str]] = defaultdict(set)
     by_site_count: dict[str, int] = defaultdict(int)
+    physical_slugs = _physical_site_slugs(report)
 
     for atom, _filename in _iter_atoms_with_files(report):
         sites = [
@@ -1525,6 +1552,10 @@ def build_site_rollups(report: dict[str, Any]) -> list[SiteRollup]:
 
     rollups: list[SiteRollup] = []
     for site in sorted(by_site_count):
+        if _is_zone_like_site_key(site):
+            continue
+        if physical_slugs and site not in physical_slugs:
+            continue
         # Suppress single-atom sites here. parser-os alias fusion
         # usually merges N surface names into one canonical site,
         # but any name that didn't fuse will appear with one atom
