@@ -562,11 +562,14 @@ class PackPrior:
         # Boss-review v9 C001-F1 / C002-F1 — pack-level anchor gate.
         # Drop selected packs that declare ``required_anchor_regex_any``
         # in domain_packs.yaml unless the corpus has the required
-        # number of distinct anchor matches. Top pack is preserved
-        # (we still need to RECORD what the router thought) but
-        # excluded from selected_pack_ids so brains don't run on it.
+        # number of distinct anchor matches.
+        #
+        # Do NOT preserve an unanchored top pack: keyword scoring can crown
+        # wireless from APC/UPS ``AP*`` SKU noise (Stinson battery install),
+        # and keeping that top without anchors floods SOW RED blockers.
+        # Recorded scores still expose what the router thought; brains must
+        # not run on unanchored packs.
         if registry is not None and anchor_text:
-            top_id = selected[0] if selected else None
             kept: list[str] = []
             for pid in selected:
                 pack = registry.get(pid)
@@ -591,7 +594,7 @@ class PackPrior:
                             break
                     if ok:
                         break
-                if ok or pid == top_id:
+                if ok:
                     kept.append(pid)
             selected = kept
 
