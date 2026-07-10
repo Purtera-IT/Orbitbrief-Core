@@ -1449,6 +1449,16 @@ domains:
     display_name: Professional Services
     inference_threshold: 8
     inference_min_hits: 14
+    # Stinson-class UPS/install SOWs mention generic "requirements" /
+    # "Validate deliverables" without any advisory engagement. Require
+    # real discovery/assessment/design anchors before PS completeness
+    # (and its deliverables blocker) can activate.
+    required_anchor_min_distinct_hits: 2
+    required_anchor_regex_any:
+    - \b(discovery\s+(?:workshop|phase|session|engagement)|assessment\s+(?:workshop|report|phase|engagement)|design\s+(?:workshop|assessment|document|phase|engagement))\b
+    - \b(future[- ]?state|current[- ]?state|roadmap)\b
+    - \b(professional\s+services|advisory\s+(?:engagement|scope|services)|consulting\s+(?:engagement|scope|services))\b
+    - \b(workshop\s+notes|recommendations\s+report|statement\s+of\s+findings|as[- ]?is\s+assessment)\b
     scope_triggers:
     - \b(discovery|assessment|design|workshop|future state|current state|requirements|recommendations|deliverable|professional
       services)\b
@@ -1459,8 +1469,13 @@ domains:
       message: Professional-services scope is present but deliverables are not defined.
       suggested_open_question: What professional-services deliverables are required?
       evidence:
+        # Typed deliverable atoms (SOW "Item(s) Provided to Customer") OR
+        # advisory deliverable language. Plural "deliverables" must match.
+        match_mode: any
+        requires_atom_type:
+        - deliverable
         any_regex:
-        - \b(deliverable|assessment report|design document|workshop notes|recommendations|future[- ]?state|current[-
+        - \b(deliverables?|assessment report|design document|workshop notes|recommendations|future[- ]?state|current[-
           ]?state|roadmap)\b
     - id: professional_services.workshops_stakeholders
       label: Workshops / stakeholders

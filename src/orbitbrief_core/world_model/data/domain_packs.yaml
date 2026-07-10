@@ -407,6 +407,15 @@ packs:
     intent: implemented
     implementation: professional_services
     aliases: []
+  # Install/electrical SOWs score PS from generic "design"/"requirements"/
+  # "SOW" keywords. Gate on advisory anchors so pack_prior does not select
+  # professional_services for battery/UPS labor-only deals (Stinson).
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(discovery\s+(?:workshop|phase|session|engagement)|assessment\s+(?:workshop|report|phase|engagement)|design\s+(?:workshop|assessment|document|phase|engagement))\b
+  - \b(future[- ]?state|current[- ]?state|roadmap)\b
+  - \b(professional\s+services|advisory\s+(?:engagement|scope|services)|consulting\s+(?:engagement|scope|services))\b
+  - \b(workshop\s+notes|recommendations\s+report|statement\s+of\s+findings|as[- ]?is\s+assessment)\b
   intake_aliases:
   - professional_services
   subdomain_labels:

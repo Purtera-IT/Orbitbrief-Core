@@ -401,50 +401,76 @@ def _check_satisfied(check: Mapping[str, Any], corpus: CorpusView) -> tuple[bool
     if evidence.get("requires_site_cluster") and corpus.publishable_site_count <= 0:
         return False, observed
 
-    if evidence.get("requires_packet_family"):
-        required = {str(x) for x in _as_list(evidence.get("requires_packet_family"))}
-        observed["matched_packet_family"] = bool(required & corpus.packet_families)
-        if not observed["matched_packet_family"]:
-            return False, observed
+    # ``match_mode: any`` — satisfy if ANY positive matcher hits (atom type
+    # OR regex OR packet family). Default remains AND across present selectors.
+    match_any = str(evidence.get("match_mode") or "").strip().lower() == "any"
 
-    if evidence.get("requires_atom_type"):
-        required = {str(x) for x in _as_list(evidence.get("requires_atom_type"))}
-        observed["matched_atom_type"] = bool(required & corpus.atom_types)
-        if not observed["matched_atom_type"]:
-            return False, observed
-
+    packet_required = bool(evidence.get("requires_packet_family"))
+    atom_required = bool(evidence.get("requires_atom_type"))
     any_regex = evidence.get("any_regex") or []
     all_regex = evidence.get("all_regex") or []
     min_regex_count = evidence.get("min_regex_count")
     search_field = str(evidence.get("search_field") or "all")
 
+    if packet_required:
+        required = {str(x) for x in _as_list(evidence.get("requires_packet_family"))}
+        observed["matched_packet_family"] = bool(required & corpus.packet_families)
+
+    if atom_required:
+        required = {str(x) for x in _as_list(evidence.get("requires_atom_type"))}
+        observed["matched_atom_type"] = bool(required & corpus.atom_types)
+
     if any_regex:
         observed["matched_regex"] = corpus.has_any_regex(any_regex, field=search_field)
-        if not observed["matched_regex"]:
-            return False, observed
 
     if all_regex:
         observed["matched_all_regex"] = corpus.has_all_regex(all_regex, field=search_field)
-        if not observed["matched_all_regex"]:
-            return False, observed
 
     if min_regex_count is not None:
         patterns = evidence.get("count_regex") or any_regex or all_regex
         observed["regex_count"] = corpus.count_regex(patterns, field=search_field)
-        if observed["regex_count"] < int(min_regex_count):
-            return False, observed
 
-    # If a check supplied no explicit evidence selectors, treat it as not satisfied.
-    if not any(
-        evidence.get(k)
+    positive_selectors = [
+        k
         for k in (
-            "requires_site_cluster",
             "requires_packet_family",
             "requires_atom_type",
             "any_regex",
             "all_regex",
             "min_regex_count",
         )
+        if evidence.get(k)
+    ]
+    # If a check supplied no explicit evidence selectors, treat it as not satisfied.
+    if not positive_selectors and not evidence.get("requires_site_cluster"):
+        return False, observed
+
+    if match_any:
+        any_hit = False
+        if packet_required and observed["matched_packet_family"]:
+            any_hit = True
+        if atom_required and observed["matched_atom_type"]:
+            any_hit = True
+        if any_regex and observed["matched_regex"]:
+            any_hit = True
+        if all_regex and observed.get("matched_all_regex"):
+            any_hit = True
+        if min_regex_count is not None and observed.get("regex_count", 0) >= int(
+            min_regex_count
+        ):
+            any_hit = True
+        return any_hit, observed
+
+    if packet_required and not observed["matched_packet_family"]:
+        return False, observed
+    if atom_required and not observed["matched_atom_type"]:
+        return False, observed
+    if any_regex and not observed["matched_regex"]:
+        return False, observed
+    if all_regex and not observed.get("matched_all_regex"):
+        return False, observed
+    if min_regex_count is not None and observed.get("regex_count", 0) < int(
+        min_regex_count
     ):
         return False, observed
 

@@ -224,3 +224,70 @@ def test_trusted_wireless_primary_without_anchors_is_dropped():
     rule_ids = {f.rule_id for f in res.findings}
     assert "wireless.ap_count_model" not in rule_ids
     assert "wireless.ssid_vlan_auth_matrix_missing" not in rule_ids
+
+
+def test_professional_services_dropped_without_advisory_anchors():
+    """Generic install SOW language (requirements / Validate deliverables)
+    must not activate professional_services or its deliverables blocker."""
+    res = evaluate_sow_completeness(
+        selected_pack_ids=["professional_services", "electrical", "commercial"],
+        atoms=[
+            {
+                "atom_type": "task",
+                "raw_text": (
+                    "Install one (1) customer provided battery pack, model "
+                    "APCRBC140, into the applicable UPS."
+                ),
+            },
+            {
+                "atom_type": "scope_item",
+                "raw_text": "Validate deliverables with Customer",
+            },
+            {
+                "atom_type": "scope_item",
+                "raw_text": "Provide any specific installation requirements as needed.",
+            },
+            {
+                "atom_type": "deliverable",
+                "raw_text": "Photos of new device installed",
+            },
+        ],
+        packets=[],
+        site_clusters=[{"kind": "physical_site", "canonical_name": "tampa fl 33602"}],
+        service_routing={
+            "enabled": True,
+            "primary": None,
+            "abstained": True,
+            "abstain_reason": "missing_evidence_anchors",
+            "confidence": 0.92,
+        },
+    )
+    assert "professional_services" not in res.active_domain_ids
+    rule_ids = {f.rule_id for f in res.findings}
+    assert "professional_services.deliverables" not in rule_ids
+
+
+def test_professional_services_deliverable_atom_satisfies_blocker():
+    """When PS is legitimately active, a typed deliverable atom clears the
+    deliverables blocker even without the word 'deliverable' in prose."""
+    res = evaluate_sow_completeness(
+        selected_pack_ids=["professional_services"],
+        atoms=[
+            {
+                "atom_type": "scope_item",
+                "raw_text": (
+                    "Professional services discovery workshop and future-state "
+                    "assessment engagement for the campus network."
+                ),
+            },
+            {
+                "atom_type": "deliverable",
+                "raw_text": "Photos of new device installed",
+            },
+        ],
+        packets=[],
+        site_clusters=[],
+    )
+    assert "professional_services" in res.active_domain_ids
+    rule_ids = {f.rule_id for f in res.findings}
+    assert "professional_services.deliverables" not in rule_ids
