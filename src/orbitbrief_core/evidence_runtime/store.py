@@ -321,8 +321,14 @@ class EvidenceStore:
     def _ingest_atoms(self, key: EnvelopeKey, atoms: list[dict[str, Any]]) -> None:
         atom_rows = []
         key_rows = []
+        seen_atom_ids: set[str] = set()
         for a in atoms:
             atom_id = str(a["id"])
+            # Parser envelopes occasionally emit duplicate atom ids; DuckDB
+            # PK on (project_id, compile_id, atom_id) hard-fails the compile.
+            if atom_id in seen_atom_ids:
+                continue
+            seen_atom_ids.add(atom_id)
             atom_rows.append(
                 (
                     key.project_id,

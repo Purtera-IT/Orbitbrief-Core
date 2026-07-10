@@ -715,10 +715,13 @@ class BriefPipeline:
             if pack is None:
                 continue
             kws: set[str] = set()
-            for w in pack.keywords:
-                kws.add(w.lower())
-            for w in pack.boosted_keywords:
-                kws.add(w.lower())
+            # YAML may coerce bare tokens like 1099 to int; coerce defensively.
+            for w in (*pack.keywords, *pack.boosted_keywords):
+                if w is None:
+                    continue
+                token = str(w).strip().lower()
+                if token:
+                    kws.add(token)
             if kws:
                 out[pack_id] = kws
         return out

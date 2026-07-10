@@ -74,17 +74,29 @@ class DomainPackRegistry:
     def _from_yaml_text(cls, text: str) -> "DomainPackRegistry":
         doc = yaml.safe_load(text) or {}
         packs: list[DomainPack] = []
+
+        def _str_tuple(values: object) -> tuple[str, ...]:
+            # YAML coerces bare numerics (e.g. 1099) to int; keep tokens as str.
+            out: list[str] = []
+            for v in values or ():  # type: ignore[union-attr]
+                if v is None:
+                    continue
+                token = str(v).strip()
+                if token:
+                    out.append(token)
+            return tuple(out)
+
         for raw in doc.get("packs", []) or []:
             packs.append(
                 DomainPack(
                     id=str(raw["id"]),
                     display_name=str(raw.get("display_name") or raw["id"]),
-                    intake_aliases=tuple(raw.get("intake_aliases") or ()),
-                    subdomain_labels=tuple(raw.get("subdomain_labels") or ()),
-                    keywords=tuple(raw.get("keywords") or ()),
-                    boosted_keywords=tuple(raw.get("boosted_keywords") or ()),
+                    intake_aliases=_str_tuple(raw.get("intake_aliases") or ()),
+                    subdomain_labels=_str_tuple(raw.get("subdomain_labels") or ()),
+                    keywords=_str_tuple(raw.get("keywords") or ()),
+                    boosted_keywords=_str_tuple(raw.get("boosted_keywords") or ()),
                     required_anchor_regex_any=tuple(
-                        raw.get("required_anchor_regex_any") or ()
+                        str(x) for x in (raw.get("required_anchor_regex_any") or ()) if x
                     ),
                     required_anchor_min_distinct_hits=int(
                         raw.get("required_anchor_min_distinct_hits") or 2

@@ -554,7 +554,7 @@ packs:
   - field_resource
   - badged_resource
   - cleared_resource
-  - 1099
+  - "1099"
   - subcontractor_field
   - field_engineer
 - id: telecom
