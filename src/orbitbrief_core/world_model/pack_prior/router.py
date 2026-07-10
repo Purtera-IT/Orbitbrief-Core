@@ -259,12 +259,40 @@ class PackPrior:
         # ``envelope.service_routing`` ({"primary": <pack>, ...}) only when the head
         # is confident; it abstains otherwise. Prepend its pick so the right brain
         # runs as PRIMARY — e.g. a TV install the keyword scorer sent to datacenter
-        # now also runs audio_visual. The head IS the evidence, so it bypasses the
-        # keyword anchor gate; it is purely ADDITIVE (never drops a keyword pick).
+        # now also runs audio_visual. Still require pack ``required_anchor_regex_any``
+        # so a mis-embedded primary (UPS battery → wireless) cannot bypass the gate.
         sr = envelope.get("service_routing")
         sr_primary = (sr.get("primary") or "").strip() if isinstance(sr, dict) else ""
-        if sr_primary:
+        if sr_primary and not (isinstance(sr, dict) and sr.get("abstained")):
             selected_pack_ids = list(dict.fromkeys([sr_primary, *selected_pack_ids]))
+            if self.registry is not None and anchor_text:
+                kept: list[str] = []
+                for pid in selected_pack_ids:
+                    pack = self.registry.get(pid)
+                    anchors = tuple(getattr(pack, "required_anchor_regex_any", ()) or ())
+                    if not anchors:
+                        kept.append(pid)
+                        continue
+                    min_hits = int(
+                        getattr(pack, "required_anchor_min_distinct_hits", 2) or 2
+                    )
+                    distinct: set[str] = set()
+                    ok = False
+                    for pat in anchors:
+                        try:
+                            rx = re.compile(pat, re.I)
+                        except re.error:
+                            continue
+                        for m in rx.finditer(anchor_text):
+                            distinct.add(m.group(0).lower())
+                            if len(distinct) >= min_hits:
+                                ok = True
+                                break
+                        if ok:
+                            break
+                    if ok:
+                        kept.append(pid)
+                selected_pack_ids = kept
 
         return PackPriorState(
             project_id=rk.project_id,

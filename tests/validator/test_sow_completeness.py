@@ -163,3 +163,64 @@ def test_status_summary_counts_findings():
         d["summary"]["blocker"] + d["summary"]["warning"] + d["summary"]["info"]
         == d["summary"]["total_findings"]
     )
+
+
+def test_config_only_quote_context_suppresses_install_survey_wireless_gaps():
+    res = evaluate_sow_completeness(
+        selected_pack_ids=["wireless"],
+        atoms=[
+            {"raw_text": "Cisco AP refresh for wireless access points"},
+            {"raw_text": "Configure SSID and deliver RF heatmap"},
+            {
+                "atom_type": "task",
+                "raw_text": "Ubiquiti configuration support",
+                "value": {
+                    "quote_context": {
+                        "delivery_model": "config_only",
+                        "source": "neural_head",
+                        "confidence": 0.93,
+                        "relation": "quote_delivery_model",
+                    }
+                },
+            },
+        ],
+        packets=[],
+        site_clusters=[],
+        service_routing={"enabled": True, "primary": "wireless", "confidence": 0.95},
+    )
+
+    rule_ids = {f.rule_id for f in res.findings}
+    assert "wireless.heatmap_deliverables" not in rule_ids
+    assert "wireless.mounting_access" not in rule_ids
+    assert "wireless.survey_type" not in rule_ids
+    assert res.coverage["quote_context_suppressed"] > 0
+
+
+def test_trusted_wireless_primary_without_anchors_is_dropped():
+    """UPS/APC battery installs must not keep wireless SOW blockers active
+    just because the neural router head confidently mis-embeds them."""
+    res = evaluate_sow_completeness(
+        selected_pack_ids=["wireless", "electrical", "commercial"],
+        atoms=[
+            {
+                "atom_type": "task",
+                "raw_text": (
+                    "Install one (1) customer provided battery pack, model "
+                    "APCRBC140, into the applicable UPS."
+                ),
+            },
+            {
+                "atom_type": "scope_item",
+                "raw_text": "Customer provides the APCRBC140 battery pack at site.",
+            },
+        ],
+        packets=[],
+        site_clusters=[{"kind": "physical_site", "canonical_name": "tampa fl 33602"}],
+        service_routing={"enabled": True, "primary": "wireless", "confidence": 0.92},
+    )
+    wireless_findings = [f for f in res.findings if f.domain_id == "wireless"]
+    assert wireless_findings == []
+    assert "wireless" not in res.active_domain_ids
+    rule_ids = {f.rule_id for f in res.findings}
+    assert "wireless.ap_count_model" not in rule_ids
+    assert "wireless.ssid_vlan_auth_matrix_missing" not in rule_ids

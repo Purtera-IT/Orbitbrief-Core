@@ -91,6 +91,19 @@ def _flatten_value(value: Any) -> str:
     return " ".join(p for p in parts if p)
 
 
+def _physical_atom_has_location(atom: Mapping[str, Any]) -> bool:
+    value = atom.get("value") or atom.get("structured") or {}
+    if not isinstance(value, Mapping):
+        return False
+    street = str(value.get("street_address") or value.get("address") or "").strip()
+    city = str(value.get("city") or "").strip()
+    state = str(value.get("state") or "").strip()
+    zipc = str(value.get("zip") or value.get("postal_code") or "").strip()
+    if street and (city or state or zipc):
+        return True
+    return bool(street and re.search(r"\b\d{1,6}\b", street))
+
+
 def _atom_text(atom: Mapping[str, Any]) -> str:
     parts: list[str] = []
     for key in ("raw_text", "text", "normalized_text", "claim", "normalized_claim"):
@@ -176,6 +189,13 @@ class CorpusView:
             for s in site_tuple
             if str(s.get("kind") or "") in _PUBLISHABLE_SITE_KINDS
         )
+        if pub_sites == 0:
+            pub_sites = sum(
+                1
+                for atom in atom_tuple
+                if str(atom.get("atom_type") or "") == "physical_site"
+                and _physical_atom_has_location(atom)
+            )
         return cls(
             atoms=atom_tuple,
             packets=packet_tuple,
@@ -440,6 +460,38 @@ def _severity_status(findings: Iterable[SowCompletenessFinding]) -> str:
     return status
 
 
+_CONFIG_ONLY_WIRELESS_GAP_IDS = frozenset({
+    "wireless.ap_count_model",
+    "wireless.ap_cabling_spec",
+    "wireless.poe_class_budget",
+    "wireless.dfs_channel_policy_missing",
+    "wireless.heatmap_deliverables",
+    "wireless.mounting_access",
+    "wireless.poe_switch_dependency",
+    "wireless.poe_class_per_ap_missing",
+    "wireless.mounting_locations_missing",
+    "wireless.post_validation_walkthrough_missing",
+    "wireless.owner_furnished_boundary_missing",
+    "wireless.per_ap_cable_certification_level_missing",
+    "wireless.survey_type",
+    "wireless.wips_rogue_ap_policy_missing",
+})
+
+
+def _parser_quote_delivery_model(atoms: Iterable[Mapping[str, Any]]) -> str:
+    for atom in atoms:
+        value = atom.get("value") or atom.get("structured") or {}
+        if not isinstance(value, Mapping):
+            continue
+        context = value.get("quote_context") or {}
+        if not isinstance(context, Mapping):
+            continue
+        delivery_model = str(context.get("delivery_model") or "").strip().lower()
+        if delivery_model:
+            return delivery_model
+    return ""
+
+
 def evaluate_sow_completeness(
     *,
     selected_pack_ids: Iterable[str],
@@ -505,15 +557,17 @@ def evaluate_sow_completeness(
     # ``required_anchor_regex_any`` gate to ROUTER-selected domains,
     # not just inferred ones, so wireless rules don't run on a
     # cabling case that only happens to mention "Aruba" once.
-    # v9 EXCEPT the confident router-head primary: the trained head is more
-    # authoritative than a keyword anchor, so never anchor-drop it (otherwise the
-    # actual routed domain — e.g. audio_visual — is removed and its OWN completeness
-    # checks never run, leaving only infra gaps).
+    #
+    # v9 trusted the neural primary enough to skip this gate. That let a
+    # mis-embedded UPS/APC battery install (Stinson) keep wireless active
+    # at 0.92 confidence with zero WLAN anchors and flood RED blockers.
+    # parser-os now also evidence-gates the head; Orbit still enforces the
+    # pack anchors here as defense-in-depth — a confident wrong primary
+    # without anchors is dropped, not trusted.
     domains_def = rulebook.get("domains") or {}
     active = {
         d for d in active
-        if d == trusted_primary
-        or _domain_required_anchor_satisfied(d, domains_def.get(d) or {}, corpus)
+        if _domain_required_anchor_satisfied(d, domains_def.get(d) or {}, corpus)
     }
 
     checks_to_run: list[tuple[str, Mapping[str, Any]]] = []
@@ -549,6 +603,13 @@ def evaluate_sow_completeness(
             )
         )
 
+    quote_delivery_model = _parser_quote_delivery_model(corpus.atoms)
+    suppressed_by_quote_context = 0
+    if quote_delivery_model == "config_only":
+        before = len(findings)
+        findings = [f for f in findings if f.rule_id not in _CONFIG_ONLY_WIRELESS_GAP_IDS]
+        suppressed_by_quote_context = before - len(findings)
+
     coverage = {
         "checks_run": len(checks_to_run),
         "checks_satisfied": satisfied_count,
@@ -556,6 +617,7 @@ def evaluate_sow_completeness(
         "atoms_seen": len(corpus.atoms),
         "packets_seen": len(corpus.packets),
         "site_clusters_seen": len(corpus.site_clusters),
+        "quote_context_suppressed": suppressed_by_quote_context,
     }
 
     return SowCompletenessResult(

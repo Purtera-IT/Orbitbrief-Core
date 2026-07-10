@@ -6,6 +6,7 @@ from pathlib import Path
 import yaml
 
 from orbitbrief_core.pm_handoff import build_pm_handoff, render_pm_handoff_markdown, render_sow_draft
+from orbitbrief_core.pm_handoff.builder import _site_summaries_from_physical_atoms
 
 
 def test_pm_handoff_hides_internal_language(tmp_path: Path):
@@ -62,3 +63,39 @@ def test_pm_handoff_hides_internal_language(tmp_path: Path):
     assert "Statement of Work" in sow_md
     assert "Spring Lake High School" in sow_md
     assert "What test standard is required?" in sow_md
+
+
+def test_site_summary_fallback_prefers_location_backed_physical_site():
+    report = {
+        "atoms": [
+            {
+                "id": "name_only",
+                "atom_type": "physical_site",
+                "entity_keys": ["site:gecko_robotics_pittsburgh_office_workshop"],
+                "text": "Gecko Robotics requested assistance configuring a new Ubiquiti deployment for a new office/workshop location.",
+                "value": {
+                    "site_id": "GECKO-ROBOTICS-PITTSBURGH-OFFICE-WORKSHOP",
+                    "name": "gecko robotics pittsburgh office workshop",
+                },
+            },
+            {
+                "id": "address",
+                "atom_type": "physical_site",
+                "entity_keys": ["site:pittsburgh_pa_15212"],
+                "text": "100 S COMMONS STE 145, PITTSBURGH, PA 15212",
+                "value": {
+                    "site_id": "PITTSBURGH-PA-15212",
+                    "name": "100 S COMMONS STE 145, PITTSBURGH, PA 15212",
+                    "street_address": "100 S COMMONS STE 145",
+                    "city": "PITTSBURGH",
+                    "state": "PA",
+                    "zip": "15212",
+                },
+            },
+        ]
+    }
+
+    sites = _site_summaries_from_physical_atoms(report)
+
+    assert len(sites) == 1
+    assert sites[0].name == "100 S COMMONS STE 145, PITTSBURGH, PA 15212"

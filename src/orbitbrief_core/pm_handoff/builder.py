@@ -46,6 +46,8 @@ from orbitbrief_core.pm_handoff.reconciliation import (
     build_stakeholder_pagers,
     find_quantity_contradictions,
     parse_bom_allocations,
+    _is_vendor_site_key,
+    _physical_site_slugs,
 )
 from orbitbrief_core.pm_handoff.pm_intelligence import (
     build_change_order_triggers,
@@ -389,6 +391,7 @@ def _build_site_summaries(report: dict[str, Any], case_dir: Path | None = None) 
                 pass
 
     out: list[SiteSummary] = []
+    physical_slugs = _physical_site_slugs(report)
     for cluster in (report.get("site_reality") or {}).get("clusters") or []:
         name = str(cluster.get("canonical_name") or cluster.get("cluster_id") or "Unknown site")
         md = md_overrides.get(name, {})
@@ -417,6 +420,9 @@ def _build_site_summaries(report: dict[str, Any], case_dir: Path | None = None) 
         looks_device_shaped = last_tok in device_acronym_suffixes
         if (member_count <= 2 and artifact_count <= 2) or looks_device_shaped:
             continue
+        cluster_slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+        if not physical_slugs or cluster_slug not in physical_slugs:
+            continue
         out.append(
             SiteSummary(
                 name=name,
@@ -431,7 +437,105 @@ def _build_site_summaries(report: dict[str, Any], case_dir: Path | None = None) 
                 artifact_count=artifact_count,
             )
         )
+    if not out:
+        out.extend(_site_summaries_from_physical_atoms(report))
+    if not out and case_dir is not None:
+        envelope = (
+            _read_json(case_dir / "00_envelope.json")
+            or _read_json(case_dir / "envelope.json")
+            or {}
+        )
+        if isinstance(envelope, dict):
+            out.extend(_site_summaries_from_physical_atoms({"atoms": envelope.get("atoms") or []}))
     return sorted(out, key=lambda s: (not s.publishable, s.name))
+
+
+def _iter_report_atoms(report: dict[str, Any]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    def add(atom: Any) -> None:
+        if not isinstance(atom, dict):
+            return
+        aid = str(atom.get("id") or id(atom))
+        if aid in seen:
+            return
+        seen.add(aid)
+        out.append(atom)
+
+    for atom in report.get("atoms") or []:
+        add(atom)
+    for atom in report.get("atom_lineage") or []:
+        add(atom)
+    for artifact in report.get("artifacts") or []:
+        if isinstance(artifact, dict):
+            for atom in artifact.get("atoms") or []:
+                add(atom)
+    return out
+
+
+def _site_summaries_from_physical_atoms(report: dict[str, Any]) -> list[SiteSummary]:
+    """Fallback for thin deals where the only direct site evidence is the site atom."""
+    atoms = _iter_report_atoms(report)
+    physical_atoms = [a for a in atoms if a.get("atom_type") == "physical_site"]
+    has_location_backed_site = any(_physical_atom_has_location(a) for a in physical_atoms)
+    by_slug_count: Counter[str] = Counter()
+    for atom in atoms:
+        for key in atom.get("entity_keys") or []:
+            if isinstance(key, str) and key.startswith("site:"):
+                by_slug_count[key.split(":", 1)[1]] += 1
+
+    out: list[SiteSummary] = []
+    seen: set[str] = set()
+    for atom in physical_atoms:
+        if has_location_backed_site and not _physical_atom_has_location(atom):
+            continue
+        value = atom.get("value") or atom.get("structured") or {}
+        if not isinstance(value, dict):
+            value = {}
+        site_keys = [
+            key.split(":", 1)[1]
+            for key in atom.get("entity_keys") or []
+            if isinstance(key, str) and key.startswith("site:")
+        ]
+        slug = site_keys[0] if site_keys else ""
+        if not slug or slug in seen or _is_vendor_site_key(slug):
+            continue
+        seen.add(slug)
+        name = str(
+            value.get("name")
+            or value.get("facility_name")
+            or getattr(atom, "raw_text", "")
+            or atom.get("raw_text")
+            or slug
+        ).strip()
+        if not name:
+            name = slug.replace("_", " ").title()
+        out.append(
+            SiteSummary(
+                name=name,
+                kind="physical_site",
+                publishable=True,
+                member_evidence_count=max(1, by_slug_count.get(slug, 1)),
+                artifact_count=1,
+            )
+        )
+    return out
+
+
+def _physical_atom_has_location(atom: dict[str, Any]) -> bool:
+    value = atom.get("value") or atom.get("structured") or {}
+    if not isinstance(value, dict):
+        return False
+    street = str(value.get("street_address") or value.get("address") or "").strip()
+    city = str(value.get("city") or "").strip()
+    state = str(value.get("state") or "").strip()
+    zipc = str(value.get("zip") or value.get("postal_code") or "").strip()
+    if street and (city or state or zipc):
+        return True
+    if street and re.search(r"\b\d{1,6}\b", street):
+        return True
+    return bool(city and state)
 
 
 def _read_site_reality_md(case_dir: Path | None) -> dict[str, dict[str, Any]]:

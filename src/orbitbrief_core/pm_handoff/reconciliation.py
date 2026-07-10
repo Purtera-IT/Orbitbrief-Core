@@ -1490,10 +1490,20 @@ _ZONE_LIKE_SITE_RE = re.compile(
     re.I,
 )
 
+_VENDOR_SITE_RE = re.compile(
+    r"purtera|amber\s*park|11720|alpharetta.*30009",
+    re.I,
+)
+
 
 def _is_zone_like_site_key(site_key: str) -> bool:
     """Coverage zones (warehouse zones, office areas) are not physical sites."""
     return bool(_ZONE_LIKE_SITE_RE.search(site_key.replace("_", " ")))
+
+
+def _is_vendor_site_key(site_key: str) -> bool:
+    """PurTera corporate / letterhead addresses must not publish as job sites."""
+    return bool(_VENDOR_SITE_RE.search(site_key.replace("_", " ")))
 
 
 def _physical_site_slugs(report: dict[str, Any]) -> set[str]:
@@ -1554,7 +1564,9 @@ def build_site_rollups(report: dict[str, Any]) -> list[SiteRollup]:
     for site in sorted(by_site_count):
         if _is_zone_like_site_key(site):
             continue
-        if physical_slugs and site not in physical_slugs:
+        if _is_vendor_site_key(site):
+            continue
+        if site not in physical_slugs:
             continue
         # Suppress single-atom sites here. parser-os alias fusion
         # usually merges N surface names into one canonical site,
