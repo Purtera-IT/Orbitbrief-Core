@@ -561,6 +561,67 @@ def build_rfp_line_items(report: dict[str, Any]) -> list[RFPLineItem]:
     return out
 
 
+# parser-os v50 emits typed commercial atoms; route each to its Deal Kit
+# section by atom_type (no keyword guessing). bom_line/service_line are
+# included so Hardware/Labor are covered alongside the new sections.
+_COMMERCIAL_ATOM_CATEGORY = {
+    "material": "materials",
+    "expense": "expenses",
+    "pmo": "pmo",
+    "license_subscription": "licenses",
+    "bom_line": "hardware",
+    "service_line": "labor",
+}
+
+
+def build_commercial_line_items(report: dict[str, Any]) -> list[RFPLineItem]:
+    """Project parser-os typed commercial atoms (material / expense / pmo /
+    license_subscription / bom_line / service_line) into categorized line items
+    so the Deal Kit can prefill Materials / Expenses / PMO (and Hardware /
+    Labor) sections. Routes by ``atom_type`` — parser-os now emits these as
+    typed atoms with a structured value (qty / unit_price / part_number /
+    sub_category), so no keyword classification is needed.
+    """
+    out: list[RFPLineItem] = []
+    seen: set[tuple[str, str, str]] = set()
+    for atom, filename in _iter_atoms_with_files(report):
+        cat = _COMMERCIAL_ATOM_CATEGORY.get(str(atom.get("atom_type") or ""))
+        if not cat:
+            continue
+        s = atom.get("structured") or {}
+        if not isinstance(s, dict):
+            s = {}
+        description = str(s.get("description") or s.get("text") or atom.get("text") or "")[:200]
+        part_number = str(s.get("part_number") or "")
+        if not description and not part_number:
+            continue
+        try:
+            qty = int(float(s.get("qty") or s.get("quantity") or 0))
+        except (ValueError, TypeError):
+            qty = 0
+        try:
+            unit_price = int(float(str(s.get("unit_price") or s.get("unit_price_raw") or 0).replace(",", "")))
+        except (ValueError, TypeError):
+            unit_price = 0
+        key = (cat, part_number, description[:80])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(
+            RFPLineItem(
+                category=cat,
+                part_number=part_number,
+                description=description,
+                quantity=qty,
+                unit_price=unit_price,
+                lead_time=str(s.get("lead_time") or "")[:60],
+                notes=str(s.get("sub_category") or s.get("notes") or "")[:160],
+                source=filename,
+            )
+        )
+    return out
+
+
 # ────────────────────────────── B9 acceptance checklist ──────────────────────────────
 
 

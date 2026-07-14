@@ -135,6 +135,10 @@ class PMHandoff:
     # B8: vendor RFP line items — auto-categorized vendor_line_item
     # atoms used by ``render_rfp_draft`` to generate RFP_DRAFT.md.
     rfp_line_items: list[dict[str, Any]] = field(default_factory=list)
+    # parser-os v50 typed commercial line items routed by category
+    # (materials / expenses / pmo / licenses / hardware / labor) so the Deal
+    # Kit can prefill each cost section. Built by build_commercial_line_items.
+    commercial_line_items: list[dict[str, Any]] = field(default_factory=list)
     # PM-audit gap fillers:
     # Executive summary (3-line briefing for the top of PM_HANDOFF).
     executive_summary: dict[str, Any] = field(default_factory=dict)
