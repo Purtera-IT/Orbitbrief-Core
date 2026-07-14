@@ -3,8 +3,6 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from orbitbrief_core.pm_handoff.fact_quality import commercial_substance
-
 DOMAIN_LABELS: dict[str, str] = {
     "alm": "Application / lifecycle management",
     "audit": "Audit / compliance",
@@ -196,7 +194,29 @@ def classify_fact_category(atom_type: str, text: str) -> str:
     # commercial when the text itself carries commercial substance — never
     # dump greetings / soft prompts into "Commercial terms…".
     if atom_type == "deal_metadata":
-        if commercial_substance(text):
+        if any(
+            x in t
+            for x in (
+                "payment",
+                "pricing",
+                "price",
+                "invoice",
+                "purchase order",
+                " nte",
+                "fixed fee",
+                "t&m",
+                "time and materials",
+                "cdw us paper",
+                "us paper",
+                "change order",
+                "survey charge",
+                "per-site fee",
+                "per site fee",
+                "quote",
+                "msa",
+                "billing",
+            )
+        ):
             return "commercial"
         if any(x in t for x in ("approv", "signator", "stakeholder", "owner")):
             return "stakeholders"
