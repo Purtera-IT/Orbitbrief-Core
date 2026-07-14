@@ -142,6 +142,14 @@ def shared_intent_family(text_a: str, text_b: str, *, min_hits: int = 2) -> bool
     return False
 
 
+def is_neural_embedder(embedder: Embedder | None) -> bool:
+    """True when using a remote neural embedder (not the offline hash stub)."""
+    if embedder is None:
+        return False
+    mid = str(getattr(embedder, "model_id", "") or "").lower()
+    return bool(mid) and "deterministic-hash" not in mid
+
+
 def pair_near_duplicate(
     text_a: str,
     text_b: str,
@@ -152,10 +160,19 @@ def pair_near_duplicate(
     containment_threshold: float = DEFAULT_CONTAINMENT_THRESHOLD,
     hybrid_cosine: float = DEFAULT_HYBRID_COSINE,
     hybrid_containment: float = DEFAULT_HYBRID_CONTAINMENT,
+    neural: bool = False,
 ) -> tuple[bool, float, float]:
-    """Return (is_dup, cosine, containment)."""
+    """Return (is_dup, cosine, containment).
+
+    Neural path: cosine only (plus near-exact containment ≥0.92). Intent-family
+    and soft lexical gates over-merged SOP vs approval on live deals — disabled
+    when Qwen embeddings are available.
+    """
     cos = cosine_similarity(vec_a, vec_b)
     cont = soft_containment(text_a, text_b)
+    if neural:
+        is_dup = cos >= cosine_threshold or cont >= 0.92
+        return is_dup, cos, cont
     is_dup = (
         cos >= cosine_threshold
         or cont >= containment_threshold
@@ -163,6 +180,34 @@ def pair_near_duplicate(
         or shared_intent_family(text_a, text_b)
     )
     return is_dup, cos, cont
+
+
+def evidence_relevance_scores(
+    questions: Sequence[str],
+    evidence_blob: str,
+    *,
+    embedder: Embedder | None = None,
+) -> tuple[list[float], str]:
+    """Cosine relevance of each question to the deal evidence (neural when live)."""
+    emb = resolve_question_embedder(embedder)
+    if not questions:
+        return [], emb.model_id
+    blob = re.sub(r"\s+", " ", (evidence_blob or "").strip())[:4500]
+    query = (
+        "Unresolved project-manager decisions that must be answered before quoting "
+        "and scheduling this engagement. Prefer concrete deal-specific asks grounded "
+        "in the evidence below; demote generic checklists, smalltalk, and misframed "
+        "governance.\n\nEvidence:\n"
+        f"{blob}"
+    )
+    try:
+        vecs = emb.embed([query, *[q or "" for q in questions]])
+    except Exception:
+        emb = DeterministicHashEmbedder(dim=256)
+        vecs = emb.embed([query, *[q or "" for q in questions]])
+    qv = vecs[0]
+    scores = [cosine_similarity(qv, vecs[i + 1]) for i in range(len(questions))]
+    return scores, emb.model_id
 
 
 @dataclass
@@ -383,6 +428,9 @@ def cluster_near_duplicates(
         # Remote embed down → hash embedder so handoff still builds.
         emb = DeterministicHashEmbedder(dim=256)
         vecs = emb.embed([t or "" for t in texts])
+    neural = is_neural_embedder(emb)
+    # Neural paraphrases cluster tighter — raise bar so SOP ≠ approval.
+    cos_thr = max(cosine_threshold, 0.80) if neural else cosine_threshold
     edges: list[tuple[int, int]] = []
     merged = 0
     for i in range(n):
@@ -392,10 +440,11 @@ def cluster_near_duplicates(
                 texts[j],
                 vecs[i],
                 vecs[j],
-                cosine_threshold=cosine_threshold,
+                cosine_threshold=cos_thr,
                 containment_threshold=containment_threshold,
                 hybrid_cosine=hybrid_cosine,
                 hybrid_containment=hybrid_containment,
+                neural=neural,
             )
             if is_dup:
                 edges.append((i, j))
@@ -407,8 +456,8 @@ def cluster_near_duplicates(
         cluster_count=len(clusters),
         merged_pairs=merged,
         embedder_model=emb.model_id,
-        cosine_threshold=cosine_threshold,
-        containment_threshold=containment_threshold,
+        cosine_threshold=cos_thr,
+        containment_threshold=containment_threshold if not neural else 0.92,
     )
     return clusters, meta
 
@@ -477,14 +526,17 @@ def is_near_duplicate_of_any(
     if len(corpus) < 2:
         return False
     vecs = emb.embed(corpus)
+    neural = is_neural_embedder(emb)
+    cos_thr = max(cosine_threshold, 0.80) if neural else cosine_threshold
     for i in range(1, len(corpus)):
         is_dup, _, _ = pair_near_duplicate(
             corpus[0],
             corpus[i],
             vecs[0],
             vecs[i],
-            cosine_threshold=cosine_threshold,
+            cosine_threshold=cos_thr,
             containment_threshold=containment_threshold,
+            neural=neural,
         )
         if is_dup:
             return True

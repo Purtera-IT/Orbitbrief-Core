@@ -58,7 +58,7 @@ Detected from envelope evidence + service routing, including:
 
 - Engine: `orbitbrief_core/pm_handoff/question_engine.py`  
 - Feedback store: `orbitbrief_core/pm_handoff/question_feedback.py`  
-- **Semantic dedupe:** `orbitbrief_core/pm_handoff/semantic_dedupe.py` — embed + cosine cluster (+ soft containment for subset paraphrases). Collapses near-duplicate customer questions and gap↔question doubles. Dismissed texts also suppress semantic neighbors (e.g. evidence paraphrase of a dismissed mode template).  
+- **Neural wiring:** `semantic_dedupe.py` prefers Ollama `qwen3-embedding:8b`. Near-dup is **cosine-only** when neural (no intent-family heuristics — those over-merged SOP vs approval). Candidates are also **relevance-ranked** against the deal evidence blob; weak generic asks drop below `ORBITBRIEF_QUESTION_NEURAL_FLOOR`. Hash embedder remains CI/offline fallback only.
 - Builder wires curated list into `PMHandoff.customer_questions`  
 - UI: OrbitBrief v2 Review queue → `useQuestionFeedback`  
 

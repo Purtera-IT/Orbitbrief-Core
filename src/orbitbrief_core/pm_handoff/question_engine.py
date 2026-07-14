@@ -28,7 +28,11 @@ from orbitbrief_core.pm_handoff.question_feedback import (
     load_feedback,
 )
 from orbitbrief_core.pm_handoff.semantic_dedupe import (
+    cosine_similarity,
+    evidence_relevance_scores,
     is_near_duplicate_of_any,
+    is_neural_embedder,
+    resolve_question_embedder,
     semantic_dedupe,
 )
 from orbitbrief_core.validator.sow_completeness import (
@@ -36,8 +40,12 @@ from orbitbrief_core.validator.sow_completeness import (
     _atom_text,
 )
 
-DEFAULT_QUESTION_CAP = 8
+DEFAULT_QUESTION_CAP = 6
 MIN_SAFETY_NET_IF_EMPTY = 2
+# Drop candidates whose neural relevance to deal evidence falls below this.
+NEURAL_RELEVANCE_FLOOR = float(
+    __import__("os").environ.get("ORBITBRIEF_QUESTION_NEURAL_FLOOR", "0.28")
+)
 
 # ── project modes ─────────────────────────────────────────────────────
 
@@ -314,6 +322,7 @@ def _candidates_from_evidence_atoms(
     atoms: Iterable[Mapping[str, Any]],
     *,
     project_mode: str,
+    evidence_blob: str = "",
 ) -> list[QuestionCandidate]:
     out: list[QuestionCandidate] = []
     seen_fp: set[str] = set()
@@ -363,14 +372,18 @@ def _candidates_from_evidence_atoms(
             continue
         seen_fp.add(fp)
         aid = str(atom.get("id") or atom.get("atom_id") or "")
-        pm_q = _to_pm_question(text)
+        pm_q = _to_pm_question(text, evidence_blob=evidence_blob or text)
         if not (pm_q or "").strip():
             continue
         severity = "blocker" if atype in {"risk", "missing_info"} else "warning"
         # Prefer open_question / decision; demote still-casual rewrites slightly
         score = 0.92 if atype == "open_question" else 0.85 if atype == "decision" else 0.72
+        if atype == "action_item" and "sop" in pm_q.lower():
+            score = 0.94
+        if "sop" in pm_q.lower() and atype == "open_question":
+            score = 0.96
         if pm_q != text and atype == "open_question":
-            score = 0.9
+            score = max(score, 0.9)
         label = {
             "open_question": "Open project question",
             "decision": "Decision still open",
@@ -395,21 +408,39 @@ def _candidates_from_evidence_atoms(
     return out
 
 
-def _to_pm_question(text: str) -> str:
-    """Normalize atom prose into a PM-facing question."""
+def _to_pm_question(text: str, *, evidence_blob: str = "") -> str:
+    """Normalize atom prose into a PM-facing question grounded in deal context."""
     t = re.sub(r"\s+", " ", (text or "").strip())
     if not t:
         return t
     low = t.lower()
+    blob_low = (evidence_blob or "").lower()
     # Lift casual transcript into PM voice
-    if "one device per site" in low or low.startswith("once we know"):
+    if "one device per site" in low or (
+        low.startswith("once we know") and "device" in low
+    ):
         return "Confirm topology: one edge device per site, or a shared/hub model?"
     if "copy of those sites" in low:
         return ""  # suppressed as non-PM
-    if "copy of their sop" in low or ("sop" in low and "copy" in low):
-        return "Can we get the customer's SOP before the first site, and who owns revisions?"
+    if (
+        "copy of their sop" in low
+        or ("sop" in low and ("copy" in low or "send" in low or "once available" in low))
+    ):
+        return (
+            "Can we get the customer's SOP before the first site, "
+            "and who owns revisions during the POC?"
+        )
     if "who do you get approval from" in low or low.startswith("who do you get approval"):
-        return "Who is the customer approval authority for scope/change decisions on this engagement?"
+        # Live calls often mean CDW paper / Canada path — not generic change control.
+        if re.search(r"\b(?:montreal|canada|cdw|us\s+paper|paper)\b", blob_low) or re.search(
+            r"\b(?:montreal|canada|cdw|us\s+paper|paper)\b", low
+        ):
+            return (
+                "Who approves putting Montreal / Canada work on CDW US paper "
+                "versus deferring that site?"
+            )
+        # Bare approval with no commercial/paper context → drop (too generic).
+        return ""
     if _SMALLTALK_RE.search(low):
         return ""
     if "by chance" in low or low.startswith("quinton,"):
@@ -478,14 +509,20 @@ _NETWORK_EDGE_TEMPLATES: tuple[_ModeTemplate, ...] = (
         rule_id="mode.network_edge_install.first_survey_site",
         domain_id="network_edge_install",
         label="First survey / walkthrough site",
-        question="Which site is the first walkthrough / site survey, and who schedules customer access?",
+        question=(
+            "Confirm the first site survey / POC walkthrough location "
+            "(name the site), or the alternate if circuits are not ready, "
+            "and who schedules customer access?"
+        ),
         message="Site survey is planned but the first site is not locked.",
         trigger=re.compile(
-            r"(?:site\s+survey|walkthrough|first\s+site\s+survey|which\s+one\s+of\s+these\s+sites)",
+            r"(?:site\s+survey|walkthrough|first\s+site\s+survey|which\s+one\s+of\s+these\s+sites|"
+            r"leaning\s+to\s+be\s+in|likely\s+location)",
             re.I,
         ),
         answered_by=re.compile(
-            r"\b(?:survey\s+site\s*(?:is|=)|walkthrough\s+at\s+[A-Z]|first\s+site:\s*)\b",
+            r"\b(?:survey\s+site\s*(?:is|=)|walkthrough\s+at\s+[A-Z]|first\s+site:\s*"
+            r"|confirmed\s+(?:maitland|survey\s+site))\b",
             re.I,
         ),
         score=0.88,
@@ -520,11 +557,15 @@ _NETWORK_EDGE_TEMPLATES: tuple[_ModeTemplate, ...] = (
     _ModeTemplate(
         rule_id="mode.network_edge_install.circuit_ready",
         domain_id="network_edge_install",
-        label="Circuit readiness per site",
-        question="Which sites have circuits turned up and ready for smart-hands install, and which are still waiting on the carrier?",
-        message="Circuit spin-up is a schedule dependency for remote/smart hands.",
+        label="Circuit readiness for first site",
+        question=(
+            "Confirm circuit readiness at the first survey / POC site — "
+            "is that site carrier-ready, or should we schedule an alternate?"
+        ),
+        message="Circuit spin-up is a schedule dependency for the first smart-hands visit.",
         trigger=re.compile(
-            r"(?:turning\s+on\s+the\s+circuits|circuits?\s+spun\s+up|circuit(?:s)?\s+at\s+(?:each|these))",
+            r"(?:turning\s+on\s+the\s+circuits|circuits?\s+spun\s+up|circuit(?:s)?\s+at\s+(?:each|these)|"
+            r"longer\s+for\s+them\s+to\s+get\s+the\s+circuits)",
             re.I,
         ),
         score=0.83,
@@ -605,6 +646,29 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
 }
 
 
+def _ground_template_question(tmpl: _ModeTemplate, blob: str) -> str:
+    """Specialize template wording with evidence anchors (city / lean site)."""
+    q = tmpl.question
+    if tmpl.rule_id != "mode.network_edge_install.first_survey_site":
+        return q
+    m = re.search(
+        r"(?i)(?:leaning\s+to\s+be\s+in|likely\s+location[,\s]+(?:the\s+one\s+out\s+here\s+in\s+)?)"
+        r"([A-Za-z][A-Za-z\s]+?)(?:,|\.|$|\s+but)",
+        blob or "",
+    )
+    if not m:
+        m = re.search(r"(?i)\b(Maitland)\b", blob or "")
+    if not m:
+        return q
+    site = re.sub(r"\s+", " ", m.group(1)).strip(" .,")
+    if len(site) < 3 or len(site) > 40:
+        return q
+    return (
+        f"Confirm {site} as the first site survey / POC walkthrough, "
+        "or name the alternate if circuits are not ready, and who schedules customer access?"
+    )
+
+
 def _candidates_from_mode_templates(
     *,
     project_mode: str,
@@ -616,6 +680,7 @@ def _candidates_from_mode_templates(
             continue
         if tmpl.answered_by is not None and tmpl.answered_by.search(blob or ""):
             continue
+        question = _ground_template_question(tmpl, blob or "")
         out.append(
             QuestionCandidate(
                 rule_id=tmpl.rule_id,
@@ -623,10 +688,10 @@ def _candidates_from_mode_templates(
                 label=tmpl.label,
                 severity=tmpl.severity,
                 message=tmpl.message,
-                suggested_open_question=tmpl.question,
+                suggested_open_question=question,
                 observed_summary=f"Mode template for {project_mode}",
                 source="mode_template",
-                score=tmpl.score,
+                score=tmpl.score + (0.04 if question != tmpl.question else 0.0),
                 project_mode=project_mode,
             )
         )
@@ -812,12 +877,58 @@ def _candidate_rank_tuple(c: QuestionCandidate) -> tuple:
     )
 
 
+def _apply_neural_evidence_scores(
+    candidates: list[QuestionCandidate],
+    *,
+    evidence_blob: str,
+) -> tuple[list[QuestionCandidate], dict[str, Any]]:
+    """Re-score / filter candidates by neural relevance to deal evidence."""
+    if not candidates:
+        return candidates, {"neural_relevance": False}
+    texts = [c.suggested_open_question or c.message or "" for c in candidates]
+    scores, model_id = evidence_relevance_scores(texts, evidence_blob)
+    # Hash embedder relevance is noisy — only floor-filter on real neural.
+    neural = "deterministic-hash" not in (model_id or "").lower()
+    out: list[QuestionCandidate] = []
+    kept_scores: list[float] = []
+    for c, rel in zip(candidates, scores):
+        if neural and rel < NEURAL_RELEVANCE_FLOOR:
+            continue
+        # Blend prior score with evidence relevance (neural dominates).
+        blended = (0.35 * c.score) + (0.65 * max(0.0, min(1.0, rel))) if neural else c.score
+        out.append(
+            QuestionCandidate(
+                rule_id=c.rule_id,
+                domain_id=c.domain_id,
+                label=c.label,
+                severity=c.severity,
+                message=c.message,
+                suggested_open_question=c.suggested_open_question,
+                observed_summary=c.observed_summary,
+                source=c.source,
+                score=blended,
+                evidence_atom_ids=list(c.evidence_atom_ids),
+                project_mode=c.project_mode,
+            )
+        )
+        kept_scores.append(rel)
+    meta = {
+        "neural_relevance": neural,
+        "neural_relevance_model": model_id,
+        "neural_relevance_floor": NEURAL_RELEVANCE_FLOOR if neural else None,
+        "neural_relevance_dropped": max(0, len(candidates) - len(out)),
+        "neural_relevance_top": round(max(kept_scores), 4) if kept_scores else None,
+    }
+    return out, meta
+
+
 def rank_and_cap(
     candidates: list[QuestionCandidate],
     *,
     cap: int = DEFAULT_QUESTION_CAP,
+    evidence_blob: str = "",
 ) -> tuple[list[QuestionCandidate], dict[str, Any]]:
-    """Fingerprint collapse → neural near-dup cluster → severity×score rank + cap."""
+    """Fingerprint → neural evidence score → neural near-dup → rank + cap."""
 
     def sort_key(c: QuestionCandidate) -> tuple:
         return (
@@ -838,6 +949,13 @@ def rank_and_cap(
             best[fp] = c
 
     uniq = list(best.values())
+    relevance_meta: dict[str, Any] = {"neural_relevance": False}
+    if evidence_blob.strip():
+        uniq, relevance_meta = _apply_neural_evidence_scores(uniq, evidence_blob=evidence_blob)
+        if not uniq:
+            # Never return empty — fall back to pre-filter set.
+            uniq = list(best.values())
+            relevance_meta["neural_relevance_fallback"] = "empty_after_floor"
     # Neural / embedding near-duplicate clustering (paraphrase collapse).
     deduped, cluster_meta = semantic_dedupe(
         uniq,
@@ -845,14 +963,55 @@ def rank_and_cap(
         score_fn=_candidate_rank_tuple,
     )
     ranked = sorted(deduped, key=sort_key)
+    # Neural MMR: greedily keep high-score asks that stay diverse (≥0.70 apart).
+    selected = _neural_mmr_select(ranked, cap=max(1, cap))
     meta = {
         "semantic_dedupe_input": cluster_meta.input_count,
         "semantic_dedupe_output": cluster_meta.output_count,
         "semantic_dedupe_merged_pairs": cluster_meta.merged_pairs,
         "semantic_dedupe_embedder": cluster_meta.embedder_model,
         "semantic_dedupe_cosine_threshold": cluster_meta.cosine_threshold,
+        "mmr_selected": len(selected),
+        **relevance_meta,
     }
-    return ranked[: max(1, cap)], meta
+    return selected, meta
+
+
+def _neural_mmr_select(
+    ranked: list[QuestionCandidate],
+    *,
+    cap: int,
+    diversity_cosine: float = 0.70,
+    precomputed_vecs: list[list[float]] | None = None,
+) -> list[QuestionCandidate]:
+    """Keep top asks while dropping near-neighbors of already-selected ones."""
+    if len(ranked) <= cap:
+        return ranked
+    emb = resolve_question_embedder()
+    if not is_neural_embedder(emb) and precomputed_vecs is None:
+        return ranked[:cap]
+    vecs = precomputed_vecs
+    if vecs is None or len(vecs) != len(ranked):
+        texts = [c.suggested_open_question or c.message or "" for c in ranked]
+        try:
+            vecs = emb.embed(texts)
+        except Exception:
+            return ranked[:cap]
+    picked: list[int] = []
+    for i, _c in enumerate(ranked):
+        if len(picked) >= cap:
+            break
+        if any(cosine_similarity(vecs[i], vecs[j]) >= diversity_cosine for j in picked):
+            continue
+        picked.append(i)
+    if len(picked) < cap:
+        for i in range(len(ranked)):
+            if i in picked:
+                continue
+            picked.append(i)
+            if len(picked) >= cap:
+                break
+    return [ranked[i] for i in picked]
 
 
 def build_customer_questions(
@@ -890,7 +1049,11 @@ def build_customer_questions(
         feedback_policy = compile_feedback_policy(events)
 
     candidates: list[QuestionCandidate] = []
-    candidates.extend(_candidates_from_evidence_atoms(atoms, project_mode=project_mode))
+    candidates.extend(
+        _candidates_from_evidence_atoms(
+            atoms, project_mode=project_mode, evidence_blob=blob
+        )
+    )
     candidates.extend(_candidates_from_mode_templates(project_mode=project_mode, blob=blob))
     candidates = suppress_answered(candidates, blob=blob, sites=sites)
     candidates = apply_feedback(candidates, feedback_policy, project_mode=project_mode)
@@ -915,7 +1078,7 @@ def build_customer_questions(
             )
         )
 
-    ranked, dedupe_meta = rank_and_cap(candidates, cap=cap)
+    ranked, dedupe_meta = rank_and_cap(candidates, cap=cap, evidence_blob=blob)
     # Final containment: never ship smalltalk / meta even if an atom slipped
     # past type gates (e.g. mis-typed open_question).
     ranked = [

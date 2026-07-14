@@ -838,8 +838,7 @@ def polish_pm_handoff(
 
     * ``one_line_summary`` (single sentence shown at top of brief)
     * ``gaps[].message`` and ``gaps[].suggested_open_question``
-    * ``customer_questions[].message`` and
-      ``customer_questions[].suggested_open_question``
+    * ``customer_questions`` — **not polished** (neural engine wording preserved)
     * ``risk_register[].description`` and ``risk_register[].mitigation``
     * ``executive_summary.headline``, ``health_line``, ``next_action``
     * ``customer_answer_slots[].question_text``
@@ -911,7 +910,9 @@ def polish_pm_handoff(
         )
     )
     items.extend(_gap_polish_items(handoff.gaps, model))
-    items.extend(_gap_polish_items(handoff.customer_questions, model))
+    # Do NOT polish curated customer_questions. The neural question engine
+    # already emits PM-ready, evidence-grounded asks; LLM polish was merging
+    # distinct intents (e.g. SOP receipt + Montreal paper approval).
     items.extend(_risk_polish_items(handoff.risk_register, model))
     if handoff.executive_summary:
         items.extend(
@@ -944,13 +945,12 @@ def polish_pm_handoff(
         handoff.one_line_summary, results, model, project_mode=project_mode
     )
     polished_gaps = _apply_results_to_gaps(handoff.gaps, results, model)
-    polished_customer_qs = _apply_results_to_gaps(handoff.customer_questions, results, model)
-    # Drop any residual chatter that polish rewrote into a question-shaped line.
     from orbitbrief_core.pm_handoff.question_engine import _is_customer_facing_question
 
+    # Preserve neural-engine wording verbatim (see note above).
     polished_customer_qs = [
         q
-        for q in polished_customer_qs
+        for q in handoff.customer_questions
         if _is_customer_facing_question(q.suggested_open_question or q.message or "")
     ]
     polished_risks = _apply_results_to_risks(handoff.risk_register, results, model)
