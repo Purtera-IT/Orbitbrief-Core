@@ -156,6 +156,67 @@ def test_sodexo_like_questions_are_real_pm_asks_not_ops_junk():
     assert not any("copy of those sites" in q for q in questions)
 
 
+def test_chatter_residuals_never_surface():
+    """deal_metadata / smalltalk must never become customer_questions."""
+    atoms = [
+        {
+            "id": "c1",
+            "atom_type": "scope_item",
+            "raw_text": (
+                "Need help with Remote Hands for 13 corporate offices "
+                "Transitioning from MPLS to SDWAN Meraki MX devices"
+            ),
+        },
+        {
+            "id": "c2",
+            "atom_type": "deal_metadata",
+            "raw_text": "And in those scenarios with the international, is there rhyme or reason?",
+        },
+        {
+            "id": "c3",
+            "atom_type": "deal_metadata",
+            "raw_text": "Any big plans for the weekend?",
+        },
+        {
+            "id": "c4",
+            "atom_type": "deal_metadata",
+            "raw_text": "But you Chase, you know what I mean?",
+        },
+        {
+            "id": "c5",
+            "atom_type": "deal_metadata",
+            "raw_text": "Because that's the biggest point of emphasis for them",
+        },
+        {
+            "id": "c6",
+            "atom_type": "open_question",
+            "raw_text": "Do you have a copy of their SOP by chance?",
+        },
+    ]
+    cards, meta = build_customer_questions(
+        gaps=[],
+        sites=_sites(),
+        envelope={
+            "atoms": atoms,
+            "service_routing": {
+                "primary": "network_maintenance",
+                "override_reason": "sdwan_meraki_network_install_evidence",
+            },
+        },
+        feedback_events=[],
+        cap=8,
+    )
+    assert meta["project_mode"] == MODE_NETWORK_EDGE_INSTALL
+    joined = " | ".join(
+        (c.suggested_open_question or c.message or "").lower() for c in cards
+    )
+    assert "rhyme or reason" not in joined
+    assert "weekend" not in joined
+    assert "you know what i mean" not in joined
+    assert "point of emphasis" not in joined
+    assert not any("deal_metadata" in (c.rule_id or "") for c in cards)
+
+
 def test_ops_mode_allows_ops_family_questions():
     atoms = [
         {

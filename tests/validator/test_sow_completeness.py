@@ -232,12 +232,13 @@ def test_network_install_suppresses_ongoing_ops_network_maintenance_gaps():
     assert "network_maintenance.coverage_tier" not in rule_ids
     assert "network_maintenance.port_vlan_wan" not in rule_ids
     assert "network_maintenance.device_inventory" not in rule_ids
+    assert "network_maintenance.routing_failover" not in rule_ids
     assert res.coverage.get("network_install_ops_suppressed", 0) > 0
     # Boundary + survey-charge language should clear the two global warnings.
     assert "global.explicit_exclusions" not in rule_ids
     assert "global.commercial_structure" not in rule_ids
     assert all(f.severity != "warning" for f in res.findings if f.domain_id == "network_maintenance")
-    # Info-only leftovers (assumptions / failover) must not yellow the handoff.
+    # Install jobs must not keep ops leftovers (even as info).
     assert res.status == "green"
 
 

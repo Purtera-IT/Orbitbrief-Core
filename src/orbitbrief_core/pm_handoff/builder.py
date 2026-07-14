@@ -79,10 +79,29 @@ from orbitbrief_core.pm_handoff.pm_intelligence import (
     load_comparable_deals,
     risk_numeric_score,
 )
-from orbitbrief_core.pm_handoff.question_engine import build_customer_questions
+from orbitbrief_core.pm_handoff.question_engine import (
+    MODE_NETWORK_EDGE_INSTALL,
+    build_customer_questions,
+)
+from orbitbrief_core.pm_handoff.semantic_dedupe import is_near_duplicate_of_any, semantic_dedupe
 from dataclasses import asdict
 
 MAX_FACTS_PER_CATEGORY = 12
+
+# Info-level checklist leftovers that still clutter install handoffs even after
+# the SOW validator demotes them (belt-and-suspenders with sow_completeness).
+_INSTALL_IRRELEVANT_GAP_IDS = frozenset({
+    "network_maintenance.routing_failover",
+    "network_maintenance.port_vlan_wan",
+    "network_maintenance.device_inventory",
+    "network_maintenance.coverage_tier",
+    "network_maintenance.firmware_change",
+    "network_maintenance.firmware_baseline_missing",
+    "network_maintenance.patch_window_change_calendar_missing",
+    "network_maintenance.oem_tac_escalation_missing",
+    "network_maintenance.vlan_port_audit_cadence_missing",
+    "network_maintenance.circuit_demarc_responsibility_missing",
+})
 
 
 def build_pm_handoff(case_dir: Path) -> PMHandoff:
@@ -126,7 +145,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
 
     source_files, artifact_by_id = _build_source_files(report)
     sites = _build_site_summaries(report, case_dir)
-    gaps = _build_gap_cards(sow)
+    gaps = _semantic_dedupe_gaps(_build_gap_cards(sow))
     domains = _build_domains(report, sow, gaps, service_routing)
     facts = _build_fact_cards(report, artifact_by_id)
     # Evidence-first curated asks (not the full YAML pack checklist).
@@ -137,14 +156,32 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         report=report if isinstance(report, dict) else None,
         case_dir=case_dir,
     )
+    # Don't surface the same intent as both a gap/blocker and a curated question.
+    gaps = _suppress_gaps_covered_by_questions(gaps, customer_questions)
+    project_mode = str(question_meta.get("project_mode") or "")
+    gaps = _filter_gaps_for_project_mode(gaps, project_mode)
+    # Rebuild domain rollups after mode-aware gap filtering so ops leftovers
+    # do not inflate network_maintenance info counts on install deals.
+    domains = _build_domains(report, sow, gaps, service_routing)
     metrics = _build_metrics(report, sow, facts, gaps, sites)
-    metrics["project_mode"] = question_meta.get("project_mode")
+    metrics["project_mode"] = project_mode
     metrics["customer_question_engine"] = question_meta
+    # Prefer project-mode label over pack primary when mode is more specific
+    # (e.g. network_edge_install vs network_maintenance pack).
+    mode_workstream = _project_mode_workstream_label(project_mode)
+    if mode_workstream:
+        metrics["top_workstream"] = mode_workstream
     # Status for the PM is driven by curated customer_questions (not the
     # full internal YAML gap list). Sites still gate "not ready".
     status, status_label = _derive_status(customer_questions, sow, report, sites)
-    sa_focus = _build_sa_focus(domains)
-    one_line = _build_one_line_summary(case_id, domains, sites, customer_questions)
+    sa_focus = _build_sa_focus(domains, project_mode=project_mode)
+    one_line = _build_one_line_summary(
+        case_id,
+        domains,
+        sites,
+        customer_questions,
+        project_mode=project_mode,
+    )
 
     # A5 reconciliation: build money / date mentions and near-value
     # flags from the inspection report. These are stored as dicts so
@@ -183,6 +220,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         gaps=gaps,
         sites=sites,
         domains=domains,
+        project_mode=project_mode,
     )
     # Tier 1-4 PM intelligence
     margin = build_margin_view(report)
@@ -573,6 +611,69 @@ def _coerce_publishable(value: Any) -> bool:
     return str(value or "").strip().lower() in {"true", "yes", "y", "1", "✓", "publishable"}
 
 
+def _semantic_dedupe_gaps(gaps: list[GapCard]) -> list[GapCard]:
+    """Collapse paraphrase-duplicate gaps/blockers to one canonical ask."""
+    if len(gaps) < 2:
+        return gaps
+
+    def score(g: GapCard) -> tuple:
+        return (
+            -SEVERITY_SORT.get(g.severity, 9),
+            min(len(g.suggested_open_question or g.message or ""), 240) / 240.0,
+        )
+
+    kept, _meta = semantic_dedupe(
+        gaps,
+        text_fn=lambda g: g.suggested_open_question or g.message or "",
+        score_fn=score,
+    )
+    return sorted(kept, key=lambda g: (SEVERITY_SORT.get(g.severity, 9), g.domain_label, g.label))
+
+
+def _filter_gaps_for_project_mode(gaps: list[GapCard], project_mode: str) -> list[GapCard]:
+    """Drop ops-checklist leftovers that do not apply to the detected project mode."""
+    if (project_mode or "").strip() != MODE_NETWORK_EDGE_INSTALL:
+        return gaps
+    return [g for g in gaps if g.rule_id not in _INSTALL_IRRELEVANT_GAP_IDS]
+
+
+def _suppress_gaps_covered_by_questions(
+    gaps: list[GapCard],
+    questions: list[GapCard],
+) -> list[GapCard]:
+    """Drop gaps whose intent is already covered by a curated customer question.
+
+    If a covered gap is a blocker and the matching question is only a warning,
+    promote the question severity so the PM still sees blocker urgency — once.
+    """
+    if not gaps or not questions:
+        return gaps
+    from dataclasses import replace
+
+    q_texts = [(q.suggested_open_question or q.message or "") for q in questions]
+    # Mutable parallel list so we can promote severity on the caller's list.
+    questions[:] = list(questions)
+    kept: list[GapCard] = []
+    for g in gaps:
+        g_text = g.suggested_open_question or g.message or ""
+        if not g_text:
+            kept.append(g)
+            continue
+        if not is_near_duplicate_of_any(g_text, q_texts):
+            kept.append(g)
+            continue
+        # Covered by a curated question — optionally upgrade that question.
+        if g.severity == "blocker":
+            for i, q in enumerate(questions):
+                q_text = q.suggested_open_question or q.message or ""
+                if is_near_duplicate_of_any(g_text, [q_text]):
+                    if SEVERITY_SORT.get(q.severity, 9) > SEVERITY_SORT.get("blocker", 0):
+                        questions[i] = replace(q, severity="blocker")
+                    break
+        # else: drop gap (do not keep duplicate surface)
+    return kept
+
+
 def _build_gap_cards(sow: dict[str, Any]) -> list[GapCard]:
     gaps: list[GapCard] = []
     for f in sow.get("findings") or []:
@@ -783,11 +884,51 @@ def _derive_status(gaps: list[GapCard], sow: dict[str, Any], report: dict[str, A
     return "yellow", "PM review required"
 
 
-def _build_sa_focus(domains: list[DomainSummary]) -> list[str]:
+# Project modes whose copy should override the pack-primary workstream label.
+# Pack routing may still select `network_maintenance` while the question engine
+# correctly gates as an install / turn-up job.
+_MODE_COPY_OVERRIDES: dict[str, str] = {
+    "network_edge_install": "Network edge install",
+    "wireless_install": "Wireless install",
+    "cabling_install": "Structured cabling install",
+    "av_install": "AV install",
+    "access_control": "Access control",
+    "alm": "Application / lifecycle management",
+    "staff_aug": "Staff augmentation",
+}
+
+_MODE_SA_FOCUS: dict[str, list[str]] = {
+    "network_edge_install": [
+        "Confirm in-scope sites vs deferred, circuit readiness, and smart-hands "
+        "boundary (rack/stack vs config/test/docs) before quoting.",
+        "Lock first survey / POC site, SOP receipt + acceptance owner, and "
+        "device-per-site topology before scheduling remote hands.",
+    ],
+}
+
+
+def _project_mode_workstream_label(project_mode: str | None) -> str | None:
+    mode = (project_mode or "").strip()
+    if not mode or mode in {"generic", "network_ops"}:
+        return None
+    if mode in _MODE_COPY_OVERRIDES:
+        return _MODE_COPY_OVERRIDES[mode]
+    labeled = domain_label(mode)
+    return labeled if labeled and labeled.lower() != mode.replace("_", " ") else None
+
+
+def _build_sa_focus(
+    domains: list[DomainSummary],
+    *,
+    project_mode: str | None = None,
+) -> list[str]:
     out: list[str] = []
-    for d in domains:
-        if d.selected_by_router or d.active_for_sow:
-            out.extend(SA_FOCUS_BY_DOMAIN.get(d.domain_id, []))
+    mode_focus = _MODE_SA_FOCUS.get((project_mode or "").strip(), [])
+    out.extend(mode_focus)
+    if not mode_focus:
+        for d in domains:
+            if d.selected_by_router or d.active_for_sow:
+                out.extend(SA_FOCUS_BY_DOMAIN.get(d.domain_id, []))
     seen: set[str] = set()
     unique: list[str] = []
     for item in out:
@@ -797,12 +938,28 @@ def _build_sa_focus(domains: list[DomainSummary]) -> list[str]:
     return unique[:18]
 
 
-def _build_one_line_summary(case_id: str, domains: list[DomainSummary], sites: list[SiteSummary], gaps: list[GapCard]) -> str:
-    active = [d.label for d in domains if d.selected_by_router or d.active_for_sow]
+def _build_one_line_summary(
+    case_id: str,
+    domains: list[DomainSummary],
+    sites: list[SiteSummary],
+    gaps: list[GapCard],
+    *,
+    project_mode: str | None = None,
+) -> str:
+    mode_label = _project_mode_workstream_label(project_mode)
+    active = (
+        [mode_label]
+        if mode_label
+        else [d.label for d in domains if d.selected_by_router or d.active_for_sow]
+    )
     site_names = [s.name for s in sites if s.publishable]
     blockers = sum(1 for g in gaps if g.severity == "blocker")
     warnings = sum(1 for g in gaps if g.severity == "warning")
-    return f"{case_id}: {', '.join(active[:4]) if active else 'unclassified scope'} at {', '.join(site_names[:2]) if site_names else 'no confirmed site'}; {blockers} blocker and {warnings} warning SOW question(s) need PM/SA review."
+    return (
+        f"{case_id}: {', '.join(active[:4]) if active else 'unclassified scope'} at "
+        f"{', '.join(site_names[:2]) if site_names else 'no confirmed site'}; "
+        f"{blockers} blocker and {warnings} warning SOW question(s) need PM/SA review."
+    )
 
 
 def _format_locator(locator: dict[str, Any]) -> str:

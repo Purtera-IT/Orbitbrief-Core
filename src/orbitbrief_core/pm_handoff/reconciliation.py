@@ -1050,6 +1050,7 @@ def build_executive_summary(
     gaps: list[Any],
     sites: list[Any],
     domains: list[Any],
+    project_mode: str | None = None,
 ) -> ExecutiveSummary:
     """Compose the 3-line executive summary from PM-handoff fields."""
     top_money = next(
@@ -1065,7 +1066,22 @@ def build_executive_summary(
         if (r.likelihood.lower(), r.impact.lower())
         in {("high", "high"), ("high", "medium"), ("medium", "high")}
     )
-    workstreams = [d.label for d in domains if getattr(d, "active_for_sow", False)]
+    # Prefer project-mode workstream when pack primary is coarser
+    # (e.g. network_edge_install vs network_maintenance pack).
+    mode = (project_mode or "").strip()
+    mode_overrides = {
+        "network_edge_install": "Network edge install",
+        "wireless_install": "Wireless install",
+        "cabling_install": "Structured cabling install",
+        "av_install": "AV install",
+        "access_control": "Access control",
+        "alm": "Application / lifecycle management",
+        "staff_aug": "Staff augmentation",
+    }
+    if mode in mode_overrides:
+        workstreams = [mode_overrides[mode]]
+    else:
+        workstreams = [d.label for d in domains if getattr(d, "active_for_sow", False)]
 
     deal_value = f" worth {top_money}" if top_money else ""
     site_phrase = f"{site_count} confirmed site(s)" if site_count else "no confirmed sites yet"

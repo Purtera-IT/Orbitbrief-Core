@@ -27,6 +27,10 @@ from orbitbrief_core.pm_handoff.question_feedback import (
     fingerprint_question,
     load_feedback,
 )
+from orbitbrief_core.pm_handoff.semantic_dedupe import (
+    is_near_duplicate_of_any,
+    semantic_dedupe,
+)
 from orbitbrief_core.validator.sow_completeness import (
     _NETWORK_INSTALL_EVIDENCE_RE,
     _atom_text,
@@ -70,6 +74,9 @@ _INSTALL_BANNED_RULE_PREFIXES = (
     "network_maintenance.oem",
     "network_maintenance.vlan_port_audit",
     "network_maintenance.circuit_demarc",
+    "network_maintenance.routing_failover",
+    "network_maintenance.port_vlan_wan",
+    "network_maintenance.device_inventory",
     "alm.",
     "staff_augmentation.",
 )
@@ -246,6 +253,18 @@ def _atom_question_text(atom: Mapping[str, Any]) -> str:
     return ""
 
 
+_SMALLTALK_RE = re.compile(
+    r"(?i)\b("
+    r"weekend|volleyball|how(?:'s| is| are)?\s+you(?:r)?(?:\s+doing)?|"
+    r"big\s+plans|you\s+know\s+what\s+i\s+mean|chase\b|"
+    r"how's\s+it\s+going|what'?s\s+up|good\s+morning|good\s+afternoon|"
+    r"catch\s+up|how's\s+the\s+family|nice\s+to\s+(?:meet|see)\s+you|"
+    r"point\s+of\s+emphasis\b|rhyme\s+or\s+reason|"
+    r"scenarios\s+with\s+the\s+international"
+    r")\b"
+)
+
+
 def _is_customer_facing_question(text: str) -> bool:
     """Filter parser-internal / meta chatter that is not a PM ask."""
     t = (text or "").strip()
@@ -259,8 +278,16 @@ def _is_customer_facing_question(text: str) -> bool:
         "atom_type",
         "copy of those sites that you can send",
         "do you have a copy of those sites",
+        "rhyme or reason",
+        "in those scenarios with the international",
+        "big plans for the weekend",
+        "why do you chase",
+        "you know what i mean",
+        "biggest point of emphasis",
     )
     if any(b in low for b in banned):
+        return False
+    if _SMALLTALK_RE.search(low):
         return False
     # Prefer interrogatives or decision-shaped statements
     if "?" in t:
@@ -294,6 +321,16 @@ def _candidates_from_evidence_atoms(
         if not isinstance(atom, Mapping):
             continue
         atype = str(atom.get("atom_type") or "").lower()
+        # Never promote chat/meta atoms — greetings land here after parser noise filters.
+        if atype in {
+            "deal_metadata",
+            "conversation_meta",
+            "tag",
+            "note_meta",
+            "entity",
+            "person",
+        }:
+            continue
         if atype not in {
             "open_question",
             "decision",
@@ -312,7 +349,11 @@ def _candidates_from_evidence_atoms(
         # Soft-filter ops language on install mode
         if project_mode == MODE_NETWORK_EDGE_INSTALL:
             if re.search(
-                r"\b(gold[\-\s]?image|firmware\s+baseline|vlan\s+audit|oem\s+tac|smartnet)\b",
+                r"\b("
+                r"gold[\-\s]?image|firmware\s+baseline|vlan\s+audit|oem\s+tac|smartnet|"
+                r"routing\s+protocol|failover\s+test|bgp|ospf|eigrp|"
+                r"patch\s+window|change\s+calendar|coverage\s+tier"
+                r")\b",
                 text,
                 re.I,
             ):
@@ -369,6 +410,8 @@ def _to_pm_question(text: str) -> str:
         return "Can we get the customer's SOP before the first site, and who owns revisions?"
     if "who do you get approval from" in low or low.startswith("who do you get approval"):
         return "Who is the customer approval authority for scope/change decisions on this engagement?"
+    if _SMALLTALK_RE.search(low):
+        return ""
     if "by chance" in low or low.startswith("quinton,"):
         # Too conversational / person-directed — drop unless rewritten above
         if "sop" not in low:
@@ -643,6 +686,7 @@ def apply_feedback(
     *,
     project_mode: str,
 ) -> list[QuestionCandidate]:
+    suppressed_texts = list(policy.suppressed_texts or ())
     out: list[QuestionCandidate] = []
     for c in candidates:
         fp = fingerprint_question(c.suggested_open_question or c.message)
@@ -651,6 +695,11 @@ def apply_feedback(
         if fp and fp in policy.suppressed_fingerprints:
             continue
         if (project_mode, c.rule_id) in policy.suppressed_mode_rules:
+            continue
+        qtext = c.suggested_open_question or c.message
+        # Semantic neighbor of a dismissed ask (e.g. evidence paraphrase of
+        # a dismissed mode-template topology question).
+        if suppressed_texts and is_near_duplicate_of_any(qtext, suppressed_texts):
             continue
         # Apply preferred wording
         edit = policy.edits_by_rule.get(c.rule_id)
@@ -681,6 +730,11 @@ def apply_feedback(
                 continue
             fp = fingerprint_question(text)
             if fp in existing_fp:
+                continue
+            # Skip gold that is a paraphrase of something already queued.
+            if is_near_duplicate_of_any(
+                text, [c.suggested_open_question or c.message for c in out]
+            ):
                 continue
             existing_fp.add(fp)
             out.append(
@@ -743,11 +797,28 @@ def _yaml_safety_net(
     return out
 
 
+def _candidate_rank_tuple(c: QuestionCandidate) -> tuple:
+    """Higher is better — used to pick the canonical ask in a cluster."""
+    source_rank = {"pm_gold": 4, "evidence": 3, "mode_template": 2, "yaml_safety": 1}.get(
+        c.source, 0
+    )
+    # Negate SEVERITY_SORT so blocker (0) beats warning (1).
+    return (
+        -SEVERITY_SORT.get(c.severity, 9),
+        c.score,
+        source_rank,
+        # Prefer slightly longer, more specific wording as canonical.
+        min(len(c.suggested_open_question or c.message or ""), 240) / 240.0,
+    )
+
+
 def rank_and_cap(
     candidates: list[QuestionCandidate],
     *,
     cap: int = DEFAULT_QUESTION_CAP,
-) -> list[QuestionCandidate]:
+) -> tuple[list[QuestionCandidate], dict[str, Any]]:
+    """Fingerprint collapse → neural near-dup cluster → severity×score rank + cap."""
+
     def sort_key(c: QuestionCandidate) -> tuple:
         return (
             SEVERITY_SORT.get(c.severity, 9),
@@ -756,51 +827,32 @@ def rank_and_cap(
             c.suggested_open_question,
         )
 
-    # Dedupe by fingerprint AND near-duplicate intent (same family stem).
+    # Exact fingerprint collapse first (cheap).
     best: dict[str, QuestionCandidate] = {}
-    intent_best: dict[str, QuestionCandidate] = {}
-
-    def intent_key(c: QuestionCandidate) -> str:
-        q = (c.suggested_open_question or c.message or "").lower()
-        if "topology" in q or "per site" in q or ("hub" in q and "spoke" in q):
-            return "topology"
-        if "sop" in q and ("acceptance" in q or "sign" in q or "poc" in q):
-            return "acceptance_sop"
-        if "sop" in q:
-            return "sop_receipt"
-        if "montreal" in q or "deferred" in q or "phase vs" in q:
-            return "phase_exclusions"
-        if "survey" in q and ("charge" in q or "commercial" in q or "fee" in q):
-            return "survey_commercial"
-        if "survey" in q or "walkthrough" in q:
-            return "first_survey"
-        if "circuit" in q:
-            return "circuit_ready"
-        if "smart-hands" in q or "smart hands" in q or "remote hands" in q:
-            return "smart_hands"
-        if "approval" in q or "approv" in q:
-            return "approval"
-        return fingerprint_question(q)
-
     for c in candidates:
         fp = fingerprint_question(c.suggested_open_question or c.message)
         if not fp:
             continue
         prev = best.get(fp)
-        if prev is None or c.score > prev.score or (
-            c.score == prev.score and SEVERITY_SORT.get(c.severity, 9) < SEVERITY_SORT.get(prev.severity, 9)
-        ):
+        if prev is None or _candidate_rank_tuple(c) > _candidate_rank_tuple(prev):
             best[fp] = c
-        ik = intent_key(c)
-        prev_i = intent_best.get(ik)
-        if prev_i is None or c.score > prev_i.score or (
-            c.score == prev_i.score and SEVERITY_SORT.get(c.severity, 9) < SEVERITY_SORT.get(prev_i.severity, 9)
-        ):
-            intent_best[ik] = c
 
-    # Prefer intent dedupe (collapses evidence+template duplicates).
-    ranked = sorted(intent_best.values(), key=sort_key)
-    return ranked[: max(1, cap)]
+    uniq = list(best.values())
+    # Neural / embedding near-duplicate clustering (paraphrase collapse).
+    deduped, cluster_meta = semantic_dedupe(
+        uniq,
+        text_fn=lambda c: c.suggested_open_question or c.message or "",
+        score_fn=_candidate_rank_tuple,
+    )
+    ranked = sorted(deduped, key=sort_key)
+    meta = {
+        "semantic_dedupe_input": cluster_meta.input_count,
+        "semantic_dedupe_output": cluster_meta.output_count,
+        "semantic_dedupe_merged_pairs": cluster_meta.merged_pairs,
+        "semantic_dedupe_embedder": cluster_meta.embedder_model,
+        "semantic_dedupe_cosine_threshold": cluster_meta.cosine_threshold,
+    }
+    return ranked[: max(1, cap)], meta
 
 
 def build_customer_questions(
@@ -863,7 +915,14 @@ def build_customer_questions(
             )
         )
 
-    ranked = rank_and_cap(candidates, cap=cap)
+    ranked, dedupe_meta = rank_and_cap(candidates, cap=cap)
+    # Final containment: never ship smalltalk / meta even if an atom slipped
+    # past type gates (e.g. mis-typed open_question).
+    ranked = [
+        c
+        for c in ranked
+        if _is_customer_facing_question(c.suggested_open_question or c.message or "")
+    ]
     cards = [c.to_gap_card() for c in ranked]
     meta = {
         "project_mode": project_mode,
@@ -876,5 +935,6 @@ def build_customer_questions(
         },
         "cap": cap,
         "suppressed_rule_ids": sorted(feedback_policy.suppressed_rule_ids)[:40],
+        **dedupe_meta,
     }
     return cards, meta

@@ -181,6 +181,8 @@ class FeedbackPolicy:
     suppressed_fingerprints: frozenset[str] = frozenset()
     # (project_mode, rule_id) pairs demoted for wrong_for_project
     suppressed_mode_rules: frozenset[tuple[str, str]] = frozenset()
+    # Raw texts of dismissed asks — used for semantic neighbor suppress.
+    suppressed_texts: tuple[str, ...] = ()
     # Gold questions authored by PMs, keyed by project_mode ("" = global)
     gold_by_mode: dict[str, tuple[QuestionFeedbackEvent, ...]] = field(default_factory=dict)
     # Edited wording preferences: rule_id → preferred text
@@ -203,6 +205,7 @@ def compile_feedback_policy(
     mode_rule_wrong: dict[tuple[str, str], int] = {}
     gold: dict[str, list[QuestionFeedbackEvent]] = {}
     edits: dict[str, str] = {}
+    suppressed_text_list: list[str] = []
 
     for ev in events:
         action = ev.action
@@ -217,6 +220,9 @@ def compile_feedback_policy(
                     mode_rule_wrong[(mode, rid)] = mode_rule_wrong.get((mode, rid), 0) + 1
             if fp:
                 fp_dismiss[fp] = fp_dismiss.get(fp, 0) + 1
+            text = (ev.question_text or ev.edited_text or "").strip()
+            if text:
+                suppressed_text_list.append(text)
         elif action == ACTION_EDIT:
             text = (ev.edited_text or ev.question_text or "").strip()
             if rid and text:
@@ -237,10 +243,20 @@ def compile_feedback_policy(
         key for key, n in mode_rule_wrong.items() if n >= dismiss_threshold
     )
     gold_by_mode = {m: tuple(evs) for m, evs in gold.items()}
+    # De-dupe suppressed texts while preserving order.
+    seen_t: set[str] = set()
+    uniq_texts: list[str] = []
+    for t in suppressed_text_list:
+        key = fingerprint_question(t)
+        if key in seen_t:
+            continue
+        seen_t.add(key)
+        uniq_texts.append(t)
     return FeedbackPolicy(
         suppressed_rule_ids=suppressed_rules,
         suppressed_fingerprints=suppressed_fps,
         suppressed_mode_rules=suppressed_mode,
+        suppressed_texts=tuple(uniq_texts),
         gold_by_mode=gold_by_mode,
         edits_by_rule=edits,
     )
