@@ -79,6 +79,7 @@ from orbitbrief_core.pm_handoff.pm_intelligence import (
     load_comparable_deals,
     risk_numeric_score,
 )
+from orbitbrief_core.pm_handoff.fact_quality import filter_pm_visible_atoms
 from orbitbrief_core.pm_handoff.question_engine import (
     MODE_NETWORK_EDGE_INSTALL,
     build_customer_questions,
@@ -147,7 +148,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     sites = _build_site_summaries(report, case_dir)
     gaps = _semantic_dedupe_gaps(_build_gap_cards(sow))
     domains = _build_domains(report, sow, gaps, service_routing)
-    facts = _build_fact_cards(report, artifact_by_id)
+    facts, fact_quality_meta = _build_fact_cards(report, artifact_by_id)
     # Evidence-first curated asks (not the full YAML pack checklist).
     customer_questions, question_meta = build_customer_questions(
         gaps=gaps,
@@ -166,6 +167,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     metrics = _build_metrics(report, sow, facts, gaps, sites)
     metrics["project_mode"] = project_mode
     metrics["customer_question_engine"] = question_meta
+    metrics["fact_quality"] = fact_quality_meta
     # Prefer project-mode label over pack primary when mode is more specific
     # (e.g. network_edge_install vs network_maintenance pack).
     mode_workstream = _project_mode_workstream_label(project_mode)
@@ -767,7 +769,9 @@ def _build_domains(
     )
 
 
-def _build_fact_cards(report: dict[str, Any], artifact_by_id: dict[str, dict[str, Any]]) -> dict[str, list[EvidenceCard]]:
+def _build_fact_cards(
+    report: dict[str, Any], artifact_by_id: dict[str, dict[str, Any]]
+) -> tuple[dict[str, list[EvidenceCard]], dict[str, Any]]:
     cards: dict[str, list[EvidenceCard]] = {c: [] for c in CATEGORY_ORDER}
     seen: set[str] = set()
 
@@ -790,6 +794,7 @@ def _build_fact_cards(report: dict[str, Any], artifact_by_id: dict[str, dict[str
             "rfi_row": 80,
             "runbook_row": 80,
             "working_measurement_row": 75,
+            "deal_metadata": 15,  # weak default — chat often lands here
         }.get(atom_type, 30)
         if str(atom.get("verified") or "") == "verified":
             type_bonus += 10
@@ -800,12 +805,52 @@ def _build_fact_cards(report: dict[str, Any], artifact_by_id: dict[str, dict[str
             type_bonus -= 20
         return type_bonus, float(atom.get("confidence") or 0.0)
 
-    for atom in sorted(report.get("atom_lineage") or [], key=score, reverse=True):
+    lineage = list(report.get("atom_lineage") or [])
+    # Prefer envelope atoms when lineage lacks value/flags (common on worker path).
+    envelope_atoms = []
+    env = report.get("envelope") if isinstance(report.get("envelope"), dict) else None
+    if not env:
+        # Some reports nest atoms at top level only via lineage; envelope may be absent.
+        envelope_atoms = list(report.get("atoms") or [])
+    else:
+        envelope_atoms = list(env.get("atoms") or [])
+    source_atoms: list[dict[str, Any]] = lineage if lineage else envelope_atoms
+    # Merge envelope value/flags onto lineage rows by id when present.
+    by_id = {
+        str(a.get("id") or a.get("atom_id") or ""): a
+        for a in envelope_atoms
+        if isinstance(a, dict)
+    }
+    merged: list[dict[str, Any]] = []
+    for atom in source_atoms:
+        if not isinstance(atom, dict):
+            continue
+        aid = str(atom.get("id") or atom.get("atom_id") or "")
+        env_a = by_id.get(aid) or {}
+        row = dict(atom)
+        if env_a.get("value") is not None and row.get("value") is None:
+            row["value"] = env_a.get("value")
+        # Parser marks chat filler on ``structured`` (kind=conversation_meta).
+        if env_a.get("structured") and not row.get("structured"):
+            row["structured"] = env_a.get("structured")
+        if env_a.get("review_flags") and not row.get("review_flags"):
+            row["review_flags"] = env_a.get("review_flags")
+        if not row.get("text") and env_a.get("text"):
+            row["text"] = env_a.get("text")
+        if not row.get("raw_text") and env_a.get("raw_text"):
+            row["raw_text"] = env_a.get("raw_text")
+        merged.append(row)
+
+    filtered, quality_meta = filter_pm_visible_atoms(merged)
+
+    for atom in sorted(filtered, key=score, reverse=True):
         atom_type = str(atom.get("atom_type") or "")
-        text = str(atom.get("text") or "")
+        text = str(atom.get("text") or atom.get("raw_text") or "")
         if not text or len(text.strip()) < 8:
             continue
         category = classify_fact_category(atom_type, text)
+        if category not in cards:
+            category = "scope"
         if len(cards[category]) >= MAX_FACTS_PER_CATEGORY:
             continue
         key = normalize_for_dedupe(text)[:200]
@@ -827,7 +872,7 @@ def _build_fact_cards(report: dict[str, Any], artifact_by_id: dict[str, dict[str
                 internal_id=str(atom.get("id") or ""),
             )
         )
-    return {k: v for k, v in cards.items() if v}
+    return {k: v for k, v in cards.items() if v}, quality_meta
 
 
 def _fact_title(atom_type: str, category: str) -> str:

@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from orbitbrief_core.pm_handoff.fact_quality import commercial_substance
+
 DOMAIN_LABELS: dict[str, str] = {
     "alm": "Application / lifecycle management",
     "audit": "Audit / compliance",
@@ -185,12 +187,27 @@ def classify_fact_category(atom_type: str, text: str) -> str:
     }:
         return "bom"
     if atom_type in {
-        "deal_metadata",
         "commercial_total",
         "payment_term",
         "change_order_rule",
     }:
         return "commercial"
+    # deal_metadata is a catch-all parser type (includes chat). Only route to
+    # commercial when the text itself carries commercial substance — never
+    # dump greetings / soft prompts into "Commercial terms…".
+    if atom_type == "deal_metadata":
+        if commercial_substance(text):
+            return "commercial"
+        if any(x in t for x in ("approv", "signator", "stakeholder", "owner")):
+            return "stakeholders"
+        if any(x in t for x in ("site", "address", "office", "maitland", "montreal")):
+            return "sites"
+        if any(x in t for x in ("circuit", "meraki", "sd-wan", "sdwan", "vlan")):
+            return "network"
+        if any(x in t for x in ("sop", "poc", "runbook", "smart hands", "remote hands")):
+            return "acceptance"
+        # Weak / chatty metadata — leave for the fact-quality gate to drop.
+        return "scope"
     if atom_type in {
         "requirement",
         "acceptance_criterion",
