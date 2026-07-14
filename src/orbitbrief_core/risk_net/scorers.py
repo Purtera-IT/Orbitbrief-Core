@@ -31,6 +31,7 @@ from collections import Counter, defaultdict
 from dataclasses import replace
 from typing import Any
 
+from orbitbrief_core.pm_handoff.fact_quality import is_hard_conversation_filler
 from orbitbrief_core.pm_handoff.models import PMHandoff
 
 
@@ -209,6 +210,10 @@ def compute_atom_risk(envelope: dict, top_k: int = 25) -> list[dict]:
         atom_id = _atom_id(a)
         if not atom_id:
             continue
+        text = str(a.get("text") or a.get("raw_text") or "")
+        # Greetings / soft prompts are not project risks — drop before scoring.
+        if is_hard_conversation_filler(a, text):
+            continue
         score, drivers = _score_atom(a, edges_by_atom.get(atom_id, []))
         scored.append({
             "atom_id": atom_id,
@@ -216,7 +221,7 @@ def compute_atom_risk(envelope: dict, top_k: int = 25) -> list[dict]:
             "drivers": drivers,
             "authority_class": a.get("authority_class"),
             "authority_rank": a.get("authority_rank"),
-            "text_preview": (a.get("text") or "")[:200],
+            "text_preview": text[:200],
         })
     scored.sort(key=lambda r: r["risk_score"], reverse=True)
     return scored[:top_k]
