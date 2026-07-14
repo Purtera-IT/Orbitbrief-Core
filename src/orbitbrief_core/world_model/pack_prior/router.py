@@ -123,6 +123,25 @@ _MAX_HITS_PER_SOURCE_PER_KEYWORD = 1
 _OTHER_FALLBACK_PACK_ID = "other"
 _OTHER_DEMOTE_FRACTION = 0.20
 
+# SD-WAN / Meraki / remote-hands multi-site install — must not select
+# staff_aug, ALM, or commercial as primary when this evidence is present.
+_NETWORK_INSTALL_EVIDENCE_RE = re.compile(
+    r"(?:"
+    r"\b(?:sd[\s\-]?wan|sdwan)\b|"
+    r"\bmeraki\s+mx\b|"
+    r"\b(?:mpls\s+to\s+sd|transition(?:ing)?\s+from\s+mpls)\b|"
+    r"\b(?:remote\s+hands|smart\s+hands)\b.{0,40}\b(?:site|office|location|install)|"
+    r"\b(?:circuit(?:s)?\s+(?:turn[\s\-]?up|at\s+each)|turn(?:ing)?\s+on\s+circuits?)\b"
+    r")",
+    re.I,
+)
+_NETWORK_INSTALL_DEMOTE_PACKS = frozenset(
+    {"staff_augmentation", "alm", "commercial"}
+)
+_NETWORK_INSTALL_BOOST_PACK = "network_maintenance"
+_NETWORK_INSTALL_BOOST = 24  # enough to outrank casual ALM keyword hits
+_NETWORK_INSTALL_DEMOTE_FACTOR = 0.15
+
 
 def _strip_think(text: str) -> str:
     """Remove Qwen3-style ``<think>...</think>`` reasoning blocks."""
@@ -176,6 +195,18 @@ class PackPrior:
         log = EscalationLog()
 
         raw_scores, matched_kws, tokens_considered = self._score(envelope)
+
+        # Network / SD-WAN install evidence: boost network_maintenance and
+        # demote staff_aug / ALM / commercial so they cannot win primary.
+        anchor_blob = " ".join(
+            _atom_text_stream(a) for a in (envelope.get("atoms") or ())
+        )
+        for d in envelope.get("documents") or ():
+            if isinstance(d, dict):
+                anchor_blob += " " + str(d.get("filename") or "")
+        raw_scores = self._apply_network_install_routing(
+            raw_scores, matched_kws, anchor_blob
+        )
 
         # PR12 — "other" is a fallback. If any specialized pack has a
         # meaningful share of the top raw_score, demote "other" so it
@@ -397,6 +428,28 @@ class PackPrior:
         exps = {pid: math.exp(v - m) for pid, v in adjusted.items()}
         total = sum(exps.values())
         return {pid: v / total for pid, v in exps.items()}
+
+    @staticmethod
+    def _apply_network_install_routing(
+        raw_scores: dict[str, int],
+        matched_kws: dict[str, set[str]],
+        corpus_text: str,
+    ) -> dict[str, int]:
+        """Boost network_maintenance and demote staff_aug/ALM/commercial.
+
+        Universal evidence gate: SD-WAN / Meraki MX / remote-hands multi-site
+        installs must not select staff_aug, ALM, or commercial as primary.
+        """
+        if not corpus_text or not _NETWORK_INSTALL_EVIDENCE_RE.search(corpus_text):
+            return raw_scores
+        out = dict(raw_scores)
+        boost_id = _NETWORK_INSTALL_BOOST_PACK
+        out[boost_id] = int(out.get(boost_id, 0)) + _NETWORK_INSTALL_BOOST
+        matched_kws.setdefault(boost_id, set()).add("network_install_evidence")
+        for pid in _NETWORK_INSTALL_DEMOTE_PACKS:
+            if pid in out and out[pid] > 0:
+                out[pid] = max(0, int(out[pid] * _NETWORK_INSTALL_DEMOTE_FACTOR))
+        return out
 
     @staticmethod
     def _demote_other_when_specialized_exists(

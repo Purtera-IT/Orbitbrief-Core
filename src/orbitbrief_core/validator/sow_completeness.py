@@ -503,6 +503,36 @@ _CONFIG_ONLY_WIRELESS_GAP_IDS = frozenset({
     "wireless.wips_rogue_ap_policy_missing",
 })
 
+# SD-WAN / Meraki / remote-hands multi-site *install* engagements reuse the
+# network_maintenance pack for routing, but ongoing-ops SOW checks (firmware
+# gold image, OEM TAC, VLAN audit cadence, SmartNet tier) are not applicable
+# until the estate is in maintenance. Suppress those when install evidence is
+# present — same spirit as config_only wireless suppression.
+_NETWORK_INSTALL_EVIDENCE_RE = re.compile(
+    r"(?:"
+    r"\b(?:sd[\s\-]?wan|sdwan)\b|"
+    r"\bmeraki\s+mx\b|"
+    r"\b(?:mpls\s+to\s+sd|transition(?:ing)?\s+from\s+mpls)\b|"
+    r"\b(?:remote\s+hands|smart\s+hands)\b.{0,40}\b(?:site|office|location|install)|"
+    r"\b(?:circuit(?:s)?\s+(?:turn[\s\-]?up|at\s+each)|turn(?:ing)?\s+on\s+circuits?)\b"
+    r")",
+    re.I,
+)
+_NETWORK_INSTALL_OPS_GAP_IDS = frozenset({
+    "network_maintenance.coverage_tier",
+    "network_maintenance.firmware_change",
+    "network_maintenance.firmware_baseline_missing",
+    "network_maintenance.patch_window_change_calendar_missing",
+    "network_maintenance.oem_tac_escalation_missing",
+    "network_maintenance.vlan_port_audit_cadence_missing",
+    "network_maintenance.circuit_demarc_responsibility_missing",
+})
+
+
+def _corpus_has_network_install(corpus: CorpusView) -> bool:
+    blob = " ".join(_atom_text(a) for a in corpus.atoms)
+    return bool(blob and _NETWORK_INSTALL_EVIDENCE_RE.search(blob))
+
 
 def _parser_quote_delivery_model(atoms: Iterable[Mapping[str, Any]]) -> str:
     for atom in atoms:
@@ -636,6 +666,12 @@ def evaluate_sow_completeness(
         findings = [f for f in findings if f.rule_id not in _CONFIG_ONLY_WIRELESS_GAP_IDS]
         suppressed_by_quote_context = before - len(findings)
 
+    suppressed_by_network_install = 0
+    if _corpus_has_network_install(corpus):
+        before = len(findings)
+        findings = [f for f in findings if f.rule_id not in _NETWORK_INSTALL_OPS_GAP_IDS]
+        suppressed_by_network_install = before - len(findings)
+
     coverage = {
         "checks_run": len(checks_to_run),
         "checks_satisfied": satisfied_count,
@@ -644,6 +680,7 @@ def evaluate_sow_completeness(
         "packets_seen": len(corpus.packets),
         "site_clusters_seen": len(corpus.site_clusters),
         "quote_context_suppressed": suppressed_by_quote_context,
+        "network_install_ops_suppressed": suppressed_by_network_install,
     }
 
     return SowCompletenessResult(

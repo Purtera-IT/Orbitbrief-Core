@@ -196,6 +196,51 @@ def test_config_only_quote_context_suppresses_install_survey_wireless_gaps():
     assert res.coverage["quote_context_suppressed"] > 0
 
 
+def test_network_install_suppresses_ongoing_ops_network_maintenance_gaps():
+    """SD-WAN / Meraki remote-hands installs keep network_maintenance routing
+    but must not yellow on firmware-gold-image / OEM-TAC / VLAN-audit ops gaps."""
+    res = evaluate_sow_completeness(
+        selected_pack_ids=["network_maintenance", "global"],
+        atoms=[
+            {
+                "raw_text": (
+                    "Sodexo customer: Need help with Remote Hands for 13 corporate "
+                    "offices Transitioning from MPLS to SDWAN Meraki MX devices "
+                    "Turning on circuits at each location. Mid-august wrap-up "
+                    "milestone for the engagement."
+                )
+            },
+            {"raw_text": "Will probably not do Montreal to keep everything on US paper"},
+            {"raw_text": "Maybe we can do a site survey charge for the walkthrough"},
+        ],
+        packets=[],
+        site_clusters=[
+            {"kind": "physical_site", "name": f"Site {i}", "publishable": True}
+            for i in range(13)
+        ],
+        service_routing={
+            "enabled": True,
+            "primary": "network_maintenance",
+            "confidence": 0.78,
+        },
+        include_global=True,
+    )
+    rule_ids = {f.rule_id for f in res.findings}
+    assert "network_maintenance.firmware_baseline_missing" not in rule_ids
+    assert "network_maintenance.oem_tac_escalation_missing" not in rule_ids
+    assert "network_maintenance.vlan_port_audit_cadence_missing" not in rule_ids
+    assert "network_maintenance.coverage_tier" not in rule_ids
+    assert "network_maintenance.port_vlan_wan" not in rule_ids
+    assert "network_maintenance.device_inventory" not in rule_ids
+    assert res.coverage.get("network_install_ops_suppressed", 0) > 0
+    # Boundary + survey-charge language should clear the two global warnings.
+    assert "global.explicit_exclusions" not in rule_ids
+    assert "global.commercial_structure" not in rule_ids
+    assert all(f.severity != "warning" for f in res.findings if f.domain_id == "network_maintenance")
+    # Info-only leftovers (assumptions / failover) must not yellow the handoff.
+    assert res.status == "green"
+
+
 def test_trusted_wireless_primary_without_anchors_is_dropped():
     """UPS/APC battery installs must not keep wireless SOW blockers active
     just because the neural router head confidently mis-embeds them."""

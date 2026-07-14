@@ -17,6 +17,13 @@ packs:
   intake_aliases: []
   subdomain_labels:
   - ALM – Release / Environment / Workflow Governance
+  # Casual transcript "approval" / "workflow" must not select ALM as primary
+  # for SD-WAN / Meraki network installs.
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(alm|application\s+lifecycle|release\s+train|change\s+advisory)\b
+  - \b(jira|servicenow|cmdb|itil|devops\s+pipeline)\b
+  - \b(environment\s+(?:promotion|governance)|release\s+gate|workflow\s+approvals?)\b
   keywords:
   - environment
   - governance
@@ -543,6 +550,13 @@ packs:
   subdomain_labels:
   - Staff Aug – Onsite Field Surge
   - Staff Aug – Cleared / Specialty Resources
+  # "Remote hands" / "smart hands" on SD-WAN installs are network field work,
+  # not staff_aug. Require real augmentation anchors before brain activation.
+  required_anchor_min_distinct_hits: 1
+  required_anchor_regex_any:
+  - \b(staff\s+aug(?:mentation)?|resource\s+surge|surge\s+(?:staff|resource|headcount))\b
+  - \b(1099|badged\s+resource|cleared\s+resource)\b
+  - \b(augment(?:ation)?\s+(?:tech|engineer|technician)s?)\b
   keywords:
   - staff
   - augmentation
@@ -931,6 +945,7 @@ packs:
   - Switch / Router Lifecycle
   - Firmware / Patch Window
   - Network Monitoring & Alerting
+  - SD-WAN / Meraki Edge Install
   keywords:
   - maintenance
   - monitoring
@@ -943,6 +958,10 @@ packs:
   - lan
   - core_switch
   - access_switch
+  - sd_wan
+  - sdwan
+  - meraki
+  - mpls
   boosted_keywords:
   - network_maintenance
   - network_operations
@@ -962,6 +981,16 @@ packs:
   - ospf
   - eigrp
   - stp_loop
+  - sd_wan
+  - sdwan
+  - meraki_mx
+  - meraki
+  - mpls
+  - remote_hands
+  - smart_hands
+  - circuit_turn_up
+  - network_install
+  - edge_firewall
 - id: camera_vms_operations
   display_name: Camera / VMS Operations
   brain:

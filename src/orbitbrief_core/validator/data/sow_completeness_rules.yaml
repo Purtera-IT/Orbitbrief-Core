@@ -65,7 +65,8 @@ global_checks:
   evidence:
     any_regex:
     - \b(price|pricing|quote|budget|cost|rate card|fixed fee|fixed[- ]price|t\s*&\s*m|time and materials|nte|not
-      to exceed|unit price|purchase order|po\b|milestone billing)\b
+      to exceed|unit price|purchase order|po\b|milestone billing|survey charge|site survey charge|per[- ]site
+      (?:rate|fee|price)|charge for)\b
     - \$\s?\d
 - id: global.explicit_exclusions
   label: Explicit exclusions / boundaries
@@ -74,7 +75,7 @@ global_checks:
   suggested_open_question: What is explicitly excluded or by others?
   evidence:
     any_regex:
-    - \b(excluded|exclusions?|out of scope|not included|by others|owner provided|customer provided|n\.i\.c\.|nic\b)\b
+    - \b(excluded|exclusions?|out of scope|not included|by others|owner provided|customer provided|n\.i\.c\.|nic\b|will\s+(?:probaly|probably)?\s*not\s+do|keep\s+(?:everything\s+)?on\s+us\s+paper|avoid\s+cdw\s+ca|not\s+deal\s+with\s+cdw\s+ca)\b
 - id: global.explicit_assumptions
   label: Explicit assumptions
   severity: info
@@ -1154,7 +1155,7 @@ domains:
       suggested_open_question: What switch/router/firewall inventory and software versions are covered?
       evidence:
         any_regex:
-        - \b(switch|router|firewall|model|serial|software version|ios[- ]?xe|nx[- ]?os|junos|pan[- ]?os)\b
+        - \b(switch|router|firewall|model|serial|software version|ios[- ]?xe|nx[- ]?os|junos|pan[- ]?os|meraki(?:\s+mx)?)\b
     - id: network_maintenance.coverage_tier
       label: Support coverage tier
       severity: warning
@@ -1178,7 +1179,7 @@ domains:
       suggested_open_question: What port/VLAN audit and WAN circuit inventory is in scope?
       evidence:
         any_regex:
-        - \b(port audit|vlan audit|vlan|wan|circuit|provider|carrier|demarc)\b
+        - \b(port audit|vlan audit|vlan|wan|circuits?|provider|carrier|demarc)\b
     - id: network_maintenance.routing_failover
       label: Routing/failover testing
       severity: info

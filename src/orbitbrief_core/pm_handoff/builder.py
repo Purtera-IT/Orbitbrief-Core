@@ -79,6 +79,7 @@ from orbitbrief_core.pm_handoff.pm_intelligence import (
     load_comparable_deals,
     risk_numeric_score,
 )
+from orbitbrief_core.pm_handoff.question_engine import build_customer_questions
 from dataclasses import asdict
 
 MAX_FACTS_PER_CATEGORY = 12
@@ -128,11 +129,22 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     gaps = _build_gap_cards(sow)
     domains = _build_domains(report, sow, gaps, service_routing)
     facts = _build_fact_cards(report, artifact_by_id)
+    # Evidence-first curated asks (not the full YAML pack checklist).
+    customer_questions, question_meta = build_customer_questions(
+        gaps=gaps,
+        sites=sites,
+        envelope=envelope if isinstance(envelope, dict) else None,
+        report=report if isinstance(report, dict) else None,
+        case_dir=case_dir,
+    )
     metrics = _build_metrics(report, sow, facts, gaps, sites)
-    status, status_label = _derive_status(gaps, sow, report, sites)
+    metrics["project_mode"] = question_meta.get("project_mode")
+    metrics["customer_question_engine"] = question_meta
+    # Status for the PM is driven by curated customer_questions (not the
+    # full internal YAML gap list). Sites still gate "not ready".
+    status, status_label = _derive_status(customer_questions, sow, report, sites)
     sa_focus = _build_sa_focus(domains)
-    customer_questions = [g for g in gaps if g.severity in {"blocker", "warning"}]
-    one_line = _build_one_line_summary(case_id, domains, sites, gaps)
+    one_line = _build_one_line_summary(case_id, domains, sites, customer_questions)
 
     # A5 reconciliation: build money / date mentions and near-value
     # flags from the inspection report. These are stored as dicts so
@@ -210,7 +222,8 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     parser_quality = build_parser_quality_score(report)
     run_tele = build_run_telemetry(report, case_dir)
     urgency = build_urgency_signals(report)
-    customer_slots = build_customer_answer_slots(gaps)
+    # Answer slots track the curated customer-facing list, not every YAML gap.
+    customer_slots = build_customer_answer_slots(customer_questions)
     # Drift snapshot uses the corpus history ledger; same logic the
     # compile_brief.py append step uses, so the comparison is
     # against the LAST entry for this case_id.

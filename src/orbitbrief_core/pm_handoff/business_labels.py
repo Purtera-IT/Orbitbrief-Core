@@ -12,6 +12,8 @@ DOMAIN_LABELS: dict[str, str] = {
     "commercial": "Commercial terms",
     "das": "DAS / cellular / public-safety radio",
     "datacenter": "Datacenter / rack-and-stack",
+    "network_edge_install": "Network edge install",
+    "project": "Project",
     "delivery_execution": "Delivery / execution planning",
     "electrical": "Electrical / power",
     "fire_safety": "Fire safety",
