@@ -317,10 +317,24 @@ class OllamaHttpEmbedder:
                     last_err = e
                     fresh = []
             if last_err is not None and len(fresh) != len(miss):
-                raise last_err
+                # Never kill PM handoff when the embed proxy flaps (e.g. HTTP 530).
+                # Hash vectors keep dedupe/fact-quality functional in degraded mode.
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "ollama embed unavailable (%s); falling back to deterministic-hash",
+                    last_err,
+                )
+                hash_emb = DeterministicHashEmbedder(dim=256)
+                fresh = hash_emb.embed([t for _, t in miss])
+                self.model_id = "deterministic-hash-v1"
+                self.dim = 256
 
         if len(fresh) != len(miss):
-            raise RuntimeError(f"ollama embed: got {len(fresh)} for {len(miss)} inputs")
+            hash_emb = DeterministicHashEmbedder(dim=256)
+            fresh = hash_emb.embed([t for _, t in miss])
+            self.model_id = "deterministic-hash-v1"
+            self.dim = 256
         for (i, t), vec in zip(miss, fresh):
             if self.dim and len(vec) != self.dim:
                 self.dim = len(vec)
@@ -525,7 +539,11 @@ def is_near_duplicate_of_any(
     corpus = [text, *[o for o in others if o]]
     if len(corpus) < 2:
         return False
-    vecs = emb.embed(corpus)
+    try:
+        vecs = emb.embed(corpus)
+    except Exception:
+        emb = DeterministicHashEmbedder(dim=256)
+        vecs = emb.embed(corpus)
     neural = is_neural_embedder(emb)
     cos_thr = max(cosine_threshold, 0.80) if neural else cosine_threshold
     for i in range(1, len(corpus)):
