@@ -395,7 +395,12 @@ class EngagementModel:
 _TM_RE = re.compile(
     r"\b(time\s+and\s+materials|t\s*&\s*m|t/m|hourly\s+rate|hours\s+based|"
     r"nte\b|not[\s\-]to[\s\-]exceed|billable\s+hours|"
-    r"per\s+hour|/hour|hourly|rate\s+card|rate\s+sheet)\b",
+    r"per\s+hour|/hour|hourly|rate\s+card|rate\s+sheet|"
+    r"site\s+survey\s+charge|per[\-\s]?site\s+(?:fee|charge|rate)|change\s+order)\b",
+    re.IGNORECASE,
+)
+_PAPER_PATH_RE = re.compile(
+    r"\b(cdw\s+us\s+paper|us\s+paper|avoid\s+cdw\s+ca|cdw\s+ca)\b",
     re.IGNORECASE,
 )
 _FF_RE = re.compile(
@@ -428,13 +433,15 @@ def build_engagement_model(report: dict[str, Any]) -> EngagementModel:
         text = atom.get("text") or ""
         if _TM_RE.search(text):
             has_tm = True
-            evidence.append(f"T&M evidence in `{filename}`: \"{text[:120]}\"")
+            evidence.append(f"T&M / change-order commercial cue in `{filename}`: \"{text[:120]}\"")
         if _FF_RE.search(text):
             has_ff = True
             evidence.append(f"Fixed-fee evidence in `{filename}`: \"{text[:120]}\"")
         if _SUB_RE.search(text):
             has_sub = True
             evidence.append(f"Subscription evidence in `{filename}`: \"{text[:120]}\"")
+        if _PAPER_PATH_RE.search(text):
+            evidence.append(f"Paper-path commercial cue in `{filename}`: \"{text[:120]}\"")
         m = _TM_CAP_RE.search(text)
         if m:
             tm_cap = max(tm_cap, _money_int(m.group(1)))
@@ -449,9 +456,17 @@ def build_engagement_model(report: dict[str, Any]) -> EngagementModel:
         model = "subscription"
     else:
         model = "unknown"
+    # Dedupe evidence lines while preserving order.
+    seen_ev: set[str] = set()
+    uniq_ev: list[str] = []
+    for e in evidence:
+        if e in seen_ev:
+            continue
+        seen_ev.add(e)
+        uniq_ev.append(e)
     return EngagementModel(
         detected_model=model,
-        evidence=evidence[:10],
+        evidence=uniq_ev[:10],
         has_tm_cap=bool(tm_cap),
         tm_cap_amount=tm_cap,
     )

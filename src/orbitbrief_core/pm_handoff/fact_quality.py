@@ -295,3 +295,215 @@ def filter_pm_visible_atoms(
         "fact_quality_neural": neural,
     }
     return kept, meta
+
+
+# ── Claim polish (transcript → PM-readable fact) ───────────────────
+
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.I,
+)
+
+# Bare open questions already covered by curated customer_questions → drop.
+_DROP_AS_FACT_RE = re.compile(
+    r"(?i)^(?:"
+    r"do you have a copy of their sop(?: by chance)?|"
+    r"who do you get approval from|"
+    r"once we know is it going to be one device per site|"
+    r"all the documentation"
+    r")[\s\?\!\.]*$"
+)
+
+_CLAIM_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (
+        re.compile(
+            r"(?i)site survey with anticipations of a change order|"
+            r"anticipations of a change order.*site survey|"
+            r"site survey charge"
+        ),
+        "Site survey may be billed via change order / survey charge before the remaining sites are looped in.",
+    ),
+    (
+        re.compile(r"(?i)1 location will be treated as a poc.*sop"),
+        "One location is the POC; customer has an SOP that will be used/revised during that visit.",
+    ),
+    (
+        re.compile(r"(?i)need help with remote hands for\s+(\d+)\s+corporate offices"),
+        "Remote hands requested for corporate offices (count per source).",
+    ),
+    (
+        re.compile(r"(?i)need onsite smart hands per location"),
+        "Onsite smart hands required per location.",
+    ),
+    (
+        re.compile(r"(?i)transitioning from mpls to sdwan|transitioning from mpls to sd[\-\s]?wan"),
+        "Customer is transitioning from MPLS to SD-WAN.",
+    ),
+    (
+        re.compile(r"(?i)during this visit we will also revise the sop"),
+        "SOP will be revised/updated during the POC visit.",
+    ),
+    (
+        re.compile(r"(?i)turning on the circuits.*smart hands.*sd[\-\s]?wan"),
+        "Circuits are being turned up; smart hands needed to install SD-WAN gear on-site.",
+    ),
+    (
+        re.compile(r"(?i)turning on circuits at each location"),
+        "Circuits are being turned on at each location.",
+    ),
+    (
+        re.compile(r"(?i)will\s+probaly\s+not\s+do.*montreal|avoid\s+cdw\s+ca|keep\s+everything\s+on\s+us\s+paper"),
+        "Montreal / CDW CA path may be deferred; preference is to keep work on CDW US paper.",
+    ),
+    (
+        re.compile(r"(?i)13 locations.*canada.*cdw\s+us\s+paper|keep work on cdw us paper"),
+        "Canada site(s) intended on CDW US paper for now (avoid CDW CA where noted).",
+    ),
+    (
+        re.compile(r"(?i)after hours because they're taking part of the network down"),
+        "Most cutovers are after hours (~4 hours) because part of the network is taken down.",
+    ),
+    (
+        re.compile(r"(?i)start soon and mid[\-\s]?august wrap up"),
+        "Target window: start soon, wrap mid-August.",
+    ),
+    (
+        re.compile(r"(?i)get back to me monday.*site survey|walkthrough slash site survey"),
+        "Customer to name preferred walkthrough / site-survey site (expected Monday callback).",
+    ),
+    (
+        re.compile(r"(?i)cdw will send over locations and the sop"),
+        "CDW will send locations + SOP when available; follow-up call once SOP is in hand.",
+    ),
+    (
+        re.compile(
+            r"(?i)wonder if they're going to need our help on site with anything outside "
+            r"of just a physical install"
+        ),
+        "Onsite scope may extend beyond physical install (config/test/docs still open).",
+    ),
+    (
+        re.compile(r"(?i)label this cable specifically.*circuit"),
+        "Cable labeling expected to call out dedicated circuit before migration to the new device.",
+    ),
+    (
+        re.compile(r"(?i)taken a little longer.*circuits spun up"),
+        "Preferred survey site delayed while circuits are spun up.",
+    ),
+    (
+        re.compile(r"(?i)^meraki mx\b"),
+        "Meraki MX devices on BOM (quantity per source).",
+    ),
+)
+
+
+def display_case_label(
+    case_id: str,
+    *,
+    report: Mapping[str, Any] | None = None,
+    sow: Mapping[str, Any] | None = None,
+    case_dir_name: str | None = None,
+) -> str:
+    """Human deal label for headlines — never lead with a bare UUID."""
+    report = report or {}
+    sow = sow or {}
+    env = report.get("envelope") if isinstance(report.get("envelope"), Mapping) else {}
+    numbered: list[str] = []
+    named: list[str] = []
+
+    def _push(raw: Any) -> None:
+        s = str(raw or "").strip()
+        if not s or _UUID_RE.match(s):
+            return
+        if s.lower() in {"unknown", "none", "null"}:
+            return
+        # Skip temp / audit folder names.
+        if s.startswith("_") or s.lower().startswith(("tmp", "temp", "ob-", "audit")):
+            return
+        if re.fullmatch(r"\d{4,8}", s):
+            numbered.append(s)
+        else:
+            named.append(s)
+
+    for raw in (
+        sow.get("case_label"),
+        sow.get("deal_name"),
+        sow.get("case_id"),
+        report.get("case_label"),
+        report.get("deal_name"),
+        report.get("case_id"),
+        report.get("project_name"),
+        env.get("case_id") if isinstance(env, Mapping) else None,
+        env.get("project_name") if isinstance(env, Mapping) else None,
+    ):
+        _push(raw)
+    file_sources: list[Any] = []
+    file_sources.extend(report.get("artifacts") or [])
+    if isinstance(env, Mapping):
+        file_sources.extend(env.get("documents") or [])
+        file_sources.extend(env.get("artifacts") or [])
+    for art in file_sources:
+        if not isinstance(art, Mapping):
+            continue
+        fn = str(art.get("filename") or art.get("path") or "")
+        m = re.match(r"^(\d{4,8})[-_]", fn)
+        if m:
+            numbered.append(m.group(1))
+            break
+    _push(case_dir_name)
+    if numbered:
+        return numbered[0]
+    if named:
+        return named[0]
+    return "This engagement"
+
+
+def polish_fact_claim(text: str) -> str | None:
+    """Rewrite transcript scrap into a PM claim, or None to drop."""
+    t = re.sub(r"\s+", " ", (text or "").strip())
+    if len(t) < 8:
+        return None
+    if _DROP_AS_FACT_RE.match(t):
+        return None
+    # Incomplete soft-commit trailing off — only keep if we can rewrite.
+    for pattern, claim in _CLAIM_RULES:
+        if pattern.search(t):
+            return claim
+    # Drop unfinished soft commits that still look like mid-sentence chat.
+    if re.search(r"(?i)\bonce they get\.?$", t) and "change order" not in t.lower():
+        return None
+    if t.endswith("?") and len(t) < 100 and not commercial_substance(t):
+        # Open questions belong in customer_questions, not fact cards.
+        return None
+    # Light cleanup: strip discourse markers.
+    t2 = re.sub(
+        r"(?i)^(so|and|but|well|yeah|i mean|like)[, ]+",
+        "",
+        t,
+    ).strip()
+    if t2 and t2[0].islower():
+        t2 = t2[0].upper() + t2[1:]
+    return t2 or t
+
+
+def fact_overlaps_question(fact_text: str, question_texts: Sequence[str]) -> bool:
+    """True when a fact is just restating a curated customer ask."""
+    ft = normalize_tokens(fact_text)
+    if not ft:
+        return False
+    for q in question_texts:
+        qt = normalize_tokens(q)
+        if not qt:
+            continue
+        if ft in qt or qt in ft:
+            return True
+        # High token overlap on short facts.
+        fset, qset = set(ft.split()), set(qt.split())
+        if len(fset) >= 4 and len(fset & qset) / max(len(fset), 1) >= 0.7:
+            return True
+    return False
+
+
+def normalize_tokens(text: str) -> str:
+    s = re.sub(r"[^a-z0-9\s]+", " ", (text or "").lower())
+    return re.sub(r"\s+", " ", s).strip()

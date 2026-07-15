@@ -431,14 +431,12 @@ def _to_pm_question(text: str, *, evidence_blob: str = "") -> str:
             "and who owns revisions during the POC?"
         )
     if "who do you get approval from" in low or low.startswith("who do you get approval"):
-        # Live calls often mean CDW paper / Canada path — not generic change control.
+        # Canada / CDW paper is owned by mode.phase_site_exclusions — avoid a
+        # near-duplicate curated ask when that template will fire.
         if re.search(r"\b(?:montreal|canada|cdw|us\s+paper|paper)\b", blob_low) or re.search(
             r"\b(?:montreal|canada|cdw|us\s+paper|paper)\b", low
         ):
-            return (
-                "Who approves putting Montreal / Canada work on CDW US paper "
-                "versus deferring that site?"
-            )
+            return ""
         # Bare approval with no commercial/paper context → drop (too generic).
         return ""
     if _SMALLTALK_RE.search(low):
@@ -494,16 +492,17 @@ _NETWORK_EDGE_TEMPLATES: tuple[_ModeTemplate, ...] = (
         domain_id="network_edge_install",
         label="Phase / site exclusions",
         question=(
-            "Which sites are in this phase vs deferred (e.g. Montreal / CDW CA paper), "
-            "and who confirms the final in-scope set?"
+            "Which sites are in this phase vs deferred, who confirms the final "
+            "in-scope set, and who approves any Canada work on CDW US paper "
+            "versus deferring that site?"
         ),
-        message="Skip/defer language exists for at least one site; phase boundary needs a hard yes/no.",
+        message="Skip/defer + Canada/US-paper language exists; phase boundary and paper path need a hard yes/no.",
         trigger=re.compile(
             r"(?:will\s+(?:probaly|probably)?\s*not\s+do|montreal|keep\s+(?:everything\s+)?on\s+us\s+paper|"
-            r"avoid\s+cdw\s+ca|etobicoke\s+has\s+already\s+been\s+done)",
+            r"avoid\s+cdw\s+ca|etobicoke\s+has\s+already\s+been\s+done|cdw\s+us\s+paper)",
             re.I,
         ),
-        score=0.9,
+        score=0.92,
     ),
     _ModeTemplate(
         rule_id="mode.network_edge_install.first_survey_site",

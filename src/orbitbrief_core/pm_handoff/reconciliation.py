@@ -1088,14 +1088,16 @@ def build_executive_summary(
     workstream_phrase = (
         f" covering {', '.join(workstreams[:3])}" if workstreams else ""
     )
+    # case_id arg is the display label (never a bare UUID when available).
+    label = (case_id or "This engagement").strip() or "This engagement"
     headline = (
-        f"**{case_id}**: deal{deal_value} across {site_phrase}{workstream_phrase}."
+        f"**{label}**: deal{deal_value} across {site_phrase}{workstream_phrase}."
     )
 
     if status == "red":
         health = (
             f"Status is **RED**: {blocker_count} blocker(s) and "
-            f"{warning_count} warning(s) need PM resolution before SOW lock."
+            f"{warning_count} clarification(s) need PM resolution before SOW lock."
         )
         next_action = (
             "Resolve the blocker checklist below and confirm the customer "
@@ -1103,11 +1105,11 @@ def build_executive_summary(
         )
     elif status == "yellow":
         health = (
-            f"Status is **YELLOW**: {warning_count} warning(s) need PM review. "
+            f"Status is **YELLOW**: {warning_count} clarification(s) need PM review. "
             f"{high_risks} high-priority risk(s) tracked in the register."
         )
         next_action = (
-            "Walk the warnings checklist below, then proceed to SOW drafting "
+            "Walk the clarifications checklist below, then proceed to SOW drafting "
             "with the auto-generated SOW_DRAFT.md as the starting point."
         )
     else:

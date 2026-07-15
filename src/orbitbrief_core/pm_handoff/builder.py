@@ -79,7 +79,12 @@ from orbitbrief_core.pm_handoff.pm_intelligence import (
     load_comparable_deals,
     risk_numeric_score,
 )
-from orbitbrief_core.pm_handoff.fact_quality import filter_pm_visible_atoms
+from orbitbrief_core.pm_handoff.fact_quality import (
+    display_case_label,
+    fact_overlaps_question,
+    filter_pm_visible_atoms,
+    polish_fact_claim,
+)
 from orbitbrief_core.pm_handoff.question_engine import (
     MODE_NETWORK_EDGE_INSTALL,
     build_customer_questions,
@@ -164,7 +169,13 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     # Rebuild domain rollups after mode-aware gap filtering so ops leftovers
     # do not inflate network_maintenance info counts on install deals.
     domains = _build_domains(report, sow, gaps, service_routing)
+    # Drop/rewrite transcript scraps now that curated asks exist.
+    facts, polish_meta = _polish_fact_cards(facts, customer_questions)
+    fact_quality_meta = {**fact_quality_meta, **polish_meta}
     metrics = _build_metrics(report, sow, facts, gaps, sites)
+    # Align metric counters with status (curated questions), not suppressed YAML gaps.
+    metrics["blockers"] = sum(1 for q in customer_questions if q.severity == "blocker")
+    metrics["warnings"] = sum(1 for q in customer_questions if q.severity == "warning")
     metrics["project_mode"] = project_mode
     metrics["customer_question_engine"] = question_meta
     metrics["fact_quality"] = fact_quality_meta
@@ -177,8 +188,17 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     # full internal YAML gap list). Sites still gate "not ready".
     status, status_label = _derive_status(customer_questions, sow, report, sites)
     sa_focus = _build_sa_focus(domains, project_mode=project_mode)
-    one_line = _build_one_line_summary(
+    report_for_label = dict(report) if isinstance(report, dict) else {}
+    if isinstance(envelope, dict) and "envelope" not in report_for_label:
+        report_for_label["envelope"] = envelope
+    display_label = display_case_label(
         case_id,
+        report=report_for_label,
+        sow=sow if isinstance(sow, dict) else None,
+        case_dir_name=case_dir.name if case_dir else None,
+    )
+    one_line = _build_one_line_summary(
+        display_label,
         domains,
         sites,
         customer_questions,
@@ -213,13 +233,13 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     qty_claims = build_quantity_claims(report)
     qty_contradictions = find_quantity_contradictions(qty_claims)
     exec_summary = build_executive_summary(
-        case_id=case_id,
+        case_id=display_label,
         status=status,
         status_label=status_label,
         one_line_summary=one_line,
         money_mentions=money,
         risks=risks,
-        gaps=gaps,
+        gaps=customer_questions,
         sites=sites,
         domains=domains,
         project_mode=project_mode,
@@ -853,7 +873,10 @@ def _build_fact_cards(
             category = "scope"
         if len(cards[category]) >= MAX_FACTS_PER_CATEGORY:
             continue
-        key = normalize_for_dedupe(text)[:200]
+        claim = polish_fact_claim(text)
+        if not claim:
+            continue
+        key = normalize_for_dedupe(claim)[:200]
         if key in seen:
             continue
         seen.add(key)
@@ -862,7 +885,7 @@ def _build_fact_cards(
             EvidenceCard(
                 title=_fact_title(atom_type, category),
                 category=category,
-                text=compact_text(text, 340),
+                text=compact_text(claim, 340),
                 source=SourcePointer(
                     filename=str(artifact.get("filename") or atom.get("artifact_id") or "unknown source"),
                     locator=_format_locator(atom.get("locator") or {}),
@@ -873,6 +896,29 @@ def _build_fact_cards(
             )
         )
     return {k: v for k, v in cards.items() if v}, quality_meta
+
+
+def _polish_fact_cards(
+    facts: dict[str, list[EvidenceCard]],
+    customer_questions: list[GapCard],
+) -> tuple[dict[str, list[EvidenceCard]], dict[str, Any]]:
+    """Second pass: drop facts that only restate curated questions."""
+    q_texts = [
+        (q.suggested_open_question or q.message or "")
+        for q in customer_questions
+    ]
+    out: dict[str, list[EvidenceCard]] = {}
+    dropped = 0
+    for cat, cards in facts.items():
+        kept: list[EvidenceCard] = []
+        for card in cards:
+            if fact_overlaps_question(card.text, q_texts):
+                dropped += 1
+                continue
+            kept.append(card)
+        if kept:
+            out[cat] = kept
+    return out, {"fact_quality_dropped_question_overlap": dropped}
 
 
 def _fact_title(atom_type: str, category: str) -> str:
@@ -1000,10 +1046,11 @@ def _build_one_line_summary(
     site_names = [s.name for s in sites if s.publishable]
     blockers = sum(1 for g in gaps if g.severity == "blocker")
     warnings = sum(1 for g in gaps if g.severity == "warning")
+    label = (case_id or "This engagement").strip() or "This engagement"
     return (
-        f"{case_id}: {', '.join(active[:4]) if active else 'unclassified scope'} at "
+        f"{label}: {', '.join(active[:4]) if active else 'unclassified scope'} at "
         f"{', '.join(site_names[:2]) if site_names else 'no confirmed site'}; "
-        f"{blockers} blocker and {warnings} warning SOW question(s) need PM/SA review."
+        f"{blockers} blocker and {warnings} clarification(s) need PM/SA review."
     )
 
 
