@@ -873,6 +873,21 @@ def _build_fact_cards(
             continue
         # Bucket from the polished claim (raw chat often mis-routes).
         category = classify_fact_category(atom_type, claim)
+        claim_l = claim.lower()
+        if any(
+            x in claim_l
+            for x in (
+                "change order",
+                "survey charge",
+                "per-site fee",
+                "per site fee",
+                "cdw us paper",
+                "us paper",
+                "billing",
+                "payment",
+            )
+        ):
+            category = "commercial"
         if category not in cards:
             category = "scope"
         if len(cards[category]) >= MAX_FACTS_PER_CATEGORY:
