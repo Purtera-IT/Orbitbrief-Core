@@ -310,7 +310,8 @@ _DROP_AS_FACT_RE = re.compile(
     r"do you have a copy of their sop(?: by chance)?|"
     r"who do you get approval from|"
     r"once we know is it going to be one device per site|"
-    r"all the documentation"
+    r"all the documentation|"
+    r"is it something we need to get back in front of the group.*"
     r")[\s\?\!\.]*$"
 )
 
@@ -475,6 +476,12 @@ def polish_fact_claim(text: str) -> str | None:
     if t.endswith("?") and len(t) < 100 and not commercial_substance(t):
         # Open questions belong in customer_questions, not fact cards.
         return None
+    # Rambling transcript without a clean claim shape → drop.
+    if re.search(r"(?i)\bget back in front of the group\b", t):
+        return None
+    if t.count(",") >= 3 and len(t) > 140 and not commercial_substance(t):
+        if not re.search(r"(?i)\b(sop|poc|meraki|circuit|montreal|paper|smart hands)\b", t):
+            return None
     # Light cleanup: strip discourse markers.
     t2 = re.sub(
         r"(?i)^(so|and|but|well|yeah|i mean|like)[, ]+",

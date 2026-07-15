@@ -868,13 +868,14 @@ def _build_fact_cards(
         text = str(atom.get("text") or atom.get("raw_text") or "")
         if not text or len(text.strip()) < 8:
             continue
-        category = classify_fact_category(atom_type, text)
+        claim = polish_fact_claim(text)
+        if not claim:
+            continue
+        # Bucket from the polished claim (raw chat often mis-routes).
+        category = classify_fact_category(atom_type, claim)
         if category not in cards:
             category = "scope"
         if len(cards[category]) >= MAX_FACTS_PER_CATEGORY:
-            continue
-        claim = polish_fact_claim(text)
-        if not claim:
             continue
         key = normalize_for_dedupe(claim)[:200]
         if key in seen:

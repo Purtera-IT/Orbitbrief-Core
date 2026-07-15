@@ -242,6 +242,11 @@ def compute_atom_risk(envelope: dict, top_k: int = 25) -> list[dict]:
         # CRM note_id dumps / author metadata lines are not risks.
         if re.match(r"(?i)^note_id\s*=", text.strip()):
             continue
+        # Name-drop approval lines without paper/site substance.
+        if re.search(r"(?i)\b(?:international team|get that approved)\b", text) and not re.search(
+            r"(?i)\b(?:montreal|canada|cdw|paper|sop|poc|circuit)\b", text
+        ):
+            continue
         score, drivers = _score_atom(a, edges_by_atom.get(atom_id, []), text=text)
         scored.append({
             "atom_id": atom_id,
