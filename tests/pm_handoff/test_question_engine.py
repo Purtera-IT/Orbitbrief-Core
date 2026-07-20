@@ -426,12 +426,30 @@ def test_source_material_suppresses_settled_av_asks():
         },
         {
             "id": "a4",
-            "atom_type": "exclusion",
+            "atom_type": "change_order_rule",
+            "artifact_id": "art_docx",
+            "locator": {
+                "filename": "SOW.docx",
+                "section_path": [
+                    "SHI Proposal for Services",
+                    "Scope of Services",
+                    "Out of Scope",
+                    "The following services are excluded unless added through an approved change order",
+                ],
+            },
+            "raw_text": (
+                "Ceiling grid repair, replacement ceiling tiles, "
+                "drywall repair, painting, patching, or finish work."
+            ),
+        },
+        {
+            "id": "a4b",
+            "atom_type": "site_implementation_note",
             "artifact_id": "art_docx",
             "locator": {"filename": "SOW.docx", "page": 1},
             "raw_text": (
-                "Out of Scope: Ceiling grid repair, replacement ceiling tiles, "
-                "drywall repair, painting, patching, or finish work."
+                "Provide replacement ceiling tiles, blanking plates, or written "
+                "direction for closing any openings created by speaker removal."
             ),
         },
         {

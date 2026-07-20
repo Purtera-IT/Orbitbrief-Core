@@ -726,7 +726,21 @@ def _with_evidence(
 
 
 def _blob_from_atoms(atoms: Iterable[Mapping[str, Any]]) -> str:
-    return "\n".join(_atom_text(a) for a in atoms if isinstance(a, Mapping))
+    """Evidence text + locator section paths (SOW 'Out of Scope' lives here)."""
+    parts: list[str] = []
+    for a in atoms:
+        if not isinstance(a, Mapping):
+            continue
+        t = (_atom_text(a) or "").strip()
+        if t:
+            parts.append(t)
+        loc = a.get("locator") if isinstance(a.get("locator"), Mapping) else {}
+        sp = loc.get("section_path") if isinstance(loc, Mapping) else None
+        if isinstance(sp, list) and sp:
+            parts.append(" / ".join(str(x) for x in sp if str(x).strip()))
+        elif isinstance(sp, str) and sp.strip():
+            parts.append(sp.strip())
+    return "\n".join(parts)
 
 
 def _atoms_from_sources(
@@ -1565,18 +1579,21 @@ _REPLICATION_PATH_DECISION_RE = re.compile(
     r"(?:should\s+be\s+moved|noted\s+for\s+repositioning|rerout(?:e|ing)|moved).{0,60}behind\s+(?:the\s+)?wall\b",
     re.I,
 )
-_DRYWALL_FINISH_OOS_RE = re.compile(
-    r"\b(?:drywall\s+repair|painting|patching|finish\s+work).{0,100}"
-    r"(?:out\s+of\s+scope|excluded|exclusion)|"
-    r"(?:out\s+of\s+scope|excluded).{0,100}"
-    r"(?:drywall|painting|patching|finish\s+work)\b",
+_OOS_SECTION_RE = re.compile(
+    r"\b(?:out\s+of\s+scope|excluded\s+unless|services\s+are\s+excluded)\b",
     re.I,
 )
-_CEILING_TILE_OOS_RE = re.compile(
-    r"\b(?:ceiling\s+(?:grid\s+repair|tiles?|tile\s+replacement)|replacement\s+ceiling\s+tiles?).{0,100}"
-    r"(?:out\s+of\s+scope|excluded|exclusion)|"
-    r"(?:out\s+of\s+scope|excluded).{0,100}"
-    r"(?:ceiling\s+(?:grid|tiles?))\b",
+_DRYWALL_FINISH_ITEM_RE = re.compile(
+    r"\b(?:drywall\s+repair|painting|patching|finish\s+work)\b",
+    re.I,
+)
+_CEILING_TILE_ITEM_RE = re.compile(
+    r"\b(?:ceiling\s+grid\s+repair|replacement\s+ceiling\s+tiles?|ceiling\s+tiles?)\b",
+    re.I,
+)
+_CEILING_TILE_CUSTOMER_PROVIDES_RE = re.compile(
+    r"\b(?:provide\s+replacement\s+ceiling\s+tiles?|customer\s+owns\s+tiles?|"
+    r"tile\s+match\s+not\s+required|gc\s+owns\s+ceiling\s+repair)\b",
     re.I,
 )
 
@@ -1594,8 +1611,9 @@ def source_material_answers(rule_id: str, blob: str) -> bool:
     if rid.endswith("replication_cable_path"):
         return bool(_REPLICATION_PATH_DECISION_RE.search(b))
     if rid.endswith("drywall_ownership"):
+        oos_finish = bool(_OOS_SECTION_RE.search(b) and _DRYWALL_FINISH_ITEM_RE.search(b))
         return bool(
-            _DRYWALL_FINISH_OOS_RE.search(b)
+            oos_finish
             or re.search(
                 r"\b(?:customer\s+owns\s+(?:drywall|patch|paint)|gc\s+owns\s+patch|"
                 r"no\s+drywall|surface\s+raceway\s+only)\b",
@@ -1604,15 +1622,8 @@ def source_material_answers(rule_id: str, blob: str) -> bool:
             )
         )
     if rid.endswith("ceiling_tile_match"):
-        return bool(
-            _CEILING_TILE_OOS_RE.search(b)
-            or re.search(
-                r"\b(?:customer\s+owns\s+tiles?|tile\s+match\s+not\s+required|"
-                r"gc\s+owns\s+ceiling\s+repair)\b",
-                b,
-                re.I,
-            )
-        )
+        oos_tiles = bool(_OOS_SECTION_RE.search(b) and _CEILING_TILE_ITEM_RE.search(b))
+        return bool(oos_tiles or _CEILING_TILE_CUSTOMER_PROVIDES_RE.search(b))
     return False
 
 
