@@ -3,8 +3,10 @@ from __future__ import annotations
 
 from orbitbrief_core.pm_handoff.models import GapCard, SiteSummary
 from orbitbrief_core.pm_handoff.question_engine import (
+    MODE_AV,
     MODE_NETWORK_EDGE_INSTALL,
     QuestionCandidate,
+    _candidates_from_evidence_atoms,
     build_customer_questions,
     rank_and_cap,
 )
@@ -136,6 +138,61 @@ def test_rank_and_cap_keeps_one_canonical_per_cluster():
     approvalish = [t for t in texts if "approval" in t or "sop" in t]
     assert len(approvalish) >= 1
     assert len(ranked) >= 3
+
+
+def test_rank_prefers_mode_template_over_evidence_risk_dump():
+    """Curated AV replication ask must win over paraphrased evidence dump."""
+    from orbitbrief_core.pm_handoff.question_engine import _candidate_rank_tuple
+
+    mode = QuestionCandidate(
+        rule_id="mode.av_install.replication_cable_path",
+        domain_id="audio_visual",
+        label="TV replication cable path",
+        severity="blocker",
+        message="Replication cable visibility / reroute is annotated on site photos.",
+        suggested_open_question=(
+            "Confirm replication cable TV1→TV2 must be rerouted/hidden behind the wall "
+            "per photo annotations."
+        ),
+        source="mode_template",
+        score=0.93,
+    )
+    evidence = QuestionCandidate(
+        rule_id="evidence.risk.risks-replication-cable",
+        domain_id="project",
+        label="Risk needs owner answer",
+        severity="blocker",
+        message="Replication cable is visible across the wall.",
+        suggested_open_question=(
+            "Confirm replication cable path TV1 to TV2: must the visible wall cable "
+            "be rerouted/hidden behind the wall?"
+        ),
+        source="evidence",
+        score=0.72,
+    )
+    assert _candidate_rank_tuple(mode) > _candidate_rank_tuple(evidence)
+    ranked, meta = rank_and_cap([evidence, mode], cap=4)
+    assert meta["semantic_dedupe_merged_pairs"] >= 1
+    assert len(ranked) == 1
+    assert ranked[0].rule_id == "mode.av_install.replication_cable_path"
+
+
+def test_evidence_drops_labeled_risks_prefix_dumps():
+    atoms = [
+        {
+            "id": "r1",
+            "atom_type": "risk",
+            "text": "RISKS: Replication cable is visible across the wall.",
+        },
+        {
+            "id": "r2",
+            "atom_type": "open_question",
+            "text": "Who owns drywall patch after display relocation?",
+        },
+    ]
+    out = _candidates_from_evidence_atoms(atoms, project_mode=MODE_AV)
+    assert all("RISKS:" not in (c.message or "") for c in out)
+    assert any("drywall" in (c.suggested_open_question or "").lower() for c in out)
 
 
 def test_dismiss_suppresses_semantic_neighbor():

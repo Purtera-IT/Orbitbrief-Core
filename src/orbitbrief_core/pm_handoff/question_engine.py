@@ -990,6 +990,10 @@ def _candidates_from_evidence_atoms(
         text = _atom_question_text(atom)
         if not _is_customer_facing_question(text):
             continue
+        # Labeled atom dumps ("RISKS: …") are observations, not PM asks.
+        # Mode templates own the curated wording when evidence collides.
+        if re.match(r"^(?:risks?|facts?|notes?|issues?)\s*:\s*", text, re.I):
+            continue
         # Soft-filter ops language on install mode
         if project_mode == MODE_NETWORK_EDGE_INSTALL:
             if re.search(
@@ -1665,7 +1669,9 @@ def _yaml_safety_net(
 
 def _candidate_rank_tuple(c: QuestionCandidate) -> tuple:
     """Higher is better — used to pick the canonical ask in a cluster."""
-    source_rank = {"pm_gold": 4, "evidence": 3, "mode_template": 2, "yaml_safety": 1}.get(
+    # Prefer curated mode templates over raw evidence dumps when they collide
+    # (e.g. "RISKS: Replication cable…" vs mode.av_install.replication_cable_path).
+    source_rank = {"pm_gold": 4, "mode_template": 3, "evidence": 2, "yaml_safety": 1}.get(
         c.source, 0
     )
     evidence_rank = 1 if c.evidence_sources else 0
@@ -1738,10 +1744,16 @@ def rank_and_cap(
     """Fingerprint → neural evidence score → neural near-dup → rank + cap."""
 
     def sort_key(c: QuestionCandidate) -> tuple:
+        source_order = {
+            "pm_gold": 0,
+            "mode_template": 1,
+            "evidence": 2,
+            "yaml_safety": 3,
+        }.get(c.source, 4)
         return (
             SEVERITY_SORT.get(c.severity, 9),
             -c.score,
-            0 if c.source in {"evidence", "pm_gold"} else 1 if c.source == "mode_template" else 2,
+            source_order,
             c.suggested_open_question,
         )
 
