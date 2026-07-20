@@ -99,13 +99,18 @@ _MARKETING_FACT_NOISE_RE = re.compile(
 _SPECULATIVE_RISK_FACT_RE = re.compile(
     r"(?i)(?:"
     r"(?:may|could|might)\s+pose|"
+    r"(?:may|could|might)\s+affect|"
     r"may\s+impact|"
     r"potentially\s+affecting|"
     r"slight\s+trip|"
     r"patterned\s+carpet|"
     r"field\s+of\s+view|"
     r"aesthetically\s+unappealing|"
-    r"trip\s+hazard\s+if\s+cables\s+are\s+not|"
+    r"\baesthetic\b|"
+    r"professional\s+appearance|"
+    r"cleaner\s+look|"
+    r"not\s+fully\s+conceal|"
+    r"trip\s+hazard|"
     r"pose\s+a\s+(?:potential\s+|minor\s+)?(?:obstruction|trip\s+hazard)|"
     r"posing\s+a\s+(?:potential\s+|minor\s+)?(?:obstruction|trip\s+hazard)|"
     r"pose\s+a\s+[^.]{0,40}?trip\s+hazard|"
@@ -116,21 +121,35 @@ _SPECULATIVE_RISK_FACT_RE = re.compile(
     r")"
 )
 
-_GROUNDED_RISK_HINT_RE = re.compile(
+_HARD_GROUNDED_RISK_RE = re.compile(
     r"(?i)(?:"
-    r"annotation|"
     r"behind\s+the\s+wall|"
-    r"drywall|"
-    r"raceway|"
-    r"noted\s+for|"
-    r"must\s+be|"
-    r"should\s+be\s+(?:moved|rerouted|hidden|removed)|"
+    r"drywall\s+(?:cut|patch|paint|own)|"
+    r"in[\-\s]?wall\s+(?:fish|path|hdmi|run)|"
+    r"keep\s+vs\s+remove|"
+    r"stay\s+in\s+place|"
+    r"replication\s+cable|"
+    r"should\s+be\s+(?:moved|rerouted|hidden)\s+behind|"
     r"hard\s+to\s+get"
+    r")"
+)
+
+_SOW_TEMPLATE_FACT_RE = re.compile(
+    r"(?i)^\[\s*(?:"
+    r"if\s+this\s+sow|"
+    r"shi\s+does\s+not\s+have\s+an\s+msa|"
+    r".{0,80}use\s+this\s+paragraph|"
+    r".{0,80}naspo\s+contract|"
+    r".{0,80}special\s+contract"
     r")"
 )
 
 _SHRED_FACT_RE = re.compile(
     r"(?i)^(?:ss|ph|&nbsp;|nbsp|;|&amp;|\u00b0shi|shi°?|\.|\-|–|—)+$"
+)
+
+_SHRED_LABEL_FACT_RE = re.compile(
+    r"(?i)^[\"']?(?:note|notes|n/?a|tbd|none|null|test)[\"']?$"
 )
 
 _STRUCTURED_KEEP = frozenset(
@@ -205,6 +224,15 @@ def is_marketing_or_chrome_fact(text: str) -> bool:
         return True
     if _SHRED_FACT_RE.fullmatch(t) or (len(t) < 6 and not re.search(r"[a-zA-Z]{3,}", t)):
         return True
+    if _SHRED_LABEL_FACT_RE.fullmatch(t):
+        return True
+    if re.fullmatch(r"[\"'][^\"']{1,24}[\"']", t):
+        return True
+    if _SOW_TEMPLATE_FACT_RE.search(t) or (
+        t.startswith("[")
+        and re.search(r"(?i)use\s+this\s+paragraph|making\s+the\s+appropriate\s+changes", t)
+    ):
+        return True
     if _MARKETING_FACT_NOISE_RE.search(t):
         return True
     if _EMAIL_SECURITY_URL_RE.search(t) and not deal_substance(t):
@@ -212,11 +240,23 @@ def is_marketing_or_chrome_fact(text: str) -> bool:
     return False
 
 
-def is_speculative_risk_fact(text: str) -> bool:
+_SOW_COMMITMENT_FACT_RE = re.compile(
+    r"(?i)\b(?:will\s+(?:furnish|install|provide|configure|deploy)|"
+    r"purtera\s+will|contractor\s+will|in[\-\s]?scope|shall\s+(?:furnish|install))\b"
+)
+
+
+def is_speculative_risk_fact(text: str, *, atom_type: str | None = None) -> bool:
     t = text or ""
     if not _SPECULATIVE_RISK_FACT_RE.search(t):
         return False
-    if _GROUNDED_RISK_HINT_RE.search(t):
+    if _HARD_GROUNDED_RISK_RE.search(t):
+        return False
+    at = (atom_type or "").lower()
+    if at in {"task", "scope_item", "bom_line", "action_item"} and _SOW_COMMITMENT_FACT_RE.search(t):
+        return False
+    # Affirmative SOW language without type — still keep.
+    if not at and _SOW_COMMITMENT_FACT_RE.search(t):
         return False
     return True
 
@@ -289,7 +329,15 @@ def is_hard_conversation_filler(atom: Mapping[str, Any] | Any, text: str) -> boo
     if is_marketing_or_chrome_fact(text):
         return True
     # Soft aesthetic vision risks must not occupy any fact lane (P5).
-    if is_speculative_risk_fact(text):
+    if is_speculative_risk_fact(text, atom_type=_atom_type(atom)):
+        return True
+    payload = _atom_payload(atom)
+    fk = str(payload.get("fact_kind") or "").lower()
+    if (
+        "aesthetic" in fk
+        and not _HARD_GROUNDED_RISK_RE.search(text or "")
+        and not _SOW_COMMITMENT_FACT_RE.search(text or "")
+    ):
         return True
     if _EMAIL_SECURITY_URL_RE.search(text or "") and not deal_substance(text):
         return True

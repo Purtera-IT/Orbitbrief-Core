@@ -942,8 +942,11 @@ def _is_customer_facing_question(text: str) -> bool:
 # Floor trip-hazard is already covered by mode.av_install.floor_network_path.
 _SPECULATIVE_ROOM_RISK_RE = re.compile(
     r"(?i)(?:"
-    r"(?:may|could|might)\s+pose|may\s+impact|potentially\s+affecting|slight\s+trip|"
+    r"(?:may|could|might)\s+pose|(?:may|could|might)\s+affect|may\s+impact|"
+    r"potentially\s+affecting|slight\s+trip|"
     r"patterned\s+carpet|non[\-\s]?standard\s+tile|field\s+of\s+view|"
+    r"\baesthetic\b|professional\s+appearance|cleaner\s+look|not\s+fully\s+conceal|"
+    r"trip\s+hazard|"
     r"pose\s+a\s+(?:potential\s+|minor\s+)?(?:obstruction|trip\s+hazard)|"
     r"pose\s+a\s+[^.]{0,40}?trip\s+hazard|"
     r"\bbackpack\b|personal\s+(?:belongings|items|effects)|minor\s+obstruction"
@@ -1284,14 +1287,13 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
         _ModeTemplate(
             rule_id="mode.av_install.cable_conceal_drywall",
             domain_id="audio_visual",
-            label="In-wall cable concealment / drywall finish",
+            label="In-wall cable concealment pathway",
             question=(
-                "Photos show surface cable runs and notes to move cables behind the wall — "
-                "confirm in-wall fish vs surface raceway, and who owns drywall cut / patch / paint?"
+                "Confirm pathway method for surface cable runs noted to move behind the wall: "
+                "in-wall fish vs surface raceway."
             ),
             message=(
-                "Aesthetic / behind-the-wall cable path is implied but drywall ownership "
-                "and pathway method are not locked."
+                "Behind-the-wall cable path is implied but pathway method is not locked."
             ),
             trigger=re.compile(
                 r"\b(?:behind\s+the\s+wall|in[\-\s]?wall|conceal|cable\s+management|"
@@ -1308,13 +1310,32 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             score=0.96,
         ),
         _ModeTemplate(
+            rule_id="mode.av_install.drywall_ownership",
+            domain_id="audio_visual",
+            label="Drywall cut / patch / paint ownership",
+            question=(
+                "If in-wall pathway is required, who owns drywall cut / patch / paint?"
+            ),
+            message="Drywall finish ownership is unset for behind-wall cable work.",
+            trigger=re.compile(
+                r"\b(?:behind\s+the\s+wall|in[\-\s]?wall|drywall|patch(?:ing)?\s*/?\s*paint)\b",
+                re.I,
+            ),
+            answered_by=re.compile(
+                r"\b(?:customer\s+owns\s+(?:drywall|patch|paint)|gc\s+owns\s+patch|"
+                r"no\s+drywall|surface\s+raceway\s+only)\b",
+                re.I,
+            ),
+            severity="warning",
+            score=0.88,
+        ),
+        _ModeTemplate(
             rule_id="mode.av_install.keep_vs_remove_displays",
             domain_id="audio_visual",
             label="Existing displays keep vs remove",
             question=(
-                "Confirm annotated keep vs remove: which existing TVs/displays stay in place, "
-                "and which codecs / bars are removed vs reused? "
-                "(Include whether HDMI over Ethernet / HDMI Replicator keepers remain.)"
+                "Confirm which existing TVs/displays stay mounted in place and which "
+                "codecs / bars are removed vs reused."
             ),
             message="Photo annotations call out keep/remove for existing AV gear — not locked in SOW.",
             trigger=re.compile(
@@ -1356,7 +1377,7 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             label="TV replication cable path",
             question=(
                 "Confirm replication cable TV1→TV2 must be rerouted/hidden behind the wall "
-                "per photo annotations, and who provides pathway?"
+                "per photo annotations."
             ),
             message="Replication cable visibility / reroute is annotated on site photos.",
             trigger=re.compile(
@@ -1375,8 +1396,7 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             domain_id="audio_visual",
             label="Ceiling tile match after device removals",
             question=(
-                "Photo notes say ceiling tiles are hard to get — after ceiling-device decommission, "
-                "who supplies matching tiles / patch, and is tile match required?"
+                "After ceiling-device decommission, who supplies matching ceiling tiles / patch?"
             ),
             message="Ceiling device removals + hard-to-match tiles are annotated.",
             trigger=re.compile(

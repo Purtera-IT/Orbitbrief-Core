@@ -128,6 +128,12 @@ def test_speculative_risk_helper():
     assert is_speculative_risk_fact(
         "A backpack is placed on the floor near a chair, which could pose a minor obstruction or trip hazard."
     )
+    assert is_speculative_risk_fact(
+        "The loose cables on the floor pose a potential trip hazard, as noted in the annotations."
+    )
+    assert is_speculative_risk_fact(
+        "The cables under the table are not fully concealed, which may affect the room's aesthetic."
+    )
     assert not is_speculative_risk_fact(
-        "Annotation notes cables should be moved behind the wall for drywall patch."
+        "Replication cable should be moved behind the wall for drywall patch."
     )
