@@ -125,6 +125,9 @@ def test_speculative_risk_helper():
     assert is_speculative_risk_fact(
         "HVAC elements are visible in the ceiling, potentially affecting camera field of view."
     )
+    assert is_speculative_risk_fact(
+        "A backpack is placed on the floor near a chair, which could pose a minor obstruction or trip hazard."
+    )
     assert not is_speculative_risk_fact(
         "Annotation notes cables should be moved behind the wall for drywall patch."
     )

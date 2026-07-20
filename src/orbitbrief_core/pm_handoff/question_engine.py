@@ -941,17 +941,14 @@ def _is_customer_facing_question(text: str) -> bool:
 # Soft vision observations that must not become install blockers.
 # Floor trip-hazard is already covered by mode.av_install.floor_network_path.
 _SPECULATIVE_ROOM_RISK_RE = re.compile(
-    r"(?i)\b(?:"
-    r"may\s+pose|may\s+impact|potentially\s+affecting|slight\s+trip|"
-    r"patterned\s+carpet|non[\-\s]?standard\s+tile|field\s+of\s+view"
-    r")\b",
+    r"(?i)(?:"
+    r"(?:may|could|might)\s+pose|may\s+impact|potentially\s+affecting|slight\s+trip|"
+    r"patterned\s+carpet|non[\-\s]?standard\s+tile|field\s+of\s+view|"
+    r"pose\s+a\s+(?:potential\s+|minor\s+)?(?:obstruction|trip\s+hazard)|"
+    r"pose\s+a\s+[^.]{0,40}?trip\s+hazard|"
+    r"\bbackpack\b|personal\s+(?:belongings|items|effects)|minor\s+obstruction"
+    r")",
 )
-_AV_SOFT_ROOM_CONDITION_RE = re.compile(
-    r"(?i)\b(?:carpet(?:ed|ing)?|ceiling(?:\s+tile)?|hvac|tile\s+layout|"
-    r"fluorescent|branded\s+posters?)\b",
-)
-
-
 def _candidates_from_evidence_atoms(
     atoms: Iterable[Mapping[str, Any]],
     *,
@@ -1002,12 +999,12 @@ def _candidates_from_evidence_atoms(
                 re.I,
             ):
                 continue
-        # AV: drop speculative photo-room vibes (carpet/HVAC FOV) — not scope asks.
+        # AV: drop speculative photo-room vibes / clutter — not scope asks.
+        # Soft "could pose" / backpack / FOV risks must never become blockers.
         if (
             project_mode == MODE_AV
             and atype == "risk"
             and _SPECULATIVE_ROOM_RISK_RE.search(text)
-            and _AV_SOFT_ROOM_CONDITION_RE.search(text)
         ):
             continue
         fp = fingerprint_question(text)
