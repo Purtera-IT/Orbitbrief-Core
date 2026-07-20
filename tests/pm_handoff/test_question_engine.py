@@ -367,10 +367,116 @@ def test_catalyst_av_not_wireless_from_marketing_wifi():
     joined = " | ".join(
         (c.suggested_open_question or c.message or "").lower() for c in cards
     )
-    assert "drywall" in joined or "behind the wall" in joined or "in-wall" in joined
-    assert "stay in place" in joined or "keep" in joined or "remove" in joined
+    # Pathway method can still be open; keep/remove is already decided in source.
+    assert "drywall" in joined or "behind the wall" in joined or "in-wall" in joined or "raceway" in joined
     assert "ap count" not in joined and "how many aps" not in joined
-    assert "hdmi over ethernet" in joined or "hdmi replicator" in joined
+    assert not any(
+        "keep_vs_remove" in (c.rule_id or "") for c in cards
+    ), "keep/remove already settled by stay + HDMI keeper language"
+
+
+def test_source_material_suppresses_settled_av_asks():
+    """Annotations + SOW exclusions are answers — do not re-ask as Confirm."""
+    from orbitbrief_core.pm_handoff.question_engine import source_material_answers
+
+    blob = (
+        "These 4 TV's to Stay in Place – will remain on floor in this position. "
+        "Almost all of this will be removed and is part of the Yealink system. "
+        "The exception being the HDMI over Ethernet adapter and HDMI Replicator. "
+        "Replication Cable is run across wall visible from TV 1 to TV 2 – "
+        "this should be moved behind wall to not be visible. "
+        "Out of Scope: Ceiling grid repair, replacement ceiling tiles, drywall "
+        "repair, painting, patching, or finish work. "
+        "Network connectivity is across the floor about 10 feet. "
+        "Is it possible to utilize white adapter to hang Neat Devices?"
+    )
+    assert source_material_answers("mode.av_install.keep_vs_remove_displays", blob)
+    assert source_material_answers("mode.av_install.replication_cable_path", blob)
+    assert source_material_answers("mode.av_install.drywall_ownership", blob)
+    assert source_material_answers("mode.av_install.ceiling_tile_match", blob)
+    assert not source_material_answers("mode.av_install.floor_network_path", blob)
+
+    atoms = [
+        {
+            "id": "a1",
+            "atom_type": "scope_item",
+            "artifact_id": "art_pdf",
+            "locator": {"filename": "Catalyst.pdf", "page": 5},
+            "raw_text": "These 4 TV's to Stay in Place – will remain on floor in this position.",
+        },
+        {
+            "id": "a2",
+            "atom_type": "scope_item",
+            "artifact_id": "art_pdf",
+            "locator": {"filename": "Catalyst.pdf", "page": 8},
+            "raw_text": (
+                "Almost all of this will be removed and is part of the Yealink system. "
+                "The exception being the HDMI over Ethernet adapter and HDMI Replicator."
+            ),
+        },
+        {
+            "id": "a3",
+            "atom_type": "scope_item",
+            "artifact_id": "art_pdf",
+            "locator": {"filename": "Catalyst.pdf", "page": 10},
+            "raw_text": (
+                "Replication Cable is run across wall visible from TV 1 to TV 2 – "
+                "this should be moved behind wall to not be visible."
+            ),
+        },
+        {
+            "id": "a4",
+            "atom_type": "exclusion",
+            "artifact_id": "art_docx",
+            "locator": {"filename": "SOW.docx", "page": 1},
+            "raw_text": (
+                "Out of Scope: Ceiling grid repair, replacement ceiling tiles, "
+                "drywall repair, painting, patching, or finish work."
+            ),
+        },
+        {
+            "id": "a5",
+            "atom_type": "scope_item",
+            "artifact_id": "art_pdf",
+            "locator": {"filename": "Catalyst.pdf", "page": 6},
+            "raw_text": "Network connectivity is across the floor about 10 feet to a receptacle.",
+        },
+        {
+            "id": "a6",
+            "atom_type": "open_question",
+            "artifact_id": "art_pdf",
+            "locator": {"filename": "Catalyst.pdf", "page": 17},
+            "raw_text": (
+                "Is it possible to utilize white adapter to hang Neat Devices in "
+                "center of room for the front and back?"
+            ),
+        },
+    ]
+    cards, meta = build_customer_questions(
+        gaps=[],
+        sites=[SiteSummary(name="Plano Office", kind="physical_site", publishable=True)],
+        envelope={
+            "atoms": atoms,
+            "documents": [
+                {"artifact_id": "art_pdf", "filename": "Catalyst.pdf"},
+                {"artifact_id": "art_docx", "filename": "SOW.docx"},
+            ],
+            "service_routing": {"primary": "audio_visual"},
+        },
+        feedback_events=[],
+        cap=10,
+    )
+    assert meta["project_mode"] == MODE_AV
+    rids = {c.rule_id for c in cards}
+    assert "mode.av_install.keep_vs_remove_displays" not in rids
+    assert "mode.av_install.replication_cable_path" not in rids
+    assert "mode.av_install.drywall_ownership" not in rids
+    assert "mode.av_install.ceiling_tile_match" not in rids
+    joined = " | ".join(
+        (c.suggested_open_question or c.message or "").lower() for c in cards
+    )
+    assert "white adapter" in joined
+    assert "floor" in joined or "raceway" in joined or "poke" in joined or "pathway" in joined
 
 
 def test_av_drops_speculative_carpet_ceiling_risk_blockers():

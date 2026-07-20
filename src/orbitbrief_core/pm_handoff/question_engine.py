@@ -1320,7 +1320,10 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             question=(
                 "If in-wall pathway is required, who owns drywall cut / patch / paint?"
             ),
-            message="Drywall finish ownership is unset for behind-wall cable work.",
+            message=(
+                "Drywall finish ownership is unset — no owner named and no SOW "
+                "exclusion for drywall/patch/paint."
+            ),
             trigger=re.compile(
                 r"\b(?:behind\s+the\s+wall|in[\-\s]?wall|drywall|patch(?:ing)?\s*/?\s*paint)\b",
                 re.I,
@@ -1341,7 +1344,10 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
                 "Confirm which existing TVs/displays stay mounted in place and which "
                 "codecs / bars are removed vs reused."
             ),
-            message="Photo annotations call out keep/remove for existing AV gear — not locked in SOW.",
+            message=(
+                "Keep/remove for existing AV gear is still open — no decisive "
+                "stay + remove/keeper language in source."
+            ),
             trigger=re.compile(
                 r"\b(?:stay\s+in\s+place|tvs?\s+to\s+stay|remain\s+in\s+(?:their\s+)?(?:current\s+)?position|"
                 r"will\s+be\s+removed|except\s+for|hdmi\s+replicator|hdmi\s+over\s+ethernet)\b",
@@ -1383,7 +1389,10 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
                 "Confirm replication cable TV1→TV2 must be rerouted/hidden behind the wall "
                 "per photo annotations."
             ),
-            message="Replication cable visibility / reroute is annotated on site photos.",
+            message=(
+                "Replication cable path is still open — source does not yet direct "
+                "behind-wall / hide-the-run."
+            ),
             trigger=re.compile(
                 r"\b(?:replication\s+cable|reroute|tv\s*1|tv\s*2)\b",
                 re.I,
@@ -1402,7 +1411,10 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             question=(
                 "After ceiling-device decommission, who supplies matching ceiling tiles / patch?"
             ),
-            message="Ceiling device removals + hard-to-match tiles are annotated.",
+            message=(
+                "Ceiling tile supply is still open — no customer/GC owner and no "
+                "SOW exclusion for ceiling tiles."
+            ),
             trigger=re.compile(
                 r"\b(?:ceiling\s+tiles?\s+as\s+they\s+are\s+hard\s+to\s+get|"
                 r"hard\s+to\s+get.{0,40}ceiling\s+tiles?|"
@@ -1480,6 +1492,9 @@ def _candidates_from_mode_templates(
             continue
         if tmpl.answered_by is not None and tmpl.answered_by.search(blob or ""):
             continue
+        # Annotations / SOW exclusions already settle many AV "Confirm…" asks.
+        if source_material_answers(tmpl.rule_id, blob or ""):
+            continue
         question = _ground_template_question(tmpl, blob or "")
         cand = QuestionCandidate(
             rule_id=tmpl.rule_id,
@@ -1534,6 +1549,73 @@ def _bom_answers_inventory(blob: str, text: str) -> bool:
     return bool(re.search(r"\bmeraki\s+mx\b.*\b\d+\b|\b\d+\s*[×x]\s*meraki|\bmeraki\s+mx\s*[×x]\s*\d+", blob, re.I))
 
 
+_KEEP_DISPLAY_DECISION_RE = re.compile(
+    r"\b(?:tvs?\s+to\s+stay|stay\s+in\s+place|"
+    r"remain\s+(?:on\s+(?:existing\s+)?(?:vesa|floor|mount)|in\s+(?:their\s+)?(?:current\s+)?position))\b",
+    re.I,
+)
+_REMOVE_OR_KEEPER_DECISION_RE = re.compile(
+    r"\b(?:(?:will|to)\s+be\s+removed|almost\s+all.{0,60}removed|"
+    r"except\s+(?:for\s+)?(?:the\s+)?hdmi|"
+    r"hdmi\s+(?:over\s+ethernet|replicator).{0,60}(?:stay|retained|keep|exception))\b",
+    re.I,
+)
+_REPLICATION_PATH_DECISION_RE = re.compile(
+    r"\b(?:replication\s+cable).{0,140}(?:behind\s+(?:the\s+)?wall|not\s+be\s+visible|should\s+be\s+moved)|"
+    r"(?:should\s+be\s+moved|noted\s+for\s+repositioning|rerout(?:e|ing)|moved).{0,60}behind\s+(?:the\s+)?wall\b",
+    re.I,
+)
+_DRYWALL_FINISH_OOS_RE = re.compile(
+    r"\b(?:drywall\s+repair|painting|patching|finish\s+work).{0,100}"
+    r"(?:out\s+of\s+scope|excluded|exclusion)|"
+    r"(?:out\s+of\s+scope|excluded).{0,100}"
+    r"(?:drywall|painting|patching|finish\s+work)\b",
+    re.I,
+)
+_CEILING_TILE_OOS_RE = re.compile(
+    r"\b(?:ceiling\s+(?:grid\s+repair|tiles?|tile\s+replacement)|replacement\s+ceiling\s+tiles?).{0,100}"
+    r"(?:out\s+of\s+scope|excluded|exclusion)|"
+    r"(?:out\s+of\s+scope|excluded).{0,100}"
+    r"(?:ceiling\s+(?:grid|tiles?))\b",
+    re.I,
+)
+
+
+def source_material_answers(rule_id: str, blob: str) -> bool:
+    """True when deal source already settles this ask — do not re-ask as Confirm.
+
+    Survey annotations and SOW exclusions are answers. Only leave asks that are
+    still open decisions (method choices, true open_questions in the kit).
+    """
+    b = blob or ""
+    rid = (rule_id or "").lower()
+    if rid.endswith("keep_vs_remove_displays") or rid.endswith("keep_vs_remove"):
+        return bool(_KEEP_DISPLAY_DECISION_RE.search(b) and _REMOVE_OR_KEEPER_DECISION_RE.search(b))
+    if rid.endswith("replication_cable_path"):
+        return bool(_REPLICATION_PATH_DECISION_RE.search(b))
+    if rid.endswith("drywall_ownership"):
+        return bool(
+            _DRYWALL_FINISH_OOS_RE.search(b)
+            or re.search(
+                r"\b(?:customer\s+owns\s+(?:drywall|patch|paint)|gc\s+owns\s+patch|"
+                r"no\s+drywall|surface\s+raceway\s+only)\b",
+                b,
+                re.I,
+            )
+        )
+    if rid.endswith("ceiling_tile_match"):
+        return bool(
+            _CEILING_TILE_OOS_RE.search(b)
+            or re.search(
+                r"\b(?:customer\s+owns\s+tiles?|tile\s+match\s+not\s+required|"
+                r"gc\s+owns\s+ceiling\s+repair)\b",
+                b,
+                re.I,
+            )
+        )
+    return False
+
+
 def suppress_answered(
     candidates: list[QuestionCandidate],
     *,
@@ -1546,6 +1628,8 @@ def suppress_answered(
         if _sites_answer_site_list_question(sites, q):
             continue
         if _bom_answers_inventory(blob, q):
+            continue
+        if source_material_answers(c.rule_id, blob):
             continue
         # Empty after normalization
         if not (c.suggested_open_question or "").strip():
