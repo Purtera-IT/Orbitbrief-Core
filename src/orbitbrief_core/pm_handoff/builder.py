@@ -86,8 +86,10 @@ from orbitbrief_core.pm_handoff.fact_quality import (
     polish_fact_claim,
 )
 from orbitbrief_core.pm_handoff.question_engine import (
+    MODE_AV,
     MODE_NETWORK_EDGE_INSTALL,
     build_customer_questions,
+    domain_ids_allowed_for_mode,
 )
 from orbitbrief_core.pm_handoff.semantic_dedupe import is_near_duplicate_of_any, semantic_dedupe
 from dataclasses import asdict
@@ -165,10 +167,27 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     # Don't surface the same intent as both a gap/blocker and a curated question.
     gaps = _suppress_gaps_covered_by_questions(gaps, customer_questions)
     project_mode = str(question_meta.get("project_mode") or "")
-    gaps = _filter_gaps_for_project_mode(gaps, project_mode)
+    evidence_blob = ""
+    if isinstance(envelope, dict):
+        evidence_blob = "\n".join(
+            str(a.get("text") or a.get("raw_text") or "")
+            for a in (envelope.get("atoms") or [])
+            if isinstance(a, dict)
+        )
+    gaps = _filter_gaps_for_project_mode(gaps, project_mode, evidence_blob=evidence_blob)
     # Rebuild domain rollups after mode-aware gap filtering so ops leftovers
     # do not inflate network_maintenance info counts on install deals.
     domains = _build_domains(report, sow, gaps, service_routing)
+    domains = _filter_domains_for_project_mode(
+        domains,
+        project_mode,
+        primary=str(
+            (service_routing or {}).get("primary")
+            if isinstance(service_routing, dict)
+            else ""
+        )
+        or None,
+    )
     # Drop/rewrite transcript scraps now that curated asks exist.
     facts, polish_meta = _polish_fact_cards(facts, customer_questions)
     fact_quality_meta = {**fact_quality_meta, **polish_meta}
@@ -652,11 +671,72 @@ def _semantic_dedupe_gaps(gaps: list[GapCard]) -> list[GapCard]:
     return sorted(kept, key=lambda g: (SEVERITY_SORT.get(g.severity, 9), g.domain_label, g.label))
 
 
-def _filter_gaps_for_project_mode(gaps: list[GapCard], project_mode: str) -> list[GapCard]:
-    """Drop ops-checklist leftovers that do not apply to the detected project mode."""
-    if (project_mode or "").strip() != MODE_NETWORK_EDGE_INSTALL:
-        return gaps
-    return [g for g in gaps if g.rule_id not in _INSTALL_IRRELEVANT_GAP_IDS]
+# UC / Teams-room AV without a DSP/control stack should not ask Crestron/Q-SYS
+# acceptance checklists. Photo-backed Neat/Yealink rooms trip this often.
+_AV_DSP_CONTROL_GAP_IDS = frozenset(
+    {
+        "audio_visual.dsp_control",
+        "audio_visual.acceptance",
+    }
+)
+_AV_DSP_EVIDENCE_RE = re.compile(
+    r"(?i)\b(?:dsp|crestron|extron|q[\-\s]?sys|biamp|tesira|symetrix|"
+    r"control\s+(?:processor|system)|programming\s+acceptance)\b"
+)
+
+
+def _filter_gaps_for_project_mode(
+    gaps: list[GapCard],
+    project_mode: str,
+    *,
+    evidence_blob: str = "",
+) -> list[GapCard]:
+    """Drop checklist leftovers that do not apply to the detected project mode.
+
+    Curated customer questions already gate YAML safety-net rows by
+    ``domain_ids_allowed_for_mode``. Apply the same domain gate to the gap
+    list so secondary packs weakly selected by keyword noise (UC "camera" →
+    VMS, HDMI "cable" → structured cabling) cannot flood an AV handoff.
+    """
+    mode = (project_mode or "").strip()
+    allow = domain_ids_allowed_for_mode(mode)
+    filtered = gaps
+    if allow is not None:
+        filtered = [
+            g for g in gaps if g.domain_id in allow or g.domain_id == "global"
+        ]
+    if mode == MODE_NETWORK_EDGE_INSTALL:
+        filtered = [
+            g for g in filtered if g.rule_id not in _INSTALL_IRRELEVANT_GAP_IDS
+        ]
+    if mode == MODE_AV and not _AV_DSP_EVIDENCE_RE.search(evidence_blob or ""):
+        filtered = [g for g in filtered if g.rule_id not in _AV_DSP_CONTROL_GAP_IDS]
+    return filtered
+
+
+def _filter_domains_for_project_mode(
+    domains: list[DomainSummary],
+    project_mode: str,
+    *,
+    primary: str | None = None,
+) -> list[DomainSummary]:
+    """Hide out-of-scope secondary packs once their gaps have been pruned."""
+    allow = domain_ids_allowed_for_mode(project_mode)
+    if allow is None:
+        return domains
+    primary_id = (primary or "").strip()
+    kept: list[DomainSummary] = []
+    for d in domains:
+        if d.domain_id in allow or d.domain_id == "global":
+            kept.append(d)
+            continue
+        if primary_id and d.domain_id == primary_id:
+            kept.append(d)
+            continue
+        # Belts: keep only if mode filter somehow left residual gaps.
+        if d.blockers or d.warnings or d.info:
+            kept.append(d)
+    return kept
 
 
 def _suppress_gaps_covered_by_questions(

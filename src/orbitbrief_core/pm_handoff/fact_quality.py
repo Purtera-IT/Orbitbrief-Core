@@ -63,8 +63,70 @@ _DEAL_SUBSTANCE_RE = re.compile(
     r"site|office|address|circuit|meraki|mx\b|sd[\-\s]?wan|sop|poc|"
     r"smart\s+hands|remote\s+hands|bom|device|install|survey|walkthrough|"
     r"montreal|canada|maitland|carrier|topology|config(?:uration)?|"
-    r"approval|paper|quote|schedule|milestone|scope|rack|stack"
+    r"approval|paper|quote|schedule|milestone|scope|rack|stack|"
+    # AV / UC install substance (Catalyst-style photo packs)
+    r"neat|yealink|hdmi|vesa|codec|soundbar|conference\s+room|"
+    r"behind\s+the\s+wall|drywall|floor\s+network|display|mount"
     r")\b"
+)
+
+_VISION_PLACEHOLDER_RE = re.compile(
+    r"(?i)\b(?:awaiting\s+ocr(?:\s*/\s*vision)?|image\s+vision\s+abstain|"
+    r"\[image\s+extracted\b|image_vision_abstained:)"
+)
+
+_EMAIL_SECURITY_URL_RE = re.compile(
+    r"(?i)\b(?:urldefense|proofpoint|mimecast|safelinks\.protection|"
+    r"mimecastcybergraph|cgbannerindicator|mark\s+safe|powered\s+by\s+mimecast)\b"
+)
+
+# Marketing / capability-email chrome that must never land in fact cards (O7/O12).
+_MARKETING_FACT_NOISE_RE = re.compile(
+    r"(?i)(?:"
+    r"quotes\s+in\s+24|"
+    r"ai[\-\s]?driven\s+pmo|"
+    r"^account\s+executive$|"
+    r"global\s+field\s+services|"
+    r"wifi,\s+and\s+cabling|"
+    r"proven\s+execution\s+across|"
+    r"^www\.purtera|"
+    r"^purtera\-it\.com\b|"
+    r"similar\s+name\s+as\s+someone|"
+    r"^from:\s|^sent:\s|mailto:"
+    r")"
+)
+
+_SPECULATIVE_RISK_FACT_RE = re.compile(
+    r"(?i)(?:"
+    r"may\s+pose|"
+    r"may\s+impact|"
+    r"potentially\s+affecting|"
+    r"slight\s+trip|"
+    r"patterned\s+carpet|"
+    r"field\s+of\s+view|"
+    r"aesthetically\s+unappealing|"
+    r"trip\s+hazard\s+if\s+cables\s+are\s+not|"
+    r"pose\s+a\s+(?:potential\s+)?trip\s+hazard|"
+    r"posing\s+a\s+(?:potential\s+)?trip\s+hazard|"
+    r"non[\-\s]?standard\s+tile\s+layout"
+    r")"
+)
+
+_GROUNDED_RISK_HINT_RE = re.compile(
+    r"(?i)(?:"
+    r"annotation|"
+    r"behind\s+the\s+wall|"
+    r"drywall|"
+    r"raceway|"
+    r"noted\s+for|"
+    r"must\s+be|"
+    r"should\s+be\s+(?:moved|rerouted|hidden|removed)|"
+    r"hard\s+to\s+get"
+    r")"
+)
+
+_SHRED_FACT_RE = re.compile(
+    r"(?i)^(?:ss|ph|&nbsp;|nbsp|;|&amp;|\u00b0shi|shi°?|\.|\-|–|—)+$"
 )
 
 _STRUCTURED_KEEP = frozenset(
@@ -87,19 +149,72 @@ def _atom_text(atom: Mapping[str, Any] | Any) -> str:
         for key in ("text", "raw_text", "normalized_text", "claim"):
             val = atom.get(key)
             if isinstance(val, str) and val.strip():
-                return val.strip()
+                return unwrap_fact_text(val.strip())
         value = atom.get("value")
         if isinstance(value, Mapping):
             for key in ("text", "claim", "summary"):
                 val = value.get(key)
                 if isinstance(val, str) and val.strip():
-                    return val.strip()
+                    return unwrap_fact_text(val.strip())
         return ""
     for attr in ("text", "raw_text", "normalized_text"):
         val = getattr(atom, attr, None)
         if isinstance(val, str) and val.strip():
-            return val.strip()
+            return unwrap_fact_text(val.strip())
     return ""
+
+
+def unwrap_fact_text(text: str) -> str:
+    """P3 / O1 — strip JSON / Python string-list wrappers from vision claims."""
+    import json
+
+    text = re.sub(r"\s+", " ", (text or "").strip())
+    if len(text) < 4:
+        return text
+    if text[0] in "[{\"'":
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, list) and parsed:
+                first = parsed[0]
+                if isinstance(first, str) and first.strip():
+                    text = first.strip()
+            elif isinstance(parsed, str) and parsed.strip():
+                text = parsed.strip()
+        except Exception:
+            pass
+    if (
+        len(text) > 4
+        and text[0] == "["
+        and text[-1] == "]"
+        and text[1] in "'\""
+        and text[-2] in "'\""
+    ):
+        text = text[2:-2].replace('\\"', '"').replace("\\'", "'").strip()
+    if text.startswith("['") and text.endswith("']") and text.count("']") == 1:
+        text = text[2:-2].strip()
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def is_marketing_or_chrome_fact(text: str) -> bool:
+    t = (text or "").strip()
+    if not t:
+        return True
+    if _SHRED_FACT_RE.fullmatch(t) or (len(t) < 6 and not re.search(r"[a-zA-Z]{3,}", t)):
+        return True
+    if _MARKETING_FACT_NOISE_RE.search(t):
+        return True
+    if _EMAIL_SECURITY_URL_RE.search(t) and not deal_substance(t):
+        return True
+    return False
+
+
+def is_speculative_risk_fact(text: str) -> bool:
+    t = text or ""
+    if not _SPECULATIVE_RISK_FACT_RE.search(t):
+        return False
+    if _GROUNDED_RISK_HINT_RE.search(t):
+        return False
+    return True
 
 
 def _atom_type(atom: Mapping[str, Any] | Any) -> str:
@@ -162,6 +277,17 @@ def is_hard_conversation_filler(atom: Mapping[str, Any] | Any, text: str) -> boo
     if kind in {"greeting", "smalltalk"}:
         return True
     if is_lexical_conversation_filler(text):
+        return True
+    # Vision stubs left after image extract / abstain — not PM facts.
+    if _VISION_PLACEHOLDER_RE.search(text or ""):
+        return True
+    # Marketing / email chrome / shred (O7 / O12 / P2 / P8).
+    if is_marketing_or_chrome_fact(text):
+        return True
+    # Soft aesthetic vision risks must not occupy any fact lane (P5).
+    if is_speculative_risk_fact(text):
+        return True
+    if _EMAIL_SECURITY_URL_RE.search(text or "") and not deal_substance(text):
         return True
     # Parser marks many soft commitments as conversation_meta/filler; keep those
     # that still carry deal substance for the neural / substance path.
@@ -461,8 +587,12 @@ def display_case_label(
 
 def polish_fact_claim(text: str) -> str | None:
     """Rewrite transcript scrap into a PM claim, or None to drop."""
-    t = re.sub(r"\s+", " ", (text or "").strip())
+    t = unwrap_fact_text(text or "")
     if len(t) < 8:
+        return None
+    if is_marketing_or_chrome_fact(t) or _VISION_PLACEHOLDER_RE.search(t):
+        return None
+    if is_speculative_risk_fact(t):
         return None
     if _DROP_AS_FACT_RE.match(t):
         return None

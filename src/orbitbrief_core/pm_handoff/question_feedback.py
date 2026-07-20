@@ -57,6 +57,9 @@ class QuestionFeedbackEvent:
     fingerprint: str = ""
     question_text: str = ""
     edited_text: str = ""
+    # Why this action — separates mode-mismatch vs true dismiss in learning.
+    reason: str = ""
+    reason_tags: list[str] = field(default_factory=list)
     domain_id: str = ""
     actor: str = ""
     compile_id: str = ""
@@ -76,6 +79,8 @@ class QuestionFeedbackEvent:
             action = DECISION_TO_ACTION.get(decision, "")
         if not action:
             return None
+        tags_raw = row.get("reason_tags") or []
+        tags = [str(x) for x in tags_raw if str(x).strip()] if isinstance(tags_raw, list) else []
         return cls(
             deal_id=str(row.get("deal_id") or row.get("case_id") or ""),
             action=action,
@@ -89,6 +94,8 @@ class QuestionFeedbackEvent:
                 or ""
             ),
             edited_text=str(row.get("edited_text") or row.get("final_text") or ""),
+            reason=str(row.get("reason") or row.get("why") or "").strip()[:480],
+            reason_tags=tags,
             domain_id=str(row.get("domain_id") or ""),
             actor=str(row.get("actor") or row.get("user_email") or row.get("reviewer") or ""),
             compile_id=str(row.get("compile_id") or ""),
