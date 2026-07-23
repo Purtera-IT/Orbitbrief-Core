@@ -79,10 +79,38 @@ from orbitbrief_core.pm_handoff.pm_intelligence import (
     load_comparable_deals,
     risk_numeric_score,
 )
-from orbitbrief_core.pm_handoff.question_engine import build_customer_questions
+from orbitbrief_core.pm_handoff.fact_quality import (
+    display_case_label,
+    fact_overlaps_question,
+    filter_pm_visible_atoms,
+    is_av_install_gold_fact,
+    polish_fact_claim,
+)
+from orbitbrief_core.pm_handoff.question_engine import (
+    MODE_AV,
+    MODE_NETWORK_EDGE_INSTALL,
+    build_customer_questions,
+    domain_ids_allowed_for_mode,
+)
+from orbitbrief_core.pm_handoff.semantic_dedupe import is_near_duplicate_of_any, semantic_dedupe
 from dataclasses import asdict
 
 MAX_FACTS_PER_CATEGORY = 12
+
+# Info-level checklist leftovers that still clutter install handoffs even after
+# the SOW validator demotes them (belt-and-suspenders with sow_completeness).
+_INSTALL_IRRELEVANT_GAP_IDS = frozenset({
+    "network_maintenance.routing_failover",
+    "network_maintenance.port_vlan_wan",
+    "network_maintenance.device_inventory",
+    "network_maintenance.coverage_tier",
+    "network_maintenance.firmware_change",
+    "network_maintenance.firmware_baseline_missing",
+    "network_maintenance.patch_window_change_calendar_missing",
+    "network_maintenance.oem_tac_escalation_missing",
+    "network_maintenance.vlan_port_audit_cadence_missing",
+    "network_maintenance.circuit_demarc_responsibility_missing",
+})
 
 
 def build_pm_handoff(case_dir: Path) -> PMHandoff:
@@ -126,9 +154,9 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
 
     source_files, artifact_by_id = _build_source_files(report)
     sites = _build_site_summaries(report, case_dir)
-    gaps = _build_gap_cards(sow)
+    gaps = _semantic_dedupe_gaps(_build_gap_cards(sow))
     domains = _build_domains(report, sow, gaps, service_routing)
-    facts = _build_fact_cards(report, artifact_by_id)
+    facts, fact_quality_meta = _build_fact_cards(report, artifact_by_id)
     # Evidence-first curated asks (not the full YAML pack checklist).
     customer_questions, question_meta = build_customer_questions(
         gaps=gaps,
@@ -137,14 +165,65 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         report=report if isinstance(report, dict) else None,
         case_dir=case_dir,
     )
+    # Don't surface the same intent as both a gap/blocker and a curated question.
+    gaps = _suppress_gaps_covered_by_questions(gaps, customer_questions)
+    project_mode = str(question_meta.get("project_mode") or "")
+    evidence_blob = ""
+    if isinstance(envelope, dict):
+        evidence_blob = "\n".join(
+            str(a.get("text") or a.get("raw_text") or "")
+            for a in (envelope.get("atoms") or [])
+            if isinstance(a, dict)
+        )
+    gaps = _filter_gaps_for_project_mode(gaps, project_mode, evidence_blob=evidence_blob)
+    # Rebuild domain rollups after mode-aware gap filtering so ops leftovers
+    # do not inflate network_maintenance info counts on install deals.
+    domains = _build_domains(report, sow, gaps, service_routing)
+    domains = _filter_domains_for_project_mode(
+        domains,
+        project_mode,
+        primary=str(
+            (service_routing or {}).get("primary")
+            if isinstance(service_routing, dict)
+            else ""
+        )
+        or None,
+    )
+    # Drop/rewrite transcript scraps now that curated asks exist.
+    facts, polish_meta = _polish_fact_cards(facts, customer_questions)
+    fact_quality_meta = {**fact_quality_meta, **polish_meta}
     metrics = _build_metrics(report, sow, facts, gaps, sites)
-    metrics["project_mode"] = question_meta.get("project_mode")
+    # Align metric counters with status (curated questions), not suppressed YAML gaps.
+    metrics["blockers"] = sum(1 for q in customer_questions if q.severity == "blocker")
+    metrics["warnings"] = sum(1 for q in customer_questions if q.severity == "warning")
+    metrics["project_mode"] = project_mode
     metrics["customer_question_engine"] = question_meta
+    metrics["fact_quality"] = fact_quality_meta
+    # Prefer project-mode label over pack primary when mode is more specific
+    # (e.g. network_edge_install vs network_maintenance pack).
+    mode_workstream = _project_mode_workstream_label(project_mode)
+    if mode_workstream:
+        metrics["top_workstream"] = mode_workstream
     # Status for the PM is driven by curated customer_questions (not the
     # full internal YAML gap list). Sites still gate "not ready".
     status, status_label = _derive_status(customer_questions, sow, report, sites)
-    sa_focus = _build_sa_focus(domains)
-    one_line = _build_one_line_summary(case_id, domains, sites, customer_questions)
+    sa_focus = _build_sa_focus(domains, project_mode=project_mode)
+    report_for_label = dict(report) if isinstance(report, dict) else {}
+    if isinstance(envelope, dict) and "envelope" not in report_for_label:
+        report_for_label["envelope"] = envelope
+    display_label = display_case_label(
+        case_id,
+        report=report_for_label,
+        sow=sow if isinstance(sow, dict) else None,
+        case_dir_name=case_dir.name if case_dir else None,
+    )
+    one_line = _build_one_line_summary(
+        display_label,
+        domains,
+        sites,
+        customer_questions,
+        project_mode=project_mode,
+    )
 
     # A5 reconciliation: build money / date mentions and near-value
     # flags from the inspection report. These are stored as dicts so
@@ -174,15 +253,16 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     qty_claims = build_quantity_claims(report)
     qty_contradictions = find_quantity_contradictions(qty_claims)
     exec_summary = build_executive_summary(
-        case_id=case_id,
+        case_id=display_label,
         status=status,
         status_label=status_label,
         one_line_summary=one_line,
         money_mentions=money,
         risks=risks,
-        gaps=gaps,
+        gaps=customer_questions,
         sites=sites,
         domains=domains,
+        project_mode=project_mode,
     )
     # Tier 1-4 PM intelligence
     margin = build_margin_view(report)
@@ -573,6 +653,130 @@ def _coerce_publishable(value: Any) -> bool:
     return str(value or "").strip().lower() in {"true", "yes", "y", "1", "✓", "publishable"}
 
 
+def _semantic_dedupe_gaps(gaps: list[GapCard]) -> list[GapCard]:
+    """Collapse paraphrase-duplicate gaps/blockers to one canonical ask."""
+    if len(gaps) < 2:
+        return gaps
+
+    def score(g: GapCard) -> tuple:
+        return (
+            -SEVERITY_SORT.get(g.severity, 9),
+            min(len(g.suggested_open_question or g.message or ""), 240) / 240.0,
+        )
+
+    kept, _meta = semantic_dedupe(
+        gaps,
+        text_fn=lambda g: g.suggested_open_question or g.message or "",
+        score_fn=score,
+    )
+    return sorted(kept, key=lambda g: (SEVERITY_SORT.get(g.severity, 9), g.domain_label, g.label))
+
+
+# UC / Teams-room AV without a DSP/control stack should not ask Crestron/Q-SYS
+# acceptance checklists. Photo-backed Neat/Yealink rooms trip this often.
+_AV_DSP_CONTROL_GAP_IDS = frozenset(
+    {
+        "audio_visual.dsp_control",
+        "audio_visual.acceptance",
+    }
+)
+_AV_DSP_EVIDENCE_RE = re.compile(
+    r"(?i)\b(?:dsp|crestron|extron|q[\-\s]?sys|biamp|tesira|symetrix|"
+    r"control\s+(?:processor|system)|programming\s+acceptance)\b"
+)
+
+
+def _filter_gaps_for_project_mode(
+    gaps: list[GapCard],
+    project_mode: str,
+    *,
+    evidence_blob: str = "",
+) -> list[GapCard]:
+    """Drop checklist leftovers that do not apply to the detected project mode.
+
+    Curated customer questions already gate YAML safety-net rows by
+    ``domain_ids_allowed_for_mode``. Apply the same domain gate to the gap
+    list so secondary packs weakly selected by keyword noise (UC "camera" →
+    VMS, HDMI "cable" → structured cabling) cannot flood an AV handoff.
+    """
+    mode = (project_mode or "").strip()
+    allow = domain_ids_allowed_for_mode(mode)
+    filtered = gaps
+    if allow is not None:
+        filtered = [
+            g for g in gaps if g.domain_id in allow or g.domain_id == "global"
+        ]
+    if mode == MODE_NETWORK_EDGE_INSTALL:
+        filtered = [
+            g for g in filtered if g.rule_id not in _INSTALL_IRRELEVANT_GAP_IDS
+        ]
+    if mode == MODE_AV and not _AV_DSP_EVIDENCE_RE.search(evidence_blob or ""):
+        filtered = [g for g in filtered if g.rule_id not in _AV_DSP_CONTROL_GAP_IDS]
+    return filtered
+
+
+def _filter_domains_for_project_mode(
+    domains: list[DomainSummary],
+    project_mode: str,
+    *,
+    primary: str | None = None,
+) -> list[DomainSummary]:
+    """Hide out-of-scope secondary packs once their gaps have been pruned."""
+    allow = domain_ids_allowed_for_mode(project_mode)
+    if allow is None:
+        return domains
+    primary_id = (primary or "").strip()
+    kept: list[DomainSummary] = []
+    for d in domains:
+        if d.domain_id in allow or d.domain_id == "global":
+            kept.append(d)
+            continue
+        if primary_id and d.domain_id == primary_id:
+            kept.append(d)
+            continue
+        # Belts: keep only if mode filter somehow left residual gaps.
+        if d.blockers or d.warnings or d.info:
+            kept.append(d)
+    return kept
+
+
+def _suppress_gaps_covered_by_questions(
+    gaps: list[GapCard],
+    questions: list[GapCard],
+) -> list[GapCard]:
+    """Drop gaps whose intent is already covered by a curated customer question.
+
+    If a covered gap is a blocker and the matching question is only a warning,
+    promote the question severity so the PM still sees blocker urgency — once.
+    """
+    if not gaps or not questions:
+        return gaps
+    from dataclasses import replace
+
+    q_texts = [(q.suggested_open_question or q.message or "") for q in questions]
+    # Mutable parallel list so we can promote severity on the caller's list.
+    questions[:] = list(questions)
+    kept: list[GapCard] = []
+    for g in gaps:
+        g_text = g.suggested_open_question or g.message or ""
+        if not g_text:
+            kept.append(g)
+            continue
+        if not is_near_duplicate_of_any(g_text, q_texts):
+            kept.append(g)
+            continue
+        # Covered by a curated question — optionally upgrade that question.
+        if g.severity == "blocker":
+            for i, q in enumerate(questions):
+                q_text = q.suggested_open_question or q.message or ""
+                if is_near_duplicate_of_any(g_text, [q_text]):
+                    if SEVERITY_SORT.get(q.severity, 9) > SEVERITY_SORT.get("blocker", 0):
+                        questions[i] = replace(q, severity="blocker")
+                    break
+        # else: drop gap (do not keep duplicate surface)
+    return kept
+
+
 def _build_gap_cards(sow: dict[str, Any]) -> list[GapCard]:
     gaps: list[GapCard] = []
     for f in sow.get("findings") or []:
@@ -666,7 +870,9 @@ def _build_domains(
     )
 
 
-def _build_fact_cards(report: dict[str, Any], artifact_by_id: dict[str, dict[str, Any]]) -> dict[str, list[EvidenceCard]]:
+def _build_fact_cards(
+    report: dict[str, Any], artifact_by_id: dict[str, dict[str, Any]]
+) -> tuple[dict[str, list[EvidenceCard]], dict[str, Any]]:
     cards: dict[str, list[EvidenceCard]] = {c: [] for c in CATEGORY_ORDER}
     seen: set[str] = set()
 
@@ -689,44 +895,150 @@ def _build_fact_cards(report: dict[str, Any], artifact_by_id: dict[str, dict[str
             "rfi_row": 80,
             "runbook_row": 80,
             "working_measurement_row": 75,
+            "deal_metadata": 15,  # weak default — chat often lands here
         }.get(atom_type, 30)
         if str(atom.get("verified") or "") == "verified":
             type_bonus += 10
         if (atom.get("downstream") or {}).get("bundled"):
             type_bonus += 5
-        text = str(atom.get("text") or "")
+        text = str(atom.get("text") or atom.get("raw_text") or "")
+        # AV install gold (VESA / ceiling tiles / behind-wall / HDMI keepers)
+        # must outrank verified SOW boilerplate risks (70+10=80) for the 12-card cap.
+        if is_av_install_gold_fact(text):
+            type_bonus = max(type_bonus, 95)
         if len(text) > 500:
             type_bonus -= 20
         return type_bonus, float(atom.get("confidence") or 0.0)
 
-    for atom in sorted(report.get("atom_lineage") or [], key=score, reverse=True):
+    lineage = list(report.get("atom_lineage") or [])
+    # Prefer envelope atoms when lineage lacks value/flags (common on worker path).
+    envelope_atoms = []
+    env = report.get("envelope") if isinstance(report.get("envelope"), dict) else None
+    if not env:
+        # Some reports nest atoms at top level only via lineage; envelope may be absent.
+        envelope_atoms = list(report.get("atoms") or [])
+    else:
+        envelope_atoms = list(env.get("atoms") or [])
+    source_atoms: list[dict[str, Any]] = lineage if lineage else envelope_atoms
+    # Merge envelope value/flags onto lineage rows by id when present.
+    by_id = {
+        str(a.get("id") or a.get("atom_id") or ""): a
+        for a in envelope_atoms
+        if isinstance(a, dict)
+    }
+    merged: list[dict[str, Any]] = []
+    for atom in source_atoms:
+        if not isinstance(atom, dict):
+            continue
+        aid = str(atom.get("id") or atom.get("atom_id") or "")
+        env_a = by_id.get(aid) or {}
+        row = dict(atom)
+        if env_a.get("value") is not None and row.get("value") is None:
+            row["value"] = env_a.get("value")
+        # Parser marks chat filler on ``structured`` (kind=conversation_meta).
+        if env_a.get("structured") and not row.get("structured"):
+            row["structured"] = env_a.get("structured")
+        if env_a.get("review_flags") and not row.get("review_flags"):
+            row["review_flags"] = env_a.get("review_flags")
+        if not row.get("text") and env_a.get("text"):
+            row["text"] = env_a.get("text")
+        if not row.get("raw_text") and env_a.get("raw_text"):
+            row["raw_text"] = env_a.get("raw_text")
+        merged.append(row)
+
+    filtered, quality_meta = filter_pm_visible_atoms(merged)
+
+    for atom in sorted(filtered, key=score, reverse=True):
         atom_type = str(atom.get("atom_type") or "")
-        text = str(atom.get("text") or "")
+        text = str(atom.get("text") or atom.get("raw_text") or "")
         if not text or len(text.strip()) < 8:
             continue
-        category = classify_fact_category(atom_type, text)
-        if len(cards[category]) >= MAX_FACTS_PER_CATEGORY:
+        claim = polish_fact_claim(text)
+        if not claim:
             continue
-        key = normalize_for_dedupe(text)[:200]
+        # Bucket from the polished claim (raw chat often mis-routes).
+        category = classify_fact_category(atom_type, claim)
+        claim_l = claim.lower()
+        if any(
+            x in claim_l
+            for x in (
+                "change order",
+                "survey charge",
+                "per-site fee",
+                "per site fee",
+                "cdw us paper",
+                "us paper",
+                "billing",
+                "payment",
+            )
+        ):
+            category = "commercial"
+        if category not in cards:
+            category = "scope"
+        key = normalize_for_dedupe(claim)[:200]
         if key in seen:
             continue
-        seen.add(key)
         artifact = artifact_by_id.get(str(atom.get("artifact_id") or ""), {})
-        cards[category].append(
-            EvidenceCard(
-                title=_fact_title(atom_type, category),
-                category=category,
-                text=compact_text(text, 340),
-                source=SourcePointer(
-                    filename=str(artifact.get("filename") or atom.get("artifact_id") or "unknown source"),
-                    locator=_format_locator(atom.get("locator") or {}),
-                ),
-                confidence=_maybe_float(atom.get("confidence")),
-                verified=str(atom.get("verified") or ""),
-                internal_id=str(atom.get("id") or ""),
-            )
+        card = EvidenceCard(
+            title=_fact_title(atom_type, category),
+            category=category,
+            text=compact_text(claim, 340),
+            source=SourcePointer(
+                filename=str(artifact.get("filename") or atom.get("artifact_id") or "unknown source"),
+                locator=_format_locator(atom.get("locator") or {}),
+            ),
+            confidence=_maybe_float(atom.get("confidence")),
+            verified=str(atom.get("verified") or ""),
+            internal_id=str(atom.get("id") or ""),
         )
-    return {k: v for k, v in cards.items() if v}
+        bucket = cards[category]
+        if len(bucket) < MAX_FACTS_PER_CATEGORY:
+            seen.add(key)
+            bucket.append(card)
+            continue
+        # Category full: let install gold displace the weakest non-gold card.
+        if is_av_install_gold_fact(claim):
+            replace_at = None
+            weakest = None
+            for i, existing in enumerate(bucket):
+                if is_av_install_gold_fact(existing.text or ""):
+                    continue
+                conf = float(existing.confidence or 0.0)
+                if weakest is None or conf < weakest:
+                    weakest = conf
+                    replace_at = i
+            if replace_at is not None:
+                seen.add(key)
+                bucket[replace_at] = card
+    return {k: v for k, v in cards.items() if v}, quality_meta
+
+
+def _polish_fact_cards(
+    facts: dict[str, list[EvidenceCard]],
+    customer_questions: list[GapCard],
+) -> tuple[dict[str, list[EvidenceCard]], dict[str, Any]]:
+    """Second pass: drop facts that only restate curated questions."""
+    q_texts = [
+        (q.suggested_open_question or q.message or "")
+        for q in customer_questions
+    ]
+    out: dict[str, list[EvidenceCard]] = {}
+    dropped = 0
+    for cat, cards in facts.items():
+        kept: list[EvidenceCard] = []
+        for card in cards:
+            # Keep install gold visible even when a curated question covers
+            # the same territory (facts lane ≠ question queue).
+            if is_av_install_gold_fact(card.text or ""):
+                kept.append(card)
+                continue
+            if fact_overlaps_question(card.text, q_texts):
+                dropped += 1
+                continue
+            kept.append(card)
+        if kept:
+            out[cat] = kept
+    return out, {"fact_quality_dropped_question_overlap": dropped}
 
 
 def _fact_title(atom_type: str, category: str) -> str:
@@ -783,11 +1095,51 @@ def _derive_status(gaps: list[GapCard], sow: dict[str, Any], report: dict[str, A
     return "yellow", "PM review required"
 
 
-def _build_sa_focus(domains: list[DomainSummary]) -> list[str]:
+# Project modes whose copy should override the pack-primary workstream label.
+# Pack routing may still select `network_maintenance` while the question engine
+# correctly gates as an install / turn-up job.
+_MODE_COPY_OVERRIDES: dict[str, str] = {
+    "network_edge_install": "Network edge install",
+    "wireless_install": "Wireless install",
+    "cabling_install": "Structured cabling install",
+    "av_install": "AV install",
+    "access_control": "Access control",
+    "alm": "Application / lifecycle management",
+    "staff_aug": "Staff augmentation",
+}
+
+_MODE_SA_FOCUS: dict[str, list[str]] = {
+    "network_edge_install": [
+        "Confirm in-scope sites vs deferred, circuit readiness, and smart-hands "
+        "boundary (rack/stack vs config/test/docs) before quoting.",
+        "Lock first survey / POC site, SOP receipt + acceptance owner, and "
+        "device-per-site topology before scheduling remote hands.",
+    ],
+}
+
+
+def _project_mode_workstream_label(project_mode: str | None) -> str | None:
+    mode = (project_mode or "").strip()
+    if not mode or mode in {"generic", "network_ops"}:
+        return None
+    if mode in _MODE_COPY_OVERRIDES:
+        return _MODE_COPY_OVERRIDES[mode]
+    labeled = domain_label(mode)
+    return labeled if labeled and labeled.lower() != mode.replace("_", " ") else None
+
+
+def _build_sa_focus(
+    domains: list[DomainSummary],
+    *,
+    project_mode: str | None = None,
+) -> list[str]:
     out: list[str] = []
-    for d in domains:
-        if d.selected_by_router or d.active_for_sow:
-            out.extend(SA_FOCUS_BY_DOMAIN.get(d.domain_id, []))
+    mode_focus = _MODE_SA_FOCUS.get((project_mode or "").strip(), [])
+    out.extend(mode_focus)
+    if not mode_focus:
+        for d in domains:
+            if d.selected_by_router or d.active_for_sow:
+                out.extend(SA_FOCUS_BY_DOMAIN.get(d.domain_id, []))
     seen: set[str] = set()
     unique: list[str] = []
     for item in out:
@@ -797,12 +1149,29 @@ def _build_sa_focus(domains: list[DomainSummary]) -> list[str]:
     return unique[:18]
 
 
-def _build_one_line_summary(case_id: str, domains: list[DomainSummary], sites: list[SiteSummary], gaps: list[GapCard]) -> str:
-    active = [d.label for d in domains if d.selected_by_router or d.active_for_sow]
+def _build_one_line_summary(
+    case_id: str,
+    domains: list[DomainSummary],
+    sites: list[SiteSummary],
+    gaps: list[GapCard],
+    *,
+    project_mode: str | None = None,
+) -> str:
+    mode_label = _project_mode_workstream_label(project_mode)
+    active = (
+        [mode_label]
+        if mode_label
+        else [d.label for d in domains if d.selected_by_router or d.active_for_sow]
+    )
     site_names = [s.name for s in sites if s.publishable]
     blockers = sum(1 for g in gaps if g.severity == "blocker")
     warnings = sum(1 for g in gaps if g.severity == "warning")
-    return f"{case_id}: {', '.join(active[:4]) if active else 'unclassified scope'} at {', '.join(site_names[:2]) if site_names else 'no confirmed site'}; {blockers} blocker and {warnings} warning SOW question(s) need PM/SA review."
+    label = (case_id or "This engagement").strip() or "This engagement"
+    return (
+        f"{label}: {', '.join(active[:4]) if active else 'unclassified scope'} at "
+        f"{', '.join(site_names[:2]) if site_names else 'no confirmed site'}; "
+        f"{blockers} blocker and {warnings} clarification(s) need PM/SA review."
+    )
 
 
 def _format_locator(locator: dict[str, Any]) -> str:

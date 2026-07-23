@@ -27,13 +27,25 @@ from orbitbrief_core.pm_handoff.question_feedback import (
     fingerprint_question,
     load_feedback,
 )
+from orbitbrief_core.pm_handoff.semantic_dedupe import (
+    cosine_similarity,
+    evidence_relevance_scores,
+    is_near_duplicate_of_any,
+    is_neural_embedder,
+    resolve_question_embedder,
+    semantic_dedupe,
+)
 from orbitbrief_core.validator.sow_completeness import (
     _NETWORK_INSTALL_EVIDENCE_RE,
     _atom_text,
 )
 
-DEFAULT_QUESTION_CAP = 8
+DEFAULT_QUESTION_CAP = 6
 MIN_SAFETY_NET_IF_EMPTY = 2
+# Drop candidates whose neural relevance to deal evidence falls below this.
+NEURAL_RELEVANCE_FLOOR = float(
+    __import__("os").environ.get("ORBITBRIEF_QUESTION_NEURAL_FLOOR", "0.28")
+)
 
 # ── project modes ─────────────────────────────────────────────────────
 
@@ -62,6 +74,20 @@ _MODE_YAML_ALLOW: dict[str, frozenset[str]] = {
     MODE_GENERIC: frozenset({"global", "commercial"}),
 }
 
+
+def domain_ids_allowed_for_mode(project_mode: str) -> frozenset[str] | None:
+    """Return the domain allowlist for a concrete project mode, or None to keep all.
+
+    ``generic`` / unknown modes intentionally return None so we do not strip
+    legitimate pack gaps when mode detection is weak. Concrete modes (AV,
+    cabling, wireless, …) return the same allowlist used by the YAML safety
+    net so VMS / structured-cabling leftovers cannot pollute an AV handoff.
+    """
+    mode = (project_mode or "").strip()
+    if not mode or mode == MODE_GENERIC:
+        return None
+    return _MODE_YAML_ALLOW.get(mode)
+
 # Ops / ALM / staff families that must never promote on edge-install deals.
 _INSTALL_BANNED_RULE_PREFIXES = (
     "network_maintenance.firmware",
@@ -70,14 +96,31 @@ _INSTALL_BANNED_RULE_PREFIXES = (
     "network_maintenance.oem",
     "network_maintenance.vlan_port_audit",
     "network_maintenance.circuit_demarc",
+    "network_maintenance.routing_failover",
+    "network_maintenance.port_vlan_wan",
+    "network_maintenance.device_inventory",
     "alm.",
     "staff_augmentation.",
 )
 
-_WIRELESS_INSTALL_RE = re.compile(
-    r"\b(?:access\s+points?|aps?\b|wifi|wi[\-\s]?fi|wlan|ssid|heatmap|ap[\-\s]?on[\-\s]?a[\-\s]?stick)\b",
+# Strong WLAN install language only. Bare "WiFi" in a vendor capability matrix
+# (e.g. PurTera marketing email) must NOT flip a conference-room AV deal to
+# wireless_install — that produced Catalyst's false "AP count/model" blocker.
+_WIRELESS_STRONG_RE = re.compile(
+    r"\b(?:"
+    r"access\s+points?|"
+    r"wlan\s+(?:controller|install|deployment|design|survey)|"
+    r"wireless\s+(?:ap|access\s+point|install|survey|design|controller)|"
+    r"ssid|heatmap|ap[\-\s]?on[\-\s]?a[\-\s]?stick|802\.11(?:ac|ax|be|n|g)?"
+    r")\b",
     re.I,
 )
+_WIRELESS_WEAK_RE = re.compile(
+    r"\b(?:wifi|wi[\-\s]?fi|wlan|aps?)\b",
+    re.I,
+)
+# Back-compat alias used by older tests / callers.
+_WIRELESS_INSTALL_RE = _WIRELESS_STRONG_RE
 _CABLING_RE = re.compile(
     r"\b(?:cat\s?[56]a?|fiber|fibre|drop(?:s)?|cable\s+pull|permanent\s+link|fluke|tia[\-\s]?568)\b",
     re.I,
@@ -91,7 +134,35 @@ _STAFF_AUG_RE = re.compile(
     re.I,
 )
 _AV_RE = re.compile(
-    r"\b(?:audio[\-\s]?visual|projector|dsp\b|crestron|extron|conference\s+room\s+av)\b",
+    r"\b(?:"
+    r"audio[\-\s]?visual|audiovisual|"
+    r"projector|dsp\b|crestron|extron|biamp|q[\-\s]?sys|"
+    r"conference\s+room(?:\s+av)?|huddle\s+room|teams\s+room|zoom\s+room|"
+    r"neat\b|yealink|poly(?:com)?\b|soundbar|hdmi|vesa|"
+    r"video\s+codec|room\s+bar|uc\s+bar|display\s+mount"
+    r")\b",
+    re.I,
+)
+# Dense AV install evidence — beats a stray marketing WiFi mention.
+_AV_STRONG_RE = re.compile(
+    r"\b(?:"
+    r"neat\b|yealink|teams\s+room|zoom\s+room|huddle\s+room|"
+    r"conference\s+room|soundbar|vesa|hdmi\s+over\s+ethernet|"
+    r"hdmi\s+replicator|behind\s+the\s+wall|room\s+bar|"
+    r"display\s+mount|tv\s+mount|wall\s+mount\b|ceiling\s+mount"
+    r")\b",
+    re.I,
+)
+_FLOOR_PATHWAY_EVIDENCE_RE = re.compile(
+    r"\b(?:receptacle|floor\s+box|poke[\-\s]?through|"
+    r"across\s+the\s+floor|cable(?:s)?\s+(?:run|across|visible).{0,40}floor|"
+    r"floor.{0,40}(?:network|receptacle|cable)|10\s*(?:ft|feet)|"
+    r"network\s+(?:path|run|port|connectivity).{0,40}floor|"
+    r"floor.{0,40}network\s+(?:path|run|connectivity|receptacle))\b",
+    re.I,
+)
+_KEEP_TV_ANNOTATION_RE = re.compile(
+    r"\b(?:tvs?\s+to\s+stay|stay\s+in\s+place|remain\s+on\s+(?:floor|vesa|mount))\b",
     re.I,
 )
 _ACCESS_RE = re.compile(
@@ -116,6 +187,7 @@ class QuestionCandidate:
     source: str = "evidence"  # evidence | mode_template | yaml_safety | pm_gold
     score: float = 0.0
     evidence_atom_ids: list[str] = field(default_factory=list)
+    evidence_sources: list[dict[str, Any]] = field(default_factory=list)
     project_mode: str = ""
 
     def to_gap_card(self) -> GapCard:
@@ -128,11 +200,576 @@ class QuestionCandidate:
             message=self.message,
             suggested_open_question=self.suggested_open_question,
             observed_summary=self.observed_summary,
+            sources=list(self.evidence_sources),
         )
 
 
+_EVIDENCE_NOISE_RE = re.compile(
+    r"(?i)\b(?:awaiting\s+ocr|image\s+vision\s+abstain|urldefense|proofpoint|"
+    r"mimecast|cgbannerindicator|&nbsp;|account\s+executive|"
+    r"quotes\s+in\s+24|ai[\-\s]?driven\s+pmo|global\s+field\s+services|"
+    r"powered\s+by\s+mimecast|mark\s+safe)\b"
+)
+_EVIDENCE_STOP = frozenset(
+    {
+        "the", "and", "for", "with", "from", "that", "this", "have", "will",
+        "are", "was", "were", "been", "confirm", "which", "what", "who",
+        "room", "must", "need", "needs", "please", "into", "onto", "over",
+    }
+)
+
+
+def _evidence_tokens(text: str) -> set[str]:
+    return {
+        t
+        for t in re.findall(r"[a-z0-9][a-z0-9\-\./]{2,}", (text or "").lower())
+        if t not in _EVIDENCE_STOP and not t.isdigit()
+    }
+
+
+def _atom_evidence_text(atom: Mapping[str, Any]) -> str:
+    text = re.sub(r"\s+", " ", (_atom_text(atom) or "").strip())
+    # Vision extractors sometimes serialize a one-item JSON string list.
+    if len(text) >= 4 and text[0] in "[{\"'":
+        try:
+            import json
+
+            parsed = json.loads(text)
+            if isinstance(parsed, list) and parsed:
+                first = parsed[0]
+                if isinstance(first, str) and first.strip():
+                    text = first.strip()
+            elif isinstance(parsed, str) and parsed.strip():
+                text = parsed.strip()
+        except Exception:
+            pass
+    # Vision sometimes emits mismatched wrappers: ["…'] or ['…"]
+    if len(text) > 4 and text[0] == "[" and text[-1] == "]" and text[1] in "'\"" and text[-2] in "'\"":
+        text = text[2:-2].replace('\\"', '"').replace("\\'", "'").strip()
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _atom_filename(atom: Mapping[str, Any], docs_by_id: Mapping[str, str] | None = None) -> str:
+    loc = atom.get("locator") if isinstance(atom.get("locator"), Mapping) else {}
+    for key in ("filename", "path", "source_path"):
+        raw = loc.get(key) if isinstance(loc, Mapping) else None
+        if not raw:
+            raw = atom.get(key)
+        if isinstance(raw, str) and raw.strip():
+            name = raw.replace("\\", "/").rstrip("/").split("/")[-1]
+            if name:
+                return name
+    aid = str(atom.get("artifact_id") or "").strip()
+    if aid and docs_by_id and aid in docs_by_id:
+        return docs_by_id[aid]
+    if aid:
+        return aid
+    return "Source"
+
+
+_FACT_KIND_LABEL = {
+    "cable": "cables in frame",
+    "mount": "mount / bracket",
+    "equipment": "equipment in frame",
+    "placement": "placement / position",
+    "site_condition": "site condition",
+    "annotation": "on-image annotation",
+    "power_data": "power / network path",
+    "risk": "install risk in frame",
+    "other": "visible detail",
+}
+_VAGUE_ROOM_OVERVIEW_RE = re.compile(
+    r"(?i)^(?:the\s+image\s+(?:shows|depicts)|this\s+(?:image|photo)\s+(?:shows|depicts)|"
+    r"a\s+conference\s+room\s+setup\s+with\s+a\s+(?:long|large))",
+)
+
+
+def _atom_payload_maps(atom: Mapping[str, Any]) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+    val = atom.get("value") if isinstance(atom.get("value"), Mapping) else {}
+    st = atom.get("structured") if isinstance(atom.get("structured"), Mapping) else {}
+    return val or {}, st or {}
+
+
+def _parse_region_ref(region_ref: str) -> tuple[int | None, int | None]:
+    m = re.match(r"(?i)page\s*(\d+)\s*/\s*image\s*(\d+)", (region_ref or "").strip())
+    if not m:
+        return None, None
+    return int(m.group(1)), int(m.group(2))
+
+
+def _atoms_by_id(atoms: Iterable[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]:
+    out: dict[str, Mapping[str, Any]] = {}
+    for a in atoms:
+        if not isinstance(a, Mapping):
+            continue
+        aid = str(a.get("id") or a.get("atom_id") or "").strip()
+        if aid:
+            out[aid] = a
+    return out
+
+
+def _photo_meta(
+    atom: Mapping[str, Any],
+    *,
+    atoms_by_id: Mapping[str, Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Extract pointed photo location + caption for an atom."""
+    loc = atom.get("locator") if isinstance(atom.get("locator"), Mapping) else {}
+    val, st = _atom_payload_maps(atom)
+    region = str(
+        (loc or {}).get("region_ref")
+        or val.get("region_ref")
+        or st.get("region_ref")
+        or ""
+    ).strip()
+    page = (loc or {}).get("page") or (loc or {}).get("page_number")
+    image_n = (loc or {}).get("image") or (loc or {}).get("image_index")
+    p2, i2 = _parse_region_ref(region)
+    if page is None:
+        page = p2
+    if image_n is None:
+        image_n = i2
+    via = str(val.get("via") or st.get("via") or (loc or {}).get("extraction") or "")
+    kind = str(val.get("image_kind") or st.get("image_kind") or st.get("kind") or "")
+    fact_kind = str(val.get("fact_kind") or st.get("fact_kind") or "")
+    if fact_kind.startswith("image_fact:"):
+        fact_kind = fact_kind.split(":", 1)[1]
+    is_photo = bool(
+        region
+        or "pdf_image_vision" in via
+        or kind in {"photo", "image_marker", "diagram"}
+        or fact_kind
+    )
+    caption = str(st.get("expected_content") or val.get("expected_content") or "").strip()
+    marker_id = str(val.get("source_marker_id") or st.get("source_marker_id") or "").strip()
+    if not caption and marker_id and atoms_by_id:
+        marker = atoms_by_id.get(marker_id)
+        if isinstance(marker, Mapping):
+            mval, mst = _atom_payload_maps(marker)
+            caption = str(
+                mst.get("expected_content")
+                or mval.get("expected_content")
+                or ""
+            ).strip()
+            if not caption:
+                mt = _atom_evidence_text(marker)
+                m = re.search(r'(?i)expected:\s*"([^"]+)"', mt)
+                if m:
+                    caption = m.group(1).strip()
+    # Caption sometimes lives in the fact text itself ("Image caption reads 'Behind TV 1'").
+    if not caption:
+        t = _atom_evidence_text(atom)
+        m = re.search(
+            r"(?i)(?:caption\s+reads|labeled\s+as|label(?:led)?)\s*[:\s]+['\"]([^'\"]+)['\"]",
+            t,
+        )
+        if m:
+            caption = m.group(1).strip()
+    saved = str(
+        (loc or {}).get("saved_path")
+        or st.get("saved_path")
+        or val.get("saved_path")
+        or ""
+    ).strip()
+    if saved:
+        saved = saved.replace("\\", "/").split("/")[-1]
+    return {
+        "is_photo": is_photo,
+        "page": int(page) if page is not None and str(page).isdigit() else page,
+        "image": int(image_n) if image_n is not None and str(image_n).isdigit() else image_n,
+        "region_ref": region,
+        "caption": caption,
+        "fact_kind": fact_kind,
+        "image_kind": kind or ("photo" if is_photo else ""),
+        "saved_path": saved,
+        "via": via,
+    }
+
+
+def _fact_kind_phrase(fact_kind: str) -> str:
+    fk = (fact_kind or "").strip().lower()
+    if not fk:
+        return ""
+    return _FACT_KIND_LABEL.get(fk, fk.replace("_", " "))
+
+
+def _atom_locator_label(
+    atom: Mapping[str, Any],
+    snippet: str,
+    *,
+    atoms_by_id: Mapping[str, Mapping[str, Any]] | None = None,
+) -> str:
+    """Pointed where-string for the Evidence panel (page / image / caption)."""
+    meta = _photo_meta(atom, atoms_by_id=atoms_by_id)
+    parts: list[str] = []
+    if meta["is_photo"]:
+        parts.append("Photo")
+        if meta["page"] is not None:
+            parts.append(f"page {meta['page']}")
+        if meta["image"] is not None:
+            parts.append(f"image {meta['image']}")
+        elif meta["region_ref"]:
+            parts.append(meta["region_ref"])
+        if meta["caption"]:
+            parts.append(f"caption “{meta['caption'][:60]}”")
+        kind_phrase = _fact_kind_phrase(str(meta["fact_kind"] or ""))
+        if kind_phrase:
+            parts.append(kind_phrase)
+        if meta["saved_path"]:
+            parts.append(meta["saved_path"])
+    else:
+        loc = atom.get("locator") if isinstance(atom.get("locator"), Mapping) else {}
+        if isinstance(loc, Mapping):
+            page = loc.get("page") or loc.get("page_number")
+            section = loc.get("section") or loc.get("section_path")
+            if page is not None:
+                parts.append(f"page {page}")
+            if section:
+                if isinstance(section, (list, tuple)):
+                    parts.append(" / ".join(str(x) for x in section[:3]))
+                else:
+                    parts.append(str(section)[:80])
+        atype = str(atom.get("atom_type") or "").strip()
+        if atype:
+            parts.append(atype)
+    label = " · ".join(parts) if parts else "evidence"
+    return label[:180]
+
+
+def _pointed_snippet(
+    atom: Mapping[str, Any],
+    text: str,
+    *,
+    atoms_by_id: Mapping[str, Mapping[str, Any]] | None = None,
+) -> str:
+    """What to show as the quote — lead with where/what for photos."""
+    meta = _photo_meta(atom, atoms_by_id=atoms_by_id)
+    body = text if len(text) <= 200 else text[:197].rstrip() + "…"
+    if not meta["is_photo"]:
+        return body
+    where: list[str] = []
+    if meta["page"] is not None and meta["image"] is not None:
+        where.append(f"p{meta['page']}/image{meta['image']}")
+    elif meta["region_ref"]:
+        where.append(str(meta["region_ref"]))
+    elif meta["page"] is not None:
+        where.append(f"p{meta['page']}")
+    if meta["caption"]:
+        where.append(f"“{meta['caption'][:50]}”")
+    kind_phrase = _fact_kind_phrase(str(meta["fact_kind"] or ""))
+    head = "Photo " + " · ".join(where) if where else "Photo"
+    if kind_phrase:
+        return f"{head} — {kind_phrase}: {body}"
+    return f"{head} — what we see: {body}"
+
+
+def _pointed_observed(sources: list[dict[str, Any]]) -> str:
+    bits: list[str] = []
+    for s in sources[:2]:
+        loc = str(s.get("locator") or "").strip()
+        snip = str(s.get("snippet") or "").strip()
+        if snip.lower().startswith("photo "):
+            bits.append(snip[:180])
+        elif loc and snip:
+            bits.append(f"{loc}: {snip[:120]}")
+        elif snip:
+            bits.append(snip[:160])
+    if not bits:
+        return ""
+    observed = "Evidence: " + " · ".join(bits)
+    if len(sources) > 2:
+        observed += f" · (+{len(sources) - 2} more)"
+    return observed
+
+
+def _docs_by_artifact_id(envelope: Mapping[str, Any] | None) -> dict[str, str]:
+    out: dict[str, str] = {}
+    if not isinstance(envelope, Mapping):
+        return out
+    for doc in envelope.get("documents") or []:
+        if not isinstance(doc, Mapping):
+            continue
+        aid = str(doc.get("artifact_id") or doc.get("id") or "").strip()
+        name = str(doc.get("filename") or doc.get("name") or "").strip()
+        if aid and name:
+            out[aid] = name
+    return out
+
+
+def _score_atom_for_evidence(
+    atom: Mapping[str, Any],
+    *,
+    trigger: re.Pattern[str] | None,
+    question: str,
+    prefer_photo: bool = True,
+) -> float:
+    """Return match score; 0 means reject (noise / no overlap)."""
+    text = _atom_evidence_text(atom)
+    if len(text) < 12 or _EVIDENCE_NOISE_RE.search(text):
+        return 0.0
+    # O10: whole-room blurbs never win as primary evidence.
+    if _VAGUE_ROOM_OVERVIEW_RE.search(text) and len(text) > 120:
+        # Allow only as last-resort if trigger hits annotation language.
+        if not (
+            trigger is not None
+            and trigger.search(text)
+            and re.search(r"(?i)behind\s+the\s+wall|annotation|hdmi|yealink|neat", text)
+        ):
+            return 0.0
+    q_toks = _evidence_tokens(question)
+    a_toks = _evidence_tokens(text)
+    if not a_toks:
+        return 0.0
+    overlap = len(q_toks & a_toks) / max(len(q_toks), 1)
+    trig_hit = bool(trigger.search(text)) if trigger is not None else False
+    if not trig_hit and overlap < 0.12 and len(q_toks & a_toks) < 2:
+        return 0.0
+    score = 0.35 * float(trig_hit) + 0.55 * min(1.0, overlap * 2.2)
+    # Prefer photo / install vision and concrete scope atoms.
+    via_blob = json_dumps_safe(atom.get("value")) + json_dumps_safe(atom.get("structured"))
+    if prefer_photo and ("pdf_image_vision" in via_blob or "image_" in via_blob):
+        score += 0.12
+    atype = str(atom.get("atom_type") or "").lower()
+    if atype in {"scope_item", "open_question", "constraint", "risk", "decision"}:
+        score += 0.06
+    if atype in {"deal_metadata", "stakeholder"} and not trig_hit:
+        score -= 0.15
+    # O10 / P4: Prefer pointed install facts over vague whole-room captions.
+    val, st = _atom_payload_maps(atom)
+    fk = str(val.get("fact_kind") or st.get("fact_kind") or "")
+    rank = str(val.get("evidence_rank") or st.get("evidence_rank") or "")
+    if fk.startswith("image_fact") or "image_fact" in fk:
+        score += 0.18
+    if any(k in fk for k in ("cable", "annotation", "mount", "power_data", "equipment")):
+        score += 0.10
+    if "image_description" in fk or fk == "description" or rank == "blurb":
+        score -= 0.28
+    if _VAGUE_ROOM_OVERVIEW_RE.search(text) and len(text) > 160:
+        score -= 0.35
+    # Floor-path asks: prefer cable/receptacle/floor-box facts over keep-TV notes.
+    # Live Catalyst annotations often pack BOTH "TVs stay" and the 10ft floor path
+    # in one blob — still demote the keep-TV framing so the cable fact wins first.
+    q_low = (question or "").lower()
+    if "floor" in q_low and ("path" in q_low or "raceway" in q_low or "receptacle" in q_low):
+        if _FLOOR_PATHWAY_EVIDENCE_RE.search(text):
+            score += 0.16
+        if "cable" in fk or fk.endswith(":cable") or "floor" in fk:
+            score += 0.14
+        if _KEEP_TV_ANNOTATION_RE.search(text):
+            score -= 0.34
+    # Triple-check: if trigger exists, require trigger OR strong keyword overlap.
+    if trigger is not None and not trig_hit and len(q_toks & a_toks) < 3:
+        return 0.0
+    # Allow >1.0 so relative ranking survives (display still rounds).
+    return max(0.0, min(1.5, score))
+
+
+def json_dumps_safe(obj: Any) -> str:
+    try:
+        import json
+
+        return json.dumps(obj or {}, default=str).lower()
+    except Exception:
+        return str(obj or "").lower()
+
+
+def _source_from_atom(
+    atom: Mapping[str, Any],
+    text: str,
+    *,
+    score: float,
+    docs_by_id: Mapping[str, str] | None = None,
+    atoms_by_id: Mapping[str, Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    meta = _photo_meta(atom, atoms_by_id=atoms_by_id)
+    aid = str(atom.get("id") or atom.get("atom_id") or "").strip()
+    src = {
+        "filename": _atom_filename(atom, docs_by_id),
+        "artifact_id": str(atom.get("artifact_id") or "") or None,
+        "atom_id": aid or None,
+        "locator": _atom_locator_label(atom, text, atoms_by_id=atoms_by_id),
+        "snippet": _pointed_snippet(atom, text, atoms_by_id=atoms_by_id),
+        "match_score": round(score, 3),
+        "region_ref": meta.get("region_ref") or None,
+        "page": meta.get("page"),
+        "image": meta.get("image"),
+        "caption": meta.get("caption") or None,
+        "fact_kind": meta.get("fact_kind") or None,
+        "media": "photo" if meta.get("is_photo") else "text",
+    }
+    return {k: v for k, v in src.items() if v not in (None, "")}
+
+
+def _collect_matching_evidence(
+    atoms: Iterable[Mapping[str, Any]],
+    *,
+    question: str,
+    trigger: re.Pattern[str] | None = None,
+    docs_by_id: Mapping[str, str] | None = None,
+    atoms_by_id: Mapping[str, Mapping[str, Any]] | None = None,
+    limit: int = 3,
+    min_score: float = 0.42,
+) -> tuple[list[dict[str, Any]], list[str], str]:
+    """Pick best matching atoms; return (sources, atom_ids, observed_summary)."""
+    atom_list = [a for a in atoms if isinstance(a, Mapping)]
+    by_id = atoms_by_id or _atoms_by_id(atom_list)
+    ranked: list[tuple[float, Mapping[str, Any], str]] = []
+    for atom in atom_list:
+        score = _score_atom_for_evidence(
+            atom, trigger=trigger, question=question, prefer_photo=True
+        )
+        if score < min_score:
+            continue
+        text = _atom_evidence_text(atom)
+        ranked.append((score, atom, text))
+    ranked.sort(key=lambda row: (-row[0], -len(row[2])))
+    sources: list[dict[str, Any]] = []
+    ids: list[str] = []
+    seen_snip: set[str] = set()
+    seen_region: set[str] = set()
+    for score, atom, text in ranked:
+        # Final match gate: quote must still contain trigger or shared keywords.
+        if trigger is not None and not trigger.search(text):
+            shared = _evidence_tokens(question) & _evidence_tokens(text)
+            if len(shared) < 2:
+                continue
+        snip_key = re.sub(r"\W+", " ", text.lower()).strip()[:120]
+        if snip_key in seen_snip:
+            continue
+        meta = _photo_meta(atom, atoms_by_id=by_id)
+        region_key = str(meta.get("region_ref") or "")
+        # Keep at most two facts from the same photo crop so the panel stays pointed.
+        if region_key:
+            same = sum(1 for s in sources if s.get("region_ref") == region_key)
+            if same >= 2:
+                continue
+            seen_region.add(region_key)
+        seen_snip.add(snip_key)
+        src = _source_from_atom(
+            atom,
+            text,
+            score=score,
+            docs_by_id=docs_by_id,
+            atoms_by_id=by_id,
+        )
+        sources.append(src)
+        aid = str(atom.get("id") or atom.get("atom_id") or "").strip()
+        if aid:
+            ids.append(aid)
+        if len(sources) >= limit:
+            break
+    if not sources:
+        return [], [], ""
+    return sources, ids, _pointed_observed(sources)
+
+
+def _repoint_sources(
+    sources: list[dict[str, Any]],
+    *,
+    atoms: Iterable[Mapping[str, Any]],
+    docs_by_id: Mapping[str, str] | None = None,
+) -> tuple[list[dict[str, Any]], str]:
+    """Upgrade already-attached sources with pointed photo where/what labels."""
+    by_id = _atoms_by_id(atoms)
+    out: list[dict[str, Any]] = []
+    for s in sources:
+        if not isinstance(s, Mapping):
+            continue
+        aid = str(s.get("atom_id") or "").strip()
+        atom = by_id.get(aid)
+        if atom is None:
+            out.append(dict(s))
+            continue
+        text = _atom_evidence_text(atom) or str(s.get("snippet") or "")
+        score = float(s.get("match_score") or 0.9)
+        out.append(
+            _source_from_atom(
+                atom,
+                text,
+                score=score,
+                docs_by_id=docs_by_id,
+                atoms_by_id=by_id,
+            )
+        )
+    return out, _pointed_observed(out)
+
+
+def _with_evidence(
+    candidate: QuestionCandidate,
+    *,
+    atoms: Iterable[Mapping[str, Any]],
+    trigger: re.Pattern[str] | None = None,
+    docs_by_id: Mapping[str, str] | None = None,
+    require: bool = False,
+    min_score: float | None = None,
+) -> QuestionCandidate | None:
+    """Attach matching sources; drop candidate when require=True and nothing matches."""
+    atom_list = [a for a in atoms if isinstance(a, Mapping)]
+    if candidate.evidence_sources:
+        sources, observed = _repoint_sources(
+            list(candidate.evidence_sources),
+            atoms=atom_list,
+            docs_by_id=docs_by_id,
+        )
+        return QuestionCandidate(
+            rule_id=candidate.rule_id,
+            domain_id=candidate.domain_id,
+            label=candidate.label,
+            severity=candidate.severity,
+            message=candidate.message,
+            suggested_open_question=candidate.suggested_open_question,
+            observed_summary=observed or candidate.observed_summary,
+            source=candidate.source,
+            score=candidate.score,
+            evidence_atom_ids=list(candidate.evidence_atom_ids),
+            evidence_sources=sources,
+            project_mode=candidate.project_mode,
+        )
+    floorish = "floor_network_path" in (candidate.rule_id or "")
+    gate = 0.30 if floorish and min_score is None else (0.42 if min_score is None else min_score)
+    sources, ids, observed = _collect_matching_evidence(
+        atom_list,
+        question=candidate.suggested_open_question or candidate.message or candidate.label,
+        trigger=trigger,
+        docs_by_id=docs_by_id,
+        min_score=gate,
+    )
+    if not sources:
+        if require:
+            return None
+        return candidate
+    return QuestionCandidate(
+        rule_id=candidate.rule_id,
+        domain_id=candidate.domain_id,
+        label=candidate.label,
+        severity=candidate.severity,
+        message=candidate.message,
+        suggested_open_question=candidate.suggested_open_question,
+        observed_summary=observed or candidate.observed_summary,
+        source=candidate.source,
+        score=min(1.0, candidate.score + 0.03),
+        evidence_atom_ids=ids or list(candidate.evidence_atom_ids),
+        evidence_sources=sources,
+        project_mode=candidate.project_mode,
+    )
+
+
 def _blob_from_atoms(atoms: Iterable[Mapping[str, Any]]) -> str:
-    return "\n".join(_atom_text(a) for a in atoms if isinstance(a, Mapping))
+    """Evidence text + locator section paths (SOW 'Out of Scope' lives here)."""
+    parts: list[str] = []
+    for a in atoms:
+        if not isinstance(a, Mapping):
+            continue
+        t = (_atom_text(a) or "").strip()
+        if t:
+            parts.append(t)
+        loc = a.get("locator") if isinstance(a.get("locator"), Mapping) else {}
+        sp = loc.get("section_path") if isinstance(loc, Mapping) else None
+        if isinstance(sp, list) and sp:
+            parts.append(" / ".join(str(x) for x in sp if str(x).strip()))
+        elif isinstance(sp, str) and sp.strip():
+            parts.append(sp.strip())
+    return "\n".join(parts)
 
 
 def _atoms_from_sources(
@@ -174,9 +811,24 @@ def detect_project_mode(
     """Universal project-mode detector — not Sodexo-specific."""
     text = blob if blob is not None else _blob_from_atoms(atoms)
     sr = service_routing or {}
-    primary = str(sr.get("primary") or "").strip()
+    # O9: when the neural router abstains (or lacks anchors), ignore its
+    # primary / neural_primary — evidence + pack prior decide mode.
+    if sr.get("abstained") or str(sr.get("abstain_reason") or "").strip():
+        primary = ""
+    else:
+        primary = str(sr.get("primary") or "").strip()
+        # Never promote neural_primary when primary is empty/null.
+        if not primary:
+            primary = ""
     override_reason = str(sr.get("override_reason") or "").lower()
     source = str(sr.get("source") or "").lower()
+
+    text_s = text or ""
+    av_strong_n = len(_AV_STRONG_RE.findall(text_s))
+    # Dense conference-room AV evidence wins before incidental SD-WAN / WiFi
+    # routing overrides (marketing WiFi must not flip a Neat/Yealink pack).
+    if av_strong_n >= 3 or (primary == "audio_visual" and av_strong_n >= 1):
+        return MODE_AV
 
     if (
         "network_install" in override_reason
@@ -191,25 +843,40 @@ def detect_project_mode(
             return MODE_NETWORK_EDGE_INSTALL
         return MODE_NETWORK_OPS
 
-    if primary == "wireless" or _WIRELESS_INSTALL_RE.search(text or ""):
-        if _CONFIG_ONLY_RE.search(text or ""):
+    wireless_strong = bool(_WIRELESS_STRONG_RE.search(text_s))
+    wireless_weak = bool(_WIRELESS_WEAK_RE.search(text_s))
+
+    # Conference-room / UC-AV evidence wins over a single marketing "WiFi".
+    if primary == "audio_visual" or av_strong_n >= 2 or (
+        _AV_RE.search(text_s) and av_strong_n >= 1 and not wireless_strong
+    ):
+        return MODE_AV
+
+    if primary == "wireless" or wireless_strong or (
+        wireless_weak and av_strong_n == 0 and not _AV_RE.search(text_s)
+    ):
+        if _CONFIG_ONLY_RE.search(text_s):
             return MODE_WIRELESS_CONFIG
         return MODE_WIRELESS_INSTALL
 
-    if primary in {"low_voltage_cabling", "cabling"} or _CABLING_RE.search(text or ""):
+    if primary in {"low_voltage_cabling", "cabling"} or _CABLING_RE.search(text_s):
         return MODE_CABLING
 
-    if primary == "alm" or _ALM_RE.search(text or ""):
+    if primary == "alm" or _ALM_RE.search(text_s):
         return MODE_ALM
 
-    if primary == "staff_augmentation" or _STAFF_AUG_RE.search(text or ""):
+    # Staff-aug only when router primary is trusted (not abstained) OR
+    # strong staff-aug evidence without AV/wireless install signals.
+    if primary == "staff_augmentation" or (
+        _STAFF_AUG_RE.search(text_s) and av_strong_n == 0 and not wireless_strong
+    ):
         # Remote-hands on network install already returned above.
         return MODE_STAFF_AUG
 
-    if primary == "audio_visual" or _AV_RE.search(text or ""):
+    if _AV_RE.search(text_s):
         return MODE_AV
 
-    if primary == "access_control" or _ACCESS_RE.search(text or ""):
+    if primary == "access_control" or _ACCESS_RE.search(text_s):
         return MODE_ACCESS
 
     top = str((pack_prior or {}).get("top_pack_id") or "")
@@ -246,6 +913,18 @@ def _atom_question_text(atom: Mapping[str, Any]) -> str:
     return ""
 
 
+_SMALLTALK_RE = re.compile(
+    r"(?i)\b("
+    r"weekend|volleyball|how(?:'s| is| are)?\s+you(?:r)?(?:\s+doing)?|"
+    r"big\s+plans|you\s+know\s+what\s+i\s+mean|chase\b|"
+    r"how's\s+it\s+going|what'?s\s+up|good\s+morning|good\s+afternoon|"
+    r"catch\s+up|how's\s+the\s+family|nice\s+to\s+(?:meet|see)\s+you|"
+    r"point\s+of\s+emphasis\b|rhyme\s+or\s+reason|"
+    r"scenarios\s+with\s+the\s+international"
+    r")\b"
+)
+
+
 def _is_customer_facing_question(text: str) -> bool:
     """Filter parser-internal / meta chatter that is not a PM ask."""
     t = (text or "").strip()
@@ -259,8 +938,32 @@ def _is_customer_facing_question(text: str) -> bool:
         "atom_type",
         "copy of those sites that you can send",
         "do you have a copy of those sites",
+        "rhyme or reason",
+        "in those scenarios with the international",
+        "big plans for the weekend",
+        "why do you chase",
+        "you know what i mean",
+        "biggest point of emphasis",
     )
     if any(b in low for b in banned):
+        return False
+    if _SMALLTALK_RE.search(low):
+        return False
+    # Email footer / security-gateway chrome is not a PM clarification.
+    if any(
+        tok in low
+        for tok in (
+            "urldefense.proofpoint.com",
+            "mimecastcybergraph.com",
+            "mimecast.com",
+            "report.mimecast",
+            "mark safe<",
+            "purtera-it.com<http",
+        )
+    ):
+        return False
+    # Mostly-a-URL "questions"
+    if low.count("http") >= 1 and sum(ch.isalnum() for ch in t) < 40:
         return False
     # Prefer interrogatives or decision-shaped statements
     if "?" in t:
@@ -283,17 +986,43 @@ def _is_customer_facing_question(text: str) -> bool:
     return any(low.startswith(s) or f" {s}" in f" {low}" for s in decision_starts)
 
 
+# Soft vision observations that must not become install blockers.
+# Floor trip-hazard is already covered by mode.av_install.floor_network_path.
+_SPECULATIVE_ROOM_RISK_RE = re.compile(
+    r"(?i)(?:"
+    r"(?:may|could|might)\s+pose|(?:may|could|might)\s+affect|may\s+impact|"
+    r"potentially\s+affecting|slight\s+trip|"
+    r"patterned\s+carpet|non[\-\s]?standard\s+tile|field\s+of\s+view|"
+    r"\baesthetic\b|professional\s+appearance|cleaner\s+look|not\s+fully\s+conceal|"
+    r"trip\s+hazard|"
+    r"pose\s+a\s+(?:potential\s+|minor\s+)?(?:obstruction|trip\s+hazard)|"
+    r"pose\s+a\s+[^.]{0,40}?trip\s+hazard|"
+    r"\bbackpack\b|personal\s+(?:belongings|items|effects)|minor\s+obstruction"
+    r")",
+)
 def _candidates_from_evidence_atoms(
     atoms: Iterable[Mapping[str, Any]],
     *,
     project_mode: str,
+    evidence_blob: str = "",
+    docs_by_id: Mapping[str, str] | None = None,
 ) -> list[QuestionCandidate]:
+    atom_list = [a for a in atoms if isinstance(a, Mapping)]
+    by_id = _atoms_by_id(atom_list)
     out: list[QuestionCandidate] = []
     seen_fp: set[str] = set()
-    for atom in atoms:
-        if not isinstance(atom, Mapping):
-            continue
+    for atom in atom_list:
         atype = str(atom.get("atom_type") or "").lower()
+        # Never promote chat/meta atoms — greetings land here after parser noise filters.
+        if atype in {
+            "deal_metadata",
+            "conversation_meta",
+            "tag",
+            "note_meta",
+            "entity",
+            "person",
+        }:
+            continue
         if atype not in {
             "open_question",
             "decision",
@@ -309,33 +1038,64 @@ def _candidates_from_evidence_atoms(
         text = _atom_question_text(atom)
         if not _is_customer_facing_question(text):
             continue
+        # Labeled atom dumps ("RISKS: …") are observations, not PM asks.
+        # Mode templates own the curated wording when evidence collides.
+        if re.match(r"^(?:risks?|facts?|notes?|issues?)\s*:\s*", text, re.I):
+            continue
         # Soft-filter ops language on install mode
         if project_mode == MODE_NETWORK_EDGE_INSTALL:
             if re.search(
-                r"\b(gold[\-\s]?image|firmware\s+baseline|vlan\s+audit|oem\s+tac|smartnet)\b",
+                r"\b("
+                r"gold[\-\s]?image|firmware\s+baseline|vlan\s+audit|oem\s+tac|smartnet|"
+                r"routing\s+protocol|failover\s+test|bgp|ospf|eigrp|"
+                r"patch\s+window|change\s+calendar|coverage\s+tier"
+                r")\b",
                 text,
                 re.I,
             ):
                 continue
+        # AV: drop speculative photo-room vibes / clutter — not scope asks.
+        # Soft "could pose" / backpack / FOV risks must never become blockers.
+        if (
+            project_mode == MODE_AV
+            and atype == "risk"
+            and _SPECULATIVE_ROOM_RISK_RE.search(text)
+        ):
+            continue
         fp = fingerprint_question(text)
         if fp in seen_fp:
             continue
         seen_fp.add(fp)
         aid = str(atom.get("id") or atom.get("atom_id") or "")
-        pm_q = _to_pm_question(text)
+        pm_q = _to_pm_question(text, evidence_blob=evidence_blob or text)
         if not (pm_q or "").strip():
             continue
         severity = "blocker" if atype in {"risk", "missing_info"} else "warning"
         # Prefer open_question / decision; demote still-casual rewrites slightly
         score = 0.92 if atype == "open_question" else 0.85 if atype == "decision" else 0.72
+        if atype == "action_item" and "sop" in pm_q.lower():
+            score = 0.94
+        if "sop" in pm_q.lower() and atype == "open_question":
+            score = 0.96
         if pm_q != text and atype == "open_question":
-            score = 0.9
+            score = max(score, 0.9)
+        # Remaining soft "may/potentially" risks stay warnings, never blockers.
+        if atype == "risk" and _SPECULATIVE_ROOM_RISK_RE.search(text):
+            severity = "warning"
+            score = min(score, 0.58)
         label = {
             "open_question": "Open project question",
             "decision": "Decision still open",
             "risk": "Risk needs owner answer",
             "action_item": "Action needs clarification",
         }.get(atype, "Project clarification")
+        primary_source = _source_from_atom(
+            atom,
+            text,
+            score=1.0,
+            docs_by_id=docs_by_id,
+            atoms_by_id=by_id,
+        )
         out.append(
             QuestionCandidate(
                 rule_id=f"evidence.{atype}.{fp[:48] or aid or 'q'}",
@@ -344,31 +1104,55 @@ def _candidates_from_evidence_atoms(
                 severity=severity,
                 message=text,
                 suggested_open_question=pm_q,
-                observed_summary=f"From {atype or 'evidence'} atom",
+                observed_summary=_pointed_observed([primary_source]),
                 source="evidence",
                 score=score,
                 evidence_atom_ids=[aid] if aid else [],
+                evidence_sources=[primary_source],
                 project_mode=project_mode,
             )
         )
     return out
 
 
-def _to_pm_question(text: str) -> str:
-    """Normalize atom prose into a PM-facing question."""
+def _to_pm_question(text: str, *, evidence_blob: str = "") -> str:
+    """Normalize atom prose into a PM-facing question grounded in deal context."""
     t = re.sub(r"\s+", " ", (text or "").strip())
     if not t:
         return t
     low = t.lower()
+    blob_low = (evidence_blob or "").lower()
     # Lift casual transcript into PM voice
-    if "one device per site" in low or low.startswith("once we know"):
+    if "one device per site" in low or (
+        low.startswith("once we know") and "device" in low
+    ):
         return "Confirm topology: one edge device per site, or a shared/hub model?"
     if "copy of those sites" in low:
         return ""  # suppressed as non-PM
-    if "copy of their sop" in low or ("sop" in low and "copy" in low):
-        return "Can we get the customer's SOP before the first site, and who owns revisions?"
+    if "white adapter" in low and "neat" in low:
+        return (
+            "Confirm whether a white adapter/mount is approved to suspend Neat devices "
+            "at the front and back center of the room (per photo annotation)."
+        )
+    if (
+        "copy of their sop" in low
+        or ("sop" in low and ("copy" in low or "send" in low or "once available" in low))
+    ):
+        return (
+            "Can we get the customer's SOP before the first site, "
+            "and who owns revisions during the POC?"
+        )
     if "who do you get approval from" in low or low.startswith("who do you get approval"):
-        return "Who is the customer approval authority for scope/change decisions on this engagement?"
+        # Canada / CDW paper is owned by mode.phase_site_exclusions — avoid a
+        # near-duplicate curated ask when that template will fire.
+        if re.search(r"\b(?:montreal|canada|cdw|us\s+paper|paper)\b", blob_low) or re.search(
+            r"\b(?:montreal|canada|cdw|us\s+paper|paper)\b", low
+        ):
+            return ""
+        # Bare approval with no commercial/paper context → drop (too generic).
+        return ""
+    if _SMALLTALK_RE.search(low):
+        return ""
     if "by chance" in low or low.startswith("quinton,"):
         # Too conversational / person-directed — drop unless rewritten above
         if "sop" not in low:
@@ -420,29 +1204,36 @@ _NETWORK_EDGE_TEMPLATES: tuple[_ModeTemplate, ...] = (
         domain_id="network_edge_install",
         label="Phase / site exclusions",
         question=(
-            "Which sites are in this phase vs deferred (e.g. Montreal / CDW CA paper), "
-            "and who confirms the final in-scope set?"
+            "Which sites are in this phase vs deferred, who confirms the final "
+            "in-scope set, and who approves any Canada work on CDW US paper "
+            "versus deferring that site?"
         ),
-        message="Skip/defer language exists for at least one site; phase boundary needs a hard yes/no.",
+        message="Skip/defer + Canada/US-paper language exists; phase boundary and paper path need a hard yes/no.",
         trigger=re.compile(
             r"(?:will\s+(?:probaly|probably)?\s*not\s+do|montreal|keep\s+(?:everything\s+)?on\s+us\s+paper|"
-            r"avoid\s+cdw\s+ca|etobicoke\s+has\s+already\s+been\s+done)",
+            r"avoid\s+cdw\s+ca|etobicoke\s+has\s+already\s+been\s+done|cdw\s+us\s+paper)",
             re.I,
         ),
-        score=0.9,
+        score=0.92,
     ),
     _ModeTemplate(
         rule_id="mode.network_edge_install.first_survey_site",
         domain_id="network_edge_install",
         label="First survey / walkthrough site",
-        question="Which site is the first walkthrough / site survey, and who schedules customer access?",
+        question=(
+            "Confirm the first site survey / POC walkthrough location "
+            "(name the site), or the alternate if circuits are not ready, "
+            "and who schedules customer access?"
+        ),
         message="Site survey is planned but the first site is not locked.",
         trigger=re.compile(
-            r"(?:site\s+survey|walkthrough|first\s+site\s+survey|which\s+one\s+of\s+these\s+sites)",
+            r"(?:site\s+survey|walkthrough|first\s+site\s+survey|which\s+one\s+of\s+these\s+sites|"
+            r"leaning\s+to\s+be\s+in|likely\s+location)",
             re.I,
         ),
         answered_by=re.compile(
-            r"\b(?:survey\s+site\s*(?:is|=)|walkthrough\s+at\s+[A-Z]|first\s+site:\s*)\b",
+            r"\b(?:survey\s+site\s*(?:is|=)|walkthrough\s+at\s+[A-Z]|first\s+site:\s*"
+            r"|confirmed\s+(?:maitland|survey\s+site))\b",
             re.I,
         ),
         score=0.88,
@@ -477,11 +1268,15 @@ _NETWORK_EDGE_TEMPLATES: tuple[_ModeTemplate, ...] = (
     _ModeTemplate(
         rule_id="mode.network_edge_install.circuit_ready",
         domain_id="network_edge_install",
-        label="Circuit readiness per site",
-        question="Which sites have circuits turned up and ready for smart-hands install, and which are still waiting on the carrier?",
-        message="Circuit spin-up is a schedule dependency for remote/smart hands.",
+        label="Circuit readiness for first site",
+        question=(
+            "Confirm circuit readiness at the first survey / POC site — "
+            "is that site carrier-ready, or should we schedule an alternate?"
+        ),
+        message="Circuit spin-up is a schedule dependency for the first smart-hands visit.",
         trigger=re.compile(
-            r"(?:turning\s+on\s+the\s+circuits|circuits?\s+spun\s+up|circuit(?:s)?\s+at\s+(?:each|these))",
+            r"(?:turning\s+on\s+the\s+circuits|circuits?\s+spun\s+up|circuit(?:s)?\s+at\s+(?:each|these)|"
+            r"longer\s+for\s+them\s+to\s+get\s+the\s+circuits)",
             re.I,
         ),
         score=0.83,
@@ -531,10 +1326,157 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             label="AP count / model",
             question="How many APs and what AP model(s) are in scope?",
             message="Wireless install without a locked AP count/model.",
-            trigger=re.compile(r"\b(?:access\s+point|aps?\b|wifi|wlan)\b", re.I),
+            trigger=re.compile(
+                r"\b(?:access\s+points?|wlan\s+install|wireless\s+install|ssid|heatmap)\b",
+                re.I,
+            ),
             answered_by=re.compile(r"\b\d+\s*(?:x\s*)?(?:aps?|access\s+points?)\b", re.I),
             severity="blocker",
             score=0.93,
+        ),
+    ),
+    MODE_AV: (
+        _ModeTemplate(
+            rule_id="mode.av_install.cable_conceal_drywall",
+            domain_id="audio_visual",
+            label="In-wall cable concealment pathway",
+            question=(
+                "Confirm pathway method for surface cable runs noted to move behind the wall: "
+                "in-wall fish vs surface raceway."
+            ),
+            message=(
+                "Behind-the-wall cable path is implied but pathway method is not locked."
+            ),
+            trigger=re.compile(
+                r"\b(?:behind\s+the\s+wall|in[\-\s]?wall|conceal|cable\s+management|"
+                r"reroute|visible\s+cables?|loose\s+cables?|raceway|drywall|patch(?:ing)?\s*/?\s*paint)\b",
+                re.I,
+            ),
+            answered_by=re.compile(
+                r"\b(?:customer\s+owns\s+(?:drywall|patch|paint)|"
+                r"surface\s+raceway\s+only|in[\-\s]?wall\s+(?:approved|confirmed)|"
+                r"no\s+drywall|gc\s+owns\s+patch)\b",
+                re.I,
+            ),
+            severity="blocker",
+            score=0.96,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.drywall_ownership",
+            domain_id="audio_visual",
+            label="Drywall cut / patch / paint ownership",
+            question=(
+                "If in-wall pathway is required, who owns drywall cut / patch / paint?"
+            ),
+            message=(
+                "Drywall finish ownership is unset — no owner named and no SOW "
+                "exclusion for drywall/patch/paint."
+            ),
+            trigger=re.compile(
+                r"\b(?:behind\s+the\s+wall|in[\-\s]?wall|drywall|patch(?:ing)?\s*/?\s*paint)\b",
+                re.I,
+            ),
+            answered_by=re.compile(
+                r"\b(?:customer\s+owns\s+(?:drywall|patch|paint)|gc\s+owns\s+patch|"
+                r"no\s+drywall|surface\s+raceway\s+only)\b",
+                re.I,
+            ),
+            severity="warning",
+            score=0.88,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.keep_vs_remove_displays",
+            domain_id="audio_visual",
+            label="Existing displays keep vs remove",
+            question=(
+                "Confirm which existing TVs/displays stay mounted in place and which "
+                "codecs / bars are removed vs reused."
+            ),
+            message=(
+                "Keep/remove for existing AV gear is still open — no decisive "
+                "stay + remove/keeper language in source."
+            ),
+            trigger=re.compile(
+                r"\b(?:stay\s+in\s+place|tvs?\s+to\s+stay|remain\s+in\s+(?:their\s+)?(?:current\s+)?position|"
+                r"will\s+be\s+removed|except\s+for|hdmi\s+replicator|hdmi\s+over\s+ethernet)\b",
+                re.I,
+            ),
+            answered_by=re.compile(
+                r"\b(?:confirmed\s+keep|reuse\s+existing\s+displays?|remove\s+all\s+existing)\b",
+                re.I,
+            ),
+            severity="blocker",
+            score=0.94,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.floor_network_path",
+            domain_id="audio_visual",
+            label="Floor network pathway method",
+            question=(
+                "Confirm the floor network path method: poke-through / floor box "
+                "vs surface raceway for the ~10ft run to the receptacle."
+            ),
+            message="Vision notes network across the floor to a receptacle — pathway method unset.",
+            trigger=re.compile(
+                r"\b(?:across\s+the\s+floor|floor\s+network|floor\s+(?:box|receptacle)|"
+                r"network\s+receptacle|cable(?:s)?\s+(?:run|across).{0,30}floor|"
+                r"10\s+(?:ft|feet)|trip\s+hazard|poke[\-\s]?through)\b",
+                re.I,
+            ),
+            answered_by=re.compile(
+                r"\b(?:floor\s+box\s+confirmed|poke[\-\s]?through\s+approved|surface\s+raceway\s+approved)\b",
+                re.I,
+            ),
+            severity="warning",
+            score=0.9,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.replication_cable_path",
+            domain_id="audio_visual",
+            label="TV replication cable path",
+            question=(
+                "Confirm replication cable TV1→TV2 must be rerouted/hidden behind the wall "
+                "per photo annotations."
+            ),
+            message=(
+                "Replication cable path is still open — source does not yet direct "
+                "behind-wall / hide-the-run."
+            ),
+            trigger=re.compile(
+                r"\b(?:replication\s+cable|reroute|tv\s*1|tv\s*2)\b",
+                re.I,
+            ),
+            answered_by=re.compile(
+                r"\b(?:replication\s+path\s+confirmed|new\s+in[\-\s]?wall\s+hdmi|hdbase\s*t\s+run\s+approved)\b",
+                re.I,
+            ),
+            severity="blocker",
+            score=0.93,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.ceiling_tile_match",
+            domain_id="audio_visual",
+            label="Ceiling tile match after device removals",
+            question=(
+                "After ceiling-device decommission, who supplies matching ceiling tiles / patch?"
+            ),
+            message=(
+                "Ceiling tile supply is still open — no customer/GC owner and no "
+                "SOW exclusion for ceiling tiles."
+            ),
+            trigger=re.compile(
+                r"\b(?:ceiling\s+tiles?\s+as\s+they\s+are\s+hard\s+to\s+get|"
+                r"hard\s+to\s+get.{0,40}ceiling\s+tiles?|"
+                r"existing\s+ceiling\s+devices?\s*[-–—]?\s*decom)\b",
+                re.I,
+            ),
+            answered_by=re.compile(
+                r"\b(?:customer\s+owns\s+tiles?|tile\s+match\s+not\s+required|"
+                r"gc\s+owns\s+ceiling\s+repair)\b",
+                re.I,
+            ),
+            severity="warning",
+            score=0.88,
         ),
     ),
     MODE_ALM: (
@@ -562,31 +1504,70 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
 }
 
 
+def _ground_template_question(tmpl: _ModeTemplate, blob: str) -> str:
+    """Specialize template wording with evidence anchors (city / lean site)."""
+    q = tmpl.question
+    if tmpl.rule_id != "mode.network_edge_install.first_survey_site":
+        return q
+    m = re.search(
+        r"(?i)(?:leaning\s+to\s+be\s+in|likely\s+location[,\s]+(?:the\s+one\s+out\s+here\s+in\s+)?)"
+        r"([A-Za-z][A-Za-z\s]+?)(?:,|\.|$|\s+but)",
+        blob or "",
+    )
+    if not m:
+        m = re.search(r"(?i)\b(Maitland)\b", blob or "")
+    if not m:
+        return q
+    site = re.sub(r"\s+", " ", m.group(1)).strip(" .,")
+    if len(site) < 3 or len(site) > 40:
+        return q
+    return (
+        f"Confirm {site} as the first site survey / POC walkthrough, "
+        "or name the alternate if circuits are not ready, and who schedules customer access?"
+    )
+
+
 def _candidates_from_mode_templates(
     *,
     project_mode: str,
     blob: str,
+    atoms: Iterable[Mapping[str, Any]] = (),
+    docs_by_id: Mapping[str, str] | None = None,
 ) -> list[QuestionCandidate]:
+    atom_list = [a for a in atoms if isinstance(a, Mapping)]
     out: list[QuestionCandidate] = []
     for tmpl in _MODE_TEMPLATES.get(project_mode, ()):
         if not tmpl.trigger.search(blob or ""):
             continue
         if tmpl.answered_by is not None and tmpl.answered_by.search(blob or ""):
             continue
-        out.append(
-            QuestionCandidate(
-                rule_id=tmpl.rule_id,
-                domain_id=tmpl.domain_id,
-                label=tmpl.label,
-                severity=tmpl.severity,
-                message=tmpl.message,
-                suggested_open_question=tmpl.question,
-                observed_summary=f"Mode template for {project_mode}",
-                source="mode_template",
-                score=tmpl.score,
-                project_mode=project_mode,
-            )
+        # Annotations / SOW exclusions already settle many AV "Confirm…" asks.
+        if source_material_answers(tmpl.rule_id, blob or ""):
+            continue
+        question = _ground_template_question(tmpl, blob or "")
+        cand = QuestionCandidate(
+            rule_id=tmpl.rule_id,
+            domain_id=tmpl.domain_id,
+            label=tmpl.label,
+            severity=tmpl.severity,
+            message=tmpl.message,
+            suggested_open_question=question,
+            observed_summary=f"Mode template for {project_mode}",
+            source="mode_template",
+            score=tmpl.score + (0.04 if question != tmpl.question else 0.0),
+            project_mode=project_mode,
         )
+        # Mode asks must cite real atoms (usually photo annotations). No match → drop.
+        grounded = _with_evidence(
+            cand,
+            atoms=atom_list,
+            trigger=tmpl.trigger,
+            docs_by_id=docs_by_id,
+            require=True,
+        )
+        if grounded is None:
+            continue
+        out.append(grounded)
     return out
 
 
@@ -617,6 +1598,70 @@ def _bom_answers_inventory(blob: str, text: str) -> bool:
     return bool(re.search(r"\bmeraki\s+mx\b.*\b\d+\b|\b\d+\s*[×x]\s*meraki|\bmeraki\s+mx\s*[×x]\s*\d+", blob, re.I))
 
 
+_KEEP_DISPLAY_DECISION_RE = re.compile(
+    r"\b(?:tvs?\s+to\s+stay|stay\s+in\s+place|"
+    r"remain\s+(?:on\s+(?:existing\s+)?(?:vesa|floor|mount)|in\s+(?:their\s+)?(?:current\s+)?position))\b",
+    re.I,
+)
+_REMOVE_OR_KEEPER_DECISION_RE = re.compile(
+    r"\b(?:(?:will|to)\s+be\s+removed|almost\s+all.{0,60}removed|"
+    r"except\s+(?:for\s+)?(?:the\s+)?hdmi|"
+    r"hdmi\s+(?:over\s+ethernet|replicator).{0,60}(?:stay|retained|keep|exception))\b",
+    re.I,
+)
+_REPLICATION_PATH_DECISION_RE = re.compile(
+    r"\b(?:replication\s+cable).{0,140}(?:behind\s+(?:the\s+)?wall|not\s+be\s+visible|should\s+be\s+moved)|"
+    r"(?:should\s+be\s+moved|noted\s+for\s+repositioning|rerout(?:e|ing)|moved).{0,60}behind\s+(?:the\s+)?wall\b",
+    re.I,
+)
+_OOS_SECTION_RE = re.compile(
+    r"\b(?:out\s+of\s+scope|excluded\s+unless|services\s+are\s+excluded)\b",
+    re.I,
+)
+_DRYWALL_FINISH_ITEM_RE = re.compile(
+    r"\b(?:drywall\s+repair|painting|patching|finish\s+work)\b",
+    re.I,
+)
+_CEILING_TILE_ITEM_RE = re.compile(
+    r"\b(?:ceiling\s+grid\s+repair|replacement\s+ceiling\s+tiles?|ceiling\s+tiles?)\b",
+    re.I,
+)
+_CEILING_TILE_CUSTOMER_PROVIDES_RE = re.compile(
+    r"\b(?:provide\s+replacement\s+ceiling\s+tiles?|customer\s+owns\s+tiles?|"
+    r"tile\s+match\s+not\s+required|gc\s+owns\s+ceiling\s+repair)\b",
+    re.I,
+)
+
+
+def source_material_answers(rule_id: str, blob: str) -> bool:
+    """True when deal source already settles this ask — do not re-ask as Confirm.
+
+    Survey annotations and SOW exclusions are answers. Only leave asks that are
+    still open decisions (method choices, true open_questions in the kit).
+    """
+    b = blob or ""
+    rid = (rule_id or "").lower()
+    if rid.endswith("keep_vs_remove_displays") or rid.endswith("keep_vs_remove"):
+        return bool(_KEEP_DISPLAY_DECISION_RE.search(b) and _REMOVE_OR_KEEPER_DECISION_RE.search(b))
+    if rid.endswith("replication_cable_path"):
+        return bool(_REPLICATION_PATH_DECISION_RE.search(b))
+    if rid.endswith("drywall_ownership"):
+        oos_finish = bool(_OOS_SECTION_RE.search(b) and _DRYWALL_FINISH_ITEM_RE.search(b))
+        return bool(
+            oos_finish
+            or re.search(
+                r"\b(?:customer\s+owns\s+(?:drywall|patch|paint)|gc\s+owns\s+patch|"
+                r"no\s+drywall|surface\s+raceway\s+only)\b",
+                b,
+                re.I,
+            )
+        )
+    if rid.endswith("ceiling_tile_match"):
+        oos_tiles = bool(_OOS_SECTION_RE.search(b) and _CEILING_TILE_ITEM_RE.search(b))
+        return bool(oos_tiles or _CEILING_TILE_CUSTOMER_PROVIDES_RE.search(b))
+    return False
+
+
 def suppress_answered(
     candidates: list[QuestionCandidate],
     *,
@@ -629,6 +1674,8 @@ def suppress_answered(
         if _sites_answer_site_list_question(sites, q):
             continue
         if _bom_answers_inventory(blob, q):
+            continue
+        if source_material_answers(c.rule_id, blob):
             continue
         # Empty after normalization
         if not (c.suggested_open_question or "").strip():
@@ -643,6 +1690,7 @@ def apply_feedback(
     *,
     project_mode: str,
 ) -> list[QuestionCandidate]:
+    suppressed_texts = list(policy.suppressed_texts or ())
     out: list[QuestionCandidate] = []
     for c in candidates:
         fp = fingerprint_question(c.suggested_open_question or c.message)
@@ -651,6 +1699,11 @@ def apply_feedback(
         if fp and fp in policy.suppressed_fingerprints:
             continue
         if (project_mode, c.rule_id) in policy.suppressed_mode_rules:
+            continue
+        qtext = c.suggested_open_question or c.message
+        # Semantic neighbor of a dismissed ask (e.g. evidence paraphrase of
+        # a dismissed mode-template topology question).
+        if suppressed_texts and is_near_duplicate_of_any(qtext, suppressed_texts):
             continue
         # Apply preferred wording
         edit = policy.edits_by_rule.get(c.rule_id)
@@ -666,6 +1719,7 @@ def apply_feedback(
                 source=c.source,
                 score=min(1.0, c.score + 0.05),
                 evidence_atom_ids=list(c.evidence_atom_ids),
+                evidence_sources=list(c.evidence_sources),
                 project_mode=c.project_mode,
             )
         out.append(c)
@@ -743,64 +1797,170 @@ def _yaml_safety_net(
     return out
 
 
+def _candidate_rank_tuple(c: QuestionCandidate) -> tuple:
+    """Higher is better — used to pick the canonical ask in a cluster."""
+    # Prefer curated mode templates over raw evidence dumps when they collide
+    # (e.g. "RISKS: Replication cable…" vs mode.av_install.replication_cable_path).
+    source_rank = {"pm_gold": 4, "mode_template": 3, "evidence": 2, "yaml_safety": 1}.get(
+        c.source, 0
+    )
+    evidence_rank = 1 if c.evidence_sources else 0
+    # PM-gold teaching rows must win their semantic cluster even without
+    # citations yet (hash embedders falsely merge demarc vs survey asks).
+    gold_boost = 1 if c.source == "pm_gold" else 0
+    return (
+        gold_boost,
+        -SEVERITY_SORT.get(c.severity, 9),
+        source_rank,
+        evidence_rank,
+        c.score,
+        # Prefer slightly longer, more specific wording as canonical.
+        min(len(c.suggested_open_question or c.message or ""), 240) / 240.0,
+    )
+
+
+def _apply_neural_evidence_scores(
+    candidates: list[QuestionCandidate],
+    *,
+    evidence_blob: str,
+) -> tuple[list[QuestionCandidate], dict[str, Any]]:
+    """Re-score / filter candidates by neural relevance to deal evidence."""
+    if not candidates:
+        return candidates, {"neural_relevance": False}
+    texts = [c.suggested_open_question or c.message or "" for c in candidates]
+    scores, model_id = evidence_relevance_scores(texts, evidence_blob)
+    # Hash embedder relevance is noisy — only floor-filter on real neural.
+    neural = "deterministic-hash" not in (model_id or "").lower()
+    out: list[QuestionCandidate] = []
+    kept_scores: list[float] = []
+    for c, rel in zip(candidates, scores):
+        if neural and rel < NEURAL_RELEVANCE_FLOOR:
+            continue
+        # Blend prior score with evidence relevance (neural dominates).
+        blended = (0.35 * c.score) + (0.65 * max(0.0, min(1.0, rel))) if neural else c.score
+        out.append(
+            QuestionCandidate(
+                rule_id=c.rule_id,
+                domain_id=c.domain_id,
+                label=c.label,
+                severity=c.severity,
+                message=c.message,
+                suggested_open_question=c.suggested_open_question,
+                observed_summary=c.observed_summary,
+                source=c.source,
+                score=blended,
+                evidence_atom_ids=list(c.evidence_atom_ids),
+                evidence_sources=list(c.evidence_sources),
+                project_mode=c.project_mode,
+            )
+        )
+        kept_scores.append(rel)
+    meta = {
+        "neural_relevance": neural,
+        "neural_relevance_model": model_id,
+        "neural_relevance_floor": NEURAL_RELEVANCE_FLOOR if neural else None,
+        "neural_relevance_dropped": max(0, len(candidates) - len(out)),
+        "neural_relevance_top": round(max(kept_scores), 4) if kept_scores else None,
+    }
+    return out, meta
+
+
 def rank_and_cap(
     candidates: list[QuestionCandidate],
     *,
     cap: int = DEFAULT_QUESTION_CAP,
-) -> list[QuestionCandidate]:
+    evidence_blob: str = "",
+) -> tuple[list[QuestionCandidate], dict[str, Any]]:
+    """Fingerprint → neural evidence score → neural near-dup → rank + cap."""
+
     def sort_key(c: QuestionCandidate) -> tuple:
+        source_order = {
+            "pm_gold": 0,
+            "mode_template": 1,
+            "evidence": 2,
+            "yaml_safety": 3,
+        }.get(c.source, 4)
         return (
             SEVERITY_SORT.get(c.severity, 9),
             -c.score,
-            0 if c.source in {"evidence", "pm_gold"} else 1 if c.source == "mode_template" else 2,
+            source_order,
             c.suggested_open_question,
         )
 
-    # Dedupe by fingerprint AND near-duplicate intent (same family stem).
+    # Exact fingerprint collapse first (cheap).
     best: dict[str, QuestionCandidate] = {}
-    intent_best: dict[str, QuestionCandidate] = {}
-
-    def intent_key(c: QuestionCandidate) -> str:
-        q = (c.suggested_open_question or c.message or "").lower()
-        if "topology" in q or "per site" in q or ("hub" in q and "spoke" in q):
-            return "topology"
-        if "sop" in q and ("acceptance" in q or "sign" in q or "poc" in q):
-            return "acceptance_sop"
-        if "sop" in q:
-            return "sop_receipt"
-        if "montreal" in q or "deferred" in q or "phase vs" in q:
-            return "phase_exclusions"
-        if "survey" in q and ("charge" in q or "commercial" in q or "fee" in q):
-            return "survey_commercial"
-        if "survey" in q or "walkthrough" in q:
-            return "first_survey"
-        if "circuit" in q:
-            return "circuit_ready"
-        if "smart-hands" in q or "smart hands" in q or "remote hands" in q:
-            return "smart_hands"
-        if "approval" in q or "approv" in q:
-            return "approval"
-        return fingerprint_question(q)
-
     for c in candidates:
         fp = fingerprint_question(c.suggested_open_question or c.message)
         if not fp:
             continue
         prev = best.get(fp)
-        if prev is None or c.score > prev.score or (
-            c.score == prev.score and SEVERITY_SORT.get(c.severity, 9) < SEVERITY_SORT.get(prev.severity, 9)
-        ):
+        if prev is None or _candidate_rank_tuple(c) > _candidate_rank_tuple(prev):
             best[fp] = c
-        ik = intent_key(c)
-        prev_i = intent_best.get(ik)
-        if prev_i is None or c.score > prev_i.score or (
-            c.score == prev_i.score and SEVERITY_SORT.get(c.severity, 9) < SEVERITY_SORT.get(prev_i.severity, 9)
-        ):
-            intent_best[ik] = c
 
-    # Prefer intent dedupe (collapses evidence+template duplicates).
-    ranked = sorted(intent_best.values(), key=sort_key)
-    return ranked[: max(1, cap)]
+    uniq = list(best.values())
+    relevance_meta: dict[str, Any] = {"neural_relevance": False}
+    if evidence_blob.strip():
+        uniq, relevance_meta = _apply_neural_evidence_scores(uniq, evidence_blob=evidence_blob)
+        if not uniq:
+            # Never return empty — fall back to pre-filter set.
+            uniq = list(best.values())
+            relevance_meta["neural_relevance_fallback"] = "empty_after_floor"
+    # Neural / embedding near-duplicate clustering (paraphrase collapse).
+    deduped, cluster_meta = semantic_dedupe(
+        uniq,
+        text_fn=lambda c: c.suggested_open_question or c.message or "",
+        score_fn=_candidate_rank_tuple,
+    )
+    ranked = sorted(deduped, key=sort_key)
+    # Neural MMR: greedily keep high-score asks that stay diverse (≥0.70 apart).
+    selected = _neural_mmr_select(ranked, cap=max(1, cap))
+    meta = {
+        "semantic_dedupe_input": cluster_meta.input_count,
+        "semantic_dedupe_output": cluster_meta.output_count,
+        "semantic_dedupe_merged_pairs": cluster_meta.merged_pairs,
+        "semantic_dedupe_embedder": cluster_meta.embedder_model,
+        "semantic_dedupe_cosine_threshold": cluster_meta.cosine_threshold,
+        "mmr_selected": len(selected),
+        **relevance_meta,
+    }
+    return selected, meta
+
+
+def _neural_mmr_select(
+    ranked: list[QuestionCandidate],
+    *,
+    cap: int,
+    diversity_cosine: float = 0.70,
+    precomputed_vecs: list[list[float]] | None = None,
+) -> list[QuestionCandidate]:
+    """Keep top asks while dropping near-neighbors of already-selected ones."""
+    if len(ranked) <= cap:
+        return ranked
+    emb = resolve_question_embedder()
+    if not is_neural_embedder(emb) and precomputed_vecs is None:
+        return ranked[:cap]
+    vecs = precomputed_vecs
+    if vecs is None or len(vecs) != len(ranked):
+        texts = [c.suggested_open_question or c.message or "" for c in ranked]
+        try:
+            vecs = emb.embed(texts)
+        except Exception:
+            return ranked[:cap]
+    picked: list[int] = []
+    for i, _c in enumerate(ranked):
+        if len(picked) >= cap:
+            break
+        if any(cosine_similarity(vecs[i], vecs[j]) >= diversity_cosine for j in picked):
+            continue
+        picked.append(i)
+    if len(picked) < cap:
+        for i in range(len(ranked)):
+            if i in picked:
+                continue
+            picked.append(i)
+            if len(picked) >= cap:
+                break
+    return [ranked[i] for i in picked]
 
 
 def build_customer_questions(
@@ -837,9 +1997,25 @@ def build_customer_questions(
         events = list(feedback_events) if feedback_events is not None else load_feedback(case_dir=case_dir)
         feedback_policy = compile_feedback_policy(events)
 
+    docs_by_id = _docs_by_artifact_id(envelope if isinstance(envelope, Mapping) else None)
+
     candidates: list[QuestionCandidate] = []
-    candidates.extend(_candidates_from_evidence_atoms(atoms, project_mode=project_mode))
-    candidates.extend(_candidates_from_mode_templates(project_mode=project_mode, blob=blob))
+    candidates.extend(
+        _candidates_from_evidence_atoms(
+            atoms,
+            project_mode=project_mode,
+            evidence_blob=blob,
+            docs_by_id=docs_by_id,
+        )
+    )
+    candidates.extend(
+        _candidates_from_mode_templates(
+            project_mode=project_mode,
+            blob=blob,
+            atoms=atoms,
+            docs_by_id=docs_by_id,
+        )
+    )
     candidates = suppress_answered(candidates, blob=blob, sites=sites)
     candidates = apply_feedback(candidates, feedback_policy, project_mode=project_mode)
 
@@ -854,16 +2030,42 @@ def build_customer_questions(
     existing = {c.rule_id for c in candidates}
     # Safety-net only when evidence/mode produced too few asks
     if len(candidates) < MIN_SAFETY_NET_IF_EMPTY:
-        candidates.extend(
-            _yaml_safety_net(
-                gaps,
-                project_mode=project_mode,
-                existing_rule_ids=existing,
-                max_add=MIN_SAFETY_NET_IF_EMPTY,
+        for g_cand in _yaml_safety_net(
+            gaps,
+            project_mode=project_mode,
+            existing_rule_ids=existing,
+            max_add=MIN_SAFETY_NET_IF_EMPTY,
+        ):
+            grounded = _with_evidence(
+                g_cand, atoms=atoms, docs_by_id=docs_by_id, require=False
             )
-        )
+            if grounded is not None:
+                candidates.append(grounded)
 
-    ranked = rank_and_cap(candidates, cap=cap)
+    # Attach / refresh pointed photo citations (where + what in frame).
+    grounded_all: list[QuestionCandidate] = []
+    for c in candidates:
+        require = c.source in {"mode_template", "evidence", "yaml_safety"} and not c.evidence_sources
+        g = _with_evidence(c, atoms=atoms, docs_by_id=docs_by_id, require=require)
+        if g is not None:
+            grounded_all.append(g)
+    candidates = grounded_all
+
+    ranked, dedupe_meta = rank_and_cap(candidates, cap=cap, evidence_blob=blob)
+    # Final containment: never ship smalltalk / meta even if an atom slipped
+    # past type gates (e.g. mis-typed open_question).
+    ranked = [
+        c
+        for c in ranked
+        if _is_customer_facing_question(c.suggested_open_question or c.message or "")
+    ]
+    # Triple-check: drop any ask that still has zero matching sources
+    # (except rare PM-gold teaching rows).
+    ranked = [
+        c
+        for c in ranked
+        if c.evidence_sources or c.source == "pm_gold"
+    ]
     cards = [c.to_gap_card() for c in ranked]
     meta = {
         "project_mode": project_mode,
@@ -874,7 +2076,9 @@ def build_customer_questions(
             "yaml_safety": sum(1 for c in ranked if c.source == "yaml_safety"),
             "pm_gold": sum(1 for c in ranked if c.source == "pm_gold"),
         },
+        "with_citations": sum(1 for c in ranked if c.evidence_sources),
         "cap": cap,
         "suppressed_rule_ids": sorted(feedback_policy.suppressed_rule_ids)[:40],
+        **dedupe_meta,
     }
     return cards, meta

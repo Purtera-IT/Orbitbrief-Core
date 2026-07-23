@@ -185,12 +185,49 @@ def classify_fact_category(atom_type: str, text: str) -> str:
     }:
         return "bom"
     if atom_type in {
-        "deal_metadata",
         "commercial_total",
         "payment_term",
         "change_order_rule",
     }:
         return "commercial"
+    # deal_metadata is a catch-all parser type (includes chat). Only route to
+    # commercial when the text itself carries commercial substance — never
+    # dump greetings / soft prompts into "Commercial terms…".
+    if atom_type == "deal_metadata":
+        if any(
+            x in t
+            for x in (
+                "payment",
+                "pricing",
+                "price",
+                "invoice",
+                "purchase order",
+                " nte",
+                "fixed fee",
+                "t&m",
+                "time and materials",
+                "cdw us paper",
+                "us paper",
+                "change order",
+                "survey charge",
+                "per-site fee",
+                "per site fee",
+                "quote",
+                "msa",
+                "billing",
+            )
+        ):
+            return "commercial"
+        if any(x in t for x in ("approv", "signator", "stakeholder", "owner")):
+            return "stakeholders"
+        if any(x in t for x in ("site", "address", "office", "maitland", "montreal")):
+            return "sites"
+        if any(x in t for x in ("circuit", "meraki", "sd-wan", "sdwan", "vlan")):
+            return "network"
+        if any(x in t for x in ("sop", "poc", "runbook", "smart hands", "remote hands")):
+            return "acceptance"
+        # Weak / chatty metadata — leave for the fact-quality gate to drop.
+        return "scope"
     if atom_type in {
         "requirement",
         "acceptance_criterion",
@@ -226,6 +263,23 @@ def classify_fact_category(atom_type: str, text: str) -> str:
         return "msp_ops"
     if any(x in t for x in ["sku", "bom", "unit cost", "lead time", "quote"]):
         return "bom"
+    # AV install constraints compete less in risks than in the crowded scope lane.
+    if any(
+        x in t
+        for x in (
+            "vesa",
+            "ceiling tile",
+            "ceiling tiles",
+            "hard to get",
+            "behind the wall",
+            "replication cable",
+            "hdmi replicator",
+            "hdmi over ethernet",
+            "display mount",
+            "tv mount",
+        )
+    ):
+        return "risks"
     if any(x in t for x in ["risk", "assumption", "blocked", "pending", "constraint"]):
         return "risks"
     if any(x in t for x in ["excluded", "out of scope", "not included"]):

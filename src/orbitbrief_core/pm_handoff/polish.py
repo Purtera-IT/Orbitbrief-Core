@@ -555,8 +555,19 @@ def _risk_polish_items(risks: list[dict[str, Any]], model: str) -> list[PolishIt
     return out
 
 
-def _exec_polish_items(exec_summary: dict[str, Any], model: str) -> list[PolishItem]:
+def _exec_polish_items(
+    exec_summary: dict[str, Any],
+    model: str,
+    *,
+    project_mode: str = "",
+) -> list[PolishItem]:
     out: list[PolishItem] = []
+    mode_hint = ""
+    if (project_mode or "").strip() == "network_edge_install":
+        mode_hint = (
+            " Project mode is network_edge_install — do NOT say "
+            "'Network maintenance / operations'; prefer 'Network edge install'."
+        )
     for field_name in ("headline", "health_line", "next_action"):
         raw = str(exec_summary.get(field_name) or "").strip()
         if not raw:
@@ -566,7 +577,7 @@ def _exec_polish_items(exec_summary: dict[str, Any], model: str) -> list[PolishI
                 key=_hash_item(f"exec.{field_name}", raw, model),
                 role=f"exec.{field_name}",
                 raw_text=raw,
-                context=f"executive summary {field_name} — top of PM brief",
+                context=f"executive summary {field_name} — top of PM brief{mode_hint}",
             )
         )
     return out
@@ -672,7 +683,11 @@ def _apply_results_to_risks(
 
 
 def _apply_results_to_exec(
-    exec_summary: dict[str, Any], results: dict[str, PolishResult], model: str
+    exec_summary: dict[str, Any],
+    results: dict[str, PolishResult],
+    model: str,
+    *,
+    project_mode: str = "",
 ) -> dict[str, Any]:
     out = dict(exec_summary)
     for field_name in ("headline", "health_line", "next_action"):
@@ -681,7 +696,12 @@ def _apply_results_to_exec(
             continue
         r = results.get(_hash_item(f"exec.{field_name}", raw, model))
         if r and not r.used_fallback:
-            out[field_name] = r.polished_text
+            polished = r.polished_text
+            if (project_mode or "").strip() == "network_edge_install":
+                low = (polished or "").lower()
+                if "network maintenance" in low or "maintenance / operations" in low:
+                    continue  # keep raw (already mode-correct)
+            out[field_name] = polished
     return out
 
 
@@ -729,29 +749,51 @@ class PolishReport:
         }
 
 
-def _one_line_polish_items(one_line: str, model: str) -> list[PolishItem]:
+def _one_line_polish_items(one_line: str, model: str, *, project_mode: str = "") -> list[PolishItem]:
     raw = (one_line or "").strip()
     if not raw:
         return []
+    mode_hint = ""
+    if (project_mode or "").strip() == "network_edge_install":
+        mode_hint = (
+            " Project mode is network_edge_install (SD-WAN / Meraki / remote-hands "
+            "turn-up). Do NOT say 'network maintenance' or 'operations' — use "
+            "'network edge install' / 'SD-WAN install' wording."
+        )
     return [
         PolishItem(
             key=_hash_item("one_line_summary", raw, model),
             role="one_line_summary",
             raw_text=raw,
-            context="single-sentence deal summary shown at the top of PM brief",
+            context=(
+                "single-sentence deal summary shown at the top of PM brief"
+                + mode_hint
+            ),
         )
     ]
 
 
 def _apply_one_line_result(
-    one_line: str, results: dict[str, PolishResult], model: str
+    one_line: str,
+    results: dict[str, PolishResult],
+    model: str,
+    *,
+    project_mode: str = "",
 ) -> str:
     raw = (one_line or "").strip()
     if not raw:
         return one_line
     r = results.get(_hash_item("one_line_summary", raw, model))
     if r and not r.used_fallback:
-        return r.polished_text
+        polished = r.polished_text
+        # Hard guard: polish must not re-label an install job as maintenance.
+        if (project_mode or "").strip() == "network_edge_install":
+            low = (polished or "").lower()
+            if "network maintenance" in low or (
+                "maintenance / operations" in low and "edge install" not in low
+            ):
+                return raw
+        return polished
     return one_line
 
 
@@ -796,8 +838,7 @@ def polish_pm_handoff(
 
     * ``one_line_summary`` (single sentence shown at top of brief)
     * ``gaps[].message`` and ``gaps[].suggested_open_question``
-    * ``customer_questions[].message`` and
-      ``customer_questions[].suggested_open_question``
+    * ``customer_questions`` — **not polished** (neural engine wording preserved)
     * ``risk_register[].description`` and ``risk_register[].mitigation``
     * ``executive_summary.headline``, ``health_line``, ``next_action``
     * ``customer_answer_slots[].question_text``
@@ -850,13 +891,35 @@ def polish_pm_handoff(
             cache = PolishCache(path=Path(env_path))
 
     # Collect items across every field that benefits from polish
+    project_mode = ""
+    try:
+        project_mode = str(
+            (handoff.metrics or {}).get("project_mode")
+            or ((handoff.metrics or {}).get("customer_question_engine") or {}).get(
+                "project_mode"
+            )
+            or ""
+        )
+    except Exception:
+        project_mode = ""
+
     items: list[PolishItem] = []
-    items.extend(_one_line_polish_items(handoff.one_line_summary, model))
+    items.extend(
+        _one_line_polish_items(
+            handoff.one_line_summary, model, project_mode=project_mode
+        )
+    )
     items.extend(_gap_polish_items(handoff.gaps, model))
-    items.extend(_gap_polish_items(handoff.customer_questions, model))
+    # Do NOT polish curated customer_questions. The neural question engine
+    # already emits PM-ready, evidence-grounded asks; LLM polish was merging
+    # distinct intents (e.g. SOP receipt + Montreal paper approval).
     items.extend(_risk_polish_items(handoff.risk_register, model))
     if handoff.executive_summary:
-        items.extend(_exec_polish_items(handoff.executive_summary, model))
+        items.extend(
+            _exec_polish_items(
+                handoff.executive_summary, model, project_mode=project_mode
+            )
+        )
     items.extend(_customer_answer_slot_items(handoff.customer_answer_slots, model))
 
     # De-duplicate by key — same raw text in multiple slots polishes once
@@ -879,13 +942,22 @@ def polish_pm_handoff(
     items_fallback = sum(1 for r in results.values() if r.used_fallback)
 
     polished_one_line = _apply_one_line_result(
-        handoff.one_line_summary, results, model
+        handoff.one_line_summary, results, model, project_mode=project_mode
     )
     polished_gaps = _apply_results_to_gaps(handoff.gaps, results, model)
-    polished_customer_qs = _apply_results_to_gaps(handoff.customer_questions, results, model)
+    from orbitbrief_core.pm_handoff.question_engine import _is_customer_facing_question
+
+    # Preserve neural-engine wording verbatim (see note above).
+    polished_customer_qs = [
+        q
+        for q in handoff.customer_questions
+        if _is_customer_facing_question(q.suggested_open_question or q.message or "")
+    ]
     polished_risks = _apply_results_to_risks(handoff.risk_register, results, model)
     polished_exec = (
-        _apply_results_to_exec(handoff.executive_summary, results, model)
+        _apply_results_to_exec(
+            handoff.executive_summary, results, model, project_mode=project_mode
+        )
         if handoff.executive_summary
         else handoff.executive_summary
     )

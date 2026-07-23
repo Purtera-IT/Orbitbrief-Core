@@ -72,6 +72,9 @@ class GapCard:
     message: str
     suggested_open_question: str
     observed_summary: str = ""
+    # Structured citations for the Review Evidence panel (filename + quote).
+    # Additive — older clients ignore this field.
+    sources: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

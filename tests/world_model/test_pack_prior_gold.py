@@ -49,9 +49,9 @@ PARSER_OS_TO_WORKBOOK: dict[str, tuple[str, ...]] = {
         "security_camera", "security_access", "low_voltage_cabling",
     ),
     "access_control": ("security_access",),
-    # AV scopes are commercial line items in this corpus — accept
-    # commercial as a legitimate routing target alongside cabling.
-    "av": ("commercial", "low_voltage_cabling"),
+    # AV scopes route to audio_visual when equipment anchors fire; older
+    # commercial / cabling tops remain acceptable for thin gold markdown.
+    "av": ("audio_visual", "commercial", "low_voltage_cabling"),
     "paging": ("paging_mass_notification",),
     # BMS-spec PDFs touch electrical, fire safety, datacenter, and
     # cabling vocab; any of those is a legitimate routing target now
