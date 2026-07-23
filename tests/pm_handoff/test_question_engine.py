@@ -495,6 +495,19 @@ def test_source_material_suppresses_settled_av_asks():
     )
     assert "white adapter" in joined
     assert "floor" in joined or "raceway" in joined or "poke" in joined or "pathway" in joined
+    # Wall pathway + floor pathway stay distinct (do not over-merge).
+    assert any("cable_conceal" in (c.rule_id or "") or "pathway" in (c.suggested_open_question or "").lower() for c in cards) or any(
+        "fish" in (c.suggested_open_question or "").lower() for c in cards
+    )
+    assert any("floor_network_path" in (c.rule_id or "") for c in cards)
+
+
+def test_av_install_gold_fact_helper():
+    from orbitbrief_core.pm_handoff.fact_quality import is_av_install_gold_fact
+
+    assert is_av_install_gold_fact("Remain on existing VESA mounts.")
+    assert is_av_install_gold_fact("ceiling tiles as they are hard to get")
+    assert not is_av_install_gold_fact("Quotes in 24–48 hours")
 
 
 def test_av_drops_speculative_carpet_ceiling_risk_blockers():

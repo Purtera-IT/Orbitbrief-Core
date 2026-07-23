@@ -130,9 +130,19 @@ _HARD_GROUNDED_RISK_RE = re.compile(
     r"stay\s+in\s+place|"
     r"replication\s+cable|"
     r"should\s+be\s+(?:moved|rerouted|hidden)\s+behind|"
-    r"hard\s+to\s+get"
+    r"hard\s+to\s+get|"
+    # Install gold that must stay visible in the PM facts lane
+    r"\bvesa\b|"
+    r"ceiling\s+tiles?|"
+    r"(?:display|tv|wall|ceiling)\s+mount|"
+    r"hdmi\s+(?:over\s+ethernet|replicator)"
     r")"
 )
+
+
+def is_av_install_gold_fact(text: str) -> bool:
+    """True for install-critical AV signals that must elevate into fact cards."""
+    return bool(_HARD_GROUNDED_RISK_RE.search(text or ""))
 
 _SOW_TEMPLATE_FACT_RE = re.compile(
     r"(?i)^\[\s*(?:"

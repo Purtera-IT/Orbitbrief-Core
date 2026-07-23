@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from orbitbrief_core.pm_handoff.fact_quality import (
     filter_pm_visible_atoms,
+    is_av_install_gold_fact,
     is_marketing_or_chrome_fact,
     is_speculative_risk_fact,
     polish_fact_claim,
@@ -100,6 +101,80 @@ def test_evidence_prefers_image_fact_over_blurb():
     assert s_fact > 0.5
     assert s_fact > s_blurb
     assert s_blurb == 0.0  # vague room overview rejected
+
+    keep_tv = {
+        "atom_type": "scope_item",
+        "text": "These 4 TVs to Stay in Place – will remain on floor in this position.",
+        "value": {
+            "via": "pdf_image_vision",
+            "fact_kind": "image_fact:annotation",
+            "evidence_rank": "fact",
+        },
+    }
+    s_keep = _score_atom_for_evidence(keep_tv, trigger=trigger, question=question)
+    assert s_fact > s_keep
+
+
+def test_av_install_gold_displaces_sow_boilerplate_in_risks_lane():
+    """VESA / ceiling gold must appear even when verified SOW risks fill the cap."""
+    from orbitbrief_core.pm_handoff.builder import MAX_FACTS_PER_CATEGORY, _build_fact_cards
+
+    atoms: list[dict] = []
+    for i in range(MAX_FACTS_PER_CATEGORY + 2):
+        atoms.append(
+            {
+                "id": f"sow_risk_{i}",
+                "atom_type": "risk",
+                "verified": "verified",
+                "confidence": 0.9,
+                "text": (
+                    f"Schedule changes requested by the customer that are not "
+                    f"discussed in the Status Meeting variant {i}."
+                ),
+            }
+        )
+    atoms.append(
+        {
+            "id": "vesa_gold",
+            "atom_type": "scope_item",
+            "confidence": 0.67,
+            "text": (
+                "MOUNTS / HARDWARE: Fixed wall mount for the TV, "
+                "visible VESA plate and mounting bracket."
+            ),
+        }
+    )
+    atoms.append(
+        {
+            "id": "ceiling_gold",
+            "atom_type": "scope_item",
+            "confidence": 0.62,
+            "text": "Ceiling tiles as they are hard to get.",
+        }
+    )
+    facts, _meta = _build_fact_cards({"atoms": atoms}, {})
+    risk_texts = [c.text for c in (facts.get("risks") or [])]
+    joined = " ".join(risk_texts).lower()
+    assert "vesa" in joined
+    assert "ceiling tiles" in joined or "hard to get" in joined
+
+
+def test_av_dense_beats_wireless_abstain_and_network_noise():
+    blob = (
+        "Neat bar Yealink conference room VESA mount HDMI over Ethernet "
+        "behind the wall display mount. Also mentions WiFi in a capability matrix."
+    )
+    mode = detect_project_mode(
+        service_routing={
+            "enabled": True,
+            "primary": None,
+            "abstained": True,
+            "abstain_reason": "missing_evidence_anchors",
+            "neural_primary": "wireless",
+        },
+        blob=blob,
+    )
+    assert mode == "av_install"
 
 
 def test_abstained_router_does_not_force_staff_aug():

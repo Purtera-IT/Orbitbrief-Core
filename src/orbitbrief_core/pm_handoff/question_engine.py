@@ -148,8 +148,21 @@ _AV_STRONG_RE = re.compile(
     r"\b(?:"
     r"neat\b|yealink|teams\s+room|zoom\s+room|huddle\s+room|"
     r"conference\s+room|soundbar|vesa|hdmi\s+over\s+ethernet|"
-    r"hdmi\s+replicator|behind\s+the\s+wall|room\s+bar"
+    r"hdmi\s+replicator|behind\s+the\s+wall|room\s+bar|"
+    r"display\s+mount|tv\s+mount|wall\s+mount\b|ceiling\s+mount"
     r")\b",
+    re.I,
+)
+_FLOOR_PATHWAY_EVIDENCE_RE = re.compile(
+    r"\b(?:receptacle|floor\s+box|poke[\-\s]?through|"
+    r"across\s+the\s+floor|cable(?:s)?\s+(?:run|across|visible).{0,40}floor|"
+    r"floor.{0,40}(?:network|receptacle|cable)|10\s*(?:ft|feet)|"
+    r"network\s+(?:path|run|port|connectivity).{0,40}floor|"
+    r"floor.{0,40}network\s+(?:path|run|connectivity|receptacle))\b",
+    re.I,
+)
+_KEEP_TV_ANNOTATION_RE = re.compile(
+    r"\b(?:tvs?\s+to\s+stay|stay\s+in\s+place|remain\s+on\s+(?:floor|vesa|mount))\b",
     re.I,
 )
 _ACCESS_RE = re.compile(
@@ -533,6 +546,13 @@ def _score_atom_for_evidence(
         score -= 0.28
     if _VAGUE_ROOM_OVERVIEW_RE.search(text) and len(text) > 160:
         score -= 0.35
+    # Floor-path asks: prefer cable/receptacle/floor-box facts over keep-TV notes.
+    q_low = (question or "").lower()
+    if "floor" in q_low and ("path" in q_low or "raceway" in q_low or "receptacle" in q_low):
+        if _FLOOR_PATHWAY_EVIDENCE_RE.search(text):
+            score += 0.16
+        if _KEEP_TV_ANNOTATION_RE.search(text) and not _FLOOR_PATHWAY_EVIDENCE_RE.search(text):
+            score -= 0.22
     # Triple-check: if trigger exists, require trigger OR strong keyword overlap.
     if trigger is not None and not trig_hit and len(q_toks & a_toks) < 3:
         return 0.0
@@ -676,6 +696,7 @@ def _with_evidence(
     trigger: re.Pattern[str] | None = None,
     docs_by_id: Mapping[str, str] | None = None,
     require: bool = False,
+    min_score: float | None = None,
 ) -> QuestionCandidate | None:
     """Attach matching sources; drop candidate when require=True and nothing matches."""
     atom_list = [a for a in atoms if isinstance(a, Mapping)]
@@ -699,11 +720,14 @@ def _with_evidence(
             evidence_sources=sources,
             project_mode=candidate.project_mode,
         )
+    floorish = "floor_network_path" in (candidate.rule_id or "")
+    gate = 0.30 if floorish and min_score is None else (0.42 if min_score is None else min_score)
     sources, ids, observed = _collect_matching_evidence(
         atom_list,
         question=candidate.suggested_open_question or candidate.message or candidate.label,
         trigger=trigger,
         docs_by_id=docs_by_id,
+        min_score=gate,
     )
     if not sources:
         if require:
@@ -794,6 +818,13 @@ def detect_project_mode(
     override_reason = str(sr.get("override_reason") or "").lower()
     source = str(sr.get("source") or "").lower()
 
+    text_s = text or ""
+    av_strong_n = len(_AV_STRONG_RE.findall(text_s))
+    # Dense conference-room AV evidence wins before incidental SD-WAN / WiFi
+    # routing overrides (marketing WiFi must not flip a Neat/Yealink pack).
+    if av_strong_n >= 3 or (primary == "audio_visual" and av_strong_n >= 1):
+        return MODE_AV
+
     if (
         "network_install" in override_reason
         or "network_install" in source
@@ -807,8 +838,6 @@ def detect_project_mode(
             return MODE_NETWORK_EDGE_INSTALL
         return MODE_NETWORK_OPS
 
-    text_s = text or ""
-    av_strong_n = len(_AV_STRONG_RE.findall(text_s))
     wireless_strong = bool(_WIRELESS_STRONG_RE.search(text_s))
     wireless_weak = bool(_WIRELESS_WEAK_RE.search(text_s))
 
@@ -1385,7 +1414,8 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             message="Vision notes network across the floor to a receptacle — pathway method unset.",
             trigger=re.compile(
                 r"\b(?:across\s+the\s+floor|floor\s+network|floor\s+(?:box|receptacle)|"
-                r"10\s+(?:ft|feet)|trip\s+hazard)\b",
+                r"network\s+receptacle|cable(?:s)?\s+(?:run|across).{0,30}floor|"
+                r"10\s+(?:ft|feet)|trip\s+hazard|poke[\-\s]?through)\b",
                 re.I,
             ),
             answered_by=re.compile(

@@ -83,6 +83,7 @@ from orbitbrief_core.pm_handoff.fact_quality import (
     display_case_label,
     fact_overlaps_question,
     filter_pm_visible_atoms,
+    is_av_install_gold_fact,
     polish_fact_claim,
 )
 from orbitbrief_core.pm_handoff.question_engine import (
@@ -900,7 +901,11 @@ def _build_fact_cards(
             type_bonus += 10
         if (atom.get("downstream") or {}).get("bundled"):
             type_bonus += 5
-        text = str(atom.get("text") or "")
+        text = str(atom.get("text") or atom.get("raw_text") or "")
+        # AV install gold (VESA / ceiling tiles / behind-wall / HDMI keepers)
+        # must outrank verified SOW boilerplate risks (70+10=80) for the 12-card cap.
+        if is_av_install_gold_fact(text):
+            type_bonus = max(type_bonus, 95)
         if len(text) > 500:
             type_bonus -= 20
         return type_bonus, float(atom.get("confidence") or 0.0)
@@ -970,27 +975,41 @@ def _build_fact_cards(
             category = "commercial"
         if category not in cards:
             category = "scope"
-        if len(cards[category]) >= MAX_FACTS_PER_CATEGORY:
-            continue
         key = normalize_for_dedupe(claim)[:200]
         if key in seen:
             continue
-        seen.add(key)
         artifact = artifact_by_id.get(str(atom.get("artifact_id") or ""), {})
-        cards[category].append(
-            EvidenceCard(
-                title=_fact_title(atom_type, category),
-                category=category,
-                text=compact_text(claim, 340),
-                source=SourcePointer(
-                    filename=str(artifact.get("filename") or atom.get("artifact_id") or "unknown source"),
-                    locator=_format_locator(atom.get("locator") or {}),
-                ),
-                confidence=_maybe_float(atom.get("confidence")),
-                verified=str(atom.get("verified") or ""),
-                internal_id=str(atom.get("id") or ""),
-            )
+        card = EvidenceCard(
+            title=_fact_title(atom_type, category),
+            category=category,
+            text=compact_text(claim, 340),
+            source=SourcePointer(
+                filename=str(artifact.get("filename") or atom.get("artifact_id") or "unknown source"),
+                locator=_format_locator(atom.get("locator") or {}),
+            ),
+            confidence=_maybe_float(atom.get("confidence")),
+            verified=str(atom.get("verified") or ""),
+            internal_id=str(atom.get("id") or ""),
         )
+        bucket = cards[category]
+        if len(bucket) < MAX_FACTS_PER_CATEGORY:
+            seen.add(key)
+            bucket.append(card)
+            continue
+        # Category full: let install gold displace the weakest non-gold card.
+        if is_av_install_gold_fact(claim):
+            replace_at = None
+            weakest = None
+            for i, existing in enumerate(bucket):
+                if is_av_install_gold_fact(existing.text or ""):
+                    continue
+                conf = float(existing.confidence or 0.0)
+                if weakest is None or conf < weakest:
+                    weakest = conf
+                    replace_at = i
+            if replace_at is not None:
+                seen.add(key)
+                bucket[replace_at] = card
     return {k: v for k, v in cards.items() if v}, quality_meta
 
 
@@ -1008,6 +1027,11 @@ def _polish_fact_cards(
     for cat, cards in facts.items():
         kept: list[EvidenceCard] = []
         for card in cards:
+            # Keep install gold visible even when a curated question covers
+            # the same territory (facts lane ≠ question queue).
+            if is_av_install_gold_fact(card.text or ""):
+                kept.append(card)
+                continue
             if fact_overlaps_question(card.text, q_texts):
                 dropped += 1
                 continue

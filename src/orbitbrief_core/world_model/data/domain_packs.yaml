@@ -865,15 +865,16 @@ packs:
     implementation: audio_visual
     aliases:
     - av
-  # Boss-review v9 C002-F1 — pack-level anchor gate. AV brain only
-  # runs when the corpus has 3+ distinct AV equipment tokens.
-  required_anchor_min_distinct_hits: 3
+  # Boss-review v9 C002-F1 — pack-level anchor gate. AV brain runs when the
+  # corpus has 2+ distinct AV equipment / install tokens (mount/Neat/HDMI).
+  required_anchor_min_distinct_hits: 2
   required_anchor_regex_any:
   - \b(display|projector|video\s+wall|microphone(?:\s+array)?|soundbar)\b
   - \b(biamp|q[- ]?sys|crestron|extron|qsc|shure|symetrix|tesira|polycom|poly\b|cisco\s+(?:room\s+kit|webex)|logitech\s+rally|neat\b|yealink)\b
   - \b(dante|aes67|\bndi\b|sdi|hdbaset|hdmi(?:\s+over\s+ethernet)?|vesa)\b
   - \b(teams\s+room|zoom\s+room|google\s+meet\s+room|huddle\s+room|conference\s+room(?:\s+av|\s+audio|\s+video)?|classroom\s+(?:av|audio|video))\b
   - \b(control\s+(?:processor|panel)|video\s+codec|av\s+codec|av\s+(?:rack|equipment|design|drawings?)|room\s+bar|uc\s+bar)\b
+  - \b((?:display|tv|wall|ceiling)\s+mount|behind\s+the\s+wall|hdmi\s+replicator|replication\s+cable)\b
   intake_aliases: []
   subdomain_labels:
   - AV Conference Room Build-Out

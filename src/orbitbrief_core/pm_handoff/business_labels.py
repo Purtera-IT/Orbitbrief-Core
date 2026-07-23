@@ -263,6 +263,23 @@ def classify_fact_category(atom_type: str, text: str) -> str:
         return "msp_ops"
     if any(x in t for x in ["sku", "bom", "unit cost", "lead time", "quote"]):
         return "bom"
+    # AV install constraints compete less in risks than in the crowded scope lane.
+    if any(
+        x in t
+        for x in (
+            "vesa",
+            "ceiling tile",
+            "ceiling tiles",
+            "hard to get",
+            "behind the wall",
+            "replication cable",
+            "hdmi replicator",
+            "hdmi over ethernet",
+            "display mount",
+            "tv mount",
+        )
+    ):
+        return "risks"
     if any(x in t for x in ["risk", "assumption", "blocked", "pending", "constraint"]):
         return "risks"
     if any(x in t for x in ["excluded", "out of scope", "not included"]):
