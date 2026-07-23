@@ -114,6 +114,36 @@ def test_evidence_prefers_image_fact_over_blurb():
     s_keep = _score_atom_for_evidence(keep_tv, trigger=trigger, question=question)
     assert s_fact > s_keep
 
+    # Live Catalyst shape: keep-TV + 10ft path packed into one annotation.
+    keep_plus_path = {
+        "atom_type": "scope_item",
+        "text": (
+            "Annotation states: 'These 4 TVs to Stay in Place – will remain on floor "
+            "in this position – Network connectivity is across floor approximately "
+            "10 ft to floor network receptacle.'"
+        ),
+        "value": {
+            "via": "pdf_image_vision",
+            "fact_kind": "image_fact:annotation",
+            "evidence_rank": "fact",
+        },
+    }
+    cable_only = {
+        "atom_type": "scope_item",
+        "text": (
+            "Cables are visible running across the floor, connecting the displays "
+            "to a network receptacle approximately 10 feet away."
+        ),
+        "value": {
+            "via": "pdf_image_vision",
+            "fact_kind": "image_fact:cable",
+            "evidence_rank": "fact",
+        },
+    }
+    s_keep_path = _score_atom_for_evidence(keep_plus_path, trigger=trigger, question=question)
+    s_cable = _score_atom_for_evidence(cable_only, trigger=trigger, question=question)
+    assert s_cable > s_keep_path
+
 
 def test_av_install_gold_displaces_sow_boilerplate_in_risks_lane():
     """VESA / ceiling gold must appear even when verified SOW risks fill the cap."""

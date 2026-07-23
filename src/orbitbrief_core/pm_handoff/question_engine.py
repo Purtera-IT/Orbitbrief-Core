@@ -547,16 +547,21 @@ def _score_atom_for_evidence(
     if _VAGUE_ROOM_OVERVIEW_RE.search(text) and len(text) > 160:
         score -= 0.35
     # Floor-path asks: prefer cable/receptacle/floor-box facts over keep-TV notes.
+    # Live Catalyst annotations often pack BOTH "TVs stay" and the 10ft floor path
+    # in one blob — still demote the keep-TV framing so the cable fact wins first.
     q_low = (question or "").lower()
     if "floor" in q_low and ("path" in q_low or "raceway" in q_low or "receptacle" in q_low):
         if _FLOOR_PATHWAY_EVIDENCE_RE.search(text):
             score += 0.16
-        if _KEEP_TV_ANNOTATION_RE.search(text) and not _FLOOR_PATHWAY_EVIDENCE_RE.search(text):
-            score -= 0.22
+        if "cable" in fk or fk.endswith(":cable") or "floor" in fk:
+            score += 0.14
+        if _KEEP_TV_ANNOTATION_RE.search(text):
+            score -= 0.34
     # Triple-check: if trigger exists, require trigger OR strong keyword overlap.
     if trigger is not None and not trig_hit and len(q_toks & a_toks) < 3:
         return 0.0
-    return max(0.0, min(1.0, score))
+    # Allow >1.0 so relative ranking survives (display still rounds).
+    return max(0.0, min(1.5, score))
 
 
 def json_dumps_safe(obj: Any) -> str:
