@@ -22,7 +22,7 @@ from orbitbrief_core.retrieval.embedder import DeterministicHashEmbedder, Embedd
 
 # Cosine threshold for "same intent". Real Qwen embeddings cluster
 # paraphrases higher; hash embedder is weaker so we also use containment.
-DEFAULT_COSINE_THRESHOLD = float(os.environ.get("ORBITBRIEF_QUESTION_DEDUP_COSINE", "0.78"))
+DEFAULT_COSINE_THRESHOLD = float(os.environ.get("ORBITBRIEF_QUESTION_DEDUP_COSINE", "0.82"))
 DEFAULT_CONTAINMENT_THRESHOLD = float(
     # 0.75 catches subset paraphrases under the hash embedder; real
     # Qwen embeddings still dominate via cosine when available.

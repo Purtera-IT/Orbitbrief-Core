@@ -102,6 +102,8 @@ class PMHandoff:
     source_files: list[SourceFileSummary] = field(default_factory=list)
     sa_focus: list[str] = field(default_factory=list)
     customer_questions: list[GapCard] = field(default_factory=list)
+    # Evidence-ranked audit pool (up to ~50). Review Queue uses shortlist only.
+    customer_questions_pool: list[GapCard] = field(default_factory=list)
     # A5: cross-doc numeric / date reconciliation tables. These are
     # plain-dict snapshots of MoneyMention / DateMention /
     # ReconciliationFlag so PMHandoff stays JSON-serializable via

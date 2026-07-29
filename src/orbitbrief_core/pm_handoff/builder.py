@@ -46,6 +46,8 @@ from orbitbrief_core.pm_handoff.reconciliation import (
     build_stakeholder_pagers,
     find_quantity_contradictions,
     parse_bom_allocations,
+    parse_site_allocation_matrix,
+    build_site_quantity_allocations,
     _is_vendor_site_key,
     _physical_site_slugs,
 )
@@ -165,6 +167,39 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         report=report if isinstance(report, dict) else None,
         case_dir=case_dir,
     )
+    pool_raw = question_meta.get("pool") if isinstance(question_meta, dict) else None
+    customer_questions_pool: list[GapCard] = []
+    if isinstance(pool_raw, list):
+        for row in pool_raw:
+            if isinstance(row, GapCard):
+                customer_questions_pool.append(row)
+            elif isinstance(row, dict) and row.get("rule_id"):
+                try:
+                    customer_questions_pool.append(
+                        GapCard(
+                            rule_id=str(row.get("rule_id") or ""),
+                            domain_id=str(row.get("domain_id") or ""),
+                            domain_label=str(row.get("domain_label") or ""),
+                            label=str(row.get("label") or ""),
+                            severity=str(row.get("severity") or "warning"),
+                            message=str(row.get("message") or ""),
+                            suggested_open_question=str(
+                                row.get("suggested_open_question") or ""
+                            ),
+                            observed_summary=str(row.get("observed_summary") or ""),
+                            sources=list(row.get("sources") or [])
+                            if isinstance(row.get("sources"), list)
+                            else [],
+                        )
+                    )
+                except (TypeError, ValueError):
+                    continue
+    # Keep meta lean for JSON — full pool is on the handoff field.
+    if isinstance(question_meta, dict) and "pool" in question_meta:
+        question_meta = {
+            **question_meta,
+            "pool": f"{len(customer_questions_pool)}_cards_on_handoff",
+        }
     # Don't surface the same intent as both a gap/blocker and a curated question.
     gaps = _suppress_gaps_covered_by_questions(gaps, customer_questions)
     project_mode = str(question_meta.get("project_mode") or "")
@@ -244,7 +279,11 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         case_id=case_id,
     )
     compliance = build_compliance_callouts(report)
-    allocations = parse_bom_allocations(report)
+    allocations = (
+        parse_bom_allocations(report)
+        + parse_site_allocation_matrix(report)
+        + build_site_quantity_allocations(report)
+    )
     accept_checks = build_acceptance_checks(report)
     rfp_items = build_rfp_line_items(report)
     contacts = build_stakeholder_contacts(report)
@@ -372,6 +411,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         source_files=source_files,
         sa_focus=sa_focus,
         customer_questions=customer_questions,
+        customer_questions_pool=customer_questions_pool,
         money_mentions=[asdict(m) for m in money],
         date_mentions=[asdict(d) for d in dates],
         reconciliation_flags=[asdict(f) for f in flags],

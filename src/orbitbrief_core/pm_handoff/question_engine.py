@@ -15,7 +15,7 @@ Pipeline (product order):
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any, Iterable, Mapping
 
 from orbitbrief_core.pm_handoff.business_labels import SEVERITY_SORT, domain_label
@@ -40,11 +40,16 @@ from orbitbrief_core.validator.sow_completeness import (
     _atom_text,
 )
 
-DEFAULT_QUESTION_CAP = 6
+DEFAULT_QUESTION_CAP = 8
+# Evidence-ranked audit pool (not dumped into the PM Review Queue).
+DEFAULT_QUESTION_POOL_CAP = int(
+    __import__("os").environ.get("ORBITBRIEF_QUESTION_POOL_CAP", "50")
+)
 MIN_SAFETY_NET_IF_EMPTY = 2
 # Drop candidates whose neural relevance to deal evidence falls below this.
+# Raised from 0.28 — weak generic / off-mode asks were leaking into the shortlist.
 NEURAL_RELEVANCE_FLOOR = float(
-    __import__("os").environ.get("ORBITBRIEF_QUESTION_NEURAL_FLOOR", "0.28")
+    __import__("os").environ.get("ORBITBRIEF_QUESTION_NEURAL_FLOOR", "0.36")
 )
 
 # ── project modes ─────────────────────────────────────────────────────
@@ -1930,7 +1935,8 @@ def _neural_mmr_select(
     ranked: list[QuestionCandidate],
     *,
     cap: int,
-    diversity_cosine: float = 0.70,
+    # Tighter than 0.70 — paraphrase near-dups were still landing side-by-side.
+    diversity_cosine: float = 0.62,
     precomputed_vecs: list[list[float]] | None = None,
 ) -> list[QuestionCandidate]:
     """Keep top asks while dropping near-neighbors of already-selected ones."""
@@ -1973,8 +1979,14 @@ def build_customer_questions(
     feedback_policy: FeedbackPolicy | None = None,
     case_dir: Any = None,
     cap: int = DEFAULT_QUESTION_CAP,
+    pool_cap: int = DEFAULT_QUESTION_POOL_CAP,
 ) -> tuple[list[GapCard], dict[str, Any]]:
-    """Build the curated customer_questions list + debug meta."""
+    """Build the curated customer_questions shortlist + evidence pool meta.
+
+    Returns ``(shortlist, meta)``. ``meta["pool"]`` holds up to ``pool_cap``
+    evidence-grounded cards for audit / SowSmith — the PM Review Queue only
+    renders the shortlist (``cap``, default 8).
+    """
     atoms = _atoms_from_sources(envelope, report)
     blob = _blob_from_atoms(atoms)
     service_routing = None
@@ -2051,7 +2063,8 @@ def build_customer_questions(
             grounded_all.append(g)
     candidates = grounded_all
 
-    ranked, dedupe_meta = rank_and_cap(candidates, cap=cap, evidence_blob=blob)
+    pool_limit = max(int(cap), int(pool_cap))
+    ranked, dedupe_meta = rank_and_cap(candidates, cap=pool_limit, evidence_blob=blob)
     # Final containment: never ship smalltalk / meta even if an atom slipped
     # past type gates (e.g. mis-typed open_question).
     ranked = [
@@ -2066,18 +2079,24 @@ def build_customer_questions(
         for c in ranked
         if c.evidence_sources or c.source == "pm_gold"
     ]
-    cards = [c.to_gap_card() for c in ranked]
+    pool = ranked[: max(1, int(pool_cap))]
+    shortlist = pool[: max(1, int(cap))]
+    cards = [c.to_gap_card() for c in shortlist]
+    pool_cards = [c.to_gap_card() for c in pool]
     meta = {
         "project_mode": project_mode,
         "candidate_count_before_cap": len(candidates),
         "sources": {
-            "evidence": sum(1 for c in ranked if c.source == "evidence"),
-            "mode_template": sum(1 for c in ranked if c.source == "mode_template"),
-            "yaml_safety": sum(1 for c in ranked if c.source == "yaml_safety"),
-            "pm_gold": sum(1 for c in ranked if c.source == "pm_gold"),
+            "evidence": sum(1 for c in shortlist if c.source == "evidence"),
+            "mode_template": sum(1 for c in shortlist if c.source == "mode_template"),
+            "yaml_safety": sum(1 for c in shortlist if c.source == "yaml_safety"),
+            "pm_gold": sum(1 for c in shortlist if c.source == "pm_gold"),
         },
-        "with_citations": sum(1 for c in ranked if c.evidence_sources),
+        "with_citations": sum(1 for c in shortlist if c.evidence_sources),
         "cap": cap,
+        "pool_cap": pool_cap,
+        "pool_size": len(pool_cards),
+        "pool": [asdict(c) for c in pool_cards],
         "suppressed_rule_ids": sorted(feedback_policy.suppressed_rule_ids)[:40],
         **dedupe_meta,
     }

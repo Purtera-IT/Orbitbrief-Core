@@ -1,7 +1,9 @@
 # How PMs teach OrbitBrief questions
 
 OrbitBrief’s **Questions to answer** list is no longer a dump of pack YAML checklists.
-It is an evidence-first, project-mode-gated shortlist (top ~5–8) that PMs can teach.
+It is an evidence-first, project-mode-gated **shortlist** (top ~8) that PMs can teach.
+Core also emits `customer_questions_pool` (~50 evidence-grounded candidates) for audit /
+SowSmith — the Review Queue never dumps the full pool on the PM.
 
 ## What you see
 
@@ -60,7 +62,9 @@ Detected from envelope evidence + service routing, including:
 - Feedback store: `orbitbrief_core/pm_handoff/question_feedback.py`  
 - **Neural wiring:** `semantic_dedupe.py` prefers Ollama `qwen3-embedding:8b`. Near-dup is **cosine-only** when neural (no intent-family heuristics — those over-merged SOP vs approval). Candidates are also **relevance-ranked** against the deal evidence blob; weak generic asks drop below `ORBITBRIEF_QUESTION_NEURAL_FLOOR`. Hash embedder remains CI/offline fallback only.
 - Builder wires curated list into `PMHandoff.customer_questions`  
-- UI: OrbitBrief v2 Review queue → `useQuestionFeedback`  
+- UI: OrbitBrief v2 Review queue → `useQuestionFeedback`
+  (`Not needed` / `Wrong project` / Resolve→`answered` / `+ Suggest question`)
+  then auto **Re-scan** so Core reloads the JSONL ledger.  
 
 ### Embeddings (Qwen) — optional upgrade
 
