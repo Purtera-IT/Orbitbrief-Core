@@ -1037,21 +1037,29 @@ def _candidates_from_evidence_atoms(
         if atype not in {
             "open_question",
             "decision",
-            "risk",
-            "action_item",
             "missing_info",
             "gap",
         }:
-            # Also accept scope_item / constraint that are clearly questions
-            text_probe = _atom_question_text(atom)
-            if "?" not in text_probe and not text_probe.lower().startswith("once we know"):
-                continue
+            # action_item only when already a question; never promote raw risk rows
+            if atype == "action_item":
+                text_probe = _atom_question_text(atom)
+                if "?" not in text_probe and not re.match(
+                    r"(?i)^(?:confirm|which|who|what|can\s+we)\b", text_probe.strip()
+                ):
+                    continue
+            else:
+                # Also accept scope_item / constraint that are clearly questions
+                text_probe = _atom_question_text(atom)
+                if "?" not in text_probe and not text_probe.lower().startswith("once we know"):
+                    continue
         text = _atom_question_text(atom)
         if not _is_customer_facing_question(text):
             continue
         # Labeled atom dumps ("RISKS: …") are observations, not PM asks.
         # Mode templates own the curated wording when evidence collides.
         if re.match(r"^(?:risks?|facts?|notes?|issues?)\s*:\s*", text, re.I):
+            continue
+        if atype == "risk":
             continue
         # Soft-filter ops language on install mode
         if project_mode == MODE_NETWORK_EDGE_INSTALL:
@@ -1081,7 +1089,7 @@ def _candidates_from_evidence_atoms(
         pm_q = _to_pm_question(text, evidence_blob=evidence_blob or text)
         if not (pm_q or "").strip():
             continue
-        severity = "blocker" if atype in {"risk", "missing_info"} else "warning"
+        severity = "blocker" if atype in {"missing_info", "gap"} else "warning"
         # Prefer open_question / decision; demote still-casual rewrites slightly
         score = 0.92 if atype == "open_question" else 0.85 if atype == "decision" else 0.72
         if atype == "action_item" and "sop" in pm_q.lower():
@@ -1090,14 +1098,11 @@ def _candidates_from_evidence_atoms(
             score = 0.96
         if pm_q != text and atype == "open_question":
             score = max(score, 0.9)
-        # Remaining soft "may/potentially" risks stay warnings, never blockers.
-        if atype == "risk" and _SPECULATIVE_ROOM_RISK_RE.search(text):
-            severity = "warning"
-            score = min(score, 0.58)
         label = {
             "open_question": "Open project question",
             "decision": "Decision still open",
-            "risk": "Risk needs owner answer",
+            "missing_info": "Missing information",
+            "gap": "Scope gap",
             "action_item": "Action needs clarification",
         }.get(atype, "Project clarification")
         primary_source = _source_from_atom(
@@ -1170,9 +1175,17 @@ def _to_pm_question(text: str, *, evidence_blob: str = "") -> str:
             return ""
     if t.endswith("?") and len(t) < 220:
         return t[0].upper() + t[1:] if t[0].islower() else t
-    if not t.endswith("?"):
-        t = t.rstrip(".") + "?"
-    return t[0].upper() + t[1:] if t and t[0].islower() else t
+    # Do NOT turn observations into questions by appending "?".
+    # Only keep already-decision-shaped prose; otherwise drop.
+    if re.match(
+        r"(?i)^(?:confirm|decide|clarify|which|who|what|when|where|how|"
+        r"is\s+it|are\s+we|can\s+we|do\s+we|should)\b",
+        t,
+    ):
+        if not t.endswith("?"):
+            t = t.rstrip(".") + "?"
+        return t[0].upper() + t[1:] if t and t[0].islower() else t
+    return ""
 
 
 @dataclass(frozen=True)
@@ -2034,6 +2047,19 @@ def build_customer_questions(
             docs_by_id=docs_by_id,
         )
     )
+    # Evidence-derived generators (sites / photos / qty / decisions) fill the pool.
+    from orbitbrief_core.pm_handoff.question_generators import build_extended_candidates
+
+    candidates.extend(
+        build_extended_candidates(
+            sites=list(sites),
+            atoms=atoms,
+            project_mode=project_mode,
+            blob=blob,
+            envelope=envelope if isinstance(envelope, Mapping) else None,
+            docs_by_id=docs_by_id,
+        )
+    )
     candidates = suppress_answered(candidates, blob=blob, sites=sites)
     candidates = apply_feedback(candidates, feedback_policy, project_mode=project_mode)
 
@@ -2061,16 +2087,18 @@ def build_customer_questions(
                 candidates.append(grounded)
 
     # Attach / refresh pointed photo citations (where + what in frame).
+    # Non-gold asks MUST cite evidence — no more "Mode template for X" with empty sources.
     grounded_all: list[QuestionCandidate] = []
     for c in candidates:
-        require = c.source in {"mode_template", "evidence", "yaml_safety"} and not c.evidence_sources
+        require = c.source != "pm_gold"
         g = _with_evidence(c, atoms=atoms, docs_by_id=docs_by_id, require=require)
-        if g is not None:
+        if g is not None and (g.evidence_sources or g.source == "pm_gold"):
             grounded_all.append(g)
     candidates = grounded_all
 
     pool_limit = max(int(cap), int(pool_cap))
     ranked, dedupe_meta = rank_and_cap(candidates, cap=pool_limit, evidence_blob=blob)
+    pre_filter = len(ranked)
     # Final containment: never ship smalltalk / meta even if an atom slipped
     # past type gates (e.g. mis-typed open_question).
     ranked = [
@@ -2078,6 +2106,7 @@ def build_customer_questions(
         for c in ranked
         if _is_customer_facing_question(c.suggested_open_question or c.message or "")
     ]
+    after_facing = len(ranked)
     # Triple-check: drop any ask that still has zero matching sources
     # (except rare PM-gold teaching rows).
     ranked = [
@@ -2085,25 +2114,67 @@ def build_customer_questions(
         for c in ranked
         if c.evidence_sources or c.source == "pm_gold"
     ]
-    pool = ranked[: max(1, int(pool_cap))]
-    shortlist = pool[: max(1, int(cap))]
-    cards = [c.to_gap_card() for c in shortlist]
-    pool_cards = [c.to_gap_card() for c in pool]
+    after_cite = len(ranked)
+    # If filters ate the pool, top-up from grounded candidates that still pass
+    # quality gates (dedupe already ran — prefer unused rule_ids).
+    if len(ranked) < int(pool_cap):
+        have = {c.rule_id for c in ranked}
+        extras: list[QuestionCandidate] = []
+        for c in sorted(candidates, key=_candidate_rank_tuple, reverse=True):
+            if c.rule_id in have:
+                continue
+            q = c.suggested_open_question or c.message or ""
+            if not _is_customer_facing_question(q):
+                continue
+            if not (c.evidence_sources or c.source == "pm_gold"):
+                continue
+            extras.append(c)
+            have.add(c.rule_id)
+            if len(ranked) + len(extras) >= int(pool_cap):
+                break
+        ranked = ranked + extras
+    pool_cards_raw = [c.to_gap_card() for c in ranked[: max(1, int(pool_cap))]]
+    from orbitbrief_core.pm_handoff.question_quality import (
+        filter_perfect_questions,
+        pool_scorecard,
+    )
+
+    pool_cards, quality_dropped = filter_perfect_questions(pool_cards_raw)
+    shortlist_cards, _ = filter_perfect_questions(
+        [c.to_gap_card() for c in ranked[: max(1, int(cap))]]
+    )
+    # Prefer perfect shortlist from the perfect pool head.
+    cards = pool_cards[: max(1, int(cap))] if pool_cards else shortlist_cards
+    quality = pool_scorecard(pool_cards)
     meta = {
         "project_mode": project_mode,
         "candidate_count_before_cap": len(candidates),
         "sources": {
-            "evidence": sum(1 for c in shortlist if c.source == "evidence"),
-            "mode_template": sum(1 for c in shortlist if c.source == "mode_template"),
-            "yaml_safety": sum(1 for c in shortlist if c.source == "yaml_safety"),
-            "pm_gold": sum(1 for c in shortlist if c.source == "pm_gold"),
+            "evidence": sum(1 for c in ranked[: len(cards)] if c.source == "evidence"),
+            "mode_template": sum(
+                1 for c in ranked[: len(cards)] if c.source == "mode_template"
+            ),
+            "yaml_safety": sum(1 for c in ranked[: len(cards)] if c.source == "yaml_safety"),
+            "pm_gold": sum(1 for c in ranked[: len(cards)] if c.source == "pm_gold"),
         },
-        "with_citations": sum(1 for c in shortlist if c.evidence_sources),
+        "with_citations": sum(1 for c in cards if c.sources),
         "cap": cap,
         "pool_cap": pool_cap,
         "pool_size": len(pool_cards),
+        "pool_perfect": quality.get("perfect"),
+        "pool_grade": quality.get("grade"),
+        "quality_dropped": len(quality_dropped),
+        "quality_codes": {},
+        "filter_funnel": {
+            "after_rank_cap": pre_filter,
+            "after_customer_facing": after_facing,
+            "after_citation": after_cite,
+            "after_topup": len(ranked),
+        },
         "pool": [asdict(c) for c in pool_cards],
         "suppressed_rule_ids": sorted(feedback_policy.suppressed_rule_ids)[:40],
         **dedupe_meta,
     }
+    for v in quality_dropped:
+        meta["quality_codes"][v.code] = meta["quality_codes"].get(v.code, 0) + 1
     return cards, meta
