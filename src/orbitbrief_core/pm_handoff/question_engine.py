@@ -936,6 +936,12 @@ def _is_customer_facing_question(text: str) -> bool:
     if len(t) < 12:
         return False
     low = t.lower()
+    # Markdown / risk-register table rows are not customer questions
+    # (e.g. "| R2 | **TSA-badged escort… | High | Med | … |?").
+    if t.count("|") >= 3:
+        return False
+    if re.search(r"\|\s*r\d+\s*\|", low) or re.search(r"\bhigh\s*\|\s*med(?:ium)?\b", low):
+        return False
     # Internal chatter / copy-of-sites when we already have site clusters
     banned = (
         "verify each published site",
