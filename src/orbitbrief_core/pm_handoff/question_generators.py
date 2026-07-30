@@ -446,7 +446,8 @@ def candidates_from_customer_instructions(
     docs_by_id: Mapping[str, str] | None = None,
     max_items: int = 12,
 ) -> list:
-    """HubSpot / note instructions that are already PM-shaped."""
+    """HubSpot / note instructions → rewritten PM asks (never paste)."""
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import rewrite_instruction
     from orbitbrief_core.pm_handoff.question_engine import (
         QuestionCandidate,
         _atom_evidence_text,
@@ -466,21 +467,8 @@ def candidates_from_customer_instructions(
         text = _atom_evidence_text(atom)
         if len(text) < 20:
             continue
-        low = text.lower()
-        # Rewrite note prose into a Confirm ask.
-        if "need to figure" in low or "figure this" in low:
-            q = "What open item still needs a decision before we can quote (per customer note)?"
-        elif "source hardware" in low or "do not have a contact" in low:
-            q = "Who sources AV / access-control / security hardware — customer-furnished or PurTera-furnished?"
-        elif "operations early" in low:
-            q = "Confirm operations must be involved early for equipment decisions and install logistics."
-        elif "mobilization" in low or "conduit" in low:
-            q = "Confirm mobilization timing relative to electrician conduit pull (per customer note)."
-        else:
-            q = "Confirm customer instruction: " + re.sub(r"\s+", " ", text).strip()[:160]
-            if not q.endswith("?"):
-                q += "?"
-        if not _is_customer_facing_question(q):
+        q = rewrite_instruction(text)
+        if not q or not _is_customer_facing_question(q):
             continue
         fp = fingerprint_question(q)
         if fp in seen:
@@ -488,13 +476,14 @@ def candidates_from_customer_instructions(
         seen.add(fp)
         src = _source_from_atom(atom, text, score=0.93, docs_by_id=docs_by_id, atoms_by_id=by_id)
         aid = str(atom.get("id") or atom.get("atom_id") or "")
+        rid_tail = (aid.replace("atm_", "")[:24] if aid else fp[:32]) or fp[:32]
         cand = QuestionCandidate(
-            rule_id=f"instruction.{fp[:40]}",
+            rule_id=f"instruction.{rid_tail}",
             domain_id="project",
             label="Customer instruction",
             severity="blocker",
             message="Customer note requires a PM decision.",
-            suggested_open_question=q[:220],
+            suggested_open_question=q[:200],
             observed_summary="Customer instruction",
             source="evidence",
             score=0.94,
@@ -517,6 +506,7 @@ def candidates_from_assumptions(
     docs_by_id: Mapping[str, str] | None = None,
     max_items: int = 16,
 ) -> list:
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import rewrite_assumption
     from orbitbrief_core.pm_handoff.question_engine import (
         QuestionCandidate,
         _atom_evidence_text,
@@ -535,25 +525,12 @@ def candidates_from_assumptions(
         if at not in {"assumption", "pricing_assumption"}:
             continue
         text = _atom_evidence_text(atom)
-        if len(text) < 24:
+        if len(text) < 24 or text.count("|") >= 3:
             continue
-        if at == "assumption" and not re.search(
-            r"(?i)\b(?:assume|assumes|assumption|includes|prewired|ofe|owner[\-\s]?furnish)\b",
-            text,
-        ):
+        q = rewrite_assumption(text)
+        if not q or not _is_customer_facing_question(q):
             continue
-        if text.count("|") >= 3:
-            continue
-        # Skip pure rate-card noise
-        if re.search(r"(?i)^\s*(?:cost|selll?)\s+rates?\s*:", text):
-            continue
-        body = re.sub(r"\s+", " ", text).strip()[:160]
-        q = f"Confirm pricing assumption is still valid: {body}"
-        if not q.endswith("?"):
-            q += "?"
-        if not _is_customer_facing_question(q):
-            continue
-        fp = fingerprint_question(body)
+        fp = fingerprint_question(q)
         if fp in seen:
             continue
         seen.add(fp)
@@ -566,7 +543,7 @@ def candidates_from_assumptions(
             label="Pricing / scope assumption",
             severity="blocker",
             message="Assumption must be confirmed before quoting.",
-            suggested_open_question=q[:220],
+            suggested_open_question=q[:200],
             observed_summary="Assumption evidence",
             source="evidence",
             score=0.91,
@@ -602,7 +579,8 @@ def candidates_from_scope_commitments(
     docs_by_id: Mapping[str, str] | None = None,
     max_items: int = 40,
 ) -> list:
-    """Turn substantive scope_item / task / deliverable atoms into Confirm asks."""
+    """Turn substantive scope_item / task / deliverable atoms into sharp PM asks."""
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import rewrite_scope
     from orbitbrief_core.pm_handoff.question_engine import (
         QuestionCandidate,
         _atom_evidence_text,
@@ -627,19 +605,10 @@ def candidates_from_scope_commitments(
             continue
         if not _SCOPE_VERB_RE.search(text):
             continue
-        body = re.sub(r"\s+", " ", text).strip()[:150]
-        if at == "deliverable":
-            q = f"Confirm this deliverable is included in the quote: {body}"
-        elif at == "task":
-            q = f"Confirm this task is in-scope and scheduled: {body}"
-        else:
-            q = f"Confirm this is in-scope for the quote: {body}"
-        if not q.endswith("?"):
-            q += "?"
-        if not _is_customer_facing_question(q):
+        q = rewrite_scope(text, at)
+        if not q or not _is_customer_facing_question(q):
             continue
-        # Fingerprint the evidence body (not the shared Confirm stem) so rule_ids stay unique.
-        fp = fingerprint_question(body)
+        fp = fingerprint_question(q)
         if fp in seen:
             continue
         seen.add(fp)
@@ -652,7 +621,7 @@ def candidates_from_scope_commitments(
             label=f"Scope — {at.replace('_', ' ')}",
             severity="blocker" if at in {"scope_item", "deliverable"} else "warning",
             message="Scope commitment needs PM confirmation before quoting.",
-            suggested_open_question=q[:220],
+            suggested_open_question=q[:200],
             observed_summary=f"Scope · {at}",
             source="evidence",
             score=0.84,
@@ -675,7 +644,8 @@ def candidates_from_requirements_constraints(
     docs_by_id: Mapping[str, str] | None = None,
     max_items: int = 28,
 ) -> list:
-    """Requirement / constraint / exclusion / acceptance asks."""
+    """Requirement / constraint / exclusion / acceptance → sharp PM asks."""
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import rewrite_requirement
     from orbitbrief_core.pm_handoff.question_engine import (
         QuestionCandidate,
         _atom_evidence_text,
@@ -707,20 +677,10 @@ def candidates_from_requirements_constraints(
             continue
         if _SCOPE_JUNK_RE.search(text):
             continue
-        body = re.sub(r"\s+", " ", text).strip()[:150]
-        if at == "exclusion":
-            q = f"Confirm this exclusion stands as written: {body}"
-        elif at == "acceptance_criterion":
-            q = f"Confirm acceptance criterion for delivery: {body}"
-        elif at in {"payment_term", "contract_term", "change_order_rule"}:
-            q = f"Confirm commercial term is accepted for this quote: {body}"
-        else:
-            q = f"Confirm this requirement is binding for the quote: {body}"
-        if not q.endswith("?"):
-            q += "?"
-        if not _is_customer_facing_question(q):
+        q = rewrite_requirement(text, at)
+        if not q or not _is_customer_facing_question(q):
             continue
-        fp = fingerprint_question(body)
+        fp = fingerprint_question(q)
         if fp in seen:
             continue
         seen.add(fp)
@@ -733,7 +693,7 @@ def candidates_from_requirements_constraints(
             label=f"{at.replace('_', ' ').title()}",
             severity="blocker" if at in {"requirement", "constraint", "exclusion"} else "warning",
             message="Requirement/constraint needs PM confirmation.",
-            suggested_open_question=q[:220],
+            suggested_open_question=q[:200],
             observed_summary=f"Requirement · {at}",
             source="evidence",
             score=0.87,
@@ -757,6 +717,7 @@ def candidates_from_risks(
     max_items: int = 20,
 ) -> list:
     """Risk atoms → how we treat / mitigate in the quote (never raw table rows)."""
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import rewrite_risk
     from orbitbrief_core.pm_handoff.question_engine import (
         QuestionCandidate,
         _atom_evidence_text,
@@ -780,16 +741,10 @@ def candidates_from_risks(
             continue
         if _SCOPE_JUNK_RE.search(text):
             continue
-        # Skip bare OWASP title stubs
-        if len(text) < 48 and not re.search(r"[.:,;]", text):
+        q = rewrite_risk(text)
+        if not q or not _is_customer_facing_question(q):
             continue
-        body = re.sub(r"\s+", " ", text).strip()[:150]
-        q = f"Confirm how this risk is handled in the quote / SOW: {body}"
-        if not q.endswith("?"):
-            q += "?"
-        if not _is_customer_facing_question(q):
-            continue
-        fp = fingerprint_question(body)
+        fp = fingerprint_question(q)
         if fp in seen:
             continue
         seen.add(fp)
@@ -802,7 +757,7 @@ def candidates_from_risks(
             label="Risk treatment",
             severity="warning",
             message="Risk needs explicit quote/SOW treatment.",
-            suggested_open_question=q[:220],
+            suggested_open_question=q[:200],
             observed_summary="Risk atom",
             source="evidence",
             score=0.81,
@@ -815,6 +770,73 @@ def candidates_from_risks(
             out.append(grounded)
         if len(out) >= max_items:
             break
+    return out
+
+
+def candidates_from_pm_coverage(
+    atoms: Iterable[Mapping[str, Any]],
+    *,
+    project_mode: str,
+    blob: str,
+    docs_by_id: Mapping[str, str] | None = None,
+) -> list:
+    """Deal-wide PM brain checklist — evidence-grounded coverage asks."""
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import pm_coverage_specs
+    from orbitbrief_core.pm_handoff.question_engine import (
+        QuestionCandidate,
+        _is_customer_facing_question,
+        _with_evidence,
+    )
+
+    atom_list = [a for a in atoms if isinstance(a, Mapping)]
+    hay = blob or ""
+    out = []
+    for suffix, domain, label, question, trig, severity, score in pm_coverage_specs():
+        # Mode soft-filter: skip clearly off-mode families
+        if domain == "wireless" and project_mode not in {
+            "wireless_install",
+            "wireless_config",
+            "network_edge_install",
+            "generic",
+            "cabling_install",
+        }:
+            if not re.search(r"(?i)\b(?:access\s+point|\baps?\b|ssid|wlan)\b", hay):
+                continue
+        if domain == "audio_visual" and project_mode not in {"av_install", "generic"}:
+            if not re.search(r"(?i)\b(?:display|tv\b|codec|hdmi|av\b)\b", hay):
+                continue
+        if domain == "project" and "security_roe" in suffix:
+            if project_mode in {"av_install", "cabling_install", "wireless_install"} and not re.search(
+                r"(?i)\b(?:penetrat|pentest|vulnerab)\b", hay
+            ):
+                continue
+        if not re.search(trig, hay):
+            continue
+        if not _is_customer_facing_question(question):
+            continue
+        cand = QuestionCandidate(
+            rule_id=f"pmcover.{suffix}",
+            domain_id=domain,
+            label=label,
+            severity=severity,
+            message=f"PM coverage — {label}",
+            suggested_open_question=question,
+            observed_summary=f"PM coverage · {suffix}",
+            source="evidence",
+            score=score,
+            project_mode=project_mode,
+        )
+        trigger = re.compile(trig)
+        grounded = _with_evidence(
+            cand,
+            atoms=atom_list,
+            trigger=trigger,
+            docs_by_id=docs_by_id,
+            require=True,
+            min_score=0.32,
+        )
+        if grounded is not None:
+            out.append(grounded)
     return out
 
 
@@ -847,27 +869,26 @@ def candidates_from_keyed_notes(
         if not re.search(r"(?i)keyed\s+notes?|coordinate\s+location|provide\s+\(\d+\)|home\s+run|conduit", text):
             continue
         body = re.sub(r"\s+", " ", text).strip()
-        body = re.sub(r"(?i)^keyed\s+notes?:\s*", "", body)[:160]
+        body = re.sub(r"(?i)^keyed\s+notes?:\s*", "", body)[:90]
         if len(body) < 20:
             continue
-        q = f"Confirm keyed-note scope is in quote: {body}"
-        if not q.endswith("?"):
-            q += "?"
+        q = f"Is this keyed-note work in the quote — coordinate now or exclude: \"{body}\"?"
         if not _is_customer_facing_question(q):
             continue
-        fp = fingerprint_question(q)
+        fp = fingerprint_question(body)
         if fp in seen:
             continue
         seen.add(fp)
         src = _source_from_atom(atom, text, score=0.89, docs_by_id=docs_by_id, atoms_by_id=by_id)
         aid = str(atom.get("id") or atom.get("atom_id") or "")
+        rid_tail = (aid.replace("atm_", "")[:24] if aid else fp[:32]) or fp[:32]
         cand = QuestionCandidate(
-            rule_id=f"keyed.{fp[:40]}",
+            rule_id=f"keyed.{rid_tail}",
             domain_id="field_evidence",
             label="Keyed note coordination",
             severity="warning",
             message="Drawing keyed note needs quote confirmation.",
-            suggested_open_question=q[:220],
+            suggested_open_question=q[:200],
             observed_summary="Keyed note",
             source="evidence",
             score=0.88,
@@ -1066,11 +1087,12 @@ def candidates_from_bom_lines(
             text,
         ):
             continue
-        body = re.sub(r"\s+", " ", text).strip()[:140]
-        q = f"Confirm BOM line is in this quote as written: {body}?"
-        if not _is_customer_facing_question(q):
+        from orbitbrief_core.pm_handoff.pm_ask_rewrite import rewrite_bom
+
+        q = rewrite_bom(text)
+        if not q or not _is_customer_facing_question(q):
             continue
-        fp = fingerprint_question(body)
+        fp = fingerprint_question(q)
         if fp in seen:
             continue
         seen.add(fp)
@@ -1083,7 +1105,7 @@ def candidates_from_bom_lines(
             label="BOM confirmation",
             severity="warning",
             message="BOM line needs PM confirmation.",
-            suggested_open_question=q[:220],
+            suggested_open_question=q[:200],
             observed_summary="BOM line",
             source="evidence",
             score=0.8,
@@ -1114,6 +1136,12 @@ def build_extended_candidates(
     docs = docs_by_id or _docs_by_artifact_id(envelope if isinstance(envelope, Mapping) else None)
     atom_list = [a for a in atoms if isinstance(a, Mapping)]
     out = []
+    # PM-brain coverage first — these are the asks a sharp PM always pressures.
+    out.extend(
+        candidates_from_pm_coverage(
+            atom_list, project_mode=project_mode, blob=blob, docs_by_id=docs
+        )
+    )
     out.extend(
         candidates_from_customer_instructions(
             atom_list, project_mode=project_mode, docs_by_id=docs

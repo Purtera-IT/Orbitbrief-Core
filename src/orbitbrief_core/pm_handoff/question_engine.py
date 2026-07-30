@@ -960,6 +960,21 @@ def _is_customer_facing_question(text: str) -> bool:
         return False
     if _SMALLTALK_RE.search(low):
         return False
+    # Lazy Confirm-paste of raw SOW/email prose is not a PM ask.
+    if re.match(
+        r"(?i)^confirm\s+(?:customer\s+instruction|pricing\s+assumption\s+is\s+still\s+valid|"
+        r"this\s+is\s+in-scope\s+for\s+the\s+quote|this\s+requirement\s+is\s+binding|"
+        r"how\s+this\s+risk\s+is\s+handled|bom\s+line\s+is\s+in\s+this\s+quote)\s*:",
+        t,
+    ):
+        return False
+    if re.search(
+        r"(?i)\b(?:hope\s+(?:you|my\s+email)|great\s+start\s+to\s+the\s+week|"
+        r"don'?t\s+hesitate|thank\s+you\s+so\s+much|draw\s+up\s+a\s+quote|"
+        r"material\s+breach|form\s+w-?9|either\s+party\s+may\s+terminate)\b",
+        low,
+    ):
+        return False
     # Email footer / security-gateway chrome is not a PM clarification.
     if any(
         tok in low
