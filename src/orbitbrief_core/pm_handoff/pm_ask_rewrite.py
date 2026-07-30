@@ -83,7 +83,7 @@ INSTALL_MODES = frozenset(
 )
 WIRELESS_MODES = frozenset({"wireless_install", "wireless_config", "network_edge_install"})
 AV_MODES = frozenset({"av_install"})
-SECURITY_MODES = frozenset({"access_control", "generic"})  # + evidence trigger
+SECURITY_MODES = frozenset({"access_control", "security_assessment", "generic"})
 
 
 def is_chrome_or_boilerplate(text: str) -> bool:
@@ -141,6 +141,58 @@ def _clip_anchor(text: str, n: int = 72) -> str:
         return body.rstrip(".,;:")
     cut = body[: n - 1].rsplit(" ", 1)[0]
     return (cut or body[: n - 1]).rstrip(".,;:")
+
+
+
+def _clean_bom_anchor(text: str, n: int = 56) -> str | None:
+    """Strip meter/pipe inventory chrome; reject qty-0 and truncated junk."""
+    raw = re.sub(r"\s+", " ", (text or "").strip())
+    if not raw or _URL_RE.search(raw):
+        return None
+    if re.search(r"(?i)\|\s*0\s*\|", raw) or re.search(r"(?i)\bquantity\s+0\b", raw):
+        return None
+    if re.search(r"(?i)\bmeter\s+(?:device|quantity|shipping)\b", raw) and "|" in raw:
+        raw = raw.split("|", 1)[0].strip()
+    elif "|" in raw:
+        raw = raw.split("|", 1)[0].strip()
+    raw = re.sub(r"(?i)\bmeter\s+(?:device|quantity|shipping).*$", "", raw).strip()
+    raw = re.sub(r"(?i)\bquantity\s+\d+\b.*$", "", raw).strip()
+    raw = re.sub(r"(?i)\s*\bqty\s*[:=]?\s*\d+\s*$", "", raw).strip()
+    if re.search(
+        r"(?i)(?:is all of the\s*$|equipment for pickup|pickup\s*&\s*disposal)",
+        raw,
+    ):
+        return None
+    if len(raw) < 12:
+        return None
+    return _clip_anchor(raw, n)
+
+
+# Canonical payment ask — rewrite + pmcover must use this exact wording.
+PAYMENT_GATE_ASK = (
+    "Confirm payment terms (deposit / milestones / Net-X) that gate scheduling."
+)
+
+
+def inject_site_anchor(ask: str, site_names: list[str] | None) -> str:
+    """Pin a generic stem to a deal site when we have one."""
+    if not ask or not site_names:
+        return ask
+    site = site_names[0].strip()
+    if not site or site.lower() in ask.lower():
+        return ask
+    if re.search(
+        r"(?i)(?:remote/no-travel|business hours|delivery schedule locked|"
+        r"pathway infrastructure|budget ceiling|customer-furnished|"
+        r"named engineer \+ contact|ceiling height / access|"
+        r"who owns pathway|who signs acceptance|1-for-1 swap|"
+        r"paid site survey required|fresh site survey required)",
+        ask,
+    ):
+        if ask.endswith("?"):
+            return f"{ask[:-1]} — at {site}?"
+        return f"{ask} — at {site}"
+    return ask
 
 
 def rewrite_instruction(text: str) -> str | None:
@@ -222,7 +274,11 @@ def rewrite_instruction(text: str) -> str | None:
     return None
 
 
-def rewrite_assumption(text: str) -> str | None:
+def rewrite_assumption(
+    text: str,
+    *,
+    site_names: list[str] | None = None,
+) -> str | None:
     if is_unusable_evidence_text(text):
         return None
     low = text.lower()
@@ -275,21 +331,56 @@ def rewrite_assumption(text: str) -> str | None:
     ]
     for pat, ask in rules:
         if re.search(pat, low):
-            return ask
+            return inject_site_anchor(ask, site_names)
     # No generic quote-paste fallback.
     return None
 
 
-def rewrite_scope(text: str, atom_type: str = "scope_item") -> str | None:
+# Modes where assessment / cloud / pentest asks are legitimate.
+_ASSESSMENT_OK_MODES = frozenset({"security_assessment", "generic", "alm"})
+_INSTALL_ONLY_MODES = frozenset(
+    {
+        "av_install",
+        "wireless_install",
+        "wireless_config",
+        "cabling_install",
+        "network_edge_install",
+    }
+)
+
+
+def rewrite_scope(
+    text: str,
+    atom_type: str = "scope_item",
+    *,
+    project_mode: str = "",
+    site_names: list[str] | None = None,
+) -> str | None:
     if is_unusable_evidence_text(text):
         return None
     low = text.lower()
+    mode = (project_mode or "").strip()
     # Methodology essays / marketing / legal fee language — skip
     if re.search(
         r"(?i)\b(?:aims to evaluate|methodology for conducting|highest priority on the security|"
         r"internationally recognize|owasp top 10|cvss\b|total\s+fees|draft\s+intended|"
         r"knowledgeable\s+resource|services\s+expressly)\b",
         text,
+    ):
+        return None
+
+    # Assessment / cloud asks — never on physical install modes.
+    if mode in _INSTALL_ONLY_MODES and re.search(
+        r"(?i)\b(?:pentest|penetration\s+test|assessment\s+report|executive\s+summary|"
+        r"azure\s+(?:ad|backup|region)|entra|immutable\s+storage|white\s+box|"
+        r"rules?\s+of\s+engagement)\b",
+        low,
+    ):
+        return None
+    # Staff-aug wording must not leak onto wireless/AV installs.
+    if mode in _INSTALL_ONLY_MODES | WIRELESS_MODES | AV_MODES and re.search(
+        r"(?i)staff\s+augmentation",
+        low,
     ):
         return None
 
@@ -312,7 +403,8 @@ def rewrite_scope(text: str, atom_type: str = "scope_item") -> str | None:
          "Confirm the quoted duration still matches customer need-by date."),
         (r"target\s+region|azure\s+regions?",
          "Which Azure regions (primary/secondary) are approved for this design?"),
-        (r"budget|run[\-\s]?rate|ceiling",
+        # Budget only when a concrete ceiling / $ figure is present — not every "budget" mention.
+        (r"(?:budget|run[\-\s]?rate|ceiling).{0,40}(?:\$|usd|\d[\d,]*(?:\.\d+)?\s*k\b|\d{3,})",
          "What is the budget ceiling we must design/quote to?"),
         (r"lrs|zrs|grs|ra[\-\s]?grs|redundancy",
          "Which storage redundancy option is required (LRS / ZRS / GRS / RA-GRS)?"),
@@ -361,7 +453,15 @@ def rewrite_scope(text: str, atom_type: str = "scope_item") -> str | None:
     ]
     for pat, ask in rules:
         if re.search(pat, low):
-            return ask
+            # Extra mode gate for assessment-flavored asks
+            if mode and mode not in _ASSESSMENT_OK_MODES and re.search(
+                r"(?i)pentest|assessment report|azure region|immutable|white-box|report deliverable",
+                ask,
+            ):
+                continue
+            if mode in _INSTALL_ONLY_MODES and re.search(r"(?i)staff-aug scope", ask):
+                continue
+            return inject_site_anchor(ask, site_names)
 
     # No quote-wrap fallback. If we cannot name a real decision, skip.
     return None
@@ -409,7 +509,7 @@ def rewrite_requirement(text: str, atom_type: str) -> str | None:
 
     if atom_type in {"payment_term", "contract_term", "change_order_rule"}:
         if re.search(r"(?i)50%|deposit|net\s*\d+|invoice", text):
-            return "Confirm payment terms (deposit / milestones / Net-X) that gate scheduling."
+            return PAYMENT_GATE_ASK
         if re.search(r"(?i)change\s+order", text):
             return "What change-order threshold and approval path apply before we proceed with extras?"
         return None
@@ -476,13 +576,13 @@ def rewrite_bom(text: str) -> str | None:
     if is_unusable_evidence_text(text):
         return None
     if re.search(r"(?i)\btbd\b|allowance|optional|alternate|or\s+equal|nic\b", text):
-        anchor = _clip_anchor(text, 56)
-        if len(anchor) < 16:
+        anchor = _clean_bom_anchor(text, 56)
+        if not anchor or len(anchor) < 16:
             return None
         return f"Lock BOM for \"{anchor}\" — include as written, allowance, or remove?"
     if re.search(r"(?i)\b(?:qty|quantity)\b\s*[:=]?\s*\d+|\d+\s*x\b", text):
-        anchor = _clip_anchor(text, 56)
-        if len(anchor) < 16 or _URL_RE.search(anchor):
+        anchor = _clean_bom_anchor(text, 56)
+        if not anchor or len(anchor) < 16:
             return None
         return f"Confirm qty/model for \"{anchor}\" is the authoritative quote line."
     return None
@@ -538,8 +638,12 @@ def specialize_coverage_question(
             return None
         if not re.search(r"(?i)\b(?:access\s+points?|\baps?\b|ssid|heatmap|rf\s+survey)\b", hay):
             return None
-        n_ap = re.search(r"(?i)\b(\d+)\s*(?:x\s*)?(?:aps?|access\s+points?)\b", hay)
-        if n_ap:
+        # Reject zip/phone tails ("91641 APs" → false 41) via lookbehind.
+        n_ap = re.search(
+            r"(?i)(?<!\d)([1-9]\d{0,2})\s*(?:x\s*)?(?:aps?|access\s+points?)\b",
+            hay,
+        )
+        if n_ap and int(n_ap.group(1)) <= 500:
             return (
                 f"Confirm AP count/model for this quote — source mentions {n_ap.group(1)} APs; "
                 f"lock model + whether RF survey is in-scope."
@@ -636,7 +740,8 @@ def specialize_coverage_question(
             hay,
         ):
             return None
-        return "What hardware is customer-furnished vs PurTera-furnished — and who stages it to site?"
+        ask = "What hardware is customer-furnished vs PurTera-furnished — and who stages it to site?"
+        return inject_site_anchor(ask, sites)
 
     if suffix == "acceptance":
         if not re.search(r"(?i)\b(?:acceptance|sign[\-\s]?off|poc|sop|commission|uat)\b", hay):
@@ -646,7 +751,7 @@ def specialize_coverage_question(
     if suffix == "payment_gate":
         if not re.search(r"(?i)\b(?:deposit|50\s*%|net\s*\d+|purchase\s+order|\bpo\b)\b", hay):
             return None
-        return "Confirm payment terms that gate scheduling (deposit %, milestones, Net-X)."
+        return PAYMENT_GATE_ASK
 
     if suffix == "change_order":
         if not re.search(r"(?i)\b(?:change\s+order|t\s*&\s*m|time\s+and\s+materials)\b", hay):
@@ -689,14 +794,37 @@ def specialize_coverage_question(
 
 # Family keys for cross-ask dedupe (one per family in shortlist/pool head).
 FAMILY_PREFIXES: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("furnish", ("pmcover.hardware_furnish", "assumption.", "instruction.")),
+    ("furnish", ("pmcover.hardware_furnish",)),
     ("pathway", ("pmcover.pathway_ownership", "mode.av_install.cable", "mode.av_install.floor")),
     ("access", ("pmcover.access_badging", "site.", "pmcover.onsite_contact")),
     ("sites", ("pmcover.site_list_lock", "pmcover.first_site")),
     ("acceptance", ("pmcover.acceptance",)),
+    ("payment", ("pmcover.payment_gate",)),
     ("wireless", ("pmcover.wireless_design", "mode.wireless")),
     ("av", ("pmcover.av_keep_remove", "mode.av_install")),
-    ("qty", ("pmcover.qty_lock", "qty.")),
+    ("qty", ("pmcover.qty_lock", "qty.", "bom.")),
+    ("hours", ("pmcover.work_hours",)),
+)
+
+# Text-intent families — collapse paraphrase stems even when rule_ids differ.
+_TEXT_FAMILIES: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("payment", re.compile(r"(?i)payment terms.*(?:gate scheduling|deposit)")),
+    ("travel", re.compile(r"(?i)remote/no-travel|travel billing if needed")),
+    ("hours", re.compile(r"(?i)business hours|after-hours premium|work hours / blackout")),
+    ("schedule", re.compile(r"(?i)delivery schedule locked|customer scheduler counterpart")),
+    ("budget", re.compile(r"(?i)budget ceiling we must design")),
+    ("pathway", re.compile(
+        r"(?i)pathway (?:method|infrastructure|ownership)|in-wall fish vs surface raceway|"
+        r"conduit/sleeves/power"
+    )),
+    ("furnish", re.compile(r"(?i)customer-furnished|purtera-furnished|who stages it to site")),
+    ("cable_vs_swap", re.compile(r"(?i)1-for-1 swap|new cable pulls|run cable for the ap")),
+    ("engineer_name", re.compile(r"(?i)named engineer \+ contact")),
+    ("survey", re.compile(r"(?i)paid site survey required|prior walkthrough sufficient")),
+    ("av_keep", re.compile(r"(?i)displays?/codecs stay|tvs?/displays stay mounted")),
+    ("ceiling", re.compile(r"(?i)ceiling height / access method")),
+    ("pathway_own", re.compile(r"(?i)who owns pathway")),
+    ("acceptance", re.compile(r"(?i)who signs acceptance")),
 )
 
 
@@ -704,15 +832,20 @@ def family_key_for_rule(rule_id: str) -> str | None:
     rid = rule_id or ""
     for fam, prefixes in FAMILY_PREFIXES:
         if any(rid.startswith(p) or p in rid for p in prefixes):
-            # Narrow: furnish family only for explicit furnish asks
-            if fam == "furnish" and not re.search(
-                r"(?i)furnish|ofe|by others|hardware_furnish", rid + " "
-            ):
-                if not rid.startswith("pmcover.hardware_furnish"):
-                    continue
+            if fam == "furnish" and not rid.startswith("pmcover.hardware_furnish"):
+                continue
             if fam == "access" and rid.startswith("site.") and "access" not in rid and "escort" not in rid and "onsite" not in rid:
                 continue
             return fam
     if rid.startswith("pmcover."):
         return rid.split(".", 1)[-1]
     return None
+
+
+def family_key_for_question(text: str, rule_id: str = "") -> str | None:
+    """Prefer text-intent family so payment/pathway paraphrases collapse."""
+    t = text or ""
+    for fam, pat in _TEXT_FAMILIES:
+        if pat.search(t):
+            return fam
+    return family_key_for_rule(rule_id)

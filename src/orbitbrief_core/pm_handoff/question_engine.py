@@ -63,6 +63,7 @@ MODE_ALM = "alm"
 MODE_STAFF_AUG = "staff_aug"
 MODE_AV = "av_install"
 MODE_ACCESS = "access_control"
+MODE_ASSESSMENT = "security_assessment"
 MODE_GENERIC = "generic"
 
 # YAML domain_ids allowed as safety-net per mode (blockers only, rare).
@@ -76,6 +77,7 @@ _MODE_YAML_ALLOW: dict[str, frozenset[str]] = {
     MODE_STAFF_AUG: frozenset({"global", "commercial", "staff_augmentation"}),
     MODE_AV: frozenset({"global", "commercial", "audio_visual", "hardware"}),
     MODE_ACCESS: frozenset({"global", "commercial", "access_control", "hardware"}),
+    MODE_ASSESSMENT: frozenset({"global", "commercial", "project", "hardware"}),
     MODE_GENERIC: frozenset({"global", "commercial"}),
 }
 
@@ -172,6 +174,19 @@ _KEEP_TV_ANNOTATION_RE = re.compile(
 )
 _ACCESS_RE = re.compile(
     r"\b(?:access\s+control|card\s+reader|door\s+controller|maglock|electric\s+strike)\b",
+    re.I,
+)
+# Cloud / pentest / security assessment — must beat mis-routed access_control.
+_ASSESSMENT_RE = re.compile(
+    r"\b(?:"
+    r"penetrat(?:ion)?\s+test|pentest|"
+    r"vulnerab(?:ility)?\s+(?:assess|scan|test)|"
+    r"red\s+team|rules?\s+of\s+engagement|"
+    r"azure\s+(?:ad|backup|migrate|region)|entra\s+id|"
+    r"conditional\s+access|immutable\s+(?:storage|blob)|"
+    r"security\s+assessment|black[\-\s]?box|grey[\-\s]?box|white[\-\s]?box|"
+    r"backup\s+vault|data[\-\s]?movement\s+method"
+    r")\b",
     re.I,
 )
 _CONFIG_ONLY_RE = re.compile(
@@ -881,8 +896,23 @@ def detect_project_mode(
     if _AV_RE.search(text_s):
         return MODE_AV
 
-    if primary == "access_control" or _ACCESS_RE.search(text_s):
+    assess_hits = len(_ASSESSMENT_RE.findall(text_s))
+    door_hits = len(_ACCESS_RE.findall(text_s))
+    # Assessment / cloud evidence wins over incidental "Access Control" pack
+    # mentions (Azure/pentest SOWs often list ACS as a sibling service line).
+    if assess_hits >= 2 and assess_hits >= max(3, door_hits * 3):
+        return MODE_ASSESSMENT
+    if primary == "access_control" and assess_hits >= 2 and assess_hits >= max(3, door_hits * 3):
+        return MODE_ASSESSMENT
+
+    if primary == "access_control" or door_hits >= 1:
+        # Still prefer assessment when doors are a thin mention vs dense cloud/pentest.
+        if assess_hits >= 5 and door_hits <= 5:
+            return MODE_ASSESSMENT
         return MODE_ACCESS
+
+    if assess_hits >= 1:
+        return MODE_ASSESSMENT
 
     top = str((pack_prior or {}).get("top_pack_id") or "")
     if top and top in {
@@ -935,6 +965,9 @@ def _is_customer_facing_question(text: str) -> bool:
     t = (text or "").strip()
     if len(t) < 12:
         return False
+    # Answer leakage / affirmation prefixes are not PM asks.
+    if re.match(r"(?i)^(?:yes|no|ok|okay|sure|correct)[,.]?\s+", t):
+        return False
     low = t.lower()
     # Markdown / risk-register table rows are not customer questions
     # (e.g. "| R2 | **TSA-badged escort… | High | Med | … |?").
@@ -955,6 +988,10 @@ def _is_customer_facing_question(text: str) -> bool:
         "why do you chase",
         "you know what i mean",
         "biggest point of emphasis",
+        "drum up a local resource",
+        "kyle copied here",
+        "let our lead engineer",
+        "loose from our onsite",
     )
     if any(b in low for b in banned):
         return False
@@ -1462,6 +1499,49 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             score=0.91,
         ),
     ),
+    MODE_ASSESSMENT: (
+        _ModeTemplate(
+            rule_id="mode.assessment.roe",
+            domain_id="project",
+            label="Rules of engagement",
+            question=(
+                "Confirm rules of engagement: environments, time windows, allow-lists, "
+                "and emergency stop contacts."
+            ),
+            message="Security assessment ROE unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:penetrat|pentest|vulnerab|red\s+team|allow[\-\s]?list|rules?\s+of\s+engagement)\b"
+            ),
+            severity="blocker",
+            score=0.93,
+        ),
+        _ModeTemplate(
+            rule_id="mode.assessment.idp",
+            domain_id="project",
+            label="IdP / Entra sync",
+            question=(
+                "Azure AD / Entra ID tenant: Are user identities already synchronized to Azure AD, "
+                "or is the directory still on-premises?"
+            ),
+            message="IdP sync state unset for cloud assessment / migration.",
+            trigger=re.compile(r"(?i)\b(?:azure\s+ad|entra|conditional\s+access|mfa)\b"),
+            severity="blocker",
+            score=0.9,
+        ),
+        _ModeTemplate(
+            rule_id="mode.assessment.report_pack",
+            domain_id="project",
+            label="Report deliverables",
+            question=(
+                "Which report deliverables are in the fixed fee "
+                "(exec summary, full findings, retest)?"
+            ),
+            message="Assessment report pack unset.",
+            trigger=re.compile(r"(?i)\b(?:executive\s+summary|assessment\s+report|findings|retest)\b"),
+            severity="warning",
+            score=0.86,
+        ),
+    ),
     MODE_AV: (
         _ModeTemplate(
             rule_id="mode.av_install.cable_conceal_drywall",
@@ -1663,7 +1743,20 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
 
 def _ground_template_question(tmpl: _ModeTemplate, blob: str) -> str:
     """Specialize template wording with evidence anchors (city / lean site)."""
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import extract_site_names
+
     q = tmpl.question
+    sites = extract_site_names(blob or "")
+    # Pin cross-deal AV pathway / keep-remove stems to a site when available.
+    if tmpl.rule_id.startswith("mode.av_install.") and sites:
+        site0 = sites[0]
+        if site0.lower() not in q.lower() and re.search(
+            r"(?i)pathway method|in-wall fish|stay mounted", q
+        ):
+            if q.endswith("?"):
+                q = f"{q[:-1]} — at {site0}?"
+            else:
+                q = f"{q} — at {site0}"
     if tmpl.rule_id != "mode.network_edge_install.first_survey_site":
         return q
     m = re.search(
@@ -2043,6 +2136,8 @@ def rank_and_cap(
     """Fingerprint → neural evidence score → neural near-dup → rank + cap."""
 
     def sort_key(c: QuestionCandidate) -> tuple:
+        from orbitbrief_core.pm_handoff.pm_ask_rewrite import family_key_for_question
+
         source_order = {
             "pm_gold": 0,
             "mode_template": 1,
@@ -2050,16 +2145,30 @@ def rank_and_cap(
             "yaml_safety": 3,
         }.get(c.source, 4)
         rid = c.rule_id or ""
-        # Prefer deal-specific families ahead of generic coverage.
+        qtext = c.suggested_open_question or c.message or ""
+        fam = family_key_for_question(qtext, rid) or ""
+        # Prefer deal-specific families ahead of generic coverage / commercial stems.
         fam_penalty = 1 if rid.startswith("pmcover.") else 0
+        if fam in {"travel", "schedule", "hours", "budget", "furnish", "payment", "engineer_name", "ceiling", "pathway_own", "acceptance", "survey"}:
+            fam_penalty += 2
         mode_bonus = 0 if rid.startswith("mode.") else 1
+        # Prefer asks that already carry a site / OEM / model lock.
+        locked = (" — at " in qtext) or bool(
+            re.search(
+                r"(?i)\b(?:TV1|Meraki|Cisco|Azure|Entra|SSID|OEM|RFP|"
+                r"raceway|home\s*runs?|1-for-1|PowerEdge)\b",
+                qtext,
+            )
+        )
+        lock_bonus = 0 if locked else 1
         return (
             SEVERITY_SORT.get(c.severity, 9),
             mode_bonus,
             fam_penalty,
+            lock_bonus,
             -c.score,
             source_order,
-            c.suggested_open_question,
+            qtext,
         )
 
     # Exact fingerprint collapse first (cheap).
@@ -2284,7 +2393,7 @@ def build_customer_questions(
             if len(ranked) + len(extras) >= int(pool_cap):
                 break
         ranked = ranked + extras
-    from orbitbrief_core.pm_handoff.pm_ask_rewrite import family_key_for_rule
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import family_key_for_question
     from orbitbrief_core.pm_handoff.question_quality import (
         filter_perfect_questions,
         pool_scorecard,
@@ -2305,14 +2414,15 @@ def build_customer_questions(
     ) -> bool:
         if card.rule_id in have_ids:
             return False
-        nq = _norm_q(card.suggested_open_question or card.message or "")
+        qtext = card.suggested_open_question or card.message or ""
+        nq = _norm_q(qtext)
         if nq and nq in have_texts:
             return False
         viols = validate_question_card(card)
         if viols:
             quality_dropped.extend(viols)
             return False
-        fam = family_key_for_rule(card.rule_id)
+        fam = family_key_for_question(qtext, card.rule_id)
         if family_limit and fam and fam in have_families:
             return False
         have_ids.add(card.rule_id)
@@ -2363,7 +2473,9 @@ def build_customer_questions(
     for card in pool_cards:
         if len(cards) >= max(1, int(cap)):
             break
-        fam = family_key_for_rule(card.rule_id)
+        fam = family_key_for_question(
+            card.suggested_open_question or card.message or "", card.rule_id
+        )
         if fam and fam in short_families:
             continue
         if fam:

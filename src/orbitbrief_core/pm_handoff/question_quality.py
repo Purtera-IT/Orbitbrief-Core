@@ -207,9 +207,13 @@ def validate_question_card(card: GapCard | Mapping[str, Any]) -> list[QualityVio
         out.append(QualityViolation(rid, "naked_coverage", text[:120]))
     if re.search(r"[*_`]{2,}|\*\*[^*]+\*\*", text):
         out.append(QualityViolation(rid, "markdown_leak", text[:120]))
-    if re.search(r"(?i)\bdevice\s+(?:access\s+point|camera|switch|router|workstation)\s*$", text):
+    if re.search(
+        r"(?i)(?:\bdevice\s+(?:access\s+point|camera|switch|router|workstation)\b|"
+        r"\bmeter\s+(?:device|quantity|shipping)\b)",
+        text,
+    ):
         out.append(QualityViolation(rid, "entity_tag_leak", text[:120]))
-    if text.count("|") >= 3 or _TABLE_ROW_RE.search(text) or _RISK_ID_ROW_RE.search(text):
+    if text.count("|") >= 2 or _TABLE_ROW_RE.search(text) or _RISK_ID_ROW_RE.search(text):
         out.append(QualityViolation(rid, "table_row", text[:120]))
     if "?" not in text and not _DECISION_STEM.search(text):
         out.append(QualityViolation(rid, "not_decision", text[:120]))

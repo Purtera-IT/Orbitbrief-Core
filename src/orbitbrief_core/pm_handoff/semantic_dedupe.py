@@ -68,6 +68,11 @@ _INTENT_FAMILIES: tuple[frozenset[str], ...] = (
     frozenset({"montreal", "defer", "phase", "paper", "cdw", "canada"}),
     frozenset({"survey", "walkthrough", "first", "schedule", "access"}),
     frozenset({"smart", "remote", "hand", "rack", "stack", "config", "physical"}),
+    frozenset({"payment", "deposit", "milestone", "invoice", "net"}),
+    frozenset({"pathway", "conduit", "raceway", "sleeve", "drywall", "fish"}),
+    frozenset({"travel", "remote", "billing", "onsite"}),
+    frozenset({"budget", "ceiling", "quote"}),
+    frozenset({"furnish", "ofe", "hardware", "stages"}),
 )
 
 T = TypeVar("T")

@@ -111,3 +111,50 @@ def test_coverage_specializes_or_suppresses():
         site_names=["Alpharetta GA"],
     )
     assert q and "AP" in q
+
+
+def test_payment_gate_canonical_wording():
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import PAYMENT_GATE_ASK, family_key_for_question
+
+    q = specialize_coverage_question(
+        "payment_gate",
+        blob="50% deposit due on order; Net 30 on remainder",
+        project_mode="av_install",
+        site_names=[],
+    )
+    assert q == PAYMENT_GATE_ASK
+    assert family_key_for_question(q, "assumption.pay") == "payment"
+
+
+def test_bom_strips_meter_chrome():
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import rewrite_bom
+
+    assert rewrite_bom("Access Point | 5 | Meter device access point quantity 5") is None
+    assert rewrite_bom("Meter Shipping | 0 | Meter quantity 0") is None
+    q = rewrite_bom("Meraki MS150-24MP-4X Cloud Managed Switch qty 2")
+    assert q and "Meraki MS150" in q and "Meter" not in q
+
+
+def test_assessment_mode_beats_access_control_primary():
+    from orbitbrief_core.pm_handoff.question_engine import (
+        MODE_ASSESSMENT,
+        detect_project_mode,
+    )
+
+    mode = detect_project_mode(
+        service_routing={"primary": "access_control", "enabled": True},
+        blob=(
+            "Azure AD Entra ID conditional access MFA pentest "
+            "rules of engagement backup vault immutable storage"
+        ),
+    )
+    assert mode == MODE_ASSESSMENT
+
+
+def test_scope_suppresses_pentest_on_av_install():
+    q = rewrite_scope(
+        "Deliver penetration test executive summary and assessment report",
+        "scope_item",
+        project_mode="av_install",
+    )
+    assert q is None

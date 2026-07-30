@@ -533,9 +533,11 @@ def candidates_from_assumptions(
     *,
     project_mode: str,
     docs_by_id: Mapping[str, str] | None = None,
+    blob: str = "",
+    sites: list | None = None,
     max_items: int = 16,
 ) -> list:
-    from orbitbrief_core.pm_handoff.pm_ask_rewrite import rewrite_assumption
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import extract_site_names, rewrite_assumption
     from orbitbrief_core.pm_handoff.question_engine import (
         QuestionCandidate,
         _atom_evidence_text,
@@ -547,6 +549,7 @@ def candidates_from_assumptions(
 
     atom_list = [a for a in atoms if isinstance(a, Mapping)]
     by_id = _atoms_by_id(atom_list)
+    site_names = extract_site_names(blob or "", sites=sites)
     out = []
     seen: set[str] = set()
     for atom in atom_list:
@@ -556,7 +559,7 @@ def candidates_from_assumptions(
         text = _atom_evidence_text(atom)
         if len(text) < 24 or text.count("|") >= 3:
             continue
-        q = rewrite_assumption(text)
+        q = rewrite_assumption(text, site_names=site_names)
         if not q or not _is_customer_facing_question(q):
             continue
         fp = fingerprint_question(q)
@@ -606,10 +609,12 @@ def candidates_from_scope_commitments(
     *,
     project_mode: str,
     docs_by_id: Mapping[str, str] | None = None,
+    blob: str = "",
+    sites: list | None = None,
     max_items: int = 40,
 ) -> list:
     """Turn substantive scope_item / task / deliverable atoms into sharp PM asks."""
-    from orbitbrief_core.pm_handoff.pm_ask_rewrite import rewrite_scope
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import extract_site_names, rewrite_scope
     from orbitbrief_core.pm_handoff.question_engine import (
         QuestionCandidate,
         _atom_evidence_text,
@@ -621,6 +626,7 @@ def candidates_from_scope_commitments(
 
     atom_list = [a for a in atoms if isinstance(a, Mapping)]
     by_id = _atoms_by_id(atom_list)
+    site_names = extract_site_names(blob or "", sites=sites)
     out = []
     seen: set[str] = set()
     for atom in atom_list:
@@ -634,7 +640,7 @@ def candidates_from_scope_commitments(
             continue
         if not _SCOPE_VERB_RE.search(text):
             continue
-        q = rewrite_scope(text, at)
+        q = rewrite_scope(text, at, project_mode=project_mode, site_names=site_names)
         if not q or not _is_customer_facing_question(q):
             continue
         fp = fingerprint_question(q)
@@ -907,13 +913,17 @@ def candidates_from_keyed_notes(
         if not re.search(r"(?i)keyed\s+notes?|coordinate\s+location|provide\s+\(\d+\)|home\s+run|conduit", text):
             continue
         body = re.sub(r"\s+", " ", text).strip()
-        body = re.sub(r"(?i)^keyed\s+notes?:\s*", "", body)[:90]
+        body = re.sub(r"(?i)^keyed\s+notes?:\s*", "", body)
+        # Collapse pipe-joined near-duplicates before quoting.
+        body = re.sub(r"\s*\|\|.*", "", body).strip()
+        body = body[:90]
         if len(body) < 20:
             continue
         q = f"Is this keyed-note work in the quote — coordinate now or exclude: \"{body}\"?"
         if not _is_customer_facing_question(q):
             continue
-        fp = fingerprint_question(body)
+        # Coarse stem so "DATA DROP FOR X" / "DATA DROP FOR Y" still near-dedupe via family.
+        fp = fingerprint_question(re.sub(r"\b[A-Z0-9]{1,4}\b", "x", body)[:48])
         if fp in seen:
             continue
         seen.add(fp)
@@ -1191,7 +1201,11 @@ def build_extended_candidates(
     )
     out.extend(
         candidates_from_assumptions(
-            atom_list, project_mode=project_mode, docs_by_id=docs
+            atom_list,
+            project_mode=project_mode,
+            docs_by_id=docs,
+            blob=blob,
+            sites=sites,
         )
     )
     out.extend(
@@ -1201,7 +1215,11 @@ def build_extended_candidates(
     )
     out.extend(
         candidates_from_scope_commitments(
-            atom_list, project_mode=project_mode, docs_by_id=docs
+            atom_list,
+            project_mode=project_mode,
+            docs_by_id=docs,
+            blob=blob,
+            sites=sites,
         )
     )
     out.extend(
