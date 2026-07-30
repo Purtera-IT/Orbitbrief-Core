@@ -201,14 +201,21 @@ def extract_deal_flavor(blob: str) -> str | None:
         if m:
             return re.sub(r"\s+", " ", m.group(1)).strip()
     # Customer / account label when OEM is absent (breaks Alpharetta HQ clones).
+    # Cap at 1–3 Title-Case tokens — never slur prose ("… setup to be").
     m = re.search(
         r"(?i)(?:account|customer|client|company)\s*[:\-]\s*"
-        r"([A-Z][A-Za-z0-9&.,' \-]{2,36})",
+        r"([A-Z][A-Za-z0-9&.,']+(?:\s+[A-Z][A-Za-z0-9&.,']+){0,2})",
         blob,
     )
     if m:
         name = re.sub(r"\s+", " ", m.group(1)).strip(" .,")
-        if len(name) >= 3 and not re.search(r"(?i)^(the|inc|llc|for|and)$", name):
+        if (
+            3 <= len(name) <= 28
+            and not re.search(
+                r"(?i)\b(?:the|inc|llc|for|and|setup|to|be|camera|security)\b",
+                name,
+            )
+        ):
             return name
     return None
 
@@ -233,7 +240,8 @@ def inject_site_anchor(
             r"paid site survey required|fresh site survey required|"
             r"authoritative AP list|displays?/codecs stay|"
             r"in-scope sites for this wave|access/escort/badging|"
-            r"how many aps|ap count/model|new cable pulls)",
+            r"how many aps|ap count/model|new cable pulls|"
+            r"pathway method|in-wall fish|day-of onsite contact)",
             ask,
         )
     )
@@ -447,25 +455,40 @@ def rewrite_scope(
     ):
         return None
 
-    rules: list[tuple[str, str]] = [
-        (r"iron\s+mountain|de[\-\s]?rack|pack(?:ing)?\s*/?\s*prep|palletize|shrink\s+wrap",
-         "Confirm decommission scope — derack/pack/ship vs inventory-only — and who owns packing materials?"),
-        (r"return\s+shipping|box\s+shipping|serviot\s+to\s+pack",
-         "Who packs and ships returns — PurTera/Serviot pack-leave-onsite, or customer-arranged carrier?"),
-        (r"visit\s*1|onsite\s+inventory\s+verification",
-         "Confirm Visit-1 inventory vs Visit-2 pack/ship are separate mobilizations in this quote."),
-        (r"power\s+down\s+equipment|bring\s+down\s+network",
-         "Who owns equipment power-down / network take-down before pack-out — customer or PurTera?"),
-        (r"dress\s+code|background\s+check",
-         "Confirm background-check / dress-code requirements before scheduling onsite crew."),
-        (r"racked\s+servers|boxed\s+servers|pre[\-\s]?boxed",
-         "Which sites are racked-server derack vs already-boxed pickup — lock per site before dispatch?"),
-        (r"hours of operation for the dock|loading\s+dock",
-         "Confirm dock hours / appointment lead time for each pickup site."),
-        (r"additional charge|packing materials will be provided",
-         "Confirm packing-materials fee is in this quote, allowance, or customer-furnished?"),
-        (r"equipment for pickup|equipment for disposal|misc\.?\s*\(.*cables",
-         "Confirm pickup/disposal inventory list is authoritative — any exclusions before crew arrives?"),
+    rules: list[tuple[str, str]] = []
+    # Decommission asks only on decom mode or when the atom itself is pack-out evidence.
+    decom_atom = bool(
+        re.search(
+            r"(?i)\b(?:iron\s+mountain|de[\-\s]?rack|pack(?:ing)?\s*/?\s*prep|"
+            r"palletize|return\s+shipping|equipment for (?:pickup|disposal))\b",
+            low,
+        )
+    )
+    if mode == "decommission_logistics" or decom_atom:
+        rules.extend(
+            [
+                (r"iron\s+mountain|de[\-\s]?rack|pack(?:ing)?\s*/?\s*prep|palletize|shrink\s+wrap",
+                 "Confirm decommission scope — derack/pack/ship vs inventory-only — and who owns packing materials?"),
+                (r"return\s+shipping|box\s+shipping|serviot\s+to\s+pack",
+                 "Who packs and ships returns — PurTera/Serviot pack-leave-onsite, or customer-arranged carrier?"),
+                (r"visit\s*1|onsite\s+inventory\s+verification",
+                 "Confirm Visit-1 inventory vs Visit-2 pack/ship are separate mobilizations in this quote."),
+                (r"power\s+down\s+equipment|bring\s+down\s+network",
+                 "Who owns equipment power-down / network take-down before pack-out — customer or PurTera?"),
+                (r"dress\s+code|background\s+check",
+                 "Confirm background-check / dress-code requirements before scheduling onsite crew."),
+                (r"racked\s+servers|boxed\s+servers|pre[\-\s]?boxed",
+                 "Which sites are racked-server derack vs already-boxed pickup — lock per site before dispatch?"),
+                (r"hours of operation for the dock|loading\s+dock",
+                 "Confirm dock hours / appointment lead time for each pickup site."),
+                (r"additional charge|packing materials will be provided",
+                 "Confirm packing-materials fee is in this quote, allowance, or customer-furnished?"),
+                (r"equipment for pickup|equipment for disposal|misc\.?\s*\(.*cables",
+                 "Confirm pickup/disposal inventory list is authoritative — any exclusions before crew arrives?"),
+            ]
+        )
+    rules.extend(
+        [
         (r"poweredge|r840|raid\s+controller|xeon\s+gold",
          "Confirm which PowerEdge nodes / RAID / CPU configs are in this quote wave."),
         (r"exact\s+urls?\s+for\s+the\s+applications?",
@@ -533,7 +556,8 @@ def rewrite_scope(
          "Confirm staff-aug scope: install-only, config-only, or install+config+documentation?"),
         (r"already sent someone|paid his hours",
          "Confirm prior site-visit hours are sunk — do not re-bill survey, or re-quote a fresh survey?"),
-    ]
+        ]
+    )
     for pat, ask in rules:
         if re.search(pat, low):
             # Extra mode gate for assessment-flavored asks
