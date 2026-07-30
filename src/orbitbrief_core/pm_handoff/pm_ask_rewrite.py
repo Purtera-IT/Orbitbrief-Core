@@ -336,6 +336,18 @@ def rewrite_scope(text: str, atom_type: str = "scope_item") -> str | None:
          "Confirm Google Meet hardware labor/equipment lines are in this quote as written."),
         (r"imac|workstation\s+count|device\s+count",
          "Where workstation/iMac counts disagree across sources, which quantity is authoritative?"),
+        (r"ceiling\s+height|need a lift|ladder is",
+         "Confirm ceiling height / access method — ladder-only or lift required?"),
+        (r"space in the rack|rack for the network",
+         "Confirm rack space is available for the new network devices at this site."),
+        (r"send someone over first|site survey|take a look at the",
+         "Is a paid site survey required before final quote, or is prior walkthrough sufficient?"),
+        (r"cisco\s+ap|status at this point",
+         "Confirm existing Cisco AP status — reuse mounts/drops, or full rip-and-replace?"),
+        (r"staff\s+augmentation|installation and configuration",
+         "Confirm staff-aug scope: install-only, config-only, or install+config+documentation?"),
+        (r"already sent someone|paid his hours",
+         "Confirm prior site-visit hours are sunk — do not re-bill survey, or re-quote a fresh survey?"),
     ]
     for pat, ask in rules:
         if re.search(pat, low):
