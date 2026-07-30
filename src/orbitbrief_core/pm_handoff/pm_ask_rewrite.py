@@ -266,54 +266,98 @@ def extract_deal_flavor(blob: str) -> str | None:
     return None
 
 
-def is_hq_only_generic(ask: str) -> bool:
-    """True when a coverage stem is unpinned or pinned only to Alpharetta HQ."""
-    if not ask:
-        return False
-    if not re.search(
-        r"(?i)(?:remote/no-travel|delivery schedule locked|customer-furnished|"
-        r"purtera-furnished|network remediation|cat6 plenum|t&m rounding|"
-        r"escort lead times|backboards\s*/\s*grounding|access/escort/badging|"
-        r"business hours|pathway infrastructure|who owns pathway|"
-        r"named engineer|paid site survey|fresh site survey|"
-        r"1-for-1 swap|extensive tracing|cabling needs)",
-        ask,
-    ):
-        return False
-    tag = ""
-    looks_like_pin = False
-    if " — " in ask:
-        tag = ask.rsplit(" — ", 1)[-1].rstrip("?").strip()
-        # Real pins are short OEM/site tags — not continuing prose after an
-        # internal stem dash ("delivery — which sites would…").
-        looks_like_pin = bool(
-            "·" in tag
-            or re.match(r"(?i)^(?:at|incl\.?)\s+\S", tag)
-            or (
-                len(tag) <= 40
-                and not re.match(
-                    r"(?i)^(?:which|who|what|when|how|confirm|is|are|and|or|any|the)\b",
-                    tag,
-                )
+_COVERAGE_STEM_RE = re.compile(
+    r"(?i)(?:remote/no-travel|delivery schedule locked|customer-furnished|"
+    r"purtera-furnished|network remediation|cat6 plenum|t&m rounding|"
+    r"escort lead times|backboards\s*/\s*grounding|access/escort/badging|"
+    r"business hours|pathway infrastructure|who owns pathway|"
+    r"named engineer|paid site survey|fresh site survey|"
+    r"1-for-1 swap|1 for 1 swap|run cable for the ap|extensive tracing|"
+    r"cabling needs|hard deadlines / milestones|single customer point of contact|"
+    r"network access info / wireless credentials|workstation/imac counts)"
+)
+
+
+def _pin_tag(ask: str) -> tuple[str, bool]:
+    """Return (tag, looks_like_pin) from the trailing em-dash segment."""
+    if " — " not in ask:
+        return "", False
+    tag = ask.rsplit(" — ", 1)[-1].rstrip("?").strip()
+    looks = bool(
+        "·" in tag
+        or re.match(r"(?i)^(?:at|incl\.?)\s+\S", tag)
+        or (
+            len(tag) <= 40
+            and not re.match(
+                r"(?i)^(?:which|who|what|when|how|confirm|is|are|and|or|any|the)\b",
+                tag,
             )
         )
-    if not looks_like_pin:
-        return True
-    tag_l = tag.lower()
+    )
+    return tag, looks
+
+
+def _tag_has_non_hq(tag: str) -> bool:
+    tag_l = (tag or "").lower().rstrip("?").strip()
     parts = [p.strip() for p in re.split(r"\s*[·|]\s*", tag_l) if p.strip()]
-    expanded: list[str] = []
     for p in parts:
-        expanded.extend(re.split(r"\s+at\s+", p))
-    non_hq: list[str] = []
-    for p in expanded:
-        p = p.strip()
-        if not p or p in {"at", "incl.", "incl"}:
-            continue
-        bare = re.sub(r"^(?:at|incl\.?)\s+", "", p)
-        if _HQ_SITE_RE.match(bare) or re.fullmatch(r"alpharetta(?:\s+ga)?", bare):
-            continue
-        non_hq.append(p)
-    return len(non_hq) == 0
+        for bit in re.split(r"\s+at\s+", p):
+            bare = re.sub(r"^(?:at|incl\.?)\s+", "", bit.strip())
+            if not bare or bare in {"at", "incl.", "incl"}:
+                continue
+            if _HQ_SITE_RE.match(bare) or re.fullmatch(r"alpharetta(?:\s+ga)?", bare):
+                continue
+            return True
+    return False
+
+
+def is_hq_only_generic(ask: str) -> bool:
+    """True when a coverage stem is pinned only to Alpharetta HQ (or names it alone)."""
+    if not ask or not _COVERAGE_STEM_RE.search(ask):
+        return False
+    tag, looks = _pin_tag(ask)
+    if looks:
+        return not _tag_has_non_hq(tag)
+    # Unpinned: only HQ-clone when Alpharetta is the sole geo named.
+    if re.search(r"(?i)\balpharetta\b", ask):
+        return not bool(
+            re.search(
+                r"(?i)\b(?:for|at|in)\s+(?!alpharetta)[A-Z][a-z]+(?:\s+[A-Z]{2})?\b",
+                ask,
+            )
+        )
+    return False
+
+
+def is_unflavored_coverage(ask: str) -> bool:
+    """Coverage stem with no OEM/customer/non-HQ site pin — shortlist clone risk."""
+    if not ask or not _COVERAGE_STEM_RE.search(ask):
+        return False
+    if extract_deal_flavor(ask):
+        return False
+    tag, looks = _pin_tag(ask)
+    if looks and _tag_has_non_hq(tag):
+        return False
+    # Inline non-HQ site in the stem body.
+    if re.search(
+        r"(?i)\b(?:for|at)\s+(?!alpharetta)[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+[A-Z]{2})?\b",
+        ask,
+    ) and not re.search(r"(?i)\balpharetta\b", ask):
+        return False
+    return True
+
+
+def normalize_pm_ask(ask: str, *, max_len: int = 190) -> str:
+    """Keep first decision only; clamp length so quality gates stay green."""
+    q = re.sub(r"\s+", " ", (ask or "").strip())
+    if not q:
+        return q
+    if "?" in q:
+        q = q.split("?", 1)[0].strip() + "?"
+    if len(q) > max_len:
+        cut = q[: max_len - 1].rsplit(" ", 1)[0].rstrip(" ?.,;:—-")
+        q = (cut or q[: max_len - 1].rstrip()) + "?"
+    return q
 
 
 def inject_site_anchor(
@@ -363,7 +407,10 @@ def inject_site_anchor(
             r"scissor lift|access method|network remediation|"
             r"cat6 plenum|t&m rounding|escort lead times|"
             r"backboards\s*/\s*grounding|extensive tracing|"
-            r"cabling needs extensive)",
+            r"cabling needs extensive|hard deadlines / milestones|"
+            r"single customer point of contact|"
+            r"network access info / wireless credentials|"
+            r"workstation/imac counts|1 for 1 swap|run cable for the ap)",
             ask,
         )
     )
@@ -387,12 +434,14 @@ def inject_site_anchor(
                 break
     # No flavor + no non-HQ site → leave unpinned; shortlist will drop HQ clones.
     if not bits:
-        return ask
+        return normalize_pm_ask(ask)
     tag = " · ".join(bits)
     base = ask.rstrip()
     if base.endswith("?"):
-        return f"{base[:-1].rstrip(' .')} — {tag}?"
-    return f"{base.rstrip(' .')} — {tag}?"
+        out = f"{base[:-1].rstrip(' .')} — {tag}?"
+    else:
+        out = f"{base.rstrip(' .')} — {tag}?"
+    return normalize_pm_ask(out)
 
 
 def rewrite_instruction(text: str) -> str | None:
@@ -616,10 +665,60 @@ def rewrite_scope(
                  "Confirm packing-materials fee is in this quote, allowance, or customer-furnished?"),
                 (r"equipment for pickup|equipment for disposal|misc\.?\s*\(.*cables",
                  "Confirm pickup/disposal inventory list is authoritative — any exclusions before crew arrives?"),
+                (r"\bcoi\b|certificate of insurance",
+                 "Confirm COI requirements — who issues, and is a sample COI required before site access?"),
+                (r"union\s+labor",
+                 "Is union labor required at any pickup site — and does that force a COI before dispatch?"),
+                (r"type of dock|loading\s+dock|dock\s*\(",
+                 "Confirm dock type / appointment rules for each pickup site before scheduling trucks."),
+                (r"passenger\s+elevator|maximum size truck|truck this location",
+                 "Confirm elevator / max truck size constraints per site for derack and haul-out."),
+                (r"need names/phone|email addresses",
+                 "Who are the day-of site contacts (name / phone / email) for each pickup location?"),
+                (r"hours of operation|select all that apply",
+                 "Confirm site operating hours / blackout windows for each pickup visit."),
+                (r"sample\s+coi|provide a sample",
+                 "Must customer provide a sample COI before first site access?"),
+                (r"serviot\s+team|upon completion please submit",
+                 "Who submits completed site-survey forms — customer, Serviot, or PurTera PM?"),
+                (r"maximum size truck|truck this location can accommodate",
+                 "Confirm max truck size per site before scheduling haul-out."),
+                (r"passenger\s+elevator\s+available",
+                 "Is passenger/freight elevator access required at each site for derack?"),
             ]
         )
     rules.extend(
         [
+        (r"ap on a stick|ap[\-\s]?on[\-\s]?a[\-\s]?stick",
+         "Is AP-on-a-Stick survey in this quote for select sites, allowance, or customer-owned?"),
+        (r"final wireless design|wireless design, analysis",
+         "Who owns final wireless design / analysis / reporting — PurTera or customer partner?"),
+        (r"leave all packaging|removed tvs|removed mounts",
+         "Confirm removed TVs/mounts/packaging stay with onsite IT — any haul-away in this quote?"),
+        (r"procurement or supply of tvs|supply of tvs?, mounts",
+         "Confirm TVs/mounts/cables are customer-furnished — any PurTera BOM lines?"),
+        (r"wall reinforcement|drywall repair|painting, patching",
+         "Confirm wall reinforcement / drywall/paint patch remains by others for every site."),
+        (r"connect each display|functional power source",
+         "Confirm each display has a customer-provided live power receptacle within cord reach."),
+        (r"onsite parking|parking fees",
+         "Confirm technician parking is available — are parking fees customer-reimbursed?"),
+        (r"conference room av|lg\s*75|chief\s+ltm",
+         "Confirm display model / mount (e.g. LG 75\" + Chief) is the authoritative AV BOM line."),
+        (r"customer bridge information|bridge information",
+         "Who provides the customer bridge / remote support dial-in for each install window?"),
+        (r"no imaging or configuration|imaging or configuration performed",
+         "Confirm imaging/configuration stays out of scope — physical install + cable only?"),
+        (r"leave all removed legacy|legacy equipment onsite",
+         "Confirm removed legacy gear stays onsite in a customer-designated area — any disposal?"),
+        (r"validate the replacement server|operating system, applications",
+         "What pass/fail checks prove the replacement server OS/apps/connectivity before sign-off?"),
+        (r"power on the replacement server|remote techni",
+         "Confirm customer remote tech is on-bridge for power-on / troubleshooting at cutover."),
+        (r"installation documentation|photographs, and completion",
+         "Confirm install documentation / photos / completion report are in the fixed fee."),
+        (r"project coordination or project management",
+         "Confirm project coordination / PM hours are included — or bill separately?"),
         (r"poweredge|r840|raid\s+controller|xeon\s+gold",
          "Confirm which PowerEdge nodes / RAID / CPU configs are in this quote wave."),
         (r"exact\s+urls?\s+for\s+the\s+applications?",
@@ -700,6 +799,41 @@ def rewrite_scope(
             if mode in _INSTALL_ONLY_MODES and re.search(r"(?i)staff-aug scope", ask):
                 continue
             return inject_site_anchor(ask, site_names, blob=blob)
+
+    # Sharp lock-fallback for install/decom/staff atoms with a concrete noun phrase.
+    # Never Confirm-paste prose — only a clipped anchor + include/defer/remove choice.
+    if mode in _INSTALL_ONLY_MODES | WIRELESS_MODES | AV_MODES | {
+        "decommission_logistics",
+        "staff_aug",
+        "cabling_install",
+        "generic",
+    }:
+        if re.search(
+            r"(?i)\b(?:install|mount|pull|terminate|configure|deploy|pack|derack|"
+            r"remove|replace|provide|deliver|leave|connect|power|survey|adopt)\b",
+            low,
+        ) and not re.search(
+            r"(?i)\b(?:hope you|thank you|regards|methodology|partnership|"
+            r"whiteboarding|forecasting|yale|ai lead)\b",
+            low,
+        ):
+            anchor = _clip_anchor(text, 52)
+            if (
+                anchor
+                and 18 <= len(anchor) <= 52
+                and not is_chrome_or_boilerplate(anchor)
+                and not re.search(r"(?i)^\s*(?:note|col_0|day\s*\(|this form)\b", anchor)
+            ):
+                # Rotate stems so semantic dedupe cannot collapse every lock ask.
+                # Avoid WRAP_RE patterns ("Is \"…\" in this quote", Confirm-paste).
+                stems = (
+                    f'Lock scope for "{anchor}" — include as written, defer, or remove?',
+                    f'Who owns delivery of "{anchor}" — PurTera, GC, or customer?',
+                    f'Does "{anchor}" remain in fixed fee, or move to T&M / change-order?',
+                    f'Which quote wave includes "{anchor}" — this wave, deferred, or out?',
+                )
+                ask = stems[sum(ord(c) for c in anchor) % len(stems)]
+                return inject_site_anchor(ask, site_names, blob=blob)
 
     # No quote-wrap fallback. If we cannot name a real decision, skip.
     return None
@@ -806,6 +940,12 @@ def rewrite_risk(text: str) -> str | None:
         return "Is patching/remediation of findings in-scope, or findings-only with customer-owned remediation?"
     if re.search(r"(?i)exploitation|sensitive\s+data", text):
         return "Confirm rules of engagement for exploitation attempts and sensitive-data handling during the test."
+    if re.search(r"(?i)budget\s+approval|budget.*kickoff", text):
+        return "What budget-approval gate must clear before kickoff — and who is the approver?"
+    if re.search(r"(?i)fire\s+retardant|electrical\s+work|external specialist", text):
+        return "Who owns fire-retardant / electrical specialty work — customer, GC, or PurTera allowance?"
+    if re.search(r"(?i)scope and hard|scope\s+creep|hardware.*change", text):
+        return "What change-order path applies when field hardware/scope differs from the quote?"
     # No generic risk wrap.
     return None
 
@@ -823,6 +963,16 @@ def rewrite_bom(text: str) -> str | None:
         if not anchor or len(anchor) < 16:
             return None
         return f"Confirm qty/model for \"{anchor}\" is the authoritative quote line?"
+    # OEM / hardware noun lines without explicit qty still need a lock.
+    if re.search(
+        r"(?i)\b(?:meraki|cisco|aruba|neat|yealink|verkada|sonance|poweredge|"
+        r"access\s+point|\baps?\b|switch|display|mount|camera|lg\s*\d+)\b",
+        text,
+    ):
+        anchor = _clean_bom_anchor(text, 56)
+        if not anchor or len(anchor) < 12:
+            return None
+        return f'Confirm qty/model for "{anchor}" is the authoritative quote line?'
     return None
 
 
@@ -1071,7 +1221,10 @@ _TEXT_FAMILIES: tuple[tuple[str, re.Pattern[str]], ...] = (
         r"conduit/sleeves/power"
     )),
     ("furnish", re.compile(r"(?i)customer-furnished|purtera-furnished|who stages it to site")),
-    ("cable_vs_swap", re.compile(r"(?i)1-for-1 swap|new cable pulls|run cable for the ap")),
+    ("cable_vs_swap", re.compile(
+        r"(?i)(?:1[\-\s]?for[\-\s]?1\s+swap|new cable pulls|run cable for the aps?"
+        r"|just do(?:ing)? a 1 for 1 swap|like[\-\s]?for[\-\s]?like\s+swap)"
+    )),
     ("engineer_name", re.compile(r"(?i)named engineer \+ contact")),
     ("survey", re.compile(r"(?i)paid site survey required|prior walkthrough sufficient")),
     ("av_keep", re.compile(r"(?i)displays?/codecs stay|tvs?/displays stay mounted")),
@@ -1086,6 +1239,10 @@ _TEXT_FAMILIES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("escort_badge", re.compile(r"(?i)escort lead times and badging|access/escort/badging")),
     ("backboards", re.compile(r"(?i)backboards\s*/\s*grounding\s*/\s*120v")),
     ("cabling_tm", re.compile(r"(?i)extensive tracing or new pulls|cabling needs extensive")),
+    ("milestones", re.compile(r"(?i)hard deadlines / milestones")),
+    ("single_poc", re.compile(r"(?i)single customer point of contact")),
+    ("wifi_creds", re.compile(r"(?i)network access info / wireless credentials")),
+    ("qty_imac", re.compile(r"(?i)workstation/imac counts disagree")),
 )
 
 

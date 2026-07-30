@@ -156,6 +156,8 @@ def test_deal_flavor_rejects_hyphen_prose_and_prefers_header():
         extract_deal_flavor,
         inject_site_anchor,
         is_hq_only_generic,
+        is_unflavored_coverage,
+        normalize_pm_ask,
     )
 
     # Hyphenated "customer-negotiated…" must never become flavor.
@@ -182,6 +184,19 @@ def test_deal_flavor_rejects_hyphen_prose_and_prefers_header():
     assert not is_hq_only_generic(
         "Confirm remote/no-travel delivery — which sites would trigger travel billing "
         "if needed — Tillys · at Berwick PA?"
+    )
+    # Unpinned coverage (no Alpharetta) is not HQ-only, but is unflavored.
+    unpinned = (
+        "Confirm remote/no-travel delivery — which sites would trigger travel billing if needed?"
+    )
+    assert not is_hq_only_generic(unpinned)
+    assert is_unflavored_coverage(unpinned)
+    assert not is_unflavored_coverage(
+        "Confirm remote/no-travel delivery — which sites would trigger travel billing "
+        "if needed — Meraki MR46 · at Berwick PA?"
+    )
+    assert normalize_pm_ask("Ceiling height? Are we going to need a lift too?") == (
+        "Ceiling height?"
     )
 
 

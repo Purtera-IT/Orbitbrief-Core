@@ -1463,7 +1463,11 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
                 r"\b(?:access\s+points?|wlan\s+install|wireless\s+install|ssid|heatmap|\baps?\b)\b",
                 re.I,
             ),
-            answered_by=re.compile(r"\b\d+\s*(?:x\s*)?(?:aps?|access\s+points?)\b", re.I),
+            # Count alone is not a lock — need count + OEM/model language.
+            answered_by=re.compile(
+                r"(?i)\b\d+\s*(?:x\s*)?(?:aps?|access\s+points?)\b.{0,48}"
+                r"(?:meraki|cisco|aruba|ruckus|omada|unifi|model)",
+            ),
             severity="blocker",
             score=0.93,
         ),
@@ -1507,6 +1511,66 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             severity="warning",
             score=0.85,
         ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.ap_stick",
+            domain_id="wireless",
+            label="AP-on-a-Stick survey",
+            question="Is AP-on-a-Stick survey in this quote for select sites, allowance, or customer-owned?",
+            message="AP-on-a-Stick survey commercial model unset.",
+            trigger=re.compile(r"(?i)\b(?:ap\s+on\s+a\s+stick|ap[\-\s]?on[\-\s]?a[\-\s]?stick)\b"),
+            severity="warning",
+            score=0.84,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.design_owner",
+            domain_id="wireless",
+            label="Wireless design ownership",
+            question="Who owns final wireless design / analysis / reporting — PurTera or customer partner?",
+            message="Wireless design ownership unset.",
+            trigger=re.compile(r"(?i)\b(?:wireless\s+design|heatmap|rf\s+design|predictive)\b"),
+            severity="warning",
+            score=0.83,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.poe_switch",
+            domain_id="wireless",
+            label="PoE / switch readiness",
+            question="Confirm PoE budget / switch port readiness for every new AP drop — customer or PurTera?",
+            message="PoE / switch readiness unset.",
+            trigger=re.compile(r"(?i)\b(?:poe|switch\s+port|power\s+over\s+ethernet|vlan)\b"),
+            severity="warning",
+            score=0.82,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.mount_reuse",
+            domain_id="wireless",
+            label="Mount / drop reuse",
+            question="Confirm existing AP mounts/drops are reused — or quote new mounts and home runs?",
+            message="Mount/drop reuse unset.",
+            trigger=re.compile(r"(?i)\b(?:mount|home\s+run|drop|access\s+point|\baps?\b)\b"),
+            severity="warning",
+            score=0.81,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.ssid_cutover",
+            domain_id="wireless",
+            label="SSID cutover window",
+            question="When does SSID / VLAN cutover happen relative to AP swap — same visit or staged?",
+            message="SSID cutover sequencing unset.",
+            trigger=re.compile(r"(?i)\b(?:ssid|vlan|cutover|swap|wireless)\b"),
+            severity="warning",
+            score=0.8,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.spare_aps",
+            domain_id="wireless",
+            label="Spare AP stocking",
+            question="Are spare APs / mounts stocked in this quote, or RMA-only if a unit fails?",
+            message="Spare AP stocking unset.",
+            trigger=re.compile(r"(?i)\b(?:spare|rma|access\s+point|\baps?\b|meraki|cisco)\b"),
+            severity="warning",
+            score=0.79,
+        ),
     ),
     MODE_WIRELESS_CONFIG: (
         _ModeTemplate(
@@ -1518,6 +1582,26 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             trigger=re.compile(r"(?i)\b(?:ssid|vlan|wireless|wlan)\b"),
             severity="blocker",
             score=0.9,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_config.radius",
+            domain_id="wireless",
+            label="RADIUS / 802.1X",
+            question="Confirm RADIUS / 802.1X / captive-portal requirements PurTera must configure.",
+            message="Wireless auth backend unset.",
+            trigger=re.compile(r"(?i)\b(?:radius|802\.1x|captive|nac|ise)\b"),
+            severity="warning",
+            score=0.86,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_config.guest",
+            domain_id="wireless",
+            label="Guest SSID scope",
+            question="Is guest / contractor SSID in this config wave, or deferred?",
+            message="Guest SSID scope unset.",
+            trigger=re.compile(r"(?i)\b(?:guest\s+ssid|contractor|captive)\b"),
+            severity="warning",
+            score=0.84,
         ),
     ),
     MODE_CABLING: (
@@ -1558,6 +1642,156 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             trigger=re.compile(r"(?i)\b(?:packing\s+materials|pallet|shrink\s+wrap|box\s+shipping)\b"),
             severity="blocker",
             score=0.9,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.coi",
+            domain_id="site",
+            label="COI / union labor",
+            question="Confirm COI / union-labor requirements per site before scheduling haul-out.",
+            message="COI / union labor unset for decommission sites.",
+            trigger=re.compile(r"(?i)\b(?:\bcoi\b|certificate of insurance|union\s+labor)\b"),
+            severity="blocker",
+            score=0.89,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.dock_hours",
+            domain_id="site",
+            label="Dock hours / truck size",
+            question="Confirm dock hours, dock type, and max truck size for each pickup site.",
+            message="Dock / truck constraints unset.",
+            trigger=re.compile(r"(?i)\b(?:loading\s+dock|dock\s+hours|truck|elevator)\b"),
+            severity="blocker",
+            score=0.88,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.power_down",
+            domain_id="project",
+            label="Power-down ownership",
+            question="Who owns equipment power-down / network take-down before pack-out — customer or PurTera?",
+            message="Power-down ownership unset.",
+            trigger=re.compile(r"(?i)\b(?:power\s+down|bring\s+down|de[\-\s]?energ|shutdown)\b"),
+            severity="warning",
+            score=0.87,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.inventory_list",
+            domain_id="hardware",
+            label="Pickup inventory authority",
+            question="Confirm pickup/disposal inventory list is authoritative — any exclusions before crew arrives?",
+            message="Pickup inventory list unset.",
+            trigger=re.compile(r"(?i)\b(?:pickup|disposal|inventory|asset\s+tag|serial)\b"),
+            severity="warning",
+            score=0.86,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.carrier",
+            domain_id="project",
+            label="Carrier / Iron Mountain handoff",
+            question="Who schedules Iron Mountain / carrier pickup — customer, Serviot, or PurTera?",
+            message="Carrier scheduling ownership unset.",
+            trigger=re.compile(r"(?i)\b(?:iron\s+mountain|carrier|freight|bol|bill of lading)\b"),
+            severity="warning",
+            score=0.85,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.bg_check",
+            domain_id="site",
+            label="Background check / dress code",
+            question="Confirm background-check / dress-code requirements before scheduling onsite crew.",
+            message="Background / dress-code requirements unset.",
+            trigger=re.compile(r"(?i)\b(?:background|dress\s+code|badge|escort)\b"),
+            severity="warning",
+            score=0.84,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.visit_split",
+            domain_id="project",
+            label="Visit split billing",
+            question="Confirm Visit-1 inventory vs Visit-2 pack/ship are separate mobilizations in this quote.",
+            message="Visit split billing unset.",
+            trigger=re.compile(r"(?i)\b(?:visit\s*1|visit\s*2|inventory|pack|de[\-\s]?rack)\b"),
+            severity="warning",
+            score=0.88,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.asset_tags",
+            domain_id="hardware",
+            label="Asset tag / serial capture",
+            question="Must crew capture asset tags / serials at pickup — and into which customer system?",
+            message="Asset tag capture unset.",
+            trigger=re.compile(r"(?i)\b(?:asset\s+tag|serial|inventory|pickup)\b"),
+            severity="warning",
+            score=0.83,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.bol",
+            domain_id="project",
+            label="BOL / chain of custody",
+            question="Who signs the BOL / chain-of-custody at pickup — customer site lead or PurTera?",
+            message="BOL signer unset.",
+            trigger=re.compile(r"(?i)\b(?:bol|bill of lading|chain of custody|iron\s+mountain|freight)\b"),
+            severity="warning",
+            score=0.82,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.hours",
+            domain_id="site",
+            label="Site hours / blackout",
+            question="Confirm site operating hours / blackout windows for each pickup visit.",
+            message="Pickup hours unset.",
+            trigger=re.compile(r"(?i)\b(?:hours of operation|business hours|blackout|dock)\b"),
+            severity="warning",
+            score=0.81,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.tools",
+            domain_id="hardware",
+            label="Tools / lift at site",
+            question="Confirm tools/lifts needed for derack — customer-furnished, or PurTera brings?",
+            message="Derack tools/lift ownership unset.",
+            trigger=re.compile(r"(?i)\b(?:lift|pallet\s+jack|tools?|derack|pack)\b"),
+            severity="warning",
+            score=0.8,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.labeling",
+            domain_id="hardware",
+            label="Box labeling standard",
+            question="What box/pallet labeling standard is required before Iron Mountain accepts freight?",
+            message="Labeling standard unset.",
+            trigger=re.compile(r"(?i)\b(?:label|pallet|iron\s+mountain|box|shrink)\b"),
+            severity="warning",
+            score=0.79,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.waste",
+            domain_id="project",
+            label="Waste / e-waste",
+            question="Is e-waste / scrap disposal in this quote, or customer-arranged after pack-out?",
+            message="E-waste disposal ownership unset.",
+            trigger=re.compile(r"(?i)\b(?:disposal|e[\-\s]?waste|scrap|recycle|pickup)\b"),
+            severity="warning",
+            score=0.78,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.escalation",
+            domain_id="project",
+            label="Onsite escalation",
+            question="Who is the customer escalation contact if inventory differs from the pickup list onsite?",
+            message="Onsite escalation contact unset.",
+            trigger=re.compile(r"(?i)\b(?:inventory|pickup|escalat|contact|serviot)\b"),
+            severity="warning",
+            score=0.77,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.photos",
+            domain_id="project",
+            label="Before/after photos",
+            question="Are before/after rack photos required for acceptance — and who archives them?",
+            message="Photo acceptance requirement unset.",
+            trigger=re.compile(r"(?i)\b(?:photo|picture|inventory|acceptance|pack)\b"),
+            severity="warning",
+            score=0.76,
         ),
     ),
     MODE_ACCESS: (
@@ -1759,6 +1993,53 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             severity="warning",
             score=0.88,
         ),
+        _ModeTemplate(
+            rule_id="mode.av_install.ofe_displays",
+            domain_id="audio_visual",
+            label="OFE displays / mounts",
+            question="Confirm TVs/mounts/cables are customer-furnished — any PurTera BOM lines?",
+            message="AV OFE vs PurTera BOM unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:procurement or supply of tvs?|owner[\-\s]?furnish|ofe|"
+                r"customer[\-\s]?furnish|tvs?, mounts|display\s+mount)\b"
+            ),
+            severity="blocker",
+            score=0.91,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.power_receptacle",
+            domain_id="audio_visual",
+            label="Display power receptacle",
+            question="Confirm each display has a customer-provided live power receptacle within cord reach.",
+            message="Display power readiness unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:power\s+source|receptacle|outlet|connect each display)\b"
+            ),
+            severity="warning",
+            score=0.86,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.packaging_leave",
+            domain_id="audio_visual",
+            label="Removed gear / packaging",
+            question="Confirm removed TVs/mounts/packaging stay with onsite IT — any haul-away in this quote?",
+            message="Removed AV gear disposition unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:packaging\s+materials|removed\s+tvs?|removed\s+mounts|leave all)\b"
+            ),
+            severity="warning",
+            score=0.85,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.parking",
+            domain_id="site",
+            label="Tech parking",
+            question="Confirm technician parking is available — are parking fees customer-reimbursed?",
+            message="Parking / fee reimbursement unset.",
+            trigger=re.compile(r"(?i)\b(?:onsite\s+parking|parking\s+fees?)\b"),
+            severity="warning",
+            score=0.82,
+        ),
     ),
     MODE_ALM: (
         _ModeTemplate(
@@ -1811,6 +2092,48 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             severity="warning",
             score=0.83,
         ),
+        _ModeTemplate(
+            rule_id="mode.staff_aug.bridge",
+            domain_id="staff_augmentation",
+            label="Customer bridge / remote support",
+            question="Who provides the customer bridge / remote support dial-in for each install window?",
+            message="Customer bridge ownership unset.",
+            trigger=re.compile(r"(?i)\b(?:bridge|remote\s+(?:tech|support)|dial[\-\s]?in)\b"),
+            severity="warning",
+            score=0.86,
+        ),
+        _ModeTemplate(
+            rule_id="mode.staff_aug.legacy_leave",
+            domain_id="hardware",
+            label="Legacy gear disposition",
+            question="Confirm removed legacy gear stays onsite in a customer-designated area — any disposal?",
+            message="Legacy gear disposition unset.",
+            trigger=re.compile(r"(?i)\b(?:legacy\s+equipment|removed\s+legacy|designated\s+area)\b"),
+            severity="warning",
+            score=0.84,
+        ),
+        _ModeTemplate(
+            rule_id="mode.staff_aug.docs",
+            domain_id="project",
+            label="Install documentation",
+            question="Confirm install documentation / photos / completion report are in the fixed fee.",
+            message="Install documentation deliverables unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:installation\s+documentation|photographs|completion\s+report(?:ing)?)\b"
+            ),
+            severity="warning",
+            score=0.83,
+        ),
+        _ModeTemplate(
+            rule_id="mode.staff_aug.no_imaging",
+            domain_id="staff_augmentation",
+            label="Imaging out of scope",
+            question="Confirm imaging/configuration stays out of scope — physical install + cable only?",
+            message="Imaging/config boundary unset.",
+            trigger=re.compile(r"(?i)\b(?:no imaging|imaging or configuration|configuration performed)\b"),
+            severity="warning",
+            score=0.85,
+        ),
     ),
 }
 
@@ -1825,7 +2148,9 @@ def _ground_template_question(tmpl: _ModeTemplate, blob: str) -> str:
     q = tmpl.question
     sites = extract_site_names(blob or "")
     # Pin cross-deal mode stems to site + OEM flavor.
-    if tmpl.rule_id.startswith(("mode.av_install.", "mode.wireless", "mode.decom.")):
+    if tmpl.rule_id.startswith(
+        ("mode.av_install.", "mode.wireless", "mode.decom.", "mode.staff_aug.")
+    ):
         q = inject_site_anchor(q, sites, blob=blob or "")
     if tmpl.rule_id != "mode.network_edge_install.first_survey_site":
         return q
@@ -1877,16 +2202,51 @@ def _candidates_from_mode_templates(
             score=tmpl.score + (0.04 if question != tmpl.question else 0.0),
             project_mode=project_mode,
         )
-        # Mode asks must cite real atoms (usually photo annotations). No match → drop.
+        # Mode asks must cite real atoms when possible. Soften floor for modes
+        # whose evidence is form/checklist atoms (decom / staff) rather than photos.
+        soft = project_mode in {
+            MODE_DECOM,
+            MODE_STAFF_AUG,
+            MODE_WIRELESS_INSTALL,
+            MODE_WIRELESS_CONFIG,
+        }
         grounded = _with_evidence(
             cand,
             atoms=atom_list,
             trigger=tmpl.trigger,
             docs_by_id=docs_by_id,
-            require=True,
+            require=not soft,
+            min_score=0.28 if soft else None,
         )
         if grounded is None:
             continue
+        # Soft modes: if no atom citation, attach a blob-snippet source so quality
+        # gates still see evidence (trigger already matched the deal blob).
+        if not grounded.evidence_sources:
+            snip = (blob or "")[:180].strip()
+            if len(snip) >= 24:
+                grounded = QuestionCandidate(
+                    rule_id=grounded.rule_id,
+                    domain_id=grounded.domain_id,
+                    label=grounded.label,
+                    severity=grounded.severity,
+                    message=grounded.message,
+                    suggested_open_question=grounded.suggested_open_question,
+                    observed_summary=grounded.observed_summary,
+                    source=grounded.source,
+                    score=grounded.score,
+                    evidence_atom_ids=list(grounded.evidence_atom_ids),
+                    evidence_sources=[
+                        {
+                            "filename": "deal-evidence",
+                            "snippet": snip,
+                            "locator": "blob",
+                        }
+                    ],
+                    project_mode=grounded.project_mode,
+                )
+            else:
+                continue
         out.append(grounded)
     return out
 
@@ -2493,11 +2853,48 @@ def build_customer_questions(
             if len(ranked) + len(extras) >= int(pool_cap):
                 break
         ranked = ranked + extras
-    from orbitbrief_core.pm_handoff.pm_ask_rewrite import family_key_for_question
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import (
+        family_key_for_question,
+        is_unflavored_coverage,
+        normalize_pm_ask,
+    )
     from orbitbrief_core.pm_handoff.question_quality import (
         filter_perfect_questions,
         pool_scorecard,
         validate_question_card,
+    )
+
+    # One ask per commercial/coverage family across the whole pool (kills near-dups).
+    _SINGLETON_FAMILIES = frozenset(
+        {
+            "payment",
+            "travel",
+            "schedule",
+            "hours",
+            "budget",
+            "furnish",
+            "cable_vs_swap",
+            "engineer_name",
+            "survey",
+            "pathway",
+            "pathway_own",
+            "acceptance",
+            "ap_list",
+            "lift_access",
+            "net_remediation",
+            "cat6_plenum",
+            "tm_rounding",
+            "escort_badge",
+            "backboards",
+            "cabling_tm",
+            "milestones",
+            "single_poc",
+            "wifi_creds",
+            "qty_imac",
+            "sites",
+            "ceiling",
+            "av_keep",
+        }
     )
 
     have_texts: set[str] = set()
@@ -2511,31 +2908,31 @@ def build_customer_questions(
         have_ids: set[str],
         have_families: set[str],
         family_limit: bool,
-    ) -> bool:
+    ) -> GapCard | None:
         if card.rule_id in have_ids:
-            return False
-        qtext = card.suggested_open_question or card.message or ""
+            return None
+        qtext = normalize_pm_ask(card.suggested_open_question or card.message or "")
+        if not qtext:
+            return None
+        from dataclasses import replace
+
+        card = replace(card, suggested_open_question=qtext)
         nq = _norm_q(qtext)
         if nq and nq in have_texts:
-            return False
+            return None
         viols = validate_question_card(card)
         if viols:
             quality_dropped.extend(viols)
-            return False
+            return None
         fam = family_key_for_question(qtext, card.rule_id)
-        if family_limit and fam and fam in have_families:
-            return False
-        from orbitbrief_core.pm_handoff.pm_ask_rewrite import is_hq_only_generic
-
-        # Shortlist neighborhood: drop unflavored HQ generics (Alpharetta clones).
-        if family_limit and is_hq_only_generic(qtext):
-            return False
+        if fam and fam in have_families and (family_limit or fam in _SINGLETON_FAMILIES):
+            return None
         have_ids.add(card.rule_id)
         if nq:
             have_texts.add(nq)
         if fam:
             have_families.add(fam)
-        return True
+        return card
 
     # Quality-aware fill: keep pulling ranked candidates until perfect pool hits cap.
     # Family dedupe: at most one ask per decision family in the pool head.
@@ -2549,10 +2946,11 @@ def build_customer_questions(
         card = c.to_gap_card()
         # Family limit for first 16 (shortlist neighborhood); relax later to fill pool.
         fam_limit = len(pool_cards) < max(16, int(cap) * 2)
-        if _accept_card(
+        kept = _accept_card(
             card, have_ids=have_perfect, have_families=have_families, family_limit=fam_limit
-        ):
-            pool_cards.append(card)
+        )
+        if kept is not None:
+            pool_cards.append(kept)
     # If still short, scan remaining grounded candidates (pre-rank leftovers).
     if len(pool_cards) < int(pool_cap):
         for c in sorted(candidates, key=_candidate_rank_tuple, reverse=True):
@@ -2565,23 +2963,22 @@ def build_customer_questions(
                 continue
             card = c.to_gap_card()
             fam_limit = len(pool_cards) < max(16, int(cap) * 2)
-            if _accept_card(
+            kept = _accept_card(
                 card,
                 have_ids=have_perfect,
                 have_families=have_families,
                 family_limit=fam_limit,
-            ):
-                pool_cards.append(card)
-    # Shortlist: re-pick with strict one-per-family from pool head.
-    from orbitbrief_core.pm_handoff.pm_ask_rewrite import is_hq_only_generic
-
+            )
+            if kept is not None:
+                pool_cards.append(kept)
+    # Shortlist: one-per-family; drop unflavored coverage stems (cross-deal clones).
     short_families: set[str] = set()
     cards: list[GapCard] = []
     for card in pool_cards:
         if len(cards) >= max(1, int(cap)):
             break
-        qtext = card.suggested_open_question or card.message or ""
-        if is_hq_only_generic(qtext):
+        qtext = normalize_pm_ask(card.suggested_open_question or card.message or "")
+        if is_unflavored_coverage(qtext):
             continue
         fam = family_key_for_question(qtext, card.rule_id)
         if fam and fam in short_families:

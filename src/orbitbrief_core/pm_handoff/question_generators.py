@@ -58,6 +58,34 @@ _SITE_GAP_SPECS: tuple[tuple[str, str, str, str, float], ...] = (
         r"(?:acceptance|sign[\-\s]?off|poc|sop|commission)",
         0.82,
     ),
+    (
+        "dock_hours",
+        "Dock / truck access",
+        "Confirm dock hours / max truck size for haul-out at {site}.",
+        r"(?:loading\s+dock|dock\s+hours|truck|elevator|freight)",
+        0.84,
+    ),
+    (
+        "ceiling_access",
+        "Ceiling / lift access",
+        "Confirm ceiling access method at {site} — ladder-only or lift required?",
+        r"(?:ceiling|lift|ladder|scissor|access\s+point|\baps?\b)",
+        0.83,
+    ),
+    (
+        "wifi_creds",
+        "Network credentials",
+        "Who provides network access / wireless credentials for techs at {site}?",
+        r"(?:credential|password|ssid|wifi|wireless|network\s+access)",
+        0.82,
+    ),
+    (
+        "parking",
+        "Technician parking",
+        "Confirm technician parking at {site} — any fees customer-reimbursed?",
+        r"(?:parking|load(?:ing)?\s+zone)",
+        0.8,
+    ),
 )
 
 
@@ -605,7 +633,9 @@ _SCOPE_VERB_RE = re.compile(
     r"deliver|provide|include|scope|pentest|vulnerab|security|network|application|"
     r"report|remediat|scan|audit|workshop|training|design|migrate|backup|immutable|"
     r"retention|storage|azure|firewall|switch|wireless|access\s+control|camera|"
-    r"riser|conduit|cable|rack|cutover|commission)\b"
+    r"riser|conduit|cable|rack|cutover|commission|mount|pack|derack|remove|"
+    r"replace|leave|connect|power|survey|adopt|pull|terminate|pallet|dock|"
+    r"display|ap\b|access\s+point|tv\b|codec|bridge)\b"
 )
 _SCOPE_JUNK_RE = re.compile(
     r"(?i)\b(?:hope my email|excited|regards|thank you|hi\b|hello\b|chat tomorrow|"
@@ -620,7 +650,7 @@ def candidates_from_scope_commitments(
     docs_by_id: Mapping[str, str] | None = None,
     blob: str = "",
     sites: list | None = None,
-    max_items: int = 40,
+    max_items: int = 60,
 ) -> list:
     """Turn substantive scope_item / task / deliverable atoms into sharp PM asks."""
     from orbitbrief_core.pm_handoff.pm_ask_rewrite import extract_site_names, rewrite_scope
@@ -643,12 +673,26 @@ def candidates_from_scope_commitments(
         if at not in {"scope_item", "task", "deliverable", "action_item", "service_line"}:
             continue
         text = _atom_evidence_text(atom)
-        if len(text) < 28 or text.count("|") >= 3:
+        # Decom site-survey forms are pipe tables — flatten instead of skipping.
+        if text.count("|") >= 3:
+            if project_mode != "decommission_logistics":
+                continue
+            text = re.sub(r"\s*\|\s*", " · ", text)
+            text = re.sub(r"\s+", " ", text).strip()
+        if len(text) < 28:
             continue
         if _SCOPE_JUNK_RE.search(text):
             continue
-        if not _SCOPE_VERB_RE.search(text):
+        if not _SCOPE_VERB_RE.search(text) and project_mode != "decommission_logistics":
             continue
+        # Decom forms ask about dock/COI/union even without classic scope verbs.
+        if project_mode == "decommission_logistics" and not _SCOPE_VERB_RE.search(text):
+            if not re.search(
+                r"(?i)\b(?:dock|coi|union|elevator|truck|pallet|inventory|pack|"
+                r"derack|iron\s+mountain|background|dress|contact|hours)\b",
+                text,
+            ):
+                continue
         q = rewrite_scope(text, at, project_mode=project_mode, site_names=site_names, blob=blob or "")
         if not q or not _is_customer_facing_question(q):
             continue
@@ -665,7 +709,7 @@ def candidates_from_scope_commitments(
             label=f"Scope — {at.replace('_', ' ')}",
             severity="blocker" if at in {"scope_item", "deliverable"} else "warning",
             message="Scope commitment needs PM confirmation before quoting.",
-            suggested_open_question=q[:200],
+            suggested_open_question=q[:190],
             observed_summary=f"Scope · {at}",
             source="evidence",
             score=0.84,
@@ -1130,9 +1174,9 @@ def candidates_from_bom_lines(
     *,
     project_mode: str,
     docs_by_id: Mapping[str, str] | None = None,
-    max_items: int = 22,
+    max_items: int = 36,
 ) -> list:
-    """Confirm BOM lines that look incomplete / TBD."""
+    """Confirm BOM lines that look incomplete / TBD / OEM hardware."""
     from orbitbrief_core.pm_handoff.question_engine import (
         QuestionCandidate,
         _atom_evidence_text,
@@ -1148,22 +1192,32 @@ def candidates_from_bom_lines(
     seen: set[str] = set()
     for atom in atom_list:
         at = str(atom.get("atom_type") or "").lower()
-        if at not in {"bom_line", "vendor_line_item", "quantity", "service_line"}:
+        if at not in {
+            "bom_line",
+            "vendor_line_item",
+            "quantity",
+            "service_line",
+            "hardware_line",
+            "material_line",
+        }:
             continue
         text = _atom_evidence_text(atom)
         if len(text) < 12:
             continue
-        # Prefer lines that look uncertain or high-impact
+        # Prefer lines that look uncertain, qty'd, or OEM hardware.
         if not re.search(
-            r"(?i)\b(?:tbd|allowance|optional|alternate|or\s+equal|nic|ofe|qty|each|lot)\b|\d+",
+            r"(?i)\b(?:tbd|allowance|optional|alternate|or\s+equal|nic|ofe|qty|each|lot|"
+            r"meraki|cisco|aruba|neat|yealink|verkada|sonance|lg\b|chief|poweredge|"
+            r"access\s+point|\bap\b|switch|display|mount|camera)\b|\d+",
             text,
         ):
             continue
-        from orbitbrief_core.pm_handoff.pm_ask_rewrite import rewrite_bom
+        from orbitbrief_core.pm_handoff.pm_ask_rewrite import normalize_pm_ask, rewrite_bom
 
         q = rewrite_bom(text)
         if not q or not _is_customer_facing_question(q):
             continue
+        q = normalize_pm_ask(q)
         fp = fingerprint_question(q)
         if fp in seen:
             continue
@@ -1177,7 +1231,7 @@ def candidates_from_bom_lines(
             label="BOM confirmation",
             severity="warning",
             message="BOM line needs PM confirmation.",
-            suggested_open_question=q[:200],
+            suggested_open_question=q[:190],
             observed_summary="BOM line",
             source="evidence",
             score=0.8,
@@ -1190,6 +1244,45 @@ def candidates_from_bom_lines(
             out.append(grounded)
         if len(out) >= max_items:
             break
+    return out
+
+
+def _sites_from_envelope(
+    envelope: Mapping[str, Any] | None,
+    *,
+    blob: str,
+    sites: list[SiteSummary],
+) -> list[SiteSummary]:
+    """Merge handoff sites with envelope site_readiness / physical slugs / geo tokens."""
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import extract_site_names
+
+    out: list[SiteSummary] = list(sites or [])
+    have = {_site_name(s).lower() for s in out}
+    if isinstance(envelope, Mapping):
+        for s in (envelope.get("site_readiness") or {}).get("sites") or []:
+            if not isinstance(s, dict):
+                continue
+            name = str(s.get("name") or s.get("label") or s.get("display_name") or "").strip()
+            if not name or name.lower() in have:
+                continue
+            # Skip BOM-ish / junk site labels.
+            if re.search(
+                r"(?i)\b(?:speaker|subwoofer|wall\s+mounted|for\s+ap|survey\s+ap|qty|bom|"
+                r"pair of|yes\s+fh)\b",
+                name,
+            ):
+                continue
+            out.append(SiteSummary(name=name, kind="physical_site", publishable=True))
+            have.add(name.lower())
+        for slug in (envelope.get("indexes") or {}).get("physical_site_slugs") or []:
+            name = str(slug).replace("_", " ").replace("-", " ").strip()
+            if name and name.lower() not in have and len(name) >= 4:
+                out.append(SiteSummary(name=name, kind="physical_site", publishable=True))
+                have.add(name.lower())
+    for name in extract_site_names(blob or "", sites=None, limit=6):
+        if name and name.lower() not in have:
+            out.append(SiteSummary(name=name, kind="physical_site", publishable=True))
+            have.add(name.lower())
     return out
 
 
@@ -1207,6 +1300,7 @@ def build_extended_candidates(
 
     docs = docs_by_id or _docs_by_artifact_id(envelope if isinstance(envelope, Mapping) else None)
     atom_list = [a for a in atoms if isinstance(a, Mapping)]
+    sites = _sites_from_envelope(envelope, blob=blob, sites=sites)
     out = []
     # Specialized PM coverage (naked templates suppressed inside).
     out.extend(
