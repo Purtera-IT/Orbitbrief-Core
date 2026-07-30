@@ -2291,6 +2291,11 @@ def build_customer_questions(
         validate_question_card,
     )
 
+    have_texts: set[str] = set()
+
+    def _norm_q(text: str) -> str:
+        return re.sub(r"\W+", " ", (text or "").lower()).strip()
+
     def _accept_card(
         card: GapCard,
         *,
@@ -2300,6 +2305,9 @@ def build_customer_questions(
     ) -> bool:
         if card.rule_id in have_ids:
             return False
+        nq = _norm_q(card.suggested_open_question or card.message or "")
+        if nq and nq in have_texts:
+            return False
         viols = validate_question_card(card)
         if viols:
             quality_dropped.extend(viols)
@@ -2308,6 +2316,8 @@ def build_customer_questions(
         if family_limit and fam and fam in have_families:
             return False
         have_ids.add(card.rule_id)
+        if nq:
+            have_texts.add(nq)
         if fam:
             have_families.add(fam)
         return True

@@ -112,8 +112,18 @@ def is_unusable_evidence_text(text: str) -> bool:
         return True
     if re.search(r"(?i)^\s*>\s*", t) and len(t) < 80:
         return True
-    # Casual email / P.S. chatter
-    if re.search(r"(?i)^\s*p\.?\s*s\.?\b|probably send over|would that work", t):
+    # Casual email / P.S. chatter / scheduling smalltalk
+    if re.search(
+        r"(?i)(?:"
+        r"^\s*p\.?\s*s\.?\b|probably send over|would that work|"
+        r"noon\s+eastern|send an invite|move the call|"
+        r"rivalry|giants|cubs|ball\s*park the costs|"
+        r"verbal today|credit card ok|"
+        r"partnership moving forward|"
+        r"when you have a minute"
+        r")",
+        t,
+    ):
         return True
     # Truncated mid-phrase
     if re.search(r"(?i)\bwithin\s+\d+\s*hr\s+of\s*$|pattern\s+OPTBOT", t):
@@ -522,11 +532,10 @@ def specialize_coverage_question(
 
     # Mode hard-gates
     if suffix == "wireless_design":
-        if project_mode not in WIRELESS_MODES and not re.search(
-            r"(?i)\b(?:access\s+points?|\baps?\b|ssid|wlan|wireless\s+install)\b", hay
-        ):
+        # Hard mode gate — AV/access/assessment deals must not get AP/SSID templates
+        # unless project_mode is wireless (evidence alone is not enough; many AV SOWs mention Wi-Fi).
+        if project_mode not in WIRELESS_MODES | {"network_edge_install", "cabling_install"}:
             return None
-        # Need stronger than the word "wireless" alone
         if not re.search(r"(?i)\b(?:access\s+points?|\baps?\b|ssid|heatmap|rf\s+survey)\b", hay):
             return None
         n_ap = re.search(r"(?i)\b(\d+)\s*(?:x\s*)?(?:aps?|access\s+points?)\b", hay)

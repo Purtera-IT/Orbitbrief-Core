@@ -119,9 +119,15 @@ _META_RE = re.compile(
     r"who\s+resets\s+expectations|"
     r"every\s+billable\s+device/drop|"
     r"key\s+exclusions\s*\(\s*power,\s*conduit|"
-    r"^\s*p\.?\s*s\.?\b|"
+    r"(?<![a-z])p\.?\s*s\.?(?![a-z])|"
     r"would that work|"
-    r"probably send over"
+    r"probably send over|"
+    r"send an invite|"
+    r"move the call|"
+    r"rivalry|giants played|cubs last week|"
+    r"ball\s*park the costs|"
+    r"credit card ok|"
+    r"partnership moving forward"
     r")"
 )
 
