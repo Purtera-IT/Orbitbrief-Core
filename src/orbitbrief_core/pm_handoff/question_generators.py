@@ -531,14 +531,21 @@ def candidates_from_assumptions(
     out = []
     seen: set[str] = set()
     for atom in atom_list:
-        if str(atom.get("atom_type") or "").lower() != "assumption":
+        at = str(atom.get("atom_type") or "").lower()
+        if at not in {"assumption", "pricing_assumption"}:
             continue
         text = _atom_evidence_text(atom)
         if len(text) < 24:
             continue
-        if not re.search(r"(?i)\b(?:assume|assumes|assumption|includes|prewired|ofe|owner[\-\s]?furnish)\b", text):
+        if at == "assumption" and not re.search(
+            r"(?i)\b(?:assume|assumes|assumption|includes|prewired|ofe|owner[\-\s]?furnish)\b",
+            text,
+        ):
             continue
         if text.count("|") >= 3:
+            continue
+        # Skip pure rate-card noise
+        if re.search(r"(?i)^\s*(?:cost|selll?)\s+rates?\s*:", text):
             continue
         body = re.sub(r"\s+", " ", text).strip()[:160]
         q = f"Confirm pricing assumption is still valid: {body}"
@@ -546,14 +553,15 @@ def candidates_from_assumptions(
             q += "?"
         if not _is_customer_facing_question(q):
             continue
-        fp = fingerprint_question(q)
+        fp = fingerprint_question(body)
         if fp in seen:
             continue
         seen.add(fp)
         src = _source_from_atom(atom, text, score=0.9, docs_by_id=docs_by_id, atoms_by_id=by_id)
         aid = str(atom.get("id") or atom.get("atom_id") or "")
+        rid_tail = (aid.replace("atm_", "")[:24] if aid else fp[:32]) or fp[:32]
         cand = QuestionCandidate(
-            rule_id=f"assumption.{fp[:40]}",
+            rule_id=f"assumption.{rid_tail}",
             domain_id="commercial",
             label="Pricing / scope assumption",
             severity="blocker",
@@ -562,6 +570,242 @@ def candidates_from_assumptions(
             observed_summary="Assumption evidence",
             source="evidence",
             score=0.91,
+            evidence_atom_ids=[aid] if aid else [],
+            evidence_sources=[src],
+            project_mode=project_mode,
+        )
+        grounded = _with_evidence(cand, atoms=atom_list, docs_by_id=docs_by_id, require=True)
+        if grounded is not None:
+            out.append(grounded)
+        if len(out) >= max_items:
+            break
+    return out
+
+
+_SCOPE_VERB_RE = re.compile(
+    r"(?i)\b(?:assess|assessment|test|testing|review|implement|deploy|install|configure|"
+    r"deliver|provide|include|scope|pentest|vulnerab|security|network|application|"
+    r"report|remediat|scan|audit|workshop|training|design|migrate|backup|immutable|"
+    r"retention|storage|azure|firewall|switch|wireless|access\s+control|camera|"
+    r"riser|conduit|cable|rack|cutover|commission)\b"
+)
+_SCOPE_JUNK_RE = re.compile(
+    r"(?i)\b(?:hope my email|excited|regards|thank you|hi\b|hello\b|chat tomorrow|"
+    r"www\.|https?://|oppty\s*#|quotation number|director of|nick@)\b"
+)
+
+
+def candidates_from_scope_commitments(
+    atoms: Iterable[Mapping[str, Any]],
+    *,
+    project_mode: str,
+    docs_by_id: Mapping[str, str] | None = None,
+    max_items: int = 40,
+) -> list:
+    """Turn substantive scope_item / task / deliverable atoms into Confirm asks."""
+    from orbitbrief_core.pm_handoff.question_engine import (
+        QuestionCandidate,
+        _atom_evidence_text,
+        _atoms_by_id,
+        _is_customer_facing_question,
+        _source_from_atom,
+        _with_evidence,
+    )
+
+    atom_list = [a for a in atoms if isinstance(a, Mapping)]
+    by_id = _atoms_by_id(atom_list)
+    out = []
+    seen: set[str] = set()
+    for atom in atom_list:
+        at = str(atom.get("atom_type") or "").lower()
+        if at not in {"scope_item", "task", "deliverable", "action_item", "service_line"}:
+            continue
+        text = _atom_evidence_text(atom)
+        if len(text) < 28 or text.count("|") >= 3:
+            continue
+        if _SCOPE_JUNK_RE.search(text):
+            continue
+        if not _SCOPE_VERB_RE.search(text):
+            continue
+        body = re.sub(r"\s+", " ", text).strip()[:150]
+        if at == "deliverable":
+            q = f"Confirm this deliverable is included in the quote: {body}"
+        elif at == "task":
+            q = f"Confirm this task is in-scope and scheduled: {body}"
+        else:
+            q = f"Confirm this is in-scope for the quote: {body}"
+        if not q.endswith("?"):
+            q += "?"
+        if not _is_customer_facing_question(q):
+            continue
+        # Fingerprint the evidence body (not the shared Confirm stem) so rule_ids stay unique.
+        fp = fingerprint_question(body)
+        if fp in seen:
+            continue
+        seen.add(fp)
+        src = _source_from_atom(atom, text, score=0.86, docs_by_id=docs_by_id, atoms_by_id=by_id)
+        aid = str(atom.get("id") or atom.get("atom_id") or "")
+        rid_tail = (aid.replace("atm_", "")[:20] if aid else fp[:28]) or fp[:28]
+        cand = QuestionCandidate(
+            rule_id=f"scope.{at}.{rid_tail}",
+            domain_id="project",
+            label=f"Scope — {at.replace('_', ' ')}",
+            severity="blocker" if at in {"scope_item", "deliverable"} else "warning",
+            message="Scope commitment needs PM confirmation before quoting.",
+            suggested_open_question=q[:220],
+            observed_summary=f"Scope · {at}",
+            source="evidence",
+            score=0.84,
+            evidence_atom_ids=[aid] if aid else [],
+            evidence_sources=[src],
+            project_mode=project_mode,
+        )
+        grounded = _with_evidence(cand, atoms=atom_list, docs_by_id=docs_by_id, require=True)
+        if grounded is not None:
+            out.append(grounded)
+        if len(out) >= max_items:
+            break
+    return out
+
+
+def candidates_from_requirements_constraints(
+    atoms: Iterable[Mapping[str, Any]],
+    *,
+    project_mode: str,
+    docs_by_id: Mapping[str, str] | None = None,
+    max_items: int = 28,
+) -> list:
+    """Requirement / constraint / exclusion / acceptance asks."""
+    from orbitbrief_core.pm_handoff.question_engine import (
+        QuestionCandidate,
+        _atom_evidence_text,
+        _atoms_by_id,
+        _is_customer_facing_question,
+        _source_from_atom,
+        _with_evidence,
+    )
+
+    atom_list = [a for a in atoms if isinstance(a, Mapping)]
+    by_id = _atoms_by_id(atom_list)
+    out = []
+    seen: set[str] = set()
+    for atom in atom_list:
+        at = str(atom.get("atom_type") or "").lower()
+        if at not in {
+            "requirement",
+            "constraint",
+            "exclusion",
+            "acceptance_criterion",
+            "compliance_rule",
+            "contract_term",
+            "payment_term",
+            "change_order_rule",
+        }:
+            continue
+        text = _atom_evidence_text(atom)
+        if len(text) < 24 or text.count("|") >= 3:
+            continue
+        if _SCOPE_JUNK_RE.search(text):
+            continue
+        body = re.sub(r"\s+", " ", text).strip()[:150]
+        if at == "exclusion":
+            q = f"Confirm this exclusion stands as written: {body}"
+        elif at == "acceptance_criterion":
+            q = f"Confirm acceptance criterion for delivery: {body}"
+        elif at in {"payment_term", "contract_term", "change_order_rule"}:
+            q = f"Confirm commercial term is accepted for this quote: {body}"
+        else:
+            q = f"Confirm this requirement is binding for the quote: {body}"
+        if not q.endswith("?"):
+            q += "?"
+        if not _is_customer_facing_question(q):
+            continue
+        fp = fingerprint_question(body)
+        if fp in seen:
+            continue
+        seen.add(fp)
+        src = _source_from_atom(atom, text, score=0.88, docs_by_id=docs_by_id, atoms_by_id=by_id)
+        aid = str(atom.get("id") or atom.get("atom_id") or "")
+        rid_tail = (aid.replace("atm_", "")[:20] if aid else fp[:28]) or fp[:28]
+        cand = QuestionCandidate(
+            rule_id=f"req.{at}.{rid_tail}",
+            domain_id="commercial" if at in {"payment_term", "contract_term"} else "project",
+            label=f"{at.replace('_', ' ').title()}",
+            severity="blocker" if at in {"requirement", "constraint", "exclusion"} else "warning",
+            message="Requirement/constraint needs PM confirmation.",
+            suggested_open_question=q[:220],
+            observed_summary=f"Requirement · {at}",
+            source="evidence",
+            score=0.87,
+            evidence_atom_ids=[aid] if aid else [],
+            evidence_sources=[src],
+            project_mode=project_mode,
+        )
+        grounded = _with_evidence(cand, atoms=atom_list, docs_by_id=docs_by_id, require=True)
+        if grounded is not None:
+            out.append(grounded)
+        if len(out) >= max_items:
+            break
+    return out
+
+
+def candidates_from_risks(
+    atoms: Iterable[Mapping[str, Any]],
+    *,
+    project_mode: str,
+    docs_by_id: Mapping[str, str] | None = None,
+    max_items: int = 20,
+) -> list:
+    """Risk atoms → how we treat / mitigate in the quote (never raw table rows)."""
+    from orbitbrief_core.pm_handoff.question_engine import (
+        QuestionCandidate,
+        _atom_evidence_text,
+        _atoms_by_id,
+        _is_customer_facing_question,
+        _source_from_atom,
+        _with_evidence,
+    )
+
+    atom_list = [a for a in atoms if isinstance(a, Mapping)]
+    by_id = _atoms_by_id(atom_list)
+    out = []
+    seen: set[str] = set()
+    for atom in atom_list:
+        if str(atom.get("atom_type") or "").lower() != "risk":
+            continue
+        text = _atom_evidence_text(atom)
+        if len(text) < 32 or text.count("|") >= 3:
+            continue
+        if re.search(r"\|\s*r\d+\s*\|", text, re.I):
+            continue
+        if _SCOPE_JUNK_RE.search(text):
+            continue
+        # Skip bare OWASP title stubs
+        if len(text) < 48 and not re.search(r"[.:,;]", text):
+            continue
+        body = re.sub(r"\s+", " ", text).strip()[:150]
+        q = f"Confirm how this risk is handled in the quote / SOW: {body}"
+        if not q.endswith("?"):
+            q += "?"
+        if not _is_customer_facing_question(q):
+            continue
+        fp = fingerprint_question(body)
+        if fp in seen:
+            continue
+        seen.add(fp)
+        src = _source_from_atom(atom, text, score=0.83, docs_by_id=docs_by_id, atoms_by_id=by_id)
+        aid = str(atom.get("id") or atom.get("atom_id") or "")
+        rid_tail = (aid.replace("atm_", "")[:20] if aid else fp[:28]) or fp[:28]
+        cand = QuestionCandidate(
+            rule_id=f"risk.treat.{rid_tail}",
+            domain_id="project",
+            label="Risk treatment",
+            severity="warning",
+            message="Risk needs explicit quote/SOW treatment.",
+            suggested_open_question=q[:220],
+            observed_summary="Risk atom",
+            source="evidence",
+            score=0.81,
             evidence_atom_ids=[aid] if aid else [],
             evidence_sources=[src],
             project_mode=project_mode,
@@ -826,14 +1070,15 @@ def candidates_from_bom_lines(
         q = f"Confirm BOM line is in this quote as written: {body}?"
         if not _is_customer_facing_question(q):
             continue
-        fp = fingerprint_question(q)
+        fp = fingerprint_question(body)
         if fp in seen:
             continue
         seen.add(fp)
         src = _source_from_atom(atom, text, score=0.82, docs_by_id=docs_by_id, atoms_by_id=by_id)
         aid = str(atom.get("id") or atom.get("atom_id") or "")
+        rid_tail = (aid.replace("atm_", "")[:24] if aid else fp[:32]) or fp[:32]
         cand = QuestionCandidate(
-            rule_id=f"bom.{fp[:40]}",
+            rule_id=f"bom.{rid_tail}",
             domain_id="hardware",
             label="BOM confirmation",
             severity="warning",
@@ -881,6 +1126,21 @@ def build_extended_candidates(
     )
     out.extend(
         candidates_from_keyed_notes(
+            atom_list, project_mode=project_mode, docs_by_id=docs
+        )
+    )
+    out.extend(
+        candidates_from_scope_commitments(
+            atom_list, project_mode=project_mode, docs_by_id=docs
+        )
+    )
+    out.extend(
+        candidates_from_requirements_constraints(
+            atom_list, project_mode=project_mode, docs_by_id=docs
+        )
+    )
+    out.extend(
+        candidates_from_risks(
             atom_list, project_mode=project_mode, docs_by_id=docs
         )
     )

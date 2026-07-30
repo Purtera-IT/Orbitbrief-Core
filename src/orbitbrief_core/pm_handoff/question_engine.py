@@ -2133,13 +2133,47 @@ def build_customer_questions(
             if len(ranked) + len(extras) >= int(pool_cap):
                 break
         ranked = ranked + extras
-    pool_cards_raw = [c.to_gap_card() for c in ranked[: max(1, int(pool_cap))]]
     from orbitbrief_core.pm_handoff.question_quality import (
         filter_perfect_questions,
         pool_scorecard,
+        validate_question_card,
     )
 
-    pool_cards, quality_dropped = filter_perfect_questions(pool_cards_raw)
+    # Quality-aware fill: keep pulling ranked candidates until perfect pool hits cap.
+    pool_cards: list[GapCard] = []
+    quality_dropped: list = []
+    have_perfect = set()
+    for c in ranked:
+        if len(pool_cards) >= max(1, int(pool_cap)):
+            break
+        card = c.to_gap_card()
+        viols = validate_question_card(card)
+        if viols:
+            quality_dropped.extend(viols)
+            continue
+        if card.rule_id in have_perfect:
+            continue
+        have_perfect.add(card.rule_id)
+        pool_cards.append(card)
+    # If still short, scan remaining grounded candidates (pre-rank leftovers).
+    if len(pool_cards) < int(pool_cap):
+        for c in sorted(candidates, key=_candidate_rank_tuple, reverse=True):
+            if len(pool_cards) >= int(pool_cap):
+                break
+            if c.rule_id in have_perfect:
+                continue
+            q = c.suggested_open_question or c.message or ""
+            if not _is_customer_facing_question(q):
+                continue
+            if not (c.evidence_sources or c.source == "pm_gold"):
+                continue
+            card = c.to_gap_card()
+            viols = validate_question_card(card)
+            if viols:
+                quality_dropped.extend(viols)
+                continue
+            have_perfect.add(c.rule_id)
+            pool_cards.append(card)
     shortlist_cards, _ = filter_perfect_questions(
         [c.to_gap_card() for c in ranked[: max(1, int(cap))]]
     )
