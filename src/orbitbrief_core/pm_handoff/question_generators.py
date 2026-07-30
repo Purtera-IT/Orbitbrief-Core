@@ -355,6 +355,16 @@ def candidates_from_quantity_conflicts(
     return out
 
 
+def _clean_decision_text(text: str) -> str:
+    q = re.sub(r"[*_`]+", "", text or "")
+    q = re.sub(r"\s+", " ", q).strip(" \t-•*")
+    # Drop trailing entity tags like "device access point"
+    q = re.sub(r"(?i)\s+device\s+[a-z][a-z\s]{0,40}$", "", q).strip()
+    if q and q[0].islower():
+        q = q[0].upper() + q[1:]
+    return q
+
+
 def candidates_from_open_decisions(
     atoms: Iterable[Mapping[str, Any]],
     *,
@@ -363,6 +373,7 @@ def candidates_from_open_decisions(
     max_items: int = 20,
 ) -> list:
     """Promote clear decision/missing_info atoms that already look like PM asks."""
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import rewrite_instruction
     from orbitbrief_core.pm_handoff.question_engine import (
         QuestionCandidate,
         _atom_evidence_text,
@@ -380,26 +391,26 @@ def candidates_from_open_decisions(
         if atype not in {"decision", "missing_info", "gap", "open_question", "constraint"}:
             continue
         text = _atom_evidence_text(atom)
-        if not _is_customer_facing_question(text):
-            continue
         if text.count("|") >= 3:
             continue
-        # Must already be decision-shaped (not observation + ?)
+        # Prefer a rewritten sharp ask when patterns match.
+        q = rewrite_instruction(text) or _clean_decision_text(text)
+        if not q or not _is_customer_facing_question(q):
+            continue
         if not (
-            "?" in text
+            "?" in q
             or re.match(
-                r"(?i)^(?:confirm|which|who|what|when|where|how|decide|clarify)\b",
-                text.strip(),
+                r"(?i)^(?:confirm|which|who|what|when|where|how|decide|clarify|is|do|does|are|can)\b",
+                q.strip(),
             )
         ):
             continue
-        fp = fingerprint_question(text)
+        if len(q) > 180:
+            continue
+        fp = fingerprint_question(q)
         if fp in seen:
             continue
         seen.add(fp)
-        q = text.strip()
-        if q[0].islower():
-            q = q[0].upper() + q[1:]
         src = _source_from_atom(atom, text, score=0.91, docs_by_id=docs_by_id, atoms_by_id=by_id)
         aid = str(atom.get("id") or atom.get("atom_id") or "")
         out.append(
@@ -409,7 +420,7 @@ def candidates_from_open_decisions(
                 label="Open decision",
                 severity="blocker" if atype in {"missing_info", "gap"} else "warning",
                 message="Decision atom still open in source.",
-                suggested_open_question=q[:220],
+                suggested_open_question=q[:200],
                 observed_summary=f"Decision · {atype}",
                 source="evidence",
                 score=0.9,
