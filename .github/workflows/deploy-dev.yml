@@ -12,10 +12,11 @@ name: Deploy orbitbrief-core-worker to dev
 #   AZURE_CLIENT_ID:       87c3259e-ed41-4a19-a4fc-86e1b575e31f
 #   AZURE_SUBSCRIPTION_ID: cd493e42-9cd6-4849-975a-3fbeb7fd93d1
 #   PLATFORM_INFRA_CHECKOUT_TOKEN: PAT with repo:read on Purtera-IT/Platform-infra
+#   (fallback secrets also tried: GH_REPO_TOKEN, PURPULSE_FRONTEND_CHECKOUT_TOKEN)
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/question-neural-dedupe]
   workflow_dispatch:
 
 permissions:
@@ -50,7 +51,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Purtera-IT/Platform-infra
-          token: ${{ secrets.PLATFORM_INFRA_CHECKOUT_TOKEN }}
+          token: ${{ secrets.PLATFORM_INFRA_CHECKOUT_TOKEN || secrets.GH_REPO_TOKEN || secrets.PURPULSE_FRONTEND_CHECKOUT_TOKEN || github.token }}
           path: platform-infra-tmp
 
       - name: Stage orbitbrief-core-worker dir at build context root
