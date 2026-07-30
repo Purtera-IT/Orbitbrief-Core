@@ -219,7 +219,13 @@ def validate_question_card(card: GapCard | Mapping[str, Any]) -> list[QualityVio
         out.append(QualityViolation(rid, "not_decision", text[:120]))
     if len(text) > 100 and not _SHARP_RE.search(text):
         out.append(QualityViolation(rid, "not_sharp", text[:120]))
-    if text.lower().startswith("confirm ") and text.count(".") >= 2 and "?" not in text:
+    # Prose dump = multi-sentence Confirm without a question mark.
+    # Do not treat SKU decimals (M.2, 2.5") as sentence boundaries when ? is present.
+    if (
+        text.lower().startswith("confirm ")
+        and "?" not in text
+        and len(re.findall(r"\.[\sA-Z]", text)) >= 1
+    ):
         out.append(QualityViolation(rid, "prose_dump", text[:120]))
     # Second sentence after the question mark = pasted answer/context leak
     if "?" in text:

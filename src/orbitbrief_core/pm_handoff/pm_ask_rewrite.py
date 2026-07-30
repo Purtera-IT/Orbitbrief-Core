@@ -174,25 +174,86 @@ PAYMENT_GATE_ASK = (
 )
 
 
-def inject_site_anchor(ask: str, site_names: list[str] | None) -> str:
-    """Pin a generic stem to a deal site when we have one."""
-    if not ask or not site_names:
+def extract_deal_flavor(blob: str) -> str | None:
+    """OEM / SKU / program token that differentiates deals sharing a HQ city."""
+    if not blob:
+        return None
+    patterns = (
+        r"\b(Meraki\s+M[RSX]\d+[\w-]*)",
+        r"\b(Catalyst\s+9\d{3,5}\w*)",
+        r"\b(Cisco\s+CW\d+[\w-]*)",
+        r"\b(CW\d{4,5}[\w-]*)",
+        r"\b(PowerEdge\s+R\d+\w*)",
+        r"\b(Neat\s+(?:Bar|Board|Pad|Frame)\w*)",
+        r"\b(Yealink\s+[A-Z0-9-]+)",
+        r"\b(Iron\s+Mountain)",
+        r"\b(Verkada\s+\w+)",
+        r"\b(Aruba\s+(?:AP|IAP)[\w-]*)",
+        r"\b(Ruckus\s+[\w-]+)",
+        r"\b(?:Omada|UniFi)\s+[\w-]+",
+        r"\b(FortiAP[\w-]*)",
+        r"\b(Teams\s+Room)",
+        r"\b(Zoom\s+Room)",
+        r"\b(Google\s+Meet\s+Hardware)",
+    )
+    for pat in patterns:
+        m = re.search(pat, blob, re.I)
+        if m:
+            return re.sub(r"\s+", " ", m.group(1)).strip()
+    # Customer / account label when OEM is absent (breaks Alpharetta HQ clones).
+    m = re.search(
+        r"(?i)(?:account|customer|client|company)\s*[:\-]\s*"
+        r"([A-Z][A-Za-z0-9&.,' \-]{2,36})",
+        blob,
+    )
+    if m:
+        name = re.sub(r"\s+", " ", m.group(1)).strip(" .,")
+        if len(name) >= 3 and not re.search(r"(?i)^(the|inc|llc|for|and)$", name):
+            return name
+    return None
+
+
+def inject_site_anchor(
+    ask: str,
+    site_names: list[str] | None,
+    *,
+    blob: str = "",
+) -> str:
+    """Pin a generic stem to site and/or OEM flavor so cross-deal clones diverge."""
+    if not ask:
         return ask
-    site = site_names[0].strip()
-    if not site or site.lower() in ask.lower():
+    flavor = extract_deal_flavor(blob)
+    site = (site_names[0].strip() if site_names else "") or ""
+    generic = bool(
+        re.search(
+            r"(?i)(?:remote/no-travel|business hours|delivery schedule locked|"
+            r"pathway infrastructure|budget ceiling|customer-furnished|"
+            r"named engineer \+ contact|ceiling height / access|"
+            r"who owns pathway|who signs acceptance|1-for-1 swap|"
+            r"paid site survey required|fresh site survey required|"
+            r"authoritative AP list|displays?/codecs stay|"
+            r"in-scope sites for this wave|access/escort/badging|"
+            r"how many aps|ap count/model|new cable pulls)",
+            ask,
+        )
+    )
+    if not generic:
         return ask
-    if re.search(
-        r"(?i)(?:remote/no-travel|business hours|delivery schedule locked|"
-        r"pathway infrastructure|budget ceiling|customer-furnished|"
-        r"named engineer \+ contact|ceiling height / access|"
-        r"who owns pathway|who signs acceptance|1-for-1 swap|"
-        r"paid site survey required|fresh site survey required)",
-        ask,
-    ):
-        if ask.endswith("?"):
-            return f"{ask[:-1]} — at {site}?"
-        return f"{ask} — at {site}"
-    return ask
+    bits: list[str] = []
+    if flavor and flavor.lower() not in ask.lower():
+        bits.append(flavor)
+    if site and site.lower() not in ask.lower():
+        bits.append(f"at {site}")
+    elif len(site_names or []) >= 2:
+        s2 = site_names[1].strip()
+        if s2 and s2.lower() not in ask.lower() and (not site or s2.lower() != site.lower()):
+            bits.append(f"incl. {s2}")
+    if not bits:
+        return ask
+    tag = " · ".join(bits)
+    if ask.endswith("?"):
+        return f"{ask[:-1]} — {tag}?"
+    return f"{ask} — {tag}"
 
 
 def rewrite_instruction(text: str) -> str | None:
@@ -278,6 +339,7 @@ def rewrite_assumption(
     text: str,
     *,
     site_names: list[str] | None = None,
+    blob: str = "",
 ) -> str | None:
     if is_unusable_evidence_text(text):
         return None
@@ -331,7 +393,7 @@ def rewrite_assumption(
     ]
     for pat, ask in rules:
         if re.search(pat, low):
-            return inject_site_anchor(ask, site_names)
+            return inject_site_anchor(ask, site_names, blob=blob)
     # No generic quote-paste fallback.
     return None
 
@@ -355,6 +417,7 @@ def rewrite_scope(
     *,
     project_mode: str = "",
     site_names: list[str] | None = None,
+    blob: str = "",
 ) -> str | None:
     if is_unusable_evidence_text(text):
         return None
@@ -385,6 +448,26 @@ def rewrite_scope(
         return None
 
     rules: list[tuple[str, str]] = [
+        (r"iron\s+mountain|de[\-\s]?rack|pack(?:ing)?\s*/?\s*prep|palletize|shrink\s+wrap",
+         "Confirm decommission scope — derack/pack/ship vs inventory-only — and who owns packing materials?"),
+        (r"return\s+shipping|box\s+shipping|serviot\s+to\s+pack",
+         "Who packs and ships returns — PurTera/Serviot pack-leave-onsite, or customer-arranged carrier?"),
+        (r"visit\s*1|onsite\s+inventory\s+verification",
+         "Confirm Visit-1 inventory vs Visit-2 pack/ship are separate mobilizations in this quote."),
+        (r"power\s+down\s+equipment|bring\s+down\s+network",
+         "Who owns equipment power-down / network take-down before pack-out — customer or PurTera?"),
+        (r"dress\s+code|background\s+check",
+         "Confirm background-check / dress-code requirements before scheduling onsite crew."),
+        (r"racked\s+servers|boxed\s+servers|pre[\-\s]?boxed",
+         "Which sites are racked-server derack vs already-boxed pickup — lock per site before dispatch?"),
+        (r"hours of operation for the dock|loading\s+dock",
+         "Confirm dock hours / appointment lead time for each pickup site."),
+        (r"additional charge|packing materials will be provided",
+         "Confirm packing-materials fee is in this quote, allowance, or customer-furnished?"),
+        (r"equipment for pickup|equipment for disposal|misc\.?\s*\(.*cables",
+         "Confirm pickup/disposal inventory list is authoritative — any exclusions before crew arrives?"),
+        (r"poweredge|r840|raid\s+controller|xeon\s+gold",
+         "Confirm which PowerEdge nodes / RAID / CPU configs are in this quote wave."),
         (r"exact\s+urls?\s+for\s+the\s+applications?",
          "What are the exact application URLs / environments in scope for testing?"),
         (r"immutable\s+storage|worm|blob\s+versioning",
@@ -461,7 +544,7 @@ def rewrite_scope(
                 continue
             if mode in _INSTALL_ONLY_MODES and re.search(r"(?i)staff-aug scope", ask):
                 continue
-            return inject_site_anchor(ask, site_names)
+            return inject_site_anchor(ask, site_names, blob=blob)
 
     # No quote-wrap fallback. If we cannot name a real decision, skip.
     return None
@@ -584,7 +667,7 @@ def rewrite_bom(text: str) -> str | None:
         anchor = _clean_bom_anchor(text, 56)
         if not anchor or len(anchor) < 16:
             return None
-        return f"Confirm qty/model for \"{anchor}\" is the authoritative quote line."
+        return f"Confirm qty/model for \"{anchor}\" is the authoritative quote line?"
     return None
 
 
@@ -648,7 +731,11 @@ def specialize_coverage_question(
                 f"Confirm AP count/model for this quote — source mentions {n_ap.group(1)} APs; "
                 f"lock model + whether RF survey is in-scope."
             )
-        return "Confirm AP count/model and whether a predictive/RF survey is in-scope for this quote."
+        return inject_site_anchor(
+            "Confirm AP count/model and whether a predictive/RF survey is in-scope for this quote.",
+            sites,
+            blob=hay,
+        )
 
     if suffix == "av_keep_remove":
         if project_mode not in AV_MODES and not re.search(
@@ -657,9 +744,10 @@ def specialize_coverage_question(
             return None
         if not re.search(r"(?i)\b(?:display|tv\b|codec|hdmi)\b", hay):
             return None
-        return (
+        return inject_site_anchor(
             "Which existing displays/codecs stay mounted, which are removed, "
-            "and what is reused vs new BOM on this site?"
+            "and what is reused vs new BOM on this site?",
+            sites, blob=hay,
         )
 
     if suffix == "pathway_ownership":
@@ -667,9 +755,10 @@ def specialize_coverage_question(
             r"(?i)\b(?:conduit|raceway|in[\-\s]?wall|drywall|cable\s+pull|sleeve)\b", hay
         ):
             return None
-        return (
+        return inject_site_anchor(
             "Who owns pathway (conduit, sleeves, fish, raceway, drywall patch) "
-            "on this project — PurTera, GC, or customer?"
+            "on this project — PurTera, GC, or customer?",
+            sites, blob=hay,
         )
 
     if suffix == "security_roe":
@@ -704,11 +793,13 @@ def specialize_coverage_question(
         if not multi and not addr_conflict:
             return None
         if site_bit:
-            return (
+            ask = (
                 f"Confirm in-scope sites for this wave ({site_bit}"
                 f"{'…' if len(sites) >= 3 else ''}) — any deferrals?"
             )
-        return "Which sites/addresses are in this quote wave, and which are deferred?"
+        else:
+            ask = "Which sites/addresses are in this quote wave, and which are deferred?"
+        return inject_site_anchor(ask, sites, blob=hay)
 
     if suffix == "onsite_contact":
         if project_mode not in INSTALL_MODES and not re.search(
@@ -716,8 +807,10 @@ def specialize_coverage_question(
         ):
             return None
         if site_bit:
-            return f"Who is the day-of onsite contact for {sites[0]}, and how do we reach them?"
-        return "Who is the day-of onsite contact, and how do we reach them?"
+            ask = f"Who is the day-of onsite contact for {sites[0]}, and how do we reach them?"
+        else:
+            ask = "Who is the day-of onsite contact, and how do we reach them?"
+        return inject_site_anchor(ask, sites, blob=hay)
 
     if suffix == "access_badging":
         if not re.search(
@@ -728,11 +821,13 @@ def specialize_coverage_question(
             if project_mode not in INSTALL_MODES:
                 return None
         if site_bit:
-            return (
+            ask = (
                 f"Confirm access/escort/badging/after-hours requirements for {sites[0]}"
                 f"{' and other in-scope sites' if len(sites) > 1 else ''}."
             )
-        return "Confirm site access, escort, badging, and after-hours requirements."
+        else:
+            ask = "Confirm site access, escort, badging, and after-hours requirements."
+        return inject_site_anchor(ask, sites, blob=hay)
 
     if suffix == "hardware_furnish":
         if not re.search(
@@ -741,12 +836,15 @@ def specialize_coverage_question(
         ):
             return None
         ask = "What hardware is customer-furnished vs PurTera-furnished — and who stages it to site?"
-        return inject_site_anchor(ask, sites)
+        return inject_site_anchor(ask, sites, blob=hay)
 
     if suffix == "acceptance":
         if not re.search(r"(?i)\b(?:acceptance|sign[\-\s]?off|poc|sop|commission|uat)\b", hay):
             return None
-        return "Who signs acceptance, and what is the pass/fail checklist before we invoice?"
+        return inject_site_anchor(
+            "Who signs acceptance, and what is the pass/fail checklist before we invoice?",
+            sites, blob=hay,
+        )
 
     if suffix == "payment_gate":
         if not re.search(r"(?i)\b(?:deposit|50\s*%|net\s*\d+|purchase\s+order|\bpo\b)\b", hay):
@@ -802,7 +900,7 @@ FAMILY_PREFIXES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("payment", ("pmcover.payment_gate",)),
     ("wireless", ("pmcover.wireless_design", "mode.wireless")),
     ("av", ("pmcover.av_keep_remove", "mode.av_install")),
-    ("qty", ("pmcover.qty_lock", "qty.", "bom.")),
+    ("qty", ("pmcover.qty_lock", "qty.")),
     ("hours", ("pmcover.work_hours",)),
 )
 
@@ -825,6 +923,7 @@ _TEXT_FAMILIES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("ceiling", re.compile(r"(?i)ceiling height / access method")),
     ("pathway_own", re.compile(r"(?i)who owns pathway")),
     ("acceptance", re.compile(r"(?i)who signs acceptance")),
+    ("ap_list", re.compile(r"(?i)authoritative AP list / floor plan")),
 )
 
 

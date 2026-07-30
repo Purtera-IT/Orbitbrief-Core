@@ -64,6 +64,7 @@ MODE_STAFF_AUG = "staff_aug"
 MODE_AV = "av_install"
 MODE_ACCESS = "access_control"
 MODE_ASSESSMENT = "security_assessment"
+MODE_DECOM = "decommission_logistics"
 MODE_GENERIC = "generic"
 
 # YAML domain_ids allowed as safety-net per mode (blockers only, rare).
@@ -78,6 +79,7 @@ _MODE_YAML_ALLOW: dict[str, frozenset[str]] = {
     MODE_AV: frozenset({"global", "commercial", "audio_visual", "hardware"}),
     MODE_ACCESS: frozenset({"global", "commercial", "access_control", "hardware"}),
     MODE_ASSESSMENT: frozenset({"global", "commercial", "project", "hardware"}),
+    MODE_DECOM: frozenset({"global", "commercial", "hardware", "site", "project"}),
     MODE_GENERIC: frozenset({"global", "commercial"}),
 }
 
@@ -187,6 +189,12 @@ _ASSESSMENT_RE = re.compile(
     r"security\s+assessment|black[\-\s]?box|grey[\-\s]?box|white[\-\s]?box|"
     r"backup\s+vault|data[\-\s]?movement\s+method"
     r")\b",
+    re.I,
+)
+_DECOM_RE = re.compile(
+    r"\b(?:iron\s+mountain|de[\-\s]?rack|pack(?:ing)?\s*/?\s*prep for shipping|"
+    r"palletize|shrink\s+wrap|return\s+shipping|equipment for (?:pickup|disposal)|"
+    r"onsite inventory verification)\b",
     re.I,
 )
 _CONFIG_ONLY_RE = re.compile(
@@ -845,6 +853,11 @@ def detect_project_mode(
 
     text_s = text or ""
     av_strong_n = len(_AV_STRONG_RE.findall(text_s))
+    decom_n = len(_DECOM_RE.findall(text_s))
+    # Pack-out / Iron Mountain logistics must not inherit AV mode from stray TV mentions.
+    if decom_n >= 3 and decom_n >= max(3, av_strong_n):
+        return MODE_DECOM
+
     # Dense conference-room AV evidence wins before incidental SD-WAN / WiFi
     # routing overrides (marketing WiFi must not flip a Neat/Yealink pack).
     if av_strong_n >= 3 or (primary == "audio_visual" and av_strong_n >= 1):
@@ -893,7 +906,8 @@ def detect_project_mode(
         # Remote-hands on network install already returned above.
         return MODE_STAFF_AUG
 
-    if _AV_RE.search(text_s):
+    # Weak AV lexicon (e.g. stray "projector") must not beat decommission logistics.
+    if _AV_RE.search(text_s) and decom_n < 2:
         return MODE_AV
 
     assess_hits = len(_ASSESSMENT_RE.findall(text_s))
@@ -1487,7 +1501,36 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             score=0.9,
         ),
     ),
+    MODE_DECOM: (
+        _ModeTemplate(
+            rule_id="mode.decom.pack_ship_scope",
+            domain_id="project",
+            label="Pack / ship vs inventory",
+            question=(
+                "Confirm decommission scope — Visit-1 inventory vs Visit-2 derack/pack/ship — "
+                "and which sites are racked vs pre-boxed."
+            ),
+            message="Decommission visit scope unset.",
+            trigger=re.compile(r"(?i)\b(?:iron\s+mountain|de[\-\s]?rack|pack(?:ing)?|inventory)\b"),
+            severity="blocker",
+            score=0.94,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.packing_materials",
+            domain_id="hardware",
+            label="Packing materials ownership",
+            question=(
+                "Who furnishes packing materials / pallets — customer, Iron Mountain, or PurTera — "
+                "and is pack-leave-onsite accepted?"
+            ),
+            message="Packing materials ownership unset.",
+            trigger=re.compile(r"(?i)\b(?:packing\s+materials|pallet|shrink\s+wrap|box\s+shipping)\b"),
+            severity="blocker",
+            score=0.9,
+        ),
+    ),
     MODE_ACCESS: (
+
         _ModeTemplate(
             rule_id="mode.access.reader_door_count",
             domain_id="access_control",
@@ -1742,21 +1785,17 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
 
 
 def _ground_template_question(tmpl: _ModeTemplate, blob: str) -> str:
-    """Specialize template wording with evidence anchors (city / lean site)."""
-    from orbitbrief_core.pm_handoff.pm_ask_rewrite import extract_site_names
+    """Specialize template wording with evidence anchors (city / lean site / OEM)."""
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import (
+        extract_site_names,
+        inject_site_anchor,
+    )
 
     q = tmpl.question
     sites = extract_site_names(blob or "")
-    # Pin cross-deal AV pathway / keep-remove stems to a site when available.
-    if tmpl.rule_id.startswith("mode.av_install.") and sites:
-        site0 = sites[0]
-        if site0.lower() not in q.lower() and re.search(
-            r"(?i)pathway method|in-wall fish|stay mounted", q
-        ):
-            if q.endswith("?"):
-                q = f"{q[:-1]} — at {site0}?"
-            else:
-                q = f"{q} — at {site0}"
+    # Pin cross-deal mode stems to site + OEM flavor.
+    if tmpl.rule_id.startswith(("mode.av_install.", "mode.wireless", "mode.decom.")):
+        q = inject_site_anchor(q, sites, blob=blob or "")
     if tmpl.rule_id != "mode.network_edge_install.first_survey_site":
         return q
     m = re.search(
@@ -2149,7 +2188,7 @@ def rank_and_cap(
         fam = family_key_for_question(qtext, rid) or ""
         # Prefer deal-specific families ahead of generic coverage / commercial stems.
         fam_penalty = 1 if rid.startswith("pmcover.") else 0
-        if fam in {"travel", "schedule", "hours", "budget", "furnish", "payment", "engineer_name", "ceiling", "pathway_own", "acceptance", "survey"}:
+        if fam in {"travel", "schedule", "hours", "budget", "furnish", "payment", "engineer_name", "ceiling", "pathway_own", "acceptance", "survey", "ap_list", "sites", "cable_vs_swap", "av_keep", "pathway"}:
             fam_penalty += 2
         mode_bonus = 0 if rid.startswith("mode.") else 1
         # Prefer asks that already carry a site / OEM / model lock.
