@@ -800,6 +800,37 @@ def _blob_from_atoms(atoms: Iterable[Mapping[str, Any]]) -> str:
     return "\n".join(parts)
 
 
+def _deal_header_blob(envelope: Mapping[str, Any] | None) -> str:
+    """Structured customer / opportunity labels for cross-deal flavor pins."""
+    if not isinstance(envelope, Mapping):
+        return ""
+    dh = envelope.get("deal_header")
+    if not isinstance(dh, Mapping):
+        return ""
+    fields = dh.get("fields")
+    lines: list[str] = []
+    if isinstance(fields, Mapping):
+        for key in (
+            "customer",
+            "end_user",
+            "opportunity_id",
+            "account",
+            "company",
+            "segment",
+            "division",
+        ):
+            val = fields.get(key)
+            if val is not None and str(val).strip():
+                lines.append(f"{key}: {str(val).strip()}")
+        # Any remaining string fields (low priority).
+        for key, val in fields.items():
+            if key in {"customer", "end_user", "opportunity_id", "account", "company"}:
+                continue
+            if val is not None and str(val).strip() and len(lines) < 16:
+                lines.append(f"{key}: {str(val).strip()}")
+    return "\n".join(lines)
+
+
 def _atoms_from_sources(
     envelope: Mapping[str, Any] | None,
     report: Mapping[str, Any] | None,
@@ -2188,14 +2219,42 @@ def rank_and_cap(
         fam = family_key_for_question(qtext, rid) or ""
         # Prefer deal-specific families ahead of generic coverage / commercial stems.
         fam_penalty = 1 if rid.startswith("pmcover.") else 0
-        if fam in {"travel", "schedule", "hours", "budget", "furnish", "payment", "engineer_name", "ceiling", "pathway_own", "acceptance", "survey", "ap_list", "sites", "cable_vs_swap", "av_keep", "pathway"}:
+        if fam in {
+            "travel",
+            "schedule",
+            "hours",
+            "budget",
+            "furnish",
+            "payment",
+            "engineer_name",
+            "ceiling",
+            "pathway_own",
+            "acceptance",
+            "survey",
+            "ap_list",
+            "sites",
+            "cable_vs_swap",
+            "av_keep",
+            "pathway",
+            "lift_access",
+            "net_remediation",
+            "cat6_plenum",
+            "tm_rounding",
+            "escort_badge",
+            "backboards",
+            "cabling_tm",
+        }:
             fam_penalty += 2
+        from orbitbrief_core.pm_handoff.pm_ask_rewrite import is_hq_only_generic
+
+        hq_penalty = 3 if is_hq_only_generic(qtext) else 0
         mode_bonus = 0 if rid.startswith("mode.") else 1
         # Prefer asks that already carry a site / OEM / model lock.
         locked = (" — at " in qtext) or bool(
             re.search(
                 r"(?i)\b(?:TV1|Meraki|Cisco|Azure|Entra|SSID|OEM|RFP|"
-                r"raceway|home\s*runs?|1-for-1|PowerEdge)\b",
+                r"raceway|home\s*runs?|1-for-1|PowerEdge|Tilly|Dollar\s+Tree|"
+                r"GRUBBRR|Iron\s+Mountain|Serviot)\b",
                 qtext,
             )
         )
@@ -2203,7 +2262,7 @@ def rank_and_cap(
         return (
             SEVERITY_SORT.get(c.severity, 9),
             mode_bonus,
-            fam_penalty,
+            fam_penalty + hq_penalty,
             lock_bonus,
             -c.score,
             source_order,
@@ -2306,7 +2365,9 @@ def build_customer_questions(
     renders the shortlist (``cap``, default 8).
     """
     atoms = _atoms_from_sources(envelope, report)
-    blob = _blob_from_atoms(atoms)
+    header_blob = _deal_header_blob(envelope if isinstance(envelope, Mapping) else None)
+    atom_blob = _blob_from_atoms(atoms)
+    blob = f"{header_blob}\n{atom_blob}".strip() if header_blob else atom_blob
     service_routing = None
     pack_prior = None
     if isinstance(envelope, Mapping):
@@ -2464,6 +2525,11 @@ def build_customer_questions(
         fam = family_key_for_question(qtext, card.rule_id)
         if family_limit and fam and fam in have_families:
             return False
+        from orbitbrief_core.pm_handoff.pm_ask_rewrite import is_hq_only_generic
+
+        # Shortlist neighborhood: drop unflavored HQ generics (Alpharetta clones).
+        if family_limit and is_hq_only_generic(qtext):
+            return False
         have_ids.add(card.rule_id)
         if nq:
             have_texts.add(nq)
@@ -2507,14 +2573,17 @@ def build_customer_questions(
             ):
                 pool_cards.append(card)
     # Shortlist: re-pick with strict one-per-family from pool head.
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import is_hq_only_generic
+
     short_families: set[str] = set()
     cards: list[GapCard] = []
     for card in pool_cards:
         if len(cards) >= max(1, int(cap)):
             break
-        fam = family_key_for_question(
-            card.suggested_open_question or card.message or "", card.rule_id
-        )
+        qtext = card.suggested_open_question or card.message or ""
+        if is_hq_only_generic(qtext):
+            continue
+        fam = family_key_for_question(qtext, card.rule_id)
         if fam and fam in short_families:
             continue
         if fam:

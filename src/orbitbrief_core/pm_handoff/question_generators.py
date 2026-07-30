@@ -686,10 +686,16 @@ def candidates_from_requirements_constraints(
     *,
     project_mode: str,
     docs_by_id: Mapping[str, str] | None = None,
+    blob: str = "",
+    sites: list | None = None,
     max_items: int = 28,
 ) -> list:
     """Requirement / constraint / exclusion / acceptance → sharp PM asks."""
-    from orbitbrief_core.pm_handoff.pm_ask_rewrite import rewrite_requirement
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import (
+        extract_site_names,
+        inject_site_anchor,
+        rewrite_requirement,
+    )
     from orbitbrief_core.pm_handoff.question_engine import (
         QuestionCandidate,
         _atom_evidence_text,
@@ -722,6 +728,10 @@ def candidates_from_requirements_constraints(
         if _SCOPE_JUNK_RE.search(text):
             continue
         q = rewrite_requirement(text, at)
+        if q:
+            q = inject_site_anchor(
+                q, extract_site_names(blob or "", sites=sites), blob=blob or ""
+            )
         if not q or not _is_customer_facing_question(q):
             continue
         fp = fingerprint_question(q)
@@ -1242,7 +1252,11 @@ def build_extended_candidates(
     )
     out.extend(
         candidates_from_requirements_constraints(
-            atom_list, project_mode=project_mode, docs_by_id=docs
+            atom_list,
+            project_mode=project_mode,
+            docs_by_id=docs,
+            blob=blob,
+            sites=sites,
         )
     )
     out.extend(

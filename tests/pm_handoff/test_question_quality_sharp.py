@@ -151,6 +151,40 @@ def test_assessment_mode_beats_access_control_primary():
     assert mode == MODE_ASSESSMENT
 
 
+def test_deal_flavor_rejects_hyphen_prose_and_prefers_header():
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import (
+        extract_deal_flavor,
+        inject_site_anchor,
+        is_hq_only_generic,
+    )
+
+    # Hyphenated "customer-negotiated…" must never become flavor.
+    assert extract_deal_flavor(
+        "customer-negotiated windows within roughly two weeks of deal close"
+    ) is None
+    # Structured header line wins.
+    assert extract_deal_flavor("customer: Tillys\nbilling_type: T&M") == "Tillys"
+    assert extract_deal_flavor("Customer: Dollar Tree\nBerwick PA") == "Dollar Tree"
+    assert extract_deal_flavor("GRUBBRR kiosk install at restaurant") == "GRUBBRR"
+
+    pinned = inject_site_anchor(
+        "What hardware is customer-furnished vs PurTera-furnished — and who stages it to site?",
+        ["Alpharetta GA", "Berwick PA"],
+        blob="customer: Tillys\nMeraki MR46 APs",
+    )
+    assert "Tillys" in pinned or "Meraki" in pinned
+    assert "Alpharetta" not in pinned  # HQ skipped when real site/flavor exists
+
+    assert is_hq_only_generic(
+        "Confirm remote/no-travel delivery — which sites would trigger travel billing "
+        "if needed — at Alpharetta GA?"
+    )
+    assert not is_hq_only_generic(
+        "Confirm remote/no-travel delivery — which sites would trigger travel billing "
+        "if needed — Tillys · at Berwick PA?"
+    )
+
+
 def test_scope_suppresses_pentest_on_av_install():
     q = rewrite_scope(
         "Deliver penetration test executive summary and assessment report",

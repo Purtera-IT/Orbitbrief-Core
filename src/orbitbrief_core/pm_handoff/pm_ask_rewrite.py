@@ -174,6 +174,43 @@ PAYMENT_GATE_ASK = (
 )
 
 
+# PurTera HQ / shared sales office — never a deal differentiator alone.
+_HQ_SITE_RE = re.compile(r"(?i)^(?:alpharetta(?:\s+ga)?|purtera(?:\s+hq)?)$")
+
+# Junk tokens that look Title-Case but are prose / header noise.
+_FLAVOR_STOP_RE = re.compile(
+    r"(?i)\b(?:"
+    r"the|inc|llc|for|and|setup|to|be|camera|security|owned|customer|account|"
+    r"company|client|olin|billing|negotiated|windows|within|facing|transparency|"
+    r"through|philosophy|determine|correct|solink|address|rqstd|park|place|"
+    r"tech|meter|ops|team|deal|kit|excluding|expenses|materials|lift|travel|"
+    r"removed|gross|margin|enterprise|segment|direct|channel|division|region|"
+    r"fixed|opportunity|site|count|type|tbd|end|user|sales|rep"
+    r")\b"
+)
+
+# Known account brands (case-insensitive) when OEM SKU is absent.
+_BRAND_FLAVOR_RE = re.compile(
+    r"(?i)\b("
+    r"Tilly'?s|Dollar\s+Tree|GRUBBRR|Grubbrr|Serviot|Park\s+Place(?:\s+Tech)?|"
+    r"Iron\s+Mountain|Meter(?:\s+Inc)?|Choate|Olin"
+    r")\b"
+)
+
+
+def _clean_flavor_token(name: str) -> str | None:
+    name = re.sub(r"\s+", " ", (name or "")).strip(" .,;:")
+    if not (3 <= len(name) <= 28):
+        return None
+    if _FLAVOR_STOP_RE.search(name):
+        return None
+    # Reject mostly-lowercase slurred prose.
+    caps = sum(1 for w in name.split() if w[:1].isupper())
+    if caps < 1:
+        return None
+    return name
+
+
 def extract_deal_flavor(blob: str) -> str | None:
     """OEM / SKU / program token that differentiates deals sharing a HQ city."""
     if not blob:
@@ -195,29 +232,88 @@ def extract_deal_flavor(blob: str) -> str | None:
         r"\b(Teams\s+Room)",
         r"\b(Zoom\s+Room)",
         r"\b(Google\s+Meet\s+Hardware)",
+        r"\b(Sonance\s+\w+)",
+        r"\b(GRUBBRR|Grubbrr)",
     )
     for pat in patterns:
         m = re.search(pat, blob, re.I)
         if m:
             return re.sub(r"\s+", " ", m.group(1)).strip()
-    # Customer / account label when OEM is absent (breaks Alpharetta HQ clones).
-    # Cap at 1–3 Title-Case tokens — never slur prose ("… setup to be").
+    # Prefer structured deal_header lines: "customer: Tillys" (colon only — never
+    # "customer-negotiated…" hyphen prose). Name match is case-sensitive Title-Case.
     m = re.search(
-        r"(?i)(?:account|customer|client|company)\s*[:\-]\s*"
+        r"(?im)^(?:account|customer|client|company|end_user)\s*:\s*"
+        r"([A-Z][A-Za-z0-9&.,']+(?:\s+[A-Z][A-Za-z0-9&.,']+){0,2})\s*$",
+        blob,
+    )
+    if m:
+        name = _clean_flavor_token(m.group(1))
+        if name:
+            return name
+    # Inline "Customer: Dollar Tree" — label is case-insensitive; name stays Title-Case.
+    m = re.search(
+        r"(?m)(?i:account|customer|client|company)\s*:\s*"
         r"([A-Z][A-Za-z0-9&.,']+(?:\s+[A-Z][A-Za-z0-9&.,']+){0,2})",
         blob,
     )
     if m:
-        name = re.sub(r"\s+", " ", m.group(1)).strip(" .,")
-        if (
-            3 <= len(name) <= 28
-            and not re.search(
-                r"(?i)\b(?:the|inc|llc|for|and|setup|to|be|camera|security)\b",
-                name,
-            )
-        ):
+        name = _clean_flavor_token(m.group(1))
+        if name:
             return name
+    m = _BRAND_FLAVOR_RE.search(blob)
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).strip()
     return None
+
+
+def is_hq_only_generic(ask: str) -> bool:
+    """True when a coverage stem is unpinned or pinned only to Alpharetta HQ."""
+    if not ask:
+        return False
+    if not re.search(
+        r"(?i)(?:remote/no-travel|delivery schedule locked|customer-furnished|"
+        r"purtera-furnished|network remediation|cat6 plenum|t&m rounding|"
+        r"escort lead times|backboards\s*/\s*grounding|access/escort/badging|"
+        r"business hours|pathway infrastructure|who owns pathway|"
+        r"named engineer|paid site survey|fresh site survey|"
+        r"1-for-1 swap|extensive tracing|cabling needs)",
+        ask,
+    ):
+        return False
+    tag = ""
+    looks_like_pin = False
+    if " — " in ask:
+        tag = ask.rsplit(" — ", 1)[-1].rstrip("?").strip()
+        # Real pins are short OEM/site tags — not continuing prose after an
+        # internal stem dash ("delivery — which sites would…").
+        looks_like_pin = bool(
+            "·" in tag
+            or re.match(r"(?i)^(?:at|incl\.?)\s+\S", tag)
+            or (
+                len(tag) <= 40
+                and not re.match(
+                    r"(?i)^(?:which|who|what|when|how|confirm|is|are|and|or|any|the)\b",
+                    tag,
+                )
+            )
+        )
+    if not looks_like_pin:
+        return True
+    tag_l = tag.lower()
+    parts = [p.strip() for p in re.split(r"\s*[·|]\s*", tag_l) if p.strip()]
+    expanded: list[str] = []
+    for p in parts:
+        expanded.extend(re.split(r"\s+at\s+", p))
+    non_hq: list[str] = []
+    for p in expanded:
+        p = p.strip()
+        if not p or p in {"at", "incl.", "incl"}:
+            continue
+        bare = re.sub(r"^(?:at|incl\.?)\s+", "", p)
+        if _HQ_SITE_RE.match(bare) or re.fullmatch(r"alpharetta(?:\s+ga)?", bare):
+            continue
+        non_hq.append(p)
+    return len(non_hq) == 0
 
 
 def inject_site_anchor(
@@ -230,18 +326,44 @@ def inject_site_anchor(
     if not ask:
         return ask
     flavor = extract_deal_flavor(blob)
-    site = (site_names[0].strip() if site_names else "") or ""
+    # Prefer a non-HQ site when the first listed site is PurTera HQ.
+    site = ""
+    for cand in site_names or []:
+        c = (cand or "").strip()
+        if not c or _HQ_SITE_RE.match(c):
+            continue
+        # Reject BOM-ish / non-geo site labels.
+        if re.search(
+            r"(?i)\b(?:speaker|subwoofer|wall\s+mounted|u\s+wall|pair\s+of|"
+            r"for\s+ap|survey\s+ap|qty|bom)\b",
+            c,
+        ):
+            continue
+        if len(c) < 4 or len(c) > 48:
+            continue
+        site = c
+        break
+    if not site:
+        for cand in site_names or []:
+            c = (cand or "").strip()
+            if c and not _HQ_SITE_RE.match(c):
+                site = c
+                break
     generic = bool(
         re.search(
             r"(?i)(?:remote/no-travel|business hours|delivery schedule locked|"
             r"pathway infrastructure|budget ceiling|customer-furnished|"
-            r"named engineer \+ contact|ceiling height / access|"
+            r"purtera-furnished|named engineer \+ contact|ceiling height / access|"
             r"who owns pathway|who signs acceptance|1-for-1 swap|"
             r"paid site survey required|fresh site survey required|"
             r"authoritative AP list|displays?/codecs stay|"
             r"in-scope sites for this wave|access/escort/badging|"
             r"how many aps|ap count/model|new cable pulls|"
-            r"pathway method|in-wall fish|day-of onsite contact)",
+            r"pathway method|in-wall fish|day-of onsite contact|"
+            r"scissor lift|access method|network remediation|"
+            r"cat6 plenum|t&m rounding|escort lead times|"
+            r"backboards\s*/\s*grounding|extensive tracing|"
+            r"cabling needs extensive)",
             ask,
         )
     )
@@ -253,15 +375,24 @@ def inject_site_anchor(
     if site and site.lower() not in ask.lower():
         bits.append(f"at {site}")
     elif len(site_names or []) >= 2:
-        s2 = site_names[1].strip()
-        if s2 and s2.lower() not in ask.lower() and (not site or s2.lower() != site.lower()):
-            bits.append(f"incl. {s2}")
+        for s2 in site_names[1:]:
+            s2 = (s2 or "").strip()
+            if (
+                s2
+                and s2.lower() not in ask.lower()
+                and not _HQ_SITE_RE.match(s2)
+                and (not site or s2.lower() != site.lower())
+            ):
+                bits.append(f"incl. {s2}")
+                break
+    # No flavor + no non-HQ site → leave unpinned; shortlist will drop HQ clones.
     if not bits:
         return ask
     tag = " · ".join(bits)
-    if ask.endswith("?"):
-        return f"{ask[:-1]} — {tag}?"
-    return f"{ask} — {tag}"
+    base = ask.rstrip()
+    if base.endswith("?"):
+        return f"{base[:-1].rstrip(' .')} — {tag}?"
+    return f"{base.rstrip(' .')} — {tag}?"
 
 
 def rewrite_instruction(text: str) -> str | None:
@@ -948,6 +1079,13 @@ _TEXT_FAMILIES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("pathway_own", re.compile(r"(?i)who owns pathway")),
     ("acceptance", re.compile(r"(?i)who signs acceptance")),
     ("ap_list", re.compile(r"(?i)authoritative AP list / floor plan")),
+    ("lift_access", re.compile(r"(?i)scissor lift|access method — scissor|ceiling access method")),
+    ("net_remediation", re.compile(r"(?i)network remediation\s*\(switch/firewall")),
+    ("cat6_plenum", re.compile(r"(?i)cat6 plenum-rated cable")),
+    ("tm_rounding", re.compile(r"(?i)t&m rounding|half-hour increments")),
+    ("escort_badge", re.compile(r"(?i)escort lead times and badging|access/escort/badging")),
+    ("backboards", re.compile(r"(?i)backboards\s*/\s*grounding\s*/\s*120v")),
+    ("cabling_tm", re.compile(r"(?i)extensive tracing or new pulls|cabling needs extensive")),
 )
 
 
