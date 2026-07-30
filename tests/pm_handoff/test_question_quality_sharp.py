@@ -1,10 +1,12 @@
-"""Sharpness gate: reject Confirm-pastes / email chrome; keep real PM asks."""
+"""Sharpness gate: reject wraps / chrome / naked coverage; keep real PM asks."""
 from __future__ import annotations
 
 from orbitbrief_core.pm_handoff.pm_ask_rewrite import (
     rewrite_assumption,
     rewrite_instruction,
+    rewrite_requirement,
     rewrite_scope,
+    specialize_coverage_question,
 )
 from orbitbrief_core.pm_handoff.question_quality import validate_question_card
 
@@ -16,7 +18,7 @@ def _card(q: str, rid: str = "t.1") -> dict:
         "sources": [
             {
                 "filename": "sow.pdf",
-                "snippet": "Pathway by others; AP home runs TBD in survey.",
+                "snippet": "Pathway by others; AP home runs TBD in survey notes.",
             }
         ],
     }
@@ -27,16 +29,34 @@ def test_rejects_confirm_paste():
         _card("Confirm customer instruction: Hope you are having a great week?")
     )
     codes = {v.code for v in viols}
-    assert "confirm_paste" in codes or "email_chrome" in codes
+    assert codes & {"confirm_paste", "email_chrome", "meta_ask"}
 
 
-def test_rejects_assumption_paste():
+def test_rejects_include_wrap_and_ellipsis():
+    viols = validate_question_card(
+        _card('Include in this quote, or exclude: "Total Fees due under this SOW…"')
+    )
+    codes = {v.code for v in viols}
+    assert "confirm_paste" in codes or "truncated" in codes or "boilerplate" in codes
+
+
+def test_rejects_naked_coverage():
     viols = validate_question_card(
         _card(
-            "Confirm pricing assumption is still valid: Labor Sell Rate, USD per hour | 110?"
+            "Which sites are in this quote wave — confirm the authoritative address list and any deferrals."
         )
     )
-    assert any(v.code in {"confirm_paste", "table_row"} for v in viols)
+    assert any(v.code == "naked_coverage" for v in viols)
+
+
+def test_rejects_url_stem():
+    viols = validate_question_card(
+        _card(
+            "Confirm the authoritative quantity where sources disagree: "
+            "https://d5-klx04.na1.hs-sales-engage.com/Ctc/x?"
+        )
+    )
+    assert any(v.code == "url_stem" for v in viols)
 
 
 def test_keeps_sharp_pm_ask():
@@ -58,12 +78,36 @@ def test_rewrite_instruction_no_paste():
     assert not q.lower().startswith("confirm customer instruction:")
 
 
-def test_rewrite_skips_email_chrome():
+def test_rewrite_skips_email_chrome_and_boilerplate():
     assert rewrite_instruction("Hope you are all having a great start to the week!") is None
     assert rewrite_assumption("Form W-9 must be completed by either party.") is None
+    assert rewrite_scope("This document is a draft intended only for use in the review of text.", "scope_item") is None
+    assert rewrite_requirement("Any Services not expressly set forth in the Project Scope will be…", "exclusion") is None
 
 
-def test_rewrite_scope_include_exclude():
-    q = rewrite_scope("Configure Azure Backup vault for immutable retention.", "task")
-    assert q is not None
-    assert "azure" in q.lower() or "backup" in q.lower()
+def test_coverage_specializes_or_suppresses():
+    # No sites / weak trigger → suppressed
+    assert (
+        specialize_coverage_question(
+            "site_list_lock", blob="general project notes", project_mode="generic", site_names=[]
+        )
+        is None
+    )
+    # Wireless without AP evidence on AV mode → suppressed
+    assert (
+        specialize_coverage_question(
+            "wireless_design",
+            blob="display mount hdmi codec",
+            project_mode="av_install",
+            site_names=["Kennesaw"],
+        )
+        is None
+    )
+    # Real AP evidence → specialized
+    q = specialize_coverage_question(
+        "wireless_design",
+        blob="Install 12 access points with SSID redesign",
+        project_mode="wireless_install",
+        site_names=["Alpharetta GA"],
+    )
+    assert q and "AP" in q

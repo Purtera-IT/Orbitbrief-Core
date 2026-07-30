@@ -960,18 +960,30 @@ def _is_customer_facing_question(text: str) -> bool:
         return False
     if _SMALLTALK_RE.search(low):
         return False
-    # Lazy Confirm-paste of raw SOW/email prose is not a PM ask.
+    # Lazy Confirm-paste / Include-wrap of raw SOW/email prose is not a PM ask.
     if re.match(
-        r"(?i)^confirm\s+(?:customer\s+instruction|pricing\s+assumption\s+is\s+still\s+valid|"
-        r"this\s+is\s+in-scope\s+for\s+the\s+quote|this\s+requirement\s+is\s+binding|"
-        r"how\s+this\s+risk\s+is\s+handled|bom\s+line\s+is\s+in\s+this\s+quote)\s*:",
+        r"(?i)^(?:confirm\s+(?:customer\s+instruction|pricing\s+assumption|"
+        r"this\s+is\s+in-scope|this\s+requirement\s+is\s+binding|"
+        r"how\s+this\s+risk|bom\s+line|this\s+stays\s+excluded|"
+        r"this\s+pricing/scope\s+assumption)|"
+        r"include\s+in\s+this\s+quote,\s+or\s+exclude|"
+        r"is\s+this\s+a\s+binding\s+requirement)\b",
         t,
     ):
+        return False
+    if "…" in t or t.rstrip().endswith("..."):
+        return False
+    if re.search(r"(?i)https?://|hs-sales-engage|/ctc/", t):
         return False
     if re.search(
         r"(?i)\b(?:hope\s+(?:you|my\s+email)|great\s+start\s+to\s+the\s+week|"
         r"don'?t\s+hesitate|thank\s+you\s+so\s+much|draw\s+up\s+a\s+quote|"
-        r"material\s+breach|form\s+w-?9|either\s+party\s+may\s+terminate)\b",
+        r"material\s+breach|form\s+w-?9|either\s+party\s+may\s+terminate|"
+        r"total\s+fees|draft\s+intended|knowledgeable\s+resource|"
+        r"awesome\.?\s+appreciate|no\s+worries\s+at\s+all|"
+        r"every\s+billable\s+device|"
+        r"who\s+must\s+be\s+on\s+the\s+customer\s+thread|"
+        r"operations\s+must\s+be\s+involved\s+early)\b",
         low,
     ):
         return False
@@ -1847,9 +1859,21 @@ def _candidate_rank_tuple(c: QuestionCandidate) -> tuple:
     # PM-gold teaching rows must win their semantic cluster even without
     # citations yet (hash embedders falsely merge demarc vs survey asks).
     gold_boost = 1 if c.source == "pm_gold" else 0
+    # Deal-locked mode/photo/instruction asks outrank generic pmcover.*
+    rid = c.rule_id or ""
+    specificity = 0
+    if rid.startswith("mode."):
+        specificity = 3
+    elif rid.startswith(("photo.", "instruction.", "qty.", "decision.")):
+        specificity = 2
+    elif rid.startswith("pmcover."):
+        specificity = 0
+    else:
+        specificity = 1
     return (
         gold_boost,
         -SEVERITY_SORT.get(c.severity, 9),
+        specificity,
         source_rank,
         evidence_rank,
         c.score,
@@ -1919,8 +1943,14 @@ def rank_and_cap(
             "evidence": 2,
             "yaml_safety": 3,
         }.get(c.source, 4)
+        rid = c.rule_id or ""
+        # Prefer deal-specific families ahead of generic coverage.
+        fam_penalty = 1 if rid.startswith("pmcover.") else 0
+        mode_bonus = 0 if rid.startswith("mode.") else 1
         return (
             SEVERITY_SORT.get(c.severity, 9),
+            mode_bonus,
+            fam_penalty,
             -c.score,
             source_order,
             c.suggested_open_question,
@@ -2148,52 +2178,86 @@ def build_customer_questions(
             if len(ranked) + len(extras) >= int(pool_cap):
                 break
         ranked = ranked + extras
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import family_key_for_rule
     from orbitbrief_core.pm_handoff.question_quality import (
         filter_perfect_questions,
         pool_scorecard,
         validate_question_card,
     )
 
+    def _accept_card(
+        card: GapCard,
+        *,
+        have_ids: set[str],
+        have_families: set[str],
+        family_limit: bool,
+    ) -> bool:
+        if card.rule_id in have_ids:
+            return False
+        viols = validate_question_card(card)
+        if viols:
+            quality_dropped.extend(viols)
+            return False
+        fam = family_key_for_rule(card.rule_id)
+        if family_limit and fam and fam in have_families:
+            return False
+        have_ids.add(card.rule_id)
+        if fam:
+            have_families.add(fam)
+        return True
+
     # Quality-aware fill: keep pulling ranked candidates until perfect pool hits cap.
+    # Family dedupe: at most one ask per decision family in the pool head.
     pool_cards: list[GapCard] = []
     quality_dropped: list = []
-    have_perfect = set()
+    have_perfect: set[str] = set()
+    have_families: set[str] = set()
     for c in ranked:
         if len(pool_cards) >= max(1, int(pool_cap)):
             break
         card = c.to_gap_card()
-        viols = validate_question_card(card)
-        if viols:
-            quality_dropped.extend(viols)
-            continue
-        if card.rule_id in have_perfect:
-            continue
-        have_perfect.add(card.rule_id)
-        pool_cards.append(card)
+        # Family limit for first 16 (shortlist neighborhood); relax later to fill pool.
+        fam_limit = len(pool_cards) < max(16, int(cap) * 2)
+        if _accept_card(
+            card, have_ids=have_perfect, have_families=have_families, family_limit=fam_limit
+        ):
+            pool_cards.append(card)
     # If still short, scan remaining grounded candidates (pre-rank leftovers).
     if len(pool_cards) < int(pool_cap):
         for c in sorted(candidates, key=_candidate_rank_tuple, reverse=True):
             if len(pool_cards) >= int(pool_cap):
                 break
-            if c.rule_id in have_perfect:
-                continue
             q = c.suggested_open_question or c.message or ""
             if not _is_customer_facing_question(q):
                 continue
             if not (c.evidence_sources or c.source == "pm_gold"):
                 continue
             card = c.to_gap_card()
-            viols = validate_question_card(card)
-            if viols:
-                quality_dropped.extend(viols)
-                continue
-            have_perfect.add(c.rule_id)
-            pool_cards.append(card)
-    shortlist_cards, _ = filter_perfect_questions(
-        [c.to_gap_card() for c in ranked[: max(1, int(cap))]]
-    )
-    # Prefer perfect shortlist from the perfect pool head.
-    cards = pool_cards[: max(1, int(cap))] if pool_cards else shortlist_cards
+            fam_limit = len(pool_cards) < max(16, int(cap) * 2)
+            if _accept_card(
+                card,
+                have_ids=have_perfect,
+                have_families=have_families,
+                family_limit=fam_limit,
+            ):
+                pool_cards.append(card)
+    # Shortlist: re-pick with strict one-per-family from pool head.
+    short_families: set[str] = set()
+    cards: list[GapCard] = []
+    for card in pool_cards:
+        if len(cards) >= max(1, int(cap)):
+            break
+        fam = family_key_for_rule(card.rule_id)
+        if fam and fam in short_families:
+            continue
+        if fam:
+            short_families.add(fam)
+        cards.append(card)
+    if not cards:
+        shortlist_cards, _ = filter_perfect_questions(
+            [c.to_gap_card() for c in ranked[: max(1, int(cap))]]
+        )
+        cards = shortlist_cards
     quality = pool_scorecard(pool_cards)
     meta = {
         "project_mode": project_mode,

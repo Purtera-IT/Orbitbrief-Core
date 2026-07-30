@@ -319,16 +319,24 @@ def candidates_from_quantity_conflicts(
         text = _atom_evidence_text(atom)
         if not _QTY_CONFLICT_RE.search(text):
             continue
+        # Never promote URL / tracking-link "conflicts"
+        if re.search(r"(?i)https?://|hs-sales-engage|hubspot|/ctc/", text):
+            continue
+        if len(re.sub(r"\W+", "", text)) < 24:
+            continue
         fp = fingerprint_question(text)
         if fp in seen:
             continue
         seen.add(fp)
-        q = (
-            "Confirm the authoritative quantity where sources disagree: "
-            + re.sub(r"\s+", " ", text).strip()[:140]
-        )
-        if not q.endswith("?"):
-            q += "?"
+        body = re.sub(r"\s+", " ", text).strip()
+        body = re.sub(r"https?://\S+", "", body).strip()
+        body = re.sub(r"(?i)\bdevice\s+\w+\s*$", "", body).strip()
+        body = re.sub(r"(?i)^\d+\.\s*", "", body).strip()
+        body = re.sub(r"(?i)^quantity conflict\s*\(?", "", body).strip(" )")
+        body = body[:70].rstrip(".,;:")
+        if len(body) < 12:
+            continue
+        q = f"Where quantities disagree for {body}, which source is authoritative for this quote?"
         if not _is_customer_facing_question(q):
             continue
         by_id = _atoms_by_id(atom_list)
@@ -356,10 +364,20 @@ def candidates_from_quantity_conflicts(
 
 
 def _clean_decision_text(text: str) -> str:
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import is_unusable_evidence_text
+
+    if is_unusable_evidence_text(text):
+        return ""
     q = re.sub(r"[*_`]+", "", text or "")
     q = re.sub(r"\s+", " ", q).strip(" \t-•*")
     # Drop trailing entity tags like "device access point"
     q = re.sub(r"(?i)\s+device\s+[a-z][a-z\s]{0,40}$", "", q).strip()
+    # Drop trailing unfinished clauses
+    q = re.sub(r"(?i)\s+(?:we have a hybrid sync from).*$", "", q).strip()
+    if "?" in q:
+        q = q.split("?", 1)[0].strip() + "?"
+    if len(q) > 160 or len(q) < 18:
+        return ""
     if q and q[0].islower():
         q = q[0].upper() + q[1:]
     return q
@@ -789,10 +807,14 @@ def candidates_from_pm_coverage(
     *,
     project_mode: str,
     blob: str,
+    sites: list | None = None,
     docs_by_id: Mapping[str, str] | None = None,
 ) -> list:
-    """Deal-wide PM brain checklist — evidence-grounded coverage asks."""
-    from orbitbrief_core.pm_handoff.pm_ask_rewrite import pm_coverage_specs
+    """Deal-specific PM coverage — naked templates are suppressed."""
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import (
+        extract_site_names,
+        specialize_coverage_question,
+    )
     from orbitbrief_core.pm_handoff.question_engine import (
         QuestionCandidate,
         _is_customer_facing_question,
@@ -801,30 +823,35 @@ def candidates_from_pm_coverage(
 
     atom_list = [a for a in atoms if isinstance(a, Mapping)]
     hay = blob or ""
+    site_names = extract_site_names(hay, sites=sites)
+    # Coverage families (domain used for GapCard labeling)
+    specs: tuple[tuple[str, str, str, str, float], ...] = (
+        ("site_list_lock", "site", "Authoritative site list", "blocker", 0.88),
+        ("onsite_contact", "site", "Day-of onsite contact", "blocker", 0.86),
+        ("access_badging", "site", "Access / escort / badging", "blocker", 0.87),
+        ("work_hours", "site", "Approved work window", "warning", 0.82),
+        ("hardware_furnish", "hardware", "CF vs OFE hardware", "blocker", 0.89),
+        ("pathway_ownership", "field_evidence", "Pathway ownership", "blocker", 0.88),
+        ("acceptance", "project", "Acceptance sign-off", "blocker", 0.85),
+        ("payment_gate", "commercial", "Payment / deposit gate", "warning", 0.8),
+        ("change_order", "commercial", "Change-order path", "warning", 0.8),
+        ("qty_lock", "hardware", "Quantity conflict", "blocker", 0.9),
+        ("first_site", "site", "First site / sequence", "warning", 0.83),
+        ("exclusions", "commercial", "Exclusion acknowledged", "warning", 0.8),
+        ("wireless_design", "wireless", "Wireless design inputs", "blocker", 0.9),
+        ("av_keep_remove", "audio_visual", "AV keep vs remove", "blocker", 0.9),
+        ("security_roe", "project", "Security ROE", "blocker", 0.91),
+    )
     out = []
-    for suffix, domain, label, question, trig, severity, score in pm_coverage_specs():
-        # Mode soft-filter: skip clearly off-mode families
-        if domain == "wireless" and project_mode not in {
-            "wireless_install",
-            "wireless_config",
-            "network_edge_install",
-            "generic",
-            "cabling_install",
-        }:
-            if not re.search(r"(?i)\b(?:access\s+point|\baps?\b|ssid|wlan)\b", hay):
-                continue
-        if domain == "audio_visual" and project_mode not in {"av_install", "generic"}:
-            if not re.search(r"(?i)\b(?:display|tv\b|codec|hdmi|av\b)\b", hay):
-                continue
-        if domain == "project" and "security_roe" in suffix:
-            if project_mode in {"av_install", "cabling_install", "wireless_install"} and not re.search(
-                r"(?i)\b(?:penetrat|pentest|vulnerab)\b", hay
-            ):
-                continue
-        if not re.search(trig, hay):
+    for suffix, domain, label, severity, score in specs:
+        question = specialize_coverage_question(
+            suffix, blob=hay, project_mode=project_mode, site_names=site_names
+        )
+        if not question or not _is_customer_facing_question(question):
             continue
-        if not _is_customer_facing_question(question):
-            continue
+        # Ground with a tighter trigger derived from the specialized ask tokens
+        trig_bits = [w for w in re.findall(r"[a-zA-Z]{4,}", question)[:8]]
+        trig = re.compile("|".join(re.escape(t) for t in trig_bits) or r"scope", re.I)
         cand = QuestionCandidate(
             rule_id=f"pmcover.{suffix}",
             domain_id=domain,
@@ -834,17 +861,17 @@ def candidates_from_pm_coverage(
             suggested_open_question=question,
             observed_summary=f"PM coverage · {suffix}",
             source="evidence",
+            # Slightly below mode/evidence-specific so ranking prefers deal-locked asks
             score=score,
             project_mode=project_mode,
         )
-        trigger = re.compile(trig)
         grounded = _with_evidence(
             cand,
             atoms=atom_list,
-            trigger=trigger,
+            trigger=trig,
             docs_by_id=docs_by_id,
             require=True,
-            min_score=0.32,
+            min_score=0.34,
         )
         if grounded is not None:
             out.append(grounded)
@@ -1147,10 +1174,14 @@ def build_extended_candidates(
     docs = docs_by_id or _docs_by_artifact_id(envelope if isinstance(envelope, Mapping) else None)
     atom_list = [a for a in atoms if isinstance(a, Mapping)]
     out = []
-    # PM-brain coverage first — these are the asks a sharp PM always pressures.
+    # Specialized PM coverage (naked templates suppressed inside).
     out.extend(
         candidates_from_pm_coverage(
-            atom_list, project_mode=project_mode, blob=blob, docs_by_id=docs
+            atom_list,
+            project_mode=project_mode,
+            blob=blob,
+            sites=sites,
+            docs_by_id=docs,
         )
     )
     out.extend(
