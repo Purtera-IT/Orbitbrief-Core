@@ -139,7 +139,12 @@ _ALM_RE = re.compile(
     re.I,
 )
 _STAFF_AUG_RE = re.compile(
-    r"\b(?:staff\s+aug(?:mentation)?|resource\s+surge|1099|cleared\s+resource|badged\s+resource)\b",
+    r"\b(?:"
+    r"staff\s+aug(?:mentation)?|resource\s+surge|1099|"
+    r"cleared\s+resource|badged\s+resource|"
+    r"local\s+resource|quote\s+me\s+by\s+the\s+day|billing\s+type:\s*per\s+day|"
+    r"per[\-\s]?day\s+(?:rate|resource|tech)|day[\-\s]?rate\s+resource"
+    r")\b",
     re.I,
 )
 _AV_RE = re.compile(
@@ -1517,7 +1522,10 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             label="AP-on-a-Stick survey",
             question="Is AP-on-a-Stick survey in this quote for select sites, allowance, or customer-owned?",
             message="AP-on-a-Stick survey commercial model unset.",
-            trigger=re.compile(r"(?i)\b(?:ap\s+on\s+a\s+stick|ap[\-\s]?on[\-\s]?a[\-\s]?stick)\b"),
+            trigger=re.compile(
+                r"(?i)\b(?:ap\s+on\s+a\s+stick|ap[\-\s]?on[\-\s]?a[\-\s]?stick|"
+                r"site\s+survey|heatmap|predictive|walkthrough)\b"
+            ),
             severity="warning",
             score=0.84,
         ),
@@ -1527,7 +1535,10 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             label="Wireless design ownership",
             question="Who owns final wireless design / analysis / reporting — PurTera or customer partner?",
             message="Wireless design ownership unset.",
-            trigger=re.compile(r"(?i)\b(?:wireless\s+design|heatmap|rf\s+design|predictive)\b"),
+            trigger=re.compile(
+                r"(?i)\b(?:wireless\s+design|heatmap|rf\s+design|predictive|"
+                r"ssid|wlan|meraki|access\s+point)\b"
+            ),
             severity="warning",
             score=0.83,
         ),
@@ -1570,6 +1581,178 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             trigger=re.compile(r"(?i)\b(?:spare|rma|access\s+point|\baps?\b|meraki|cisco)\b"),
             severity="warning",
             score=0.79,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.channel_plan",
+            domain_id="wireless",
+            label="Channel / power plan",
+            question="Confirm RF channel / TX-power plan ownership — PurTera design or customer WLAN team?",
+            message="RF channel plan ownership unset.",
+            trigger=re.compile(r"(?i)\b(?:channel|tx\s*power|rf|wlan|wireless|ssid)\b"),
+            severity="warning",
+            score=0.78,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.cable_cat",
+            domain_id="wireless",
+            label="Cable category",
+            question="Confirm cable category / plenum rating for any new AP drops in this quote.",
+            message="Cable category unset.",
+            trigger=re.compile(r"(?i)\b(?:cat\s*[56]|plenum|cable|home\s+run|drop)\b"),
+            severity="warning",
+            score=0.78,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.patch_panel",
+            domain_id="wireless",
+            label="Patch panel / switch landing",
+            question="Where do new AP home runs land — existing patch panel, new panel, or switch directly?",
+            message="AP home-run landing unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:patch\s+panel|home\s+run|switch|idf|mdf|access\s+point|\baps?\b|meraki|cable)\b"
+            ),
+            severity="warning",
+            score=0.77,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.labeling",
+            domain_id="wireless",
+            label="AP labeling standard",
+            question="Confirm AP / drop labeling standard required before handoff.",
+            message="AP labeling standard unset.",
+            trigger=re.compile(r"(?i)\b(?:label|as[\-\s]?built|hand\s*off|access\s+point|\baps?\b)\b"),
+            severity="warning",
+            score=0.76,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.old_gear",
+            domain_id="wireless",
+            label="Old AP disposition",
+            question="Confirm disposition of removed APs — leave onsite, return to customer, or PurTera dispose?",
+            message="Removed AP disposition unset.",
+            trigger=re.compile(r"(?i)\b(?:remove|replaced|old\s+ap|existing\s+ap|swap)\b"),
+            severity="warning",
+            score=0.76,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.floor_plans",
+            domain_id="wireless",
+            label="Floor plan authority",
+            question="Who provides authoritative floor plans / AP maps before mobilization?",
+            message="Floor plan authority unset.",
+            trigger=re.compile(r"(?i)\b(?:floor\s+plan|ap\s+map|heatmap|drawing|markup)\b"),
+            severity="warning",
+            score=0.75,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.work_hours",
+            domain_id="wireless",
+            label="Install work hours",
+            question="Confirm AP install stays in business hours — any after-hours premium sites?",
+            message="Install work hours unset.",
+            trigger=re.compile(r"(?i)\b(?:business\s+hours|after[\-\s]?hours|access\s+point|install)\b"),
+            severity="warning",
+            score=0.75,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.staging",
+            domain_id="wireless",
+            label="AP staging / config",
+            question="Are APs staged/pre-configured before site, or configured onsite after mount?",
+            message="AP staging model unset.",
+            trigger=re.compile(r"(?i)\b(?:stage|pre[\-\s]?config|adopt|claim|meraki|cisco)\b"),
+            severity="warning",
+            score=0.74,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.coverage_test",
+            domain_id="wireless",
+            label="Coverage acceptance test",
+            question="What coverage / speed test is the pass/fail acceptance for each site?",
+            message="Wireless acceptance test unset.",
+            trigger=re.compile(r"(?i)\b(?:coverage|acceptance|speed\s+test|survey|ssid)\b"),
+            severity="warning",
+            score=0.74,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.guest_ssid",
+            domain_id="wireless",
+            label="Guest SSID / isolation",
+            question="Confirm guest SSID scope and isolation — in this wave, deferred, or customer-owned?",
+            message="Guest SSID / isolation unset.",
+            trigger=re.compile(r"(?i)\b(?:guest|ssid|vlan|wireless|wlan|isolation)\b"),
+            severity="warning",
+            score=0.73,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.radius_nac",
+            domain_id="wireless",
+            label="RADIUS / NAC source",
+            question="What RADIUS/NAC source authenticates corporate Wi‑Fi — and who owns cert/profile push?",
+            message="RADIUS/NAC ownership unset.",
+            trigger=re.compile(r"(?i)\b(?:radius|nac|802\.1x|ssid|wireless|meraki|cisco)\b"),
+            severity="warning",
+            score=0.73,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.cable_path",
+            domain_id="wireless",
+            label="New-drop pathway",
+            question="For any new AP drops, who owns pathway (conduit/raceway) — customer/GC or PurTera?",
+            message="New AP drop pathway ownership unset.",
+            trigger=re.compile(r"(?i)\b(?:pathway|conduit|raceway|home\s+run|cable|drop|ap)\b"),
+            severity="warning",
+            score=0.72,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.wave_lock",
+            domain_id="wireless",
+            label="Wave / site lock",
+            question="Confirm which sites are in this install wave — any adds/drops before mobilize?",
+            message="Wireless install wave / site lock unset.",
+            trigger=re.compile(r"(?i)\b(?:site|wave|phase|rollout|access\s+point|meraki|wireless)\b"),
+            severity="warning",
+            score=0.72,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.escalation",
+            domain_id="project",
+            label="Day-of escalation",
+            question="Who is the customer escalation contact if an AP site is blocked on arrival?",
+            message="Wireless day-of escalation unset.",
+            trigger=re.compile(r"(?i)\b(?:escalat|contact|onsite|access\s+point|install|site)\b"),
+            severity="warning",
+            score=0.71,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.as_built",
+            domain_id="wireless",
+            label="As-built deliverable",
+            question="Are as-built AP maps / photos in the fixed fee — and who archives them?",
+            message="Wireless as-built deliverable unset.",
+            trigger=re.compile(r"(?i)\b(?:as[\-\s]?built|photo|map|documentation|hand\s*off|ap)\b"),
+            severity="warning",
+            score=0.71,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.license",
+            domain_id="wireless",
+            label="AP licenses",
+            question="Confirm AP licenses / cloud claims are customer-owned before install day.",
+            message="AP license ownership unset.",
+            trigger=re.compile(r"(?i)\b(?:license|claim|adopt|meraki|cisco|cloud|controller)\b"),
+            severity="warning",
+            score=0.7,
+        ),
+        _ModeTemplate(
+            rule_id="mode.wireless_install.idf_access",
+            domain_id="site",
+            label="IDF / MDF access",
+            question="Confirm IDF/MDF access hours and escort for every AP home-run landing site.",
+            message="IDF/MDF access unset.",
+            trigger=re.compile(r"(?i)\b(?:idf|mdf|closet|patch|switch|access|escort|ap)\b"),
+            severity="warning",
+            score=0.7,
         ),
     ),
     MODE_WIRELESS_CONFIG: (
@@ -1793,6 +1976,136 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             severity="warning",
             score=0.76,
         ),
+        _ModeTemplate(
+            rule_id="mode.decom.badge_lead",
+            domain_id="site",
+            label="Badge lead time",
+            question="What badge / escort lead time is required before each pickup visit?",
+            message="Badge lead time unset for decommission.",
+            trigger=re.compile(r"(?i)\b(?:badge|escort|access|pickup|site|visit)\b"),
+            severity="warning",
+            score=0.75,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.weight_dims",
+            domain_id="hardware",
+            label="Crate weight / dims",
+            question="Confirm max crate weight/dims Iron Mountain will accept — any oversize freight?",
+            message="Crate weight/dims unset.",
+            trigger=re.compile(r"(?i)\b(?:iron\s+mountain|pallet|freight|crate|pack|ship)\b"),
+            severity="warning",
+            score=0.74,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.data_wipe",
+            domain_id="project",
+            label="Data wipe ownership",
+            question="Who owns data wipe / degauss before haul-out — customer, PurTera, or Iron Mountain?",
+            message="Data wipe ownership unset.",
+            trigger=re.compile(r"(?i)\b(?:wipe|degauss|sanitize|disposal|inventory|disk|drive)\b"),
+            severity="warning",
+            score=0.8,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.site_sequence",
+            domain_id="project",
+            label="Site pickup sequence",
+            question="Confirm pickup sequence across sites — any hard date order or blackout sites?",
+            message="Pickup site sequence unset.",
+            trigger=re.compile(r"(?i)\b(?:site|pickup|sequence|schedule|visit|iron\s+mountain)\b"),
+            severity="warning",
+            score=0.78,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.rack_rails",
+            domain_id="hardware",
+            label="Rails / cages leave-behind",
+            question="Do rail kits / cages stay in the rack after derack, or pack with the gear?",
+            message="Rail/cage leave-behind unset.",
+            trigger=re.compile(r"(?i)\b(?:rail|cage|derack|rack|pack|inventory)\b"),
+            severity="warning",
+            score=0.73,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.insurance",
+            domain_id="commercial",
+            label="In-transit insurance",
+            question="Who carries in-transit insurance / declared value on Iron Mountain freight?",
+            message="In-transit insurance ownership unset.",
+            trigger=re.compile(r"(?i)\b(?:insurance|iron\s+mountain|freight|bol|ship|value)\b"),
+            severity="warning",
+            score=0.72,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.elevator",
+            domain_id="site",
+            label="Elevator / freight path",
+            question="Confirm freight-elevator reservation and path from rack to dock for each pickup site.",
+            message="Elevator / freight path unset.",
+            trigger=re.compile(r"(?i)\b(?:elevator|dock|freight|pickup|haul|rack)\b"),
+            severity="warning",
+            score=0.74,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.manifest",
+            domain_id="hardware",
+            label="Pickup manifest format",
+            question="What manifest format (CSV/portal) must crew complete at pickup — and who receives it?",
+            message="Pickup manifest format unset.",
+            trigger=re.compile(r"(?i)\b(?:manifest|inventory|asset\s+tag|serial|pickup|portal)\b"),
+            severity="warning",
+            score=0.73,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.seal",
+            domain_id="project",
+            label="Truck seal / custody",
+            question="Are truck seals / custody photos required at departure — who holds seal numbers?",
+            message="Truck seal / custody requirement unset.",
+            trigger=re.compile(r"(?i)\b(?:seal|custody|bol|freight|iron\s+mountain|ship|pickup)\b"),
+            severity="warning",
+            score=0.72,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.floor_load",
+            domain_id="site",
+            label="Floor load / pallet jack",
+            question="Confirm floor-load limits and pallet-jack access from rack row to dock.",
+            message="Floor load / pallet-jack access unset.",
+            trigger=re.compile(r"(?i)\b(?:pallet|jack|floor|dock|rack|haul|pack)\b"),
+            severity="warning",
+            score=0.71,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.customer_witness",
+            domain_id="project",
+            label="Customer witness",
+            question="Must a customer witness be present for derack / seal — or is PurTera solo OK?",
+            message="Customer witness requirement unset.",
+            trigger=re.compile(r"(?i)\b(?:witness|escort|onsite|derack|pack|pickup|inventory)\b"),
+            severity="warning",
+            score=0.71,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.reuse_media",
+            domain_id="hardware",
+            label="Media / drive reuse",
+            question="Do drives/media leave with chassis, or are they pulled and wiped separately before ship?",
+            message="Drive/media disposition unset.",
+            trigger=re.compile(r"(?i)\b(?:drive|disk|media|wipe|sanitize|inventory|disposal)\b"),
+            severity="warning",
+            score=0.7,
+        ),
+        _ModeTemplate(
+            rule_id="mode.decom.quote_wave",
+            domain_id="project",
+            label="Sites in this quote",
+            question="Confirm which pickup sites are in this quote wave — any deferrals before schedule?",
+            message="Decom quote-wave site lock unset.",
+            trigger=re.compile(r"(?i)\b(?:site|pickup|wave|schedule|visit|iron\s+mountain|inventory)\b"),
+            severity="warning",
+            score=0.7,
+        ),
     ),
     MODE_ACCESS: (
 
@@ -2001,7 +2314,8 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             message="AV OFE vs PurTera BOM unset.",
             trigger=re.compile(
                 r"(?i)\b(?:procurement or supply of tvs?|owner[\-\s]?furnish|ofe|"
-                r"customer[\-\s]?furnish|tvs?, mounts|display\s+mount)\b"
+                r"customer[\-\s]?furnish|tvs?, mounts|display\s+mount|"
+                r"audio[\-\s]?visual|conference\s+room|teams\s+room|hdmi|vesa|neat|yealink)\b"
             ),
             severity="blocker",
             score=0.91,
@@ -2013,7 +2327,8 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             question="Confirm each display has a customer-provided live power receptacle within cord reach.",
             message="Display power readiness unset.",
             trigger=re.compile(
-                r"(?i)\b(?:power\s+source|receptacle|outlet|connect each display)\b"
+                r"(?i)\b(?:power\s+source|receptacle|outlet|connect each display|"
+                r"audio[\-\s]?visual|conference\s+room|display|hdmi|vesa|mount)\b"
             ),
             severity="warning",
             score=0.86,
@@ -2025,7 +2340,8 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             question="Confirm removed TVs/mounts/packaging stay with onsite IT — any haul-away in this quote?",
             message="Removed AV gear disposition unset.",
             trigger=re.compile(
-                r"(?i)\b(?:packaging\s+materials|removed\s+tvs?|removed\s+mounts|leave all)\b"
+                r"(?i)\b(?:packaging\s+materials|removed\s+tvs?|removed\s+mounts|leave all|"
+                r"audio[\-\s]?visual|conference\s+room|teams\s+room|decom|swap)\b"
             ),
             severity="warning",
             score=0.85,
@@ -2036,9 +2352,138 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             label="Tech parking",
             question="Confirm technician parking is available — are parking fees customer-reimbursed?",
             message="Parking / fee reimbursement unset.",
-            trigger=re.compile(r"(?i)\b(?:onsite\s+parking|parking\s+fees?)\b"),
+            trigger=re.compile(
+                r"(?i)\b(?:onsite\s+parking|parking\s+fees?|audio[\-\s]?visual|"
+                r"conference\s+room|onsite\s+install|technician)\b"
+            ),
             severity="warning",
             score=0.82,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.uc_platform",
+            domain_id="audio_visual",
+            label="UC platform lock",
+            question="Confirm UC platform for room systems — Teams, Zoom, or dual-stack — before staging?",
+            message="UC platform unset for room AV.",
+            trigger=re.compile(
+                r"(?i)\b(?:teams\s+room|zoom\s+room|neat|yealink|poly(?:com)?|"
+                r"conference\s+room|audio[\-\s]?visual|room\s+bar)\b"
+            ),
+            severity="warning",
+            score=0.84,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.network_drop",
+            domain_id="audio_visual",
+            label="Room network drop",
+            question="Confirm each room has a live data drop at the mount location — who owns any new pulls?",
+            message="Room network drop readiness unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:network|data\s+drop|poe|ethernet|hdmi|conference\s+room|"
+                r"audio[\-\s]?visual|teams\s+room|mount)\b"
+            ),
+            severity="warning",
+            score=0.83,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.room_list",
+            domain_id="audio_visual",
+            label="Authoritative room list",
+            question="Confirm the authoritative room / display list for this wave — any adds/drops before mobilize?",
+            message="AV room list unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:conference\s+room|huddle|teams\s+room|display|audio[\-\s]?visual|"
+                r"room\s+list|site\s+count|install)\b"
+            ),
+            severity="warning",
+            score=0.82,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.test_call",
+            domain_id="audio_visual",
+            label="Acceptance test call",
+            question="What pass/fail test call (Teams/Zoom) is required before site acceptance sign-off?",
+            message="AV acceptance test unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:acceptance|test\s+call|teams|zoom|audio[\-\s]?visual|"
+                r"conference\s+room|sign[\-\s]?off)\b"
+            ),
+            severity="warning",
+            score=0.81,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.ladder_access",
+            domain_id="site",
+            label="Ladder / lift for mounts",
+            question="Confirm 8ft ladder reaches all mounts — any scissor-lift or after-hours sites?",
+            message="AV mount access method unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:ladder|lift|ceiling|mount|vesa|audio[\-\s]?visual|"
+                r"conference\s+room|install)\b"
+            ),
+            severity="warning",
+            score=0.8,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.spare_hardware",
+            domain_id="hardware",
+            label="Spare mounts / adapters",
+            question="Are spare mounts/adapters staged for this wave — who holds RMA units during install?",
+            message="AV spare hardware unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:mount|adapter|hdmi|spare|rma|audio[\-\s]?visual|"
+                r"conference\s+room|bom|hardware)\b"
+            ),
+            severity="warning",
+            score=0.78,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.cable_lengths",
+            domain_id="audio_visual",
+            label="Cable lengths / adapters",
+            question="Confirm HDMI/USB/network cable lengths and adapters are OFE — any PurTera BOM lines?",
+            message="AV cable length / adapter BOM unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:hdmi|usb|adapter|cable|audio[\-\s]?visual|conference\s+room|mount)\b"
+            ),
+            severity="warning",
+            score=0.77,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.wall_type",
+            domain_id="audio_visual",
+            label="Wall / mount substrate",
+            question="Confirm wall type (drywall/concrete/glass) at each mount — any blocking plates needed?",
+            message="AV wall/mount substrate unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:wall|mount|drywall|concrete|vesa|audio[\-\s]?visual|conference\s+room)\b"
+            ),
+            severity="warning",
+            score=0.76,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.escalation",
+            domain_id="project",
+            label="Day-of AV escalation",
+            question="Who is the customer escalation contact if a room is blocked on install day?",
+            message="AV day-of escalation unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:escalat|contact|onsite|conference\s+room|audio[\-\s]?visual|install)\b"
+            ),
+            severity="warning",
+            score=0.75,
+        ),
+        _ModeTemplate(
+            rule_id="mode.av_install.wave_lock",
+            domain_id="audio_visual",
+            label="AV wave lock",
+            question="Confirm which rooms/sites are in this AV wave — any adds/drops before mobilize?",
+            message="AV wave / room lock unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:room|wave|phase|site|audio[\-\s]?visual|conference|install)\b"
+            ),
+            severity="warning",
+            score=0.75,
         ),
     ),
     MODE_ALM: (
@@ -2098,7 +2543,10 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             label="Customer bridge / remote support",
             question="Who provides the customer bridge / remote support dial-in for each install window?",
             message="Customer bridge ownership unset.",
-            trigger=re.compile(r"(?i)\b(?:bridge|remote\s+(?:tech|support)|dial[\-\s]?in)\b"),
+            trigger=re.compile(
+                r"(?i)\b(?:bridge|remote\s+(?:tech|support)|dial[\-\s]?in|"
+                r"idrac|troubleshoot|onsite|resource|poweredge)\b"
+            ),
             severity="warning",
             score=0.86,
         ),
@@ -2108,7 +2556,10 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             label="Legacy gear disposition",
             question="Confirm removed legacy gear stays onsite in a customer-designated area — any disposal?",
             message="Legacy gear disposition unset.",
-            trigger=re.compile(r"(?i)\b(?:legacy\s+equipment|removed\s+legacy|designated\s+area)\b"),
+            trigger=re.compile(
+                r"(?i)\b(?:legacy\s+equipment|removed\s+legacy|designated\s+area|"
+                r"parts?|swap|rma|failed|hardware|poweredge)\b"
+            ),
             severity="warning",
             score=0.84,
         ),
@@ -2119,7 +2570,8 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             question="Confirm install documentation / photos / completion report are in the fixed fee.",
             message="Install documentation deliverables unset.",
             trigger=re.compile(
-                r"(?i)\b(?:installation\s+documentation|photographs|completion\s+report(?:ing)?)\b"
+                r"(?i)\b(?:installation\s+documentation|photographs|completion\s+report(?:ing)?|"
+                r"status\s+update|findings|report|dispatch)\b"
             ),
             severity="warning",
             score=0.83,
@@ -2130,9 +2582,206 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
             label="Imaging out of scope",
             question="Confirm imaging/configuration stays out of scope — physical install + cable only?",
             message="Imaging/config boundary unset.",
-            trigger=re.compile(r"(?i)\b(?:no imaging|imaging or configuration|configuration performed)\b"),
+            trigger=re.compile(
+                r"(?i)\b(?:no imaging|imaging or configuration|configuration performed|"
+                r"troubleshoot|diagnos|component\s+level|hardware)\b"
+            ),
             severity="warning",
             score=0.85,
+        ),
+        _ModeTemplate(
+            rule_id="mode.staff_aug.parts_rma",
+            domain_id="hardware",
+            label="Parts / RMA",
+            question="Who furnishes replacement parts / RMA — customer OEM contract, or PurTera?",
+            message="Staff-aug parts / RMA ownership unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:parts?|rma|oem|dell|poweredge|hardware|spare|inventory)\b"
+            ),
+            severity="warning",
+            score=0.87,
+        ),
+        _ModeTemplate(
+            rule_id="mode.staff_aug.skill_match",
+            domain_id="staff_augmentation",
+            label="Skill / OEM match",
+            question="Confirm required OEM skill set (Dell/iDRAC, Cisco, etc.) for the local resource.",
+            message="Staff-aug skill match unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:local\s+resource|poweredge|dell|idrac|skill|technician|resource)\b"
+            ),
+            severity="warning",
+            score=0.86,
+        ),
+        _ModeTemplate(
+            rule_id="mode.staff_aug.travel_zone",
+            domain_id="commercial",
+            label="Travel / local only",
+            question="Is this local-resource only (no travel), or are travel/expenses billable if needed?",
+            message="Staff-aug travel zone unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:local\s+resource|travel|per\s+day|dispatch|onsite|region)\b"
+            ),
+            severity="warning",
+            score=0.84,
+        ),
+        _ModeTemplate(
+            rule_id="mode.staff_aug.expand_gate",
+            domain_id="commercial",
+            label="Extra-day approval",
+            question="Who approves additional days beyond the initial dispatch window before work continues?",
+            message="Extra-day approval gate unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:additional\s+days|approved before|dispatch window|per\s+day|change[\-\s]?order)\b"
+            ),
+            severity="warning",
+            score=0.88,
+        ),
+    ),
+    MODE_GENERIC: (
+        _ModeTemplate(
+            rule_id="mode.generic.day_rate",
+            domain_id="commercial",
+            label="Day-rate / overtime",
+            question="Confirm day-rate vs T&M billing, overtime rules, and minimum hours per dispatch.",
+            message="Day-rate / overtime commercial terms unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:per\s+day|day[\-\s]?rate|billing\s+type|overtime|T\s*&\s*M|quote\s+me\s+by\s+the\s+day)\b"
+            ),
+            severity="blocker",
+            score=0.9,
+        ),
+        _ModeTemplate(
+            rule_id="mode.generic.scope_boundary",
+            domain_id="project",
+            label="Scope boundary",
+            question="Confirm in-scope work stops at diagnosis vs parts swap vs full remediation — who approves expand?",
+            message="Generic engagement scope boundary unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:troubleshoot|diagnos|scope of work|hardware|remediat|dispatch)\b"
+            ),
+            severity="blocker",
+            score=0.88,
+        ),
+        _ModeTemplate(
+            rule_id="mode.generic.parts_ownership",
+            domain_id="hardware",
+            label="Parts / RMA ownership",
+            question="Who furnishes replacement parts / RMA — customer OEM contract, or PurTera procurement?",
+            message="Parts / RMA ownership unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:parts?|rma|spare|oem|dell|poweredge|hardware|inventory)\b"
+            ),
+            severity="warning",
+            score=0.86,
+        ),
+        _ModeTemplate(
+            rule_id="mode.generic.onsite_poc",
+            domain_id="site",
+            label="Onsite POC",
+            question="Who is the day-of onsite POC for escort, rack access, and escalation?",
+            message="Onsite POC unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:onsite|contact|escort|access|dispatch|technician|resource)\b"
+            ),
+            severity="warning",
+            score=0.85,
+        ),
+        _ModeTemplate(
+            rule_id="mode.generic.change_order",
+            domain_id="commercial",
+            label="Change-order gate",
+            question="What triggers a change-order vs continuing under the approved day window?",
+            message="Change-order gate unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:additional\s+days|change[\-\s]?order|approved before|dispatch window)\b"
+            ),
+            severity="warning",
+            score=0.84,
+        ),
+        _ModeTemplate(
+            rule_id="mode.generic.remote_bridge",
+            domain_id="project",
+            label="Remote bridge",
+            question="Who provides remote bridge / OEM support dial-in while the tech is onsite?",
+            message="Remote bridge ownership unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:remote|bridge|idrac|oem|support|troubleshoot|diagnos)\b"
+            ),
+            severity="warning",
+            score=0.83,
+        ),
+        _ModeTemplate(
+            rule_id="mode.generic.acceptance",
+            domain_id="project",
+            label="Acceptance criteria",
+            question="What is the pass/fail acceptance for this dispatch — and who signs off?",
+            message="Dispatch acceptance criteria unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:acceptance|sign[\-\s]?off|status\s+update|troubleshoot|dispatch)\b"
+            ),
+            severity="warning",
+            score=0.82,
+        ),
+        _ModeTemplate(
+            rule_id="mode.generic.tools_access",
+            domain_id="hardware",
+            label="Tools / console access",
+            question="Confirm console/iDRAC/IPMI credentials and any special tools the tech must bring.",
+            message="Console / tools access unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:idrac|ipmi|console|credential|diagnostic|poweredge|dell)\b"
+            ),
+            severity="warning",
+            score=0.81,
+        ),
+        _ModeTemplate(
+            rule_id="mode.generic.hours",
+            domain_id="site",
+            label="Site hours",
+            question="Confirm site operating hours / blackout windows for this dispatch.",
+            message="Dispatch site hours unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:hours|blackout|business\s+hours|after[\-\s]?hours|dispatch|onsite)\b"
+            ),
+            severity="warning",
+            score=0.8,
+        ),
+        _ModeTemplate(
+            rule_id="mode.generic.report_pack",
+            domain_id="project",
+            label="Report deliverables",
+            question="Which report deliverables are in the fixed fee (findings, next steps, photos)?",
+            message="Dispatch report pack unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:report|status\s+update|findings|documentation|completion)\b"
+            ),
+            severity="warning",
+            score=0.79,
+        ),
+        _ModeTemplate(
+            rule_id="mode.generic.safety",
+            domain_id="site",
+            label="Site safety / escort",
+            question="Confirm badge/escort/safety briefing requirements before the tech arrives.",
+            message="Site safety / escort unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:badge|escort|safety|access|onsite|facility)\b"
+            ),
+            severity="warning",
+            score=0.78,
+        ),
+        _ModeTemplate(
+            rule_id="mode.generic.spare_hold",
+            domain_id="hardware",
+            label="Failed-parts hold",
+            question="Where do failed parts stay after swap — customer cage, ship-back, or PurTera holds?",
+            message="Failed-parts hold location unset.",
+            trigger=re.compile(
+                r"(?i)\b(?:parts?|swap|rma|failed|hardware|poweredge|inventory)\b"
+            ),
+            severity="warning",
+            score=0.77,
         ),
     ),
 }
@@ -2149,7 +2798,13 @@ def _ground_template_question(tmpl: _ModeTemplate, blob: str) -> str:
     sites = extract_site_names(blob or "")
     # Pin cross-deal mode stems to site + OEM flavor.
     if tmpl.rule_id.startswith(
-        ("mode.av_install.", "mode.wireless", "mode.decom.", "mode.staff_aug.")
+        (
+            "mode.av_install.",
+            "mode.wireless",
+            "mode.decom.",
+            "mode.staff_aug.",
+            "mode.generic.",
+        )
     ):
         q = inject_site_anchor(q, sites, blob=blob or "")
     if tmpl.rule_id != "mode.network_edge_install.first_survey_site":
@@ -2209,6 +2864,8 @@ def _candidates_from_mode_templates(
             MODE_STAFF_AUG,
             MODE_WIRELESS_INSTALL,
             MODE_WIRELESS_CONFIG,
+            MODE_AV,
+            MODE_GENERIC,
         }
         grounded = _with_evidence(
             cand,
@@ -2653,6 +3310,14 @@ def rank_and_cap(
         text_fn=lambda c: c.suggested_open_question or c.message or "",
         score_fn=_candidate_rank_tuple,
     )
+    # Mode templates are intentionally distinct PM decisions — never let embedding
+    # paraphrase clustering drop a unique mode.* rule_id (starved A++++++ pools).
+    mode_kept = {c.rule_id for c in deduped if (c.rule_id or "").startswith("mode.")}
+    for c in uniq:
+        rid = c.rule_id or ""
+        if rid.startswith("mode.") and rid not in mode_kept:
+            deduped.append(c)
+            mode_kept.add(rid)
     ranked = sorted(deduped, key=sort_key)
     # Neural MMR: greedily keep high-score asks that stay diverse (≥0.70 apart).
     selected = _neural_mmr_select(ranked, cap=max(1, cap))
@@ -2690,9 +3355,18 @@ def _neural_mmr_select(
         except Exception:
             return ranked[:cap]
     picked: list[int] = []
+    # Always seat distinct mode templates first — they are intentionally different
+    # decisions even when embeddings look similar (pack/ship vs dock vs BOL).
+    for i, c in enumerate(ranked):
+        if len(picked) >= cap:
+            break
+        if (c.rule_id or "").startswith("mode."):
+            picked.append(i)
     for i, _c in enumerate(ranked):
         if len(picked) >= cap:
             break
+        if i in picked:
+            continue
         if any(cosine_similarity(vecs[i], vecs[j]) >= diversity_cosine for j in picked):
             continue
         picked.append(i)
@@ -2894,6 +3568,15 @@ def build_customer_questions(
             "sites",
             "ceiling",
             "av_keep",
+            "install_docs",
+            "site_access_gap",
+            "site_onsite",
+            "site_cutover",
+            "site_accept",
+            "site_ceiling",
+            "site_wifi",
+            "site_parking",
+            "site_dock",
         }
     )
 

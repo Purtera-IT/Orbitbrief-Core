@@ -207,3 +207,35 @@ def test_scope_suppresses_pentest_on_av_install():
         project_mode="av_install",
     )
     assert q is None
+
+
+def test_mode_templates_keep_distinct_families_and_pins():
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import (
+        family_key_for_question,
+        inject_site_anchor,
+        is_unflavored_coverage,
+    )
+
+    # Distinct mode templates must not collapse to one "wireless"/"av" family.
+    assert family_key_for_question(
+        "Confirm RF channel plan", "mode.wireless_install.channel_plan"
+    ) == "mode_channel_plan"
+    assert family_key_for_question(
+        "Confirm cable category", "mode.wireless_install.cable_cat"
+    ) == "mode_cable_cat"
+    assert family_key_for_question(
+        "Confirm UC platform", "mode.av_install.uc_platform"
+    ) == "mode_uc_platform"
+
+    keep = (
+        "Confirm which existing TVs/displays stay mounted in place and which "
+        "codecs / bars are removed vs reused."
+    )
+    assert is_unflavored_coverage(keep)
+    pinned = inject_site_anchor(
+        keep,
+        ["Highland Park MI"],
+        blob="customer: Mbrany\nconference room AV",
+    )
+    assert "Mbrany" in pinned or "Highland Park" in pinned
+    assert not is_unflavored_coverage(pinned)

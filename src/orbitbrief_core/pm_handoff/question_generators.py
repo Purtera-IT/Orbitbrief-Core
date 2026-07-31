@@ -17,13 +17,6 @@ from orbitbrief_core.pm_handoff.question_feedback import fingerprint_question
 # Per-site decision families (rule suffix → question stem + trigger bits)
 _SITE_GAP_SPECS: tuple[tuple[str, str, str, str, float], ...] = (
     (
-        "circuit_ready",
-        "Circuit readiness",
-        "Confirm circuit / carrier readiness at {site} — ready for turn-up, or defer?",
-        r"(?:circuit|carrier|underlay|wan|demarc|dia|mpls|broadband)",
-        0.88,
-    ),
-    (
         "access_escort",
         "Site access / escort",
         "Confirm site access, escort, and badging requirements for {site}.",
@@ -36,13 +29,6 @@ _SITE_GAP_SPECS: tuple[tuple[str, str, str, str, float], ...] = (
         "Who is the day-of onsite contact for {site}, and how do we reach them?",
         r"(?:contact|site\s+lead|facilities|noc|on[\-\s]?site)",
         0.84,
-    ),
-    (
-        "rack_power",
-        "Rack / power",
-        "Confirm rack space, power (amps/phase), and UPS dependency at {site}.",
-        r"(?:rack|power|ups|pdu|cabinet|ru\b|amp)",
-        0.83,
     ),
     (
         "cutover_window",
@@ -93,12 +79,59 @@ def _site_name(site: SiteSummary) -> str:
     for attr in ("name", "label", "site_name", "display_name"):
         v = getattr(site, attr, None)
         if isinstance(v, str) and v.strip():
-            return v.strip()
+            return _clean_site_label(v)
     return "site"
+
+
+def _clean_site_label(name: str) -> str:
+    """Normalize geo labels so 'location santa fe nm 87506' → 'Santa Fe NM'."""
+    n = re.sub(r"\s+", " ", (name or "").strip())
+    n = re.sub(r"(?i)^(location|site|address)\s+", "", n).strip(" ,.-")
+    # Prefer City ST when a ZIP is present.
+    m = re.search(
+        r"(?i)\b([A-Za-z][A-Za-z .']+?)\s*,?\s*([A-Z]{2})\s+\d{5}(?:-\d{4})?\b",
+        n,
+    )
+    if m:
+        city = re.sub(r"\s+", " ", m.group(1)).strip(" ,.")
+        return f"{city.title()} {m.group(2).upper()}"
+    m = re.search(r"(?i)\b([A-Za-z][A-Za-z .']+?)\s+([A-Z]{2})\b", n)
+    if m and len(m.group(1)) >= 3:
+        return f"{m.group(1).title()} {m.group(2).upper()}"
+    return n
 
 
 def _site_id(site: SiteSummary) -> str:
     return re.sub(r"[^\w\-]+", "_", _site_name(site))[:48] or "site"
+
+
+# Gap family → modes where it is a real PM decision (not filler).
+_SITE_GAP_MODES: dict[str, frozenset[str]] = {
+    "access_escort": frozenset({
+        "av_install", "wireless_install", "wireless_config", "cabling_install",
+        "network_edge_install", "access_control", "decommission_logistics",
+        "staff_aug", "generic",
+    }),
+    "onsite_contact": frozenset({
+        "av_install", "wireless_install", "wireless_config", "cabling_install",
+        "network_edge_install", "access_control", "decommission_logistics",
+        "staff_aug", "generic",
+    }),
+    "cutover_window": frozenset({
+        "av_install", "wireless_install", "wireless_config", "cabling_install",
+        "network_edge_install", "staff_aug", "generic",
+    }),
+    "acceptance": frozenset({
+        "av_install", "wireless_install", "wireless_config", "cabling_install",
+        "network_edge_install", "decommission_logistics", "staff_aug", "generic",
+    }),
+    "dock_hours": frozenset({"decommission_logistics"}),
+    "ceiling_access": frozenset({
+        "wireless_install", "wireless_config", "cabling_install", "av_install", "generic",
+    }),
+    "wifi_creds": frozenset({"wireless_install", "wireless_config", "generic"}),
+    "parking": frozenset({"av_install", "cabling_install", "staff_aug", "generic"}),
+}
 
 
 def candidates_from_sites(
@@ -108,9 +141,10 @@ def candidates_from_sites(
     project_mode: str,
     blob: str,
     docs_by_id: Mapping[str, str] | None = None,
-    max_sites: int = 12,
+    max_sites: int = 4,
 ) -> list:
-    """One evidence-grounded ask per (publishable site × open gap family)."""
+    """Evidence-grounded asks for primary sites × mode-allowed gaps."""
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import inject_site_anchor
     from orbitbrief_core.pm_handoff.question_engine import (
         QuestionCandidate,
         _is_customer_facing_question,
@@ -120,38 +154,49 @@ def candidates_from_sites(
     atom_list = [a for a in atoms if isinstance(a, Mapping)]
     blob_low = (blob or "").lower()
     out = []
-    pub = [s for s in sites if getattr(s, "publishable", True)][:max_sites]
-    if not pub:
-        pub = list(sites)[:max_sites]
+    cleaned: list[SiteSummary] = []
+    seen_labels: set[str] = set()
+    hq_only: list[SiteSummary] = []
+    for s in sites:
+        if not getattr(s, "publishable", True):
+            continue
+        name = _site_name(s)
+        key = re.sub(r"[^a-z0-9]+", "", name.lower())
+        if not key or key in seen_labels:
+            continue
+        if re.search(
+            r"(?i)\b(?:speaker|subwoofer|wall\s+mounted|for\s+ap|survey\s+ap|qty|bom)\b",
+            name,
+        ):
+            continue
+        seen_labels.add(key)
+        item = SiteSummary(name=name, kind=s.kind, publishable=True)
+        if re.search(r"(?i)^alpharetta(?:\s+ga)?$", name):
+            hq_only.append(item)
+        else:
+            cleaned.append(item)
+    pub = cleaned[:max_sites] or hq_only[:1]
     for site in pub:
         name = _site_name(site)
         sid = _site_id(site)
-        name_re = re.compile(re.escape(name), re.I) if len(name) >= 3 else None
+        name_re = re.compile(re.escape(name.split()[0]), re.I) if len(name) >= 3 else None
         for suffix, label, stem, trig, score in _SITE_GAP_SPECS:
-            # Need site mention OR global family evidence in the blob.
+            allow = _SITE_GAP_MODES.get(suffix)
+            if allow is not None and project_mode not in allow:
+                continue
             family_hit = re.search(trig, blob_low, re.I)
             site_hit = bool(name_re and name_re.search(blob or ""))
             if not family_hit and not site_hit:
                 continue
-            # Skip if already clearly answered for this site.
-            answered = re.search(
-                rf"(?i){re.escape(name)}.{{0,80}}(?:confirmed|ready|complete|signed)",
-                blob or "",
-            )
-            if answered and suffix in {"circuit_ready", "acceptance"}:
-                continue
-            q = stem.format(site=name)
+            q = inject_site_anchor(stem.format(site=name), [name], blob=blob or "")
             if not _is_customer_facing_question(q):
                 continue
-            trigger = re.compile(
-                rf"(?:{trig}|{re.escape(name)})",
-                re.I,
-            )
+            trigger = re.compile(rf"(?:{trig}|{re.escape(name)})", re.I)
             cand = QuestionCandidate(
                 rule_id=f"site.{sid}.{suffix}",
                 domain_id="site",
                 label=f"{label} — {name}",
-                severity="blocker" if suffix in {"circuit_ready", "access_escort"} else "warning",
+                severity="blocker" if suffix == "access_escort" else "warning",
                 message=f"Site-level decision still open for {name}.",
                 suggested_open_question=q,
                 observed_summary=f"Site gap · {name}",
@@ -650,7 +695,7 @@ def candidates_from_scope_commitments(
     docs_by_id: Mapping[str, str] | None = None,
     blob: str = "",
     sites: list | None = None,
-    max_items: int = 60,
+    max_items: int = 80,
 ) -> list:
     """Turn substantive scope_item / task / deliverable atoms into sharp PM asks."""
     from orbitbrief_core.pm_handoff.pm_ask_rewrite import extract_site_names, rewrite_scope
@@ -666,6 +711,14 @@ def candidates_from_scope_commitments(
     atom_list = [a for a in atoms if isinstance(a, Mapping)]
     by_id = _atoms_by_id(atom_list)
     site_names = extract_site_names(blob or "", sites=sites)
+    soft = project_mode in {
+        "decommission_logistics",
+        "staff_aug",
+        "wireless_install",
+        "wireless_config",
+        "av_install",
+        "generic",
+    }
     out = []
     seen: set[str] = set()
     for atom in atom_list:
@@ -717,9 +770,44 @@ def candidates_from_scope_commitments(
             evidence_sources=[src],
             project_mode=project_mode,
         )
-        grounded = _with_evidence(cand, atoms=atom_list, docs_by_id=docs_by_id, require=True)
+        grounded = _with_evidence(
+            cand,
+            atoms=atom_list,
+            docs_by_id=docs_by_id,
+            require=not soft,
+            min_score=0.30 if soft else None,
+        )
         if grounded is not None:
-            out.append(grounded)
+            if not grounded.evidence_sources and soft:
+                snip = (text or "")[:160].strip()
+                if len(snip) < 24:
+                    continue
+                loc = atom.get("locator")
+                fn = ""
+                if isinstance(loc, Mapping):
+                    fn = str(loc.get("filename") or loc.get("source") or "")
+                grounded = QuestionCandidate(
+                    rule_id=grounded.rule_id,
+                    domain_id=grounded.domain_id,
+                    label=grounded.label,
+                    severity=grounded.severity,
+                    message=grounded.message,
+                    suggested_open_question=grounded.suggested_open_question,
+                    observed_summary=grounded.observed_summary,
+                    source=grounded.source,
+                    score=grounded.score,
+                    evidence_atom_ids=[aid] if aid else list(grounded.evidence_atom_ids),
+                    evidence_sources=[
+                        {
+                            "filename": fn or str(atom.get("artifact_id") or "scope-evidence"),
+                            "snippet": snip,
+                            "locator": str(atom.get("id") or ""),
+                        }
+                    ],
+                    project_mode=grounded.project_mode,
+                )
+            if grounded.evidence_sources:
+                out.append(grounded)
         if len(out) >= max_items:
             break
     return out
@@ -1256,33 +1344,104 @@ def _sites_from_envelope(
     """Merge handoff sites with envelope site_readiness / physical slugs / geo tokens."""
     from orbitbrief_core.pm_handoff.pm_ask_rewrite import extract_site_names
 
-    out: list[SiteSummary] = list(sites or [])
-    have = {_site_name(s).lower() for s in out}
+    out: list[SiteSummary] = []
+    have: set[str] = set()
+
+    def _add(raw: str) -> None:
+        name = _clean_site_label(raw)
+        key = re.sub(r"[^a-z0-9]+", "", name.lower())
+        if not key or key in have or len(name) < 4:
+            return
+        if re.search(
+            r"(?i)\b(?:speaker|subwoofer|wall\s+mounted|for\s+ap|survey\s+ap|qty|bom|"
+            r"pair of|yes\s+fh)\b",
+            name,
+        ):
+            return
+        have.add(key)
+        out.append(SiteSummary(name=name, kind="physical_site", publishable=True))
+
+    for s in sites or []:
+        _add(_site_name(s))
     if isinstance(envelope, Mapping):
         for s in (envelope.get("site_readiness") or {}).get("sites") or []:
-            if not isinstance(s, dict):
-                continue
-            name = str(s.get("name") or s.get("label") or s.get("display_name") or "").strip()
-            if not name or name.lower() in have:
-                continue
-            # Skip BOM-ish / junk site labels.
-            if re.search(
-                r"(?i)\b(?:speaker|subwoofer|wall\s+mounted|for\s+ap|survey\s+ap|qty|bom|"
-                r"pair of|yes\s+fh)\b",
-                name,
-            ):
-                continue
-            out.append(SiteSummary(name=name, kind="physical_site", publishable=True))
-            have.add(name.lower())
+            if isinstance(s, dict):
+                _add(str(s.get("name") or s.get("label") or s.get("display_name") or ""))
         for slug in (envelope.get("indexes") or {}).get("physical_site_slugs") or []:
-            name = str(slug).replace("_", " ").replace("-", " ").strip()
-            if name and name.lower() not in have and len(name) >= 4:
-                out.append(SiteSummary(name=name, kind="physical_site", publishable=True))
-                have.add(name.lower())
+            _add(str(slug).replace("_", " ").replace("-", " "))
     for name in extract_site_names(blob or "", sites=None, limit=6):
-        if name and name.lower() not in have:
-            out.append(SiteSummary(name=name, kind="physical_site", publishable=True))
-            have.add(name.lower())
+        _add(name)
+    return out
+
+
+def candidates_from_entities(
+    envelope: Mapping[str, Any] | None,
+    *,
+    atoms: Iterable[Mapping[str, Any]],
+    project_mode: str,
+    docs_by_id: Mapping[str, str] | None = None,
+    max_items: int = 24,
+) -> list:
+    """Device / material entities → qty/model lock asks."""
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import normalize_pm_ask
+    from orbitbrief_core.pm_handoff.question_engine import (
+        QuestionCandidate,
+        _is_customer_facing_question,
+        _with_evidence,
+    )
+
+    if not isinstance(envelope, Mapping):
+        return []
+    atom_list = [a for a in atoms if isinstance(a, Mapping)]
+    out = []
+    seen: set[str] = set()
+    for ent in envelope.get("entities") or []:
+        if not isinstance(ent, Mapping):
+            continue
+        et = str(ent.get("entity_type") or "").lower()
+        if et not in {"device", "material", "sku", "product", "hardware"}:
+            continue
+        name = str(ent.get("canonical_name") or ent.get("canonical_key") or "").strip()
+        name = re.sub(r"^(?:device|material|sku|product):", "", name, flags=re.I).strip()
+        if not name or len(name) < 3 or len(name) > 48:
+            continue
+        if name.lower() in {"server", "switch", "camera", "ap", "access point", "display"}:
+            continue
+        q = normalize_pm_ask(
+            f'Confirm qty/model for "{name}" is the authoritative quote line?'
+        )
+        if not q or not _is_customer_facing_question(q):
+            continue
+        fp = fingerprint_question(q)
+        if fp in seen:
+            continue
+        seen.add(fp)
+        cand = QuestionCandidate(
+            rule_id=f"entity.{re.sub(r'[^a-z0-9]+', '_', name.lower())[:40]}",
+            domain_id="hardware",
+            label=f"Entity — {name}",
+            severity="warning",
+            message="Entity qty/model needs lock.",
+            suggested_open_question=q,
+            observed_summary=f"Entity · {name}",
+            source="evidence",
+            score=0.78,
+            project_mode=project_mode,
+            evidence_sources=[
+                {
+                    "filename": "entities",
+                    "snippet": f"{et}: {name}",
+                    "locator": str(ent.get("id") or name),
+                }
+            ],
+        )
+        grounded = _with_evidence(
+            cand, atoms=atom_list, docs_by_id=docs_by_id, require=False, min_score=0.25
+        )
+        if grounded is not None and grounded.evidence_sources:
+            out.append(grounded)
+        if len(out) >= max_items:
+            break
     return out
 
 
@@ -1371,6 +1530,11 @@ def build_extended_candidates(
     out.extend(
         candidates_from_bom_lines(
             atom_list, project_mode=project_mode, docs_by_id=docs
+        )
+    )
+    out.extend(
+        candidates_from_entities(
+            envelope, atoms=atom_list, project_mode=project_mode, docs_by_id=docs
         )
     )
     out.extend(

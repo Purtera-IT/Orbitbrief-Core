@@ -274,7 +274,14 @@ _COVERAGE_STEM_RE = re.compile(
     r"named engineer|paid site survey|fresh site survey|"
     r"1-for-1 swap|1 for 1 swap|run cable for the ap|extensive tracing|"
     r"cabling needs|hard deadlines / milestones|single customer point of contact|"
-    r"network access info / wireless credentials|workstation/imac counts)"
+    r"network access info / wireless credentials|workstation/imac counts|"
+    r"install documentation / photos / completion|"
+    r"circuit / carrier readiness|site access, escort, and badging|"
+    r"tvs?/displays stay mounted|codecs?\s*/\s*bars?\s+are\s+removed|"
+    r"existing tvs?/displays stay|"
+    r"predictive\s*/\s*heatmap\s+survey|"
+    r"staff-aug scope:\s*install-only|"
+    r"project coordination\s*/\s*pm hours)"
 )
 
 
@@ -410,7 +417,14 @@ def inject_site_anchor(
             r"cabling needs extensive|hard deadlines / milestones|"
             r"single customer point of contact|"
             r"network access info / wireless credentials|"
-            r"workstation/imac counts|1 for 1 swap|run cable for the ap)",
+            r"workstation/imac counts|1 for 1 swap|run cable for the ap|"
+            r"install documentation / photos / completion|"
+            r"circuit / carrier readiness|site access, escort, and badging|"
+            r"tvs?/displays stay mounted|codecs?\s*/\s*bars?\s+are\s+removed|"
+            r"existing tvs?/displays stay|"
+            r"predictive\s*/\s*heatmap\s+survey|"
+            r"staff-aug scope:\s*install-only|"
+            r"project coordination\s*/\s*pm hours)",
             ask,
         )
     )
@@ -693,6 +707,12 @@ def rewrite_scope(
          "Is AP-on-a-Stick survey in this quote for select sites, allowance, or customer-owned?"),
         (r"final wireless design|wireless design, analysis",
          "Who owns final wireless design / analysis / reporting — PurTera or customer partner?"),
+        (r"optimal\s+ap|predictive\s+survey|heatmap",
+         "Is predictive / heatmap survey in this quote, or customer-provided design?"),
+        (r"another option|alternate\s+(?:oem|vendor|ap)",
+         "Which AP OEM / config option is selected for this quote wave?"),
+        (r"meraki|cisco\s+ap|omada|unifi",
+         "Confirm the authoritative AP OEM/model list for this quote wave."),
         (r"leave all packaging|removed tvs|removed mounts",
          "Confirm removed TVs/mounts/packaging stay with onsite IT — any haul-away in this quote?"),
         (r"procurement or supply of tvs|supply of tvs?, mounts",
@@ -822,7 +842,12 @@ def rewrite_scope(
                 anchor
                 and 18 <= len(anchor) <= 52
                 and not is_chrome_or_boilerplate(anchor)
-                and not re.search(r"(?i)^\s*(?:note|col_0|day\s*\(|this form)\b", anchor)
+                and not re.search(
+                    r"(?i)^\s*(?:note|col_0|day\s*\(|this form|i\s|we\s|you\s|they\s)\b|"
+                    r"wanted to|hope you|for you to\s*$|thank you|regards|"
+                    r"whiteboarding|forecasting|partnership discussions",
+                    anchor,
+                )
             ):
                 # Rotate stems so semantic dedupe cannot collapse every lock ask.
                 # Avoid WRAP_RE patterns ("Is \"…\" in this quote", Confirm-paste).
@@ -1203,8 +1228,10 @@ FAMILY_PREFIXES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("sites", ("pmcover.site_list_lock", "pmcover.first_site")),
     ("acceptance", ("pmcover.acceptance",)),
     ("payment", ("pmcover.payment_gate",)),
-    ("wireless", ("pmcover.wireless_design", "mode.wireless")),
-    ("av", ("pmcover.av_keep_remove", "mode.av_install")),
+    # Do NOT collapse all mode.wireless_* / mode.av_install_* — each template is a
+    # distinct PM decision; collapsing them starved A++++++ pools (one family slot).
+    ("wireless", ("pmcover.wireless_design",)),
+    ("av", ("pmcover.av_keep_remove",)),
     ("qty", ("pmcover.qty_lock", "qty.")),
     ("hours", ("pmcover.work_hours",)),
 )
@@ -1243,25 +1270,43 @@ _TEXT_FAMILIES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("single_poc", re.compile(r"(?i)single customer point of contact")),
     ("wifi_creds", re.compile(r"(?i)network access info / wireless credentials")),
     ("qty_imac", re.compile(r"(?i)workstation/imac counts disagree")),
+    ("install_docs", re.compile(r"(?i)install documentation / photos / completion")),
+    ("site_access_gap", re.compile(r"(?i)site access, escort, and badging requirements for")),
+    ("site_onsite", re.compile(r"(?i)day-of onsite contact for")),
+    ("site_cutover", re.compile(r"(?i)cutover / maintenance window for")),
+    ("site_accept", re.compile(r"(?i)signs site acceptance at|acceptance signer")),
+    ("site_ceiling", re.compile(r"(?i)ceiling access method at")),
+    ("site_wifi", re.compile(r"(?i)network access / wireless credentials for techs at")),
+    ("site_parking", re.compile(r"(?i)technician parking at")),
+    ("site_dock", re.compile(r"(?i)dock hours / max truck size")),
 )
 
 
 def family_key_for_rule(rule_id: str) -> str | None:
     rid = rule_id or ""
     for fam, prefixes in FAMILY_PREFIXES:
-        if any(rid.startswith(p) or p in rid for p in prefixes):
+        if any(rid.startswith(p) for p in prefixes):
             if fam == "furnish" and not rid.startswith("pmcover.hardware_furnish"):
                 continue
             if fam == "access" and rid.startswith("site.") and "access" not in rid and "escort" not in rid and "onsite" not in rid:
                 continue
             return fam
+    if rid.startswith("mode."):
+        # Unique per mode template: mode.wireless_install.channel_plan → mode_channel_plan
+        return "mode_" + rid.rsplit(".", 1)[-1]
     if rid.startswith("pmcover."):
         return rid.split(".", 1)[-1]
     return None
 
 
 def family_key_for_question(text: str, rule_id: str = "") -> str | None:
-    """Prefer text-intent family so payment/pathway paraphrases collapse."""
+    """Prefer text-intent family so payment/pathway paraphrases collapse.
+
+    Mode templates keep their rule-derived family so distinct mode asks are not
+    collapsed by a broad text stem (e.g. every AP ask → wireless).
+    """
+    if (rule_id or "").startswith("mode."):
+        return family_key_for_rule(rule_id)
     t = text or ""
     for fam, pat in _TEXT_FAMILIES:
         if pat.search(t):
