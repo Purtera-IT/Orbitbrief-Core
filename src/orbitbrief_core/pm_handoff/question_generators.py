@@ -156,7 +156,6 @@ def candidates_from_sites(
     out = []
     cleaned: list[SiteSummary] = []
     seen_labels: set[str] = set()
-    hq_only: list[SiteSummary] = []
     for s in sites:
         if not getattr(s, "publishable", True):
             continue
@@ -169,13 +168,18 @@ def candidates_from_sites(
             name,
         ):
             continue
+        # PurTera HQ letterhead is never a customer job site — do not fall back to it.
+        if re.search(
+            r"(?i)^(?:alpharetta(?:\s+ga)?|purtera(?:\s+hq)?|11720|amber\s+park)",
+            name,
+        ):
+            continue
         seen_labels.add(key)
-        item = SiteSummary(name=name, kind=s.kind, publishable=True)
-        if re.search(r"(?i)^alpharetta(?:\s+ga)?$", name):
-            hq_only.append(item)
-        else:
-            cleaned.append(item)
-    pub = cleaned[:max_sites] or hq_only[:1]
+        cleaned.append(SiteSummary(name=name, kind=s.kind, publishable=True))
+    pub = cleaned[:max_sites]
+    if not pub:
+        # Prefer the explicit site_list_lock pmcover ask over inventing HQ.
+        return out
     for site in pub:
         name = _site_name(site)
         sid = _site_id(site)
@@ -684,7 +688,10 @@ _SCOPE_VERB_RE = re.compile(
 )
 _SCOPE_JUNK_RE = re.compile(
     r"(?i)\b(?:hope my email|excited|regards|thank you|hi\b|hello\b|chat tomorrow|"
-    r"www\.|https?://|oppty\s*#|quotation number|director of|nick@)\b"
+    r"www\.|https?://|oppty\s*#|quotation number|director of|nick@|"
+    r"purpose\s*:\s*this\s+guide|this\s+guide\s+allows|assembly\s+guide|"
+    r"user\s+guide|product\s+sheet|\bcaution\b|mains\s+rtu|"
+    r"power\s+supply\s+connections)\b"
 )
 
 
@@ -1022,14 +1029,37 @@ def candidates_from_pm_coverage(
             score=score,
             project_mode=project_mode,
         )
+        # Missing-site lock must ship even on thin envelopes (HQ-only letterhead).
+        soft_site = suffix == "site_list_lock" and not site_names
         grounded = _with_evidence(
             cand,
             atoms=atom_list,
             trigger=trig,
             docs_by_id=docs_by_id,
-            require=True,
-            min_score=0.34,
+            require=not soft_site,
+            min_score=0.28 if soft_site else 0.34,
         )
+        if grounded is None and soft_site:
+            snip = (hay or "")[:160].strip() or "No publishable customer site in intake."
+            grounded = QuestionCandidate(
+                rule_id=cand.rule_id,
+                domain_id=cand.domain_id,
+                label=cand.label,
+                severity=cand.severity,
+                message=cand.message,
+                suggested_open_question=cand.suggested_open_question,
+                observed_summary=cand.observed_summary,
+                source=cand.source,
+                score=cand.score,
+                evidence_sources=[
+                    {
+                        "filename": "intake",
+                        "snippet": snip,
+                        "locator": "site_readiness",
+                    }
+                ],
+                project_mode=project_mode,
+            )
         if grounded is not None:
             out.append(grounded)
     return out

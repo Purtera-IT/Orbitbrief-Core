@@ -49,7 +49,7 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Mapping
 
 
 @dataclass(frozen=True)
@@ -1112,9 +1112,19 @@ def build_executive_summary(
         (m.display for m in money_mentions if m.value >= 100_000),
         None,
     )
-    site_count = sum(1 for s in sites if getattr(s, "publishable", False))
-    blocker_count = sum(1 for g in gaps if getattr(g, "severity", "") == "blocker")
-    warning_count = sum(1 for g in gaps if getattr(g, "severity", "") == "warning")
+    def _pub(s: Any) -> bool:
+        if isinstance(s, Mapping):
+            return bool(s.get("publishable"))
+        return bool(getattr(s, "publishable", False))
+
+    def _sev(g: Any) -> str:
+        if isinstance(g, Mapping):
+            return str(g.get("severity") or "")
+        return str(getattr(g, "severity", "") or "")
+
+    site_count = sum(1 for s in sites if _pub(s))
+    blocker_count = sum(1 for g in gaps if _sev(g) == "blocker")
+    warning_count = sum(1 for g in gaps if _sev(g) == "warning")
     high_risks = sum(
         1
         for r in risks

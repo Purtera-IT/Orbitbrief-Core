@@ -125,8 +125,56 @@ def is_unusable_evidence_text(text: str) -> bool:
         t,
     ):
         return True
+    # Manual / guide / caution prose — never a commercial scope lock.
+    if re.search(
+        r"(?i)(?:"
+        r"purpose\s*:\s*this\s+guide|this\s+guide\s+allows\s+future|"
+        r"assembly\s+guide|user\s+guide|product\s+sheet|"
+        r"\bcaution\b|\bwarning\b:\s*|"
+        r"mains\s+rtu|power\s+supply\s+connections|"
+        r"in\s+this\s+way\s+it\s+is\s+possible|"
+        r"for\s+example\s+to\s+have|"
+        r"remove\s+all\s+(?:kiosk\s+)?parts\s+from\s+packaging|"
+        r"from\s+packaging|unbox(?:ing)?\s+the|"
+        r"refer\s+to\s+(?:the\s+)?(?:figure|diagram|section)"
+        r")",
+        t,
+    ):
+        return True
     # Truncated mid-phrase
     if re.search(r"(?i)\bwithin\s+\d+\s*hr\s+of\s*$|pattern\s+OPTBOT", t):
+        return True
+    return False
+
+
+def is_junk_scope_anchor(anchor: str) -> bool:
+    """Reject clipped quotes that read as broken English or guide chrome."""
+    a = (anchor or "").strip()
+    if not a or len(a) < 18:
+        return True
+    # Ends mid-phrase on a function word / article — classic clip junk.
+    if re.search(
+        r"(?i)\b(?:the|a|an|and|or|of|for|to|with|after|before|from|into|"
+        r"by|on|in|at|as|is|are|be|will|shall|this|that|these|those)\s*$",
+        a,
+    ):
+        return True
+    if re.search(
+        r"(?i)(?:"
+        r"purpose\s*:\s*this\s+guide|this\s+guide\s+allows|"
+        r"assembly\s+guide|user\s+guide|\bcaution\b|"
+        r"power\s+supply\s+connections|mains\s+rtu|"
+        r"client\s+name\s*:|customer\s+name\s*:|"
+        r"does\s+the\s+site\s+require|"
+        r"in\s+this\s+way\s+it\s+is\s+possible|"
+        r"for\s+example\s+to\s+have|"
+        r"parts\s+from\s+packaging|from\s+packaging"
+        r")",
+        a,
+    ):
+        return True
+    # Truncation ellipsis / dangling hyphen/comma
+    if a.endswith(("…", "...", "-", "—", ",", ";", ":")):
         return True
     return False
 
@@ -138,9 +186,23 @@ def _clip_anchor(text: str, n: int = 72) -> str:
     # Never keep URLs in anchors
     body = _URL_RE.sub("", body).strip()
     if len(body) <= n:
-        return body.rstrip(".,;:")
-    cut = body[: n - 1].rsplit(" ", 1)[0]
-    return (cut or body[: n - 1]).rstrip(".,;:")
+        clipped = body.rstrip(".,;:")
+    else:
+        cut = body[: n - 1].rsplit(" ", 1)[0]
+        clipped = (cut or body[: n - 1]).rstrip(".,;:")
+    # Walk back past trailing function words so lock-stems don't ship
+    # "… after the" / "… for the" as the quoted decision.
+    while True:
+        nxt = re.sub(
+            r"(?i)\s+\b(?:the|a|an|and|or|of|for|to|with|after|before|from|"
+            r"into|by|on|in|at|as|is|are|be|will|shall|this|that)\s*$",
+            "",
+            clipped,
+        ).rstrip(".,;: ")
+        if nxt == clipped or len(nxt) < 18:
+            break
+        clipped = nxt
+    return clipped
 
 
 
@@ -175,7 +237,14 @@ PAYMENT_GATE_ASK = (
 
 
 # PurTera HQ / shared sales office — never a deal differentiator alone.
-_HQ_SITE_RE = re.compile(r"(?i)^(?:alpharetta(?:\s+ga)?|purtera(?:\s+hq)?)$")
+_HQ_SITE_RE = re.compile(
+    r"(?i)^(?:alpharetta(?:\s+ga)?|purtera(?:\s+hq)?|"
+    r"11720(?:\s+amber\s+park)?|amber\s+park(?:\s+dr)?)$"
+)
+_HQ_BLOB_RE = re.compile(
+    r"(?i)\b(?:11720\s+amber\s+park|amber\s+park\s+dr|purtera\s+llc|"
+    r"alpharetta,?\s*ga\s*30009)\b"
+)
 
 # Junk tokens that look Title-Case but are prose / header noise.
 _FLAVOR_STOP_RE = re.compile(
@@ -398,7 +467,12 @@ def sharpen_soft_confirm(ask: str) -> str:
         return f"{base} — in fixed fee, or bill T&M / change-order{pin}?"
     if re.search(r"(?i)floor plan|AP map", base):
         return f"Who provides authoritative floor plans / AP maps before mobilize{pin}?"
-    return f"{base} — accept as written, revise, or defer{pin}?"
+    if re.search(r"(?i)tank|work[\-\s]?area|ladder|lift|scaffold", base):
+        return f"{base} — included as written, customer-provided, or T&M if missing{pin}?"
+    if re.search(r"(?i)business hours|after[\-\s]?hours", base):
+        return f"{base} — standard hours only, or quote after-hours premium{pin}?"
+    # Last resort: still force a binary commercial fork, never robotic "yes as written".
+    return f"{base} — include as written, revise the assumption, or defer{pin}?"
 
 
 def normalize_pm_ask(ask: str, *, max_len: int = 190) -> str:
@@ -893,6 +967,7 @@ def rewrite_scope(
                 anchor
                 and 18 <= len(anchor) <= 52
                 and not is_chrome_or_boilerplate(anchor)
+                and not is_junk_scope_anchor(anchor)
                 and not re.search(
                     r"(?i)^\s*(?:note|col_0|day\s*\(|this form|i\s|we\s|you\s|they\s|"
                     r"client\s+name|customer\s+name|site\s+name)\b|"
@@ -1056,6 +1131,17 @@ def rewrite_bom(text: str) -> str | None:
 
 def extract_site_names(blob: str, sites: Iterable[Any] | None = None, limit: int = 3) -> list[str]:
     names: list[str] = []
+
+    def _push(name: str) -> None:
+        n = (name or "").strip()
+        if not n or _HQ_SITE_RE.match(n):
+            return
+        if _HQ_BLOB_RE.search(n):
+            return
+        if n.lower() in {x.lower() for x in names}:
+            return
+        names.append(n)
+
     if sites:
         for s in sites:
             name = ""
@@ -1067,18 +1153,23 @@ def extract_site_names(blob: str, sites: Iterable[Any] | None = None, limit: int
                     if isinstance(v, str) and v.strip():
                         name = v.strip()
                         break
-            if name and name.lower() not in {n.lower() for n in names}:
-                names.append(name)
+            _push(name)
             if len(names) >= limit:
                 return names
-    # Fallback: city/state-ish tokens from blob
+    # Fallback: city/state-ish tokens from blob — never PurTera HQ letterhead.
+    hay = blob or ""
     for m in re.finditer(
         r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s*,\s*([A-Z]{2})\b",
-        blob or "",
+        hay,
     ):
         label = f"{m.group(1)} {m.group(2)}"
-        if label.lower() not in {n.lower() for n in names}:
-            names.append(label)
+        # Skip matches that sit inside HQ address chrome.
+        start = max(0, m.start() - 40)
+        end = min(len(hay), m.end() + 40)
+        window = hay[start:end]
+        if _HQ_BLOB_RE.search(window) or _HQ_SITE_RE.match(label):
+            continue
+        _push(label)
         if len(names) >= limit:
             break
     return names
@@ -1166,6 +1257,19 @@ def specialize_coverage_question(
         )
 
     if suffix == "site_list_lock":
+        # Empty publishable sites is itself a blocker — do not invent HQ letterhead.
+        if not sites:
+            if project_mode in INSTALL_MODES | WIRELESS_MODES | AV_MODES | {
+                "decommission_logistics",
+                "cabling_install",
+                "staff_aug",
+                "generic",
+            }:
+                return (
+                    "Confirm the customer install site address for this quote wave "
+                    "(street, city, state) — PurTera HQ letterhead is not the job site."
+                )
+            return None
         # Need multiple sites or an address-conflict signal
         multi = len(sites) >= 2 or bool(
             re.search(r"(?i)\b(?:sites?|locations?|branches?|stores?)\b.*\b(?:\d+|list|wave)\b", hay)

@@ -33,7 +33,16 @@ _JUNK_RE = re.compile(
     r"urldefense\.proofpoint|"
     r"mimecast|"
     r"regarding\s+this\s+engagement\??\s*$|"
-    r"^\s*risks?\s*:"
+    r"^\s*risks?\s*:|"
+    # Clipped guide / caution prose that must never ship as a scope lock.
+    r"purpose\s*:\s*this\s+guide|"
+    r"this\s+guide\s+allows\s+future|"
+    r"power\s+supply\s+connections|"
+    r"mains\s+rtu|"
+    r"in\s+this\s+way\s+it\s+is\s+possible|"
+    r"for\s+example\s+to\s+have|"
+    r"parts\s+from\s+packaging|"
+    r"lock\s+scope\s+for\s+\"[^\"]{0,80}\b(?:the|a|an|after|for|to|of)\s*\""
     r")"
 )
 _TABLE_ROW_RE = re.compile(r"\|.+\|.+\|")
