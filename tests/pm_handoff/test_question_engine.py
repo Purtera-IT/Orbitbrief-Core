@@ -1,12 +1,22 @@
 """Evidence-first customer question engine — mode gate, suppress, feedback, cap."""
 from __future__ import annotations
 
-from orbitbrief_core.pm_handoff.models import GapCard, SiteSummary
+import re
+
+from orbitbrief_core.pm_handoff.builder import (
+    _filter_domains_for_project_mode,
+    _filter_gaps_for_project_mode,
+)
+from orbitbrief_core.pm_handoff.models import DomainSummary, GapCard, SiteSummary
 from orbitbrief_core.pm_handoff.question_engine import (
+    MODE_AV,
+    MODE_GENERIC,
     MODE_NETWORK_EDGE_INSTALL,
     MODE_NETWORK_OPS,
+    MODE_WIRELESS_INSTALL,
     build_customer_questions,
     detect_project_mode,
+    domain_ids_allowed_for_mode,
 )
 from orbitbrief_core.pm_handoff.question_feedback import (
     ACTION_ADD,
@@ -156,6 +166,67 @@ def test_sodexo_like_questions_are_real_pm_asks_not_ops_junk():
     assert not any("copy of those sites" in q for q in questions)
 
 
+def test_chatter_residuals_never_surface():
+    """deal_metadata / smalltalk must never become customer_questions."""
+    atoms = [
+        {
+            "id": "c1",
+            "atom_type": "scope_item",
+            "raw_text": (
+                "Need help with Remote Hands for 13 corporate offices "
+                "Transitioning from MPLS to SDWAN Meraki MX devices"
+            ),
+        },
+        {
+            "id": "c2",
+            "atom_type": "deal_metadata",
+            "raw_text": "And in those scenarios with the international, is there rhyme or reason?",
+        },
+        {
+            "id": "c3",
+            "atom_type": "deal_metadata",
+            "raw_text": "Any big plans for the weekend?",
+        },
+        {
+            "id": "c4",
+            "atom_type": "deal_metadata",
+            "raw_text": "But you Chase, you know what I mean?",
+        },
+        {
+            "id": "c5",
+            "atom_type": "deal_metadata",
+            "raw_text": "Because that's the biggest point of emphasis for them",
+        },
+        {
+            "id": "c6",
+            "atom_type": "open_question",
+            "raw_text": "Do you have a copy of their SOP by chance?",
+        },
+    ]
+    cards, meta = build_customer_questions(
+        gaps=[],
+        sites=_sites(),
+        envelope={
+            "atoms": atoms,
+            "service_routing": {
+                "primary": "network_maintenance",
+                "override_reason": "sdwan_meraki_network_install_evidence",
+            },
+        },
+        feedback_events=[],
+        cap=8,
+    )
+    assert meta["project_mode"] == MODE_NETWORK_EDGE_INSTALL
+    joined = " | ".join(
+        (c.suggested_open_question or c.message or "").lower() for c in cards
+    )
+    assert "rhyme or reason" not in joined
+    assert "weekend" not in joined
+    assert "you know what i mean" not in joined
+    assert "point of emphasis" not in joined
+    assert not any("deal_metadata" in (c.rule_id or "") for c in cards)
+
+
 def test_ops_mode_allows_ops_family_questions():
     atoms = [
         {
@@ -252,3 +323,383 @@ def test_wrong_for_project_mode_scoped():
         MODE_NETWORK_EDGE_INSTALL,
         "network_maintenance.firmware_baseline_missing",
     ) in policy.suppressed_mode_rules
+
+
+def test_catalyst_av_not_wireless_from_marketing_wifi():
+    """Vendor capability matrix 'WiFi' must not beat Neat/Yealink conference-room evidence."""
+    atoms = [
+        {
+            "id": "m1",
+            "atom_type": "deal_metadata",
+            "raw_text": (
+                "Below is a brief overview of us… Global Field Services matrix "
+                "breaks down engineer levels, disciplines, quantities, WiFi, and cabling."
+            ),
+        },
+        {
+            "id": "v1",
+            "atom_type": "scope_item",
+            "raw_text": "These 4 TVs to Stay in Place – will remain on existing VESA mounts.",
+        },
+        {
+            "id": "v2",
+            "atom_type": "scope_item",
+            "raw_text": "Cables noted for rerouting behind the wall; Neat bars + Yealink codecs.",
+        },
+        {
+            "id": "v3",
+            "atom_type": "deal_metadata",
+            "raw_text": "HDMI over Ethernet adapter and HDMI Replicator stay; conference room AV refresh.",
+        },
+    ]
+    mode = detect_project_mode(atoms=atoms, service_routing={"primary": None})
+    assert mode == MODE_AV
+    assert mode != MODE_WIRELESS_INSTALL
+
+    cards, meta = build_customer_questions(
+        gaps=[],
+        sites=[SiteSummary(name="Plano Office", kind="physical_site", publishable=True)],
+        envelope={"atoms": atoms, "service_routing": {"primary": None}},
+        feedback_events=[],
+        cap=10,
+    )
+    assert meta["project_mode"] == MODE_AV
+    joined = " | ".join(
+        (c.suggested_open_question or c.message or "").lower() for c in cards
+    )
+    # Pathway method can still be open; keep/remove is already decided in source.
+    assert "drywall" in joined or "behind the wall" in joined or "in-wall" in joined or "raceway" in joined
+    assert "ap count" not in joined and "how many aps" not in joined
+    assert not any(
+        "keep_vs_remove" in (c.rule_id or "") for c in cards
+    ), "keep/remove already settled by stay + HDMI keeper language"
+
+
+def test_source_material_suppresses_settled_av_asks():
+    """Annotations + SOW exclusions are answers — do not re-ask as Confirm."""
+    from orbitbrief_core.pm_handoff.question_engine import source_material_answers
+
+    blob = (
+        "These 4 TV's to Stay in Place – will remain on floor in this position. "
+        "Almost all of this will be removed and is part of the Yealink system. "
+        "The exception being the HDMI over Ethernet adapter and HDMI Replicator. "
+        "Replication Cable is run across wall visible from TV 1 to TV 2 – "
+        "this should be moved behind wall to not be visible. "
+        "Out of Scope: Ceiling grid repair, replacement ceiling tiles, drywall "
+        "repair, painting, patching, or finish work. "
+        "Network connectivity is across the floor about 10 feet. "
+        "Is it possible to utilize white adapter to hang Neat Devices?"
+    )
+    assert source_material_answers("mode.av_install.keep_vs_remove_displays", blob)
+    assert source_material_answers("mode.av_install.replication_cable_path", blob)
+    assert source_material_answers("mode.av_install.drywall_ownership", blob)
+    assert source_material_answers("mode.av_install.ceiling_tile_match", blob)
+    assert not source_material_answers("mode.av_install.floor_network_path", blob)
+
+    atoms = [
+        {
+            "id": "a1",
+            "atom_type": "scope_item",
+            "artifact_id": "art_pdf",
+            "locator": {"filename": "Catalyst.pdf", "page": 5},
+            "raw_text": "These 4 TV's to Stay in Place – will remain on floor in this position.",
+        },
+        {
+            "id": "a2",
+            "atom_type": "scope_item",
+            "artifact_id": "art_pdf",
+            "locator": {"filename": "Catalyst.pdf", "page": 8},
+            "raw_text": (
+                "Almost all of this will be removed and is part of the Yealink system. "
+                "The exception being the HDMI over Ethernet adapter and HDMI Replicator."
+            ),
+        },
+        {
+            "id": "a3",
+            "atom_type": "scope_item",
+            "artifact_id": "art_pdf",
+            "locator": {"filename": "Catalyst.pdf", "page": 10},
+            "raw_text": (
+                "Replication Cable is run across wall visible from TV 1 to TV 2 – "
+                "this should be moved behind wall to not be visible."
+            ),
+        },
+        {
+            "id": "a4",
+            "atom_type": "change_order_rule",
+            "artifact_id": "art_docx",
+            "locator": {
+                "filename": "SOW.docx",
+                "section_path": [
+                    "SHI Proposal for Services",
+                    "Scope of Services",
+                    "Out of Scope",
+                    "The following services are excluded unless added through an approved change order",
+                ],
+            },
+            "raw_text": (
+                "Ceiling grid repair, replacement ceiling tiles, "
+                "drywall repair, painting, patching, or finish work."
+            ),
+        },
+        {
+            "id": "a4b",
+            "atom_type": "site_implementation_note",
+            "artifact_id": "art_docx",
+            "locator": {"filename": "SOW.docx", "page": 1},
+            "raw_text": (
+                "Provide replacement ceiling tiles, blanking plates, or written "
+                "direction for closing any openings created by speaker removal."
+            ),
+        },
+        {
+            "id": "a5",
+            "atom_type": "scope_item",
+            "artifact_id": "art_pdf",
+            "locator": {"filename": "Catalyst.pdf", "page": 6},
+            "raw_text": "Network connectivity is across the floor about 10 feet to a receptacle.",
+        },
+        {
+            "id": "a6",
+            "atom_type": "open_question",
+            "artifact_id": "art_pdf",
+            "locator": {"filename": "Catalyst.pdf", "page": 17},
+            "raw_text": (
+                "Is it possible to utilize white adapter to hang Neat Devices in "
+                "center of room for the front and back?"
+            ),
+        },
+    ]
+    cards, meta = build_customer_questions(
+        gaps=[],
+        sites=[SiteSummary(name="Plano Office", kind="physical_site", publishable=True)],
+        envelope={
+            "atoms": atoms,
+            "documents": [
+                {"artifact_id": "art_pdf", "filename": "Catalyst.pdf"},
+                {"artifact_id": "art_docx", "filename": "SOW.docx"},
+            ],
+            "service_routing": {"primary": "audio_visual"},
+        },
+        feedback_events=[],
+        cap=10,
+    )
+    assert meta["project_mode"] == MODE_AV
+    rids = {c.rule_id for c in cards}
+    assert "mode.av_install.keep_vs_remove_displays" not in rids
+    assert "mode.av_install.replication_cable_path" not in rids
+    assert "mode.av_install.drywall_ownership" not in rids
+    assert "mode.av_install.ceiling_tile_match" not in rids
+    joined = " | ".join(
+        (c.suggested_open_question or c.message or "").lower() for c in cards
+    )
+    assert "white adapter" in joined
+    assert "floor" in joined or "raceway" in joined or "poke" in joined or "pathway" in joined
+    # Wall pathway + floor pathway stay distinct (do not over-merge).
+    assert any("cable_conceal" in (c.rule_id or "") or "pathway" in (c.suggested_open_question or "").lower() for c in cards) or any(
+        "fish" in (c.suggested_open_question or "").lower() for c in cards
+    )
+    assert any("floor_network_path" in (c.rule_id or "") for c in cards)
+
+
+def test_av_install_gold_fact_helper():
+    from orbitbrief_core.pm_handoff.fact_quality import is_av_install_gold_fact
+
+    assert is_av_install_gold_fact("Remain on existing VESA mounts.")
+    assert is_av_install_gold_fact("ceiling tiles as they are hard to get")
+    assert not is_av_install_gold_fact("Quotes in 24–48 hours")
+
+
+def test_av_drops_speculative_carpet_ceiling_risk_blockers():
+    """Vision 'may pose / potentially' room vibes must not become AV blockers."""
+    atoms = [
+        {
+            "id": "s1",
+            "atom_type": "scope_item",
+            "artifact_id": "art_pdf",
+            "locator": {"filename": "Catalyst-Conference-Room.pdf", "page": 9},
+            "raw_text": (
+                "4 TVs to Stay in Place; cables behind the wall; Neat + Yealink "
+                "conference room. HDMI over Ethernet adapter and HDMI Replicator stay."
+            ),
+        },
+        {
+            "id": "s2",
+            "atom_type": "scope_item",
+            "artifact_id": "art_pdf",
+            "locator": {"filename": "Catalyst-Conference-Room.pdf", "page": 9},
+            "raw_text": (
+                "Replication cable runs across the wall from TV 1 to TV 2, "
+                "noted for repositioning behind the wall."
+            ),
+        },
+        {
+            "id": "s3",
+            "atom_type": "scope_item",
+            "artifact_id": "art_pdf",
+            "locator": {"filename": "Catalyst-Conference-Room.pdf", "page": 6},
+            "raw_text": "Network connectivity is across the floor about 10 feet.",
+        },
+        {
+            "id": "r1",
+            "atom_type": "risk",
+            "raw_text": (
+                "The ceiling has a non-standard tile layout, which may impact camera "
+                "and display mounting. HVAC elements are visible in the ceiling, "
+                "potentially affecting camera field of view."
+            ),
+        },
+        {
+            "id": "r2",
+            "atom_type": "risk",
+            "raw_text": (
+                "The room has a patterned carpet floor, which may pose a risk for "
+                "cable management if not properly secured."
+            ),
+        },
+        {
+            "id": "q1",
+            "atom_type": "open_question",
+            "artifact_id": "art_pdf",
+            "locator": {"filename": "Catalyst-Conference-Room.pdf", "page": 17},
+            "raw_text": (
+                "Is it possible to utilize white adapter to hang Neat Devices in "
+                "center of room for the front and back?"
+            ),
+        },
+        {
+            "id": "t1",
+            "atom_type": "scope_item",
+            "artifact_id": "art_pdf",
+            "locator": {"filename": "Catalyst-Conference-Room.pdf", "page": 17},
+            "raw_text": "ceiling tiles as they are hard to get. Existing Ceiling Devices – Decom.",
+        },
+    ]
+    cards, meta = build_customer_questions(
+        gaps=[],
+        sites=[SiteSummary(name="Plano Office", kind="physical_site", publishable=True)],
+        envelope={
+            "atoms": atoms,
+            "documents": [
+                {
+                    "artifact_id": "art_pdf",
+                    "filename": "Catalyst-Conference-Room.pdf",
+                }
+            ],
+            "service_routing": {"primary": "audio_visual"},
+        },
+        feedback_events=[],
+        cap=10,
+    )
+    assert meta["project_mode"] == MODE_AV
+    joined = " | ".join(
+        (c.suggested_open_question or c.message or "").lower() for c in cards
+    )
+    assert "patterned carpet" not in joined
+    assert "field of view" not in joined and "hvac" not in joined
+    assert "white adapter" in joined and "suspend neat" in joined
+    assert "ceiling tile" in joined or "hard to get" in joined
+    assert not any(
+        c.severity == "blocker"
+        and re.search(r"carpet|hvac|field of view", c.suggested_open_question or "", re.I)
+        for c in cards
+    )
+    # Every curated ask must carry matching photo/text citations.
+    assert meta.get("with_citations", 0) == len(cards)
+    for c in cards:
+        assert c.sources, c.rule_id
+        assert any((s.get("snippet") or "").strip() for s in c.sources), c.rule_id
+        assert "Mode template for" not in (c.observed_summary or "")
+
+
+def test_av_mode_drops_vms_and_structured_cabling_gaps():
+    """Secondary-pack checklists must not pollute an AV conference-room handoff."""
+    assert domain_ids_allowed_for_mode(MODE_GENERIC) is None
+    allow = domain_ids_allowed_for_mode(MODE_AV)
+    assert allow is not None
+    assert "audio_visual" in allow
+    assert "security_camera" not in allow
+    assert "low_voltage_cabling" not in allow
+
+    gaps = [
+        GapCard(
+            rule_id="audio_visual.mount_type",
+            domain_id="audio_visual",
+            domain_label="AV",
+            label="Mount",
+            severity="warning",
+            message="Mount type?",
+            suggested_open_question="Confirm display mount type.",
+        ),
+        GapCard(
+            rule_id="security_camera.video_retention",
+            domain_id="security_camera",
+            domain_label="Camera",
+            label="Retention",
+            severity="blocker",
+            message="VMS retention?",
+            suggested_open_question="What is the VMS retention period?",
+        ),
+        GapCard(
+            rule_id="low_voltage_cabling.testing_standard_missing",
+            domain_id="low_voltage_cabling",
+            domain_label="Cabling",
+            label="Fluke",
+            severity="blocker",
+            message="Testing standard?",
+            suggested_open_question="What Fluke test standard is required?",
+        ),
+        GapCard(
+            rule_id="electrical.panelboard",
+            domain_id="electrical",
+            domain_label="Electrical",
+            label="Panel",
+            severity="warning",
+            message="Panelboard?",
+            suggested_open_question="Which panelboard feeds the circuit?",
+        ),
+        GapCard(
+            rule_id="global.site_access",
+            domain_id="global",
+            domain_label="Global",
+            label="Access",
+            severity="warning",
+            message="Site access?",
+            suggested_open_question="Confirm site access hours.",
+        ),
+    ]
+    kept = _filter_gaps_for_project_mode(gaps, MODE_AV)
+    ids = {g.domain_id for g in kept}
+    assert ids == {"audio_visual", "global"}
+
+    # Generic mode must not strip pack gaps when detection is weak.
+    assert len(_filter_gaps_for_project_mode(gaps, MODE_GENERIC)) == len(gaps)
+
+    domains = [
+        DomainSummary(
+            domain_id="audio_visual",
+            label="AV",
+            selected_by_router=True,
+            active_for_sow=True,
+            blockers=0,
+            warnings=1,
+        ),
+        DomainSummary(
+            domain_id="security_camera",
+            label="Camera",
+            selected_by_router=True,
+            active_for_sow=True,
+            blockers=0,
+            warnings=0,
+        ),
+        DomainSummary(
+            domain_id="low_voltage_cabling",
+            label="Cabling",
+            selected_by_router=True,
+            active_for_sow=True,
+            blockers=0,
+            warnings=0,
+        ),
+    ]
+    d_ids = {d.domain_id for d in _filter_domains_for_project_mode(domains, MODE_AV)}
+    assert d_ids == {"audio_visual"}

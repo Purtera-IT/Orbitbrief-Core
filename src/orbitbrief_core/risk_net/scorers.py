@@ -27,10 +27,12 @@ Why heuristics first:
 from __future__ import annotations
 
 import math
+import re
 from collections import Counter, defaultdict
 from dataclasses import replace
 from typing import Any
 
+from orbitbrief_core.pm_handoff.fact_quality import is_hard_conversation_filler
 from orbitbrief_core.pm_handoff.models import PMHandoff
 
 
@@ -170,7 +172,16 @@ _LOW_AUTHORITY_CLASSES = frozenset({
 })
 
 
-def _score_atom(atom: dict, edges: list[dict]) -> tuple[float, list[str]]:
+_RISK_SUBSTANCE_RE = re.compile(
+    r"(?i)\b("
+    r"montreal|canada|cdw|us\s+paper|change\s+order|sop|poc|"
+    r"circuit|after\s+hours|cutover|defer|blocked|risk|"
+    r"approval|smart\s+hands|remote\s+hands|nte|margin"
+    r")\b"
+)
+
+
+def _score_atom(atom: dict, edges: list[dict], *, text: str = "") -> tuple[float, list[str]]:
     drivers: list[str] = []
     rank = _authority_rank(atom)
     verified = _is_verified(atom)
@@ -196,6 +207,14 @@ def _score_atom(atom: dict, edges: list[dict]) -> tuple[float, list[str]]:
     if rank < 30:
         drivers.append(f"low_authority_rank:{rank:.0f}")
 
+    # Prefer substance-bearing risks over vague meeting-note name-drops.
+    if text and _RISK_SUBSTANCE_RE.search(text):
+        z += 0.55
+        drivers.append("deal_substance")
+    elif text and len(text) < 80 and not n_contradict:
+        z -= 0.85
+        drivers.append("vague_short_note")
+
     return _sigmoid(z), drivers
 
 
@@ -209,14 +228,33 @@ def compute_atom_risk(envelope: dict, top_k: int = 25) -> list[dict]:
         atom_id = _atom_id(a)
         if not atom_id:
             continue
-        score, drivers = _score_atom(a, edges_by_atom.get(atom_id, []))
+        text = str(a.get("text") or a.get("raw_text") or "")
+        # Greetings / soft prompts are not project risks — drop before scoring.
+        if is_hard_conversation_filler(a, text):
+            continue
+        structured = a.get("structured") if isinstance(a.get("structured"), dict) else {}
+        # Soft transcript commitments without risk substance → skip.
+        if (
+            str(structured.get("suppressed_as") or "") == "soft_transcript_commitment"
+            and not _RISK_SUBSTANCE_RE.search(text)
+        ):
+            continue
+        # CRM note_id dumps / author metadata lines are not risks.
+        if re.match(r"(?i)^note_id\s*=", text.strip()):
+            continue
+        # Name-drop approval lines without paper/site substance.
+        if re.search(r"(?i)\b(?:international team|get that approved)\b", text) and not re.search(
+            r"(?i)\b(?:montreal|canada|cdw|paper|sop|poc|circuit)\b", text
+        ):
+            continue
+        score, drivers = _score_atom(a, edges_by_atom.get(atom_id, []), text=text)
         scored.append({
             "atom_id": atom_id,
             "risk_score": round(score, 3),
             "drivers": drivers,
             "authority_class": a.get("authority_class"),
             "authority_rank": a.get("authority_rank"),
-            "text_preview": (a.get("text") or "")[:200],
+            "text_preview": text[:200],
         })
     scored.sort(key=lambda r: r["risk_score"], reverse=True)
     return scored[:top_k]

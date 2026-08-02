@@ -266,6 +266,14 @@ packs:
     aliases:
     - copper_cabling
     - structured_cabling
+  # Bare "cable" / HDMI path language from AV installs must not activate
+  # structured-cabling brains (Fluke, T568, patch panels, faceplates).
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(cat\s?[56]a?|cat5e)\b
+  - \b(structured\s+cabl(?:e|ing)|permanent\s+link|fluke|bicsi|tia[\-\s]?568|t568[ab])\b
+  - \b(patch\s+panels?|cable\s+pull|homerun|faceplates?|jack\s+map|innerduct)\b
+  - \b(idf|mdf|dmarc(?:\s+extension)?|low[\-\s]?voltage\s+cabl(?:e|ing))\b
   intake_aliases:
   - telecom_structured_cabling
   subdomain_labels:
@@ -681,6 +689,14 @@ packs:
     - vms
     - cctv
     - surveillance
+  # UC room bars expose "camera" vocabulary; require real VMS / CCTV
+  # evidence before this pack can run brains or emit checklist gaps.
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(vms|video\s+management(?:\s+system)?|nvr|dvr|cctv|video\s+surveillance)\b
+  - \b(genetec|milestone|xprotect|exacq|avigilon|hanwha|hikvision|axis(?:\s+camera)?|bosch\s+camera)\b
+  - \b(security\s+cameras?|surveillance\s+cameras?|ip\s+cameras?)\b
+  - \b(video\s+retention|camera\s+(?:retention|repair|operations|truck[\-\s]?roll))\b
   intake_aliases: []
   subdomain_labels:
   - Camera Deployment
@@ -810,6 +826,14 @@ packs:
     intent: implemented
     implementation: electrical
     aliases: []
+  # AV / UC rooms often mention "power" or an outlet without being an
+  # electrical SOW — require panel / UPS / circuit evidence.
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(panelboard|breaker(?:s)?|branch\s+circuit|electrical\s+panel)\b
+  - \b(ups|generator|transfer\s+switch|ats)\b
+  - \b(receptacle|dedicated\s+circuit|conduit(?:\s+run)?|grounding|bonding)\b
+  - \b(electrician|electrical\s+permit|load\s+calc(?:ulation)?s?)\b
   intake_aliases: []
   subdomain_labels:
   - Branch Circuits / Receptacles
@@ -841,15 +865,16 @@ packs:
     implementation: audio_visual
     aliases:
     - av
-  # Boss-review v9 C002-F1 — pack-level anchor gate. AV brain only
-  # runs when the corpus has 3+ distinct AV equipment tokens.
-  required_anchor_min_distinct_hits: 3
+  # Boss-review v9 C002-F1 — pack-level anchor gate. AV brain runs when the
+  # corpus has 2+ distinct AV equipment / install tokens (mount/Neat/HDMI).
+  required_anchor_min_distinct_hits: 2
   required_anchor_regex_any:
-  - \b(display|projector|video\s+wall|microphone(?:\s+array)?)\b
-  - \b(biamp|q[- ]?sys|crestron|extron|qsc|shure|symetrix|tesira|polycom|cisco\s+(?:room\s+kit|webex)|logitech\s+rally)\b
-  - \b(dante|aes67|\bndi\b|sdi|hdbaset)\b
-  - \b(teams\s+room|zoom\s+room|google\s+meet\s+room|huddle\s+room|conference\s+room\s+(?:av|audio|video)|classroom\s+(?:av|audio|video))\b
-  - \b(control\s+(?:processor|panel)|video\s+codec|av\s+codec|av\s+(?:rack|equipment|design|drawings?))\b
+  - \b(display|projector|video\s+wall|microphone(?:\s+array)?|soundbar)\b
+  - \b(biamp|q[- ]?sys|crestron|extron|qsc|shure|symetrix|tesira|polycom|poly\b|cisco\s+(?:room\s+kit|webex)|logitech\s+rally|neat\b|yealink)\b
+  - \b(dante|aes67|\bndi\b|sdi|hdbaset|hdmi(?:\s+over\s+ethernet)?|vesa)\b
+  - \b(teams\s+room|zoom\s+room|google\s+meet\s+room|huddle\s+room|conference\s+room(?:\s+av|\s+audio|\s+video)?|classroom\s+(?:av|audio|video))\b
+  - \b(control\s+(?:processor|panel)|video\s+codec|av\s+codec|av\s+(?:rack|equipment|design|drawings?)|room\s+bar|uc\s+bar)\b
+  - \b((?:display|tv|wall|ceiling)\s+mount|behind\s+the\s+wall|hdmi\s+replicator|replication\s+cable)\b
   intake_aliases: []
   subdomain_labels:
   - AV Conference Room Build-Out
@@ -997,6 +1022,12 @@ packs:
     intent: implemented
     implementation: camera_vms_operations
     aliases: []
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(vms|video\s+management(?:\s+system)?|nvr|dvr|cctv|video\s+surveillance)\b
+  - \b(genetec|milestone|xprotect|exacq|avigilon|hanwha|hikvision|axis(?:\s+camera)?)\b
+  - \b(security\s+cameras?|surveillance\s+cameras?|camera\s+(?:health|uptime|repair|replace|operations))\b
+  - \b(video\s+retention|retention\s+(?:compliance|audit)|storage\s+retention)\b
   intake_aliases: []
   subdomain_labels:
   - Camera Health Monitoring

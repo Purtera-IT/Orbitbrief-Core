@@ -442,6 +442,16 @@ class PackPrior:
         """
         if not corpus_text or not _NETWORK_INSTALL_EVIDENCE_RE.search(corpus_text):
             return raw_scores
+        # Protect dense AV packs from incidental SD-WAN / Meraki keyword boosts.
+        av_score = int(raw_scores.get("audio_visual", 0) or 0)
+        specialized = [
+            int(v or 0)
+            for k, v in raw_scores.items()
+            if k != "other" and k != _OTHER_FALLBACK_PACK_ID
+        ]
+        top_specialized = max(specialized) if specialized else 0
+        if av_score > 0 and top_specialized > 0 and av_score >= int(0.35 * top_specialized):
+            return raw_scores
         out = dict(raw_scores)
         boost_id = _NETWORK_INSTALL_BOOST_PACK
         out[boost_id] = int(out.get(boost_id, 0)) + _NETWORK_INSTALL_BOOST

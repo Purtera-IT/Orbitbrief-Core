@@ -526,6 +526,11 @@ _NETWORK_INSTALL_OPS_GAP_IDS = frozenset({
     "network_maintenance.oem_tac_escalation_missing",
     "network_maintenance.vlan_port_audit_cadence_missing",
     "network_maintenance.circuit_demarc_responsibility_missing",
+    # Install / turn-up jobs are not ongoing-ops engagements — these checks
+    # only yellow or clutter the handoff with irrelevant "info" leftovers.
+    "network_maintenance.routing_failover",
+    "network_maintenance.port_vlan_wan",
+    "network_maintenance.device_inventory",
 })
 
 

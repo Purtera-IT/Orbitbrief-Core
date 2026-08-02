@@ -49,7 +49,7 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Mapping
 
 
 @dataclass(frozen=True)
@@ -853,19 +853,38 @@ class ExclusionItem:
 
 
 def build_exclusions(report: dict[str, Any]) -> list[ExclusionItem]:
+    """Exclusions from exclusion atoms plus soft out-of-scope phrasing."""
     out: list[ExclusionItem] = []
     seen: set[str] = set()
-    for atom, filename in _iter_atoms_with_files(report):
-        if atom.get("atom_type") != "exclusion":
-            continue
-        text = (atom.get("text") or "").strip()
-        if not text:
-            continue
-        norm = text[:160].lower()
+    soft_re = re.compile(
+        r"\b(out of scope|excluded|not included|do not touch|customer[- ]owned|"
+        r"customer[- ]provided|future phase|not in (?:this )?sow)\b",
+        re.IGNORECASE,
+    )
+
+    def _add(body: str, filename: str) -> None:
+        cleaned = (body or "").strip()
+        if not cleaned or len(cleaned) < 8:
+            return
+        if re.match(r"^\d+(\.\d+)*\s*out of scope\s*$", cleaned, re.IGNORECASE):
+            return
+        if re.match(r"^out of scope\s*$", cleaned, re.IGNORECASE):
+            return
+        norm = cleaned[:160].lower()
         if norm in seen:
-            continue
+            return
         seen.add(norm)
-        out.append(ExclusionItem(text=text[:300], source=filename))
+        out.append(ExclusionItem(text=cleaned[:300], source=filename))
+
+    for atom, filename in _iter_atoms_with_files(report):
+        atype = atom.get("atom_type") or ""
+        body = (atom.get("text") or "").strip()
+        if not body:
+            continue
+        if atype == "exclusion":
+            _add(body, filename)
+        elif atype in {"constraint", "scope_item", "assumption"} and soft_re.search(body):
+            _add(body, filename)
     return out
 
 
@@ -874,14 +893,10 @@ class ResponsibilityItem:
     """One customer-supplied OR provider-supplied responsibility.
 
     Built from atoms whose text matches a customer-responsibility
-    pattern ("customer to provide", "customer supplies", "OPTBOT
-    will provide") or a provider-side pattern ("we will provide",
-    "provider supplies").
-
-    These atoms exist as scope_item / customer_instruction today;
-    we surface them in a dedicated section so the PM can verify
-    each side's commitments without reading through every scope
-    bullet.
+    pattern ("customer to provide", "customer supplies") or a
+    provider-side pattern ("we will provide", "PurTera provides",
+    "provider supplies"). Imperative "Provide …" lines under
+    customer duty lists are treated as customer responsibilities.
     """
 
     party: str  # "customer" / "provider"
@@ -889,39 +904,79 @@ class ResponsibilityItem:
     source: str = ""
 
 
-_CUSTOMER_RESP_RE = __import__("re").compile(
-    r"\b(customer|client|"
-    r"OPTBOT|the (?:customer|client|company|organization))\s+"
-    r"(?:will|shall|to|must|is responsible for|provides?|supplies)\b",
-    __import__("re").IGNORECASE,
+_CUSTOMER_RESP_RE = re.compile(
+    r"(?:"
+    r"\b(customer|client|the (?:customer|client|company|organization))\s+"
+    r"(?:will|shall|to|must|is responsible for|provides?|supplies|ships?)\b"
+    r"|"
+    r"\bcustomer[- ](?:provided|owned|shipped|supplied)\b"
+    r"|"
+    r"\bowner-provided\b"
+    r"|"
+    r"^\s*provide\b"
+    r")",
+    re.IGNORECASE,
 )
-_PROVIDER_RESP_RE = __import__("re").compile(
-    r"\b(?:we|provider|vendor|contractor|the (?:provider|vendor|contractor))\s+"
-    r"(?:will|shall|to|provides?|supplies|are responsible for)\b",
-    __import__("re").IGNORECASE,
+_PROVIDER_RESP_RE = re.compile(
+    r"(?:"
+    r"\b(?:we|provider|vendor|contractor|purtera(?:-it)?|the (?:provider|vendor|contractor))\s+"
+    r"(?:will|shall|to|provides?|supplies|are responsible for|stages?|installs?|configures?)\b"
+    r"|"
+    r"\bprovider\s*\(\s*purtera\s*\)\b"
+    r"|"
+    r"\breceive\s*&\s*stage\b"
+    r"|"
+    r"\bhypercare\b"
+    r")",
+    re.IGNORECASE,
 )
 
 
 def build_responsibilities(report: dict[str, Any]) -> list[ResponsibilityItem]:
     out: list[ResponsibilityItem] = []
     seen: set[tuple[str, str]] = set()
+    allowed = {
+        "scope_item",
+        "customer_instruction",
+        "constraint",
+        "assumption",
+        "obligation",
+        "responsibility",
+    }
     for atom, filename in _iter_atoms_with_files(report):
         atype = atom.get("atom_type") or ""
-        if atype not in {"scope_item", "customer_instruction", "constraint", "assumption"}:
+        if atype not in allowed:
             continue
-        text = (atom.get("text") or "").strip()
-        if not text:
+        body = (atom.get("text") or "").strip()
+        if not body:
             continue
-        is_customer = _CUSTOMER_RESP_RE.search(text)
-        is_provider = _PROVIDER_RESP_RE.search(text)
+        structured = atom.get("structured") if isinstance(atom.get("structured"), dict) else {}
+        party_hint = str((structured or {}).get("party") or "").strip().lower()
+        is_customer = party_hint in {"customer", "client"} or bool(_CUSTOMER_RESP_RE.search(body))
+        is_provider = party_hint in {"provider", "purtera", "vendor"} or bool(
+            _PROVIDER_RESP_RE.search(body)
+        )
         if not (is_customer or is_provider):
             continue
-        party = "customer" if is_customer else "provider"
-        norm = (party, text[:160].lower())
+        if party_hint in {"customer", "client"}:
+            party = "customer"
+        elif party_hint in {"provider", "purtera", "vendor"}:
+            party = "provider"
+        elif is_customer and is_provider:
+            party = "customer" if re.match(r"^\s*provide\b", body, re.IGNORECASE) else "provider"
+        else:
+            party = "customer" if is_customer else "provider"
+        if re.match(
+            r"^\d+\.?\s*(customer|provider|purtera).{0,40}responsib",
+            body,
+            re.IGNORECASE,
+        ):
+            continue
+        norm = (party, body[:160].lower())
         if norm in seen:
             continue
         seen.add(norm)
-        out.append(ResponsibilityItem(party=party, text=text[:300], source=filename))
+        out.append(ResponsibilityItem(party=party, text=body[:300], source=filename))
     return out
 
 
@@ -1050,36 +1105,64 @@ def build_executive_summary(
     gaps: list[Any],
     sites: list[Any],
     domains: list[Any],
+    project_mode: str | None = None,
 ) -> ExecutiveSummary:
     """Compose the 3-line executive summary from PM-handoff fields."""
     top_money = next(
         (m.display for m in money_mentions if m.value >= 100_000),
         None,
     )
-    site_count = sum(1 for s in sites if getattr(s, "publishable", False))
-    blocker_count = sum(1 for g in gaps if getattr(g, "severity", "") == "blocker")
-    warning_count = sum(1 for g in gaps if getattr(g, "severity", "") == "warning")
+    def _pub(s: Any) -> bool:
+        if isinstance(s, Mapping):
+            return bool(s.get("publishable"))
+        return bool(getattr(s, "publishable", False))
+
+    def _sev(g: Any) -> str:
+        if isinstance(g, Mapping):
+            return str(g.get("severity") or "")
+        return str(getattr(g, "severity", "") or "")
+
+    site_count = sum(1 for s in sites if _pub(s))
+    blocker_count = sum(1 for g in gaps if _sev(g) == "blocker")
+    warning_count = sum(1 for g in gaps if _sev(g) == "warning")
     high_risks = sum(
         1
         for r in risks
         if (r.likelihood.lower(), r.impact.lower())
         in {("high", "high"), ("high", "medium"), ("medium", "high")}
     )
-    workstreams = [d.label for d in domains if getattr(d, "active_for_sow", False)]
+    # Prefer project-mode workstream when pack primary is coarser
+    # (e.g. network_edge_install vs network_maintenance pack).
+    mode = (project_mode or "").strip()
+    mode_overrides = {
+        "network_edge_install": "Network edge install",
+        "wireless_install": "Wireless install",
+        "cabling_install": "Structured cabling install",
+        "av_install": "AV install",
+        "access_control": "Access control",
+        "alm": "Application / lifecycle management",
+        "staff_aug": "Staff augmentation",
+    }
+    if mode in mode_overrides:
+        workstreams = [mode_overrides[mode]]
+    else:
+        workstreams = [d.label for d in domains if getattr(d, "active_for_sow", False)]
 
     deal_value = f" worth {top_money}" if top_money else ""
     site_phrase = f"{site_count} confirmed site(s)" if site_count else "no confirmed sites yet"
     workstream_phrase = (
         f" covering {', '.join(workstreams[:3])}" if workstreams else ""
     )
+    # case_id arg is the display label (never a bare UUID when available).
+    label = (case_id or "This engagement").strip() or "This engagement"
     headline = (
-        f"**{case_id}**: deal{deal_value} across {site_phrase}{workstream_phrase}."
+        f"**{label}**: deal{deal_value} across {site_phrase}{workstream_phrase}."
     )
 
     if status == "red":
         health = (
             f"Status is **RED**: {blocker_count} blocker(s) and "
-            f"{warning_count} warning(s) need PM resolution before SOW lock."
+            f"{warning_count} clarification(s) need PM resolution before SOW lock."
         )
         next_action = (
             "Resolve the blocker checklist below and confirm the customer "
@@ -1087,11 +1170,11 @@ def build_executive_summary(
         )
     elif status == "yellow":
         health = (
-            f"Status is **YELLOW**: {warning_count} warning(s) need PM review. "
+            f"Status is **YELLOW**: {warning_count} clarification(s) need PM review. "
             f"{high_risks} high-priority risk(s) tracked in the register."
         )
         next_action = (
-            "Walk the warnings checklist below, then proceed to SOW drafting "
+            "Walk the clarifications checklist below, then proceed to SOW drafting "
             "with the auto-generated SOW_DRAFT.md as the starting point."
         )
     else:
@@ -1445,6 +1528,166 @@ def parse_bom_allocations(report: dict[str, Any]) -> list[SiteAllocationLine]:
                     )
                 )
     return out
+
+_SITE_CODE_CELL_RE = re.compile(r"^[A-Z]{2,}(?:-[A-Z0-9]+){1,4}$")
+
+
+def _pipe_table_cells(text: str) -> list[str]:
+    """Split a markdown/pipe table row into cleaned cell strings."""
+    body = (text or "").strip()
+    if "|" not in body:
+        return []
+    cells = [c.strip().replace("**", "").strip() for c in body.strip("|").split("|")]
+    return [c for c in cells if c]
+
+
+def parse_site_allocation_matrix(report: dict[str, Any]) -> list[SiteAllocationLine]:
+    """Parse BOM ``Site_Allocation`` SKU×site quantity matrices.
+
+    Expected shape (header + data rows as separate atoms)::
+
+        | SKU / Model | ATL-HQ-01 | ATL-WEST-02 | … | Row Total |
+        | Z1E0001LL/A (M4 base) | 100 | 80 | … | **348** |
+
+    Emits one ``SiteAllocationLine`` per (site, SKU) with qty > 0.
+    """
+    atoms = _iter_atoms_with_files(report)
+    header_sites: list[str] | None = None
+    for atom, _filename in atoms:
+        cells = _pipe_table_cells(atom.get("text") or "")
+        if len(cells) < 4:
+            continue
+        sites = [c for c in cells[1:] if _SITE_CODE_CELL_RE.match(c)]
+        if len(sites) >= 2 and re.search(r"sku|model|device", cells[0], re.IGNORECASE):
+            header_sites = sites
+            break
+    if not header_sites:
+        return []
+
+    n = len(header_sites)
+    out: list[SiteAllocationLine] = []
+    seen: set[tuple[str, str, int]] = set()
+    for atom, filename in atoms:
+        cells = _pipe_table_cells(atom.get("text") or "")
+        if len(cells) < n + 1:
+            continue
+        device = cells[0].strip()
+        if not device or re.search(r"sku\s*/?\s*model|row\s*total", device, re.IGNORECASE):
+            continue
+        nums: list[int] = []
+        for raw in cells[1 : 1 + n]:
+            cleaned = raw.replace(",", "").replace("**", "").strip()
+            if not re.fullmatch(r"\d+", cleaned):
+                nums = []
+                break
+            nums.append(int(cleaned))
+        if len(nums) != n:
+            continue
+        for site, qty in zip(header_sites, nums, strict=True):
+            if qty <= 0 or qty > 50_000:
+                continue
+            key = (site.lower(), device.lower(), qty)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(
+                SiteAllocationLine(
+                    site=site,
+                    device=device,
+                    quantity=qty,
+                    unit_price=0,
+                    extended=0,
+                    source=filename,
+                )
+            )
+    return out
+
+
+def build_site_quantity_allocations(report: dict[str, Any]) -> list[SiteAllocationLine]:
+    """Derive site×device×qty rows from atoms with site + device entity keys.
+
+    Complements ``parse_bom_allocations`` / ``parse_site_allocation_matrix``
+    when BOM text lacks explicit allocation tables. ``unit_price`` /
+    ``extended`` are 0 (qty-only).
+
+    Rejects network-auth false positives like ``OPTBOT-SECURE 802.1x``.
+    """
+    qty_re = re.compile(
+        r"\b(\d{1,5})\s+units?\b|\b(?:qty|quantity)[:\s]*(\d{1,5})\b",
+        re.IGNORECASE,
+    )
+    # Do not treat "802.1x" / "802.11" as a site quantity.
+    site_qty_re = re.compile(
+        r"\b([A-Z][A-Z0-9\-]{2,24})\s+(\d{1,5})(?!\.[\dA-Za-z])\b"
+    )
+
+    def _humanize(slug: str) -> str:
+        s = (slug or "").replace("_", " ").replace("-", " ").strip()
+        return " ".join(w.upper() if w.lower() in {"hq", "ap", "ip"} else w.title() for w in s.split())
+
+    out: list[SiteAllocationLine] = []
+    seen: set[tuple[str, str, int, str]] = set()
+    for atom, filename in _iter_atoms_with_files(report):
+        body = atom.get("text") or ""
+        if not body:
+            continue
+        keys = [k for k in (atom.get("entity_keys") or ()) if isinstance(k, str)]
+        sites = [k.split(":", 1)[1] for k in keys if k.startswith("site:")]
+        devices = [
+            k.split(":", 1)[1]
+            for k in keys
+            if k.startswith("device:") or k.startswith("part:")
+        ]
+        if not devices or not sites:
+            continue
+        device = _humanize(devices[0])
+        qtys: list[tuple[str, int]] = []
+        for m in qty_re.finditer(body):
+            raw = m.group(1) or m.group(2)
+            if not raw:
+                continue
+            try:
+                qty = int(raw)
+            except ValueError:
+                continue
+            if qty <= 0 or qty > 50_000:
+                continue
+            for site in sites[:4]:
+                qtys.append((_humanize(site), qty))
+        for m in site_qty_re.finditer(body):
+            code, raw = m.group(1), m.group(2)
+            # Skip SSID / VLAN style tokens mistaken for site codes.
+            if re.search(r"secure|corp|guest|train|lab|vlan|ssid", code, re.IGNORECASE):
+                continue
+            try:
+                qty = int(raw)
+            except ValueError:
+                continue
+            if qty <= 0 or qty > 50_000:
+                continue
+            # IEEE 802.x leftovers if lookahead missed an edge case
+            if qty == 802 and re.search(r"802\.\d", body):
+                continue
+            qtys.append((code, qty))
+        for site, qty in qtys:
+            key = (site.lower(), device.lower(), qty, filename)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(
+                SiteAllocationLine(
+                    site=site,
+                    device=device,
+                    quantity=qty,
+                    unit_price=0,
+                    extended=0,
+                    source=filename,
+                )
+            )
+    return out
+
+
+
 
 
 # ────────────────────────────── B6 per-site rollup ──────────────────────────────
