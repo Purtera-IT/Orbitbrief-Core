@@ -185,7 +185,10 @@ _FLAVOR_STOP_RE = re.compile(
     r"through|philosophy|determine|correct|solink|address|rqstd|park|place|"
     r"tech|meter|ops|team|deal|kit|excluding|expenses|materials|lift|travel|"
     r"removed|gross|margin|enterprise|segment|direct|channel|division|region|"
-    r"fixed|opportunity|site|count|type|tbd|end|user|sales|rep"
+    r"fixed|opportunity|site|count|type|tbd|end|user|sales|rep|"
+    # Form / SOW section chrome that shows up as "Customer: PROVIDED EQUIPMENT DATA"
+    r"provided|equipment|data|assumption|assumptions|proposal|services|"
+    r"scope|work|total|fees|expenses|inventory|quantity|zone|including"
     r")\b"
 )
 
@@ -193,7 +196,8 @@ _FLAVOR_STOP_RE = re.compile(
 _BRAND_FLAVOR_RE = re.compile(
     r"(?i)\b("
     r"Tilly'?s|Dollar\s+Tree|GRUBBRR|Grubbrr|Serviot|Park\s+Place(?:\s+Tech)?|"
-    r"Iron\s+Mountain|Meter(?:\s+Inc)?|Choate|Olin"
+    r"Iron\s+Mountain|Meter(?:\s+Inc)?|Choate|Olin|"
+    r"CDW|DCW|Connections|Mbrany|Neat(?:\s+Bar)?|Sonance|Verkada"
     r")\b"
 )
 
@@ -203,6 +207,10 @@ def _clean_flavor_token(name: str) -> str | None:
     if not (3 <= len(name) <= 28):
         return None
     if _FLAVOR_STOP_RE.search(name):
+        return None
+    # ALL-CAPS multi-word form labels are never a real account brand.
+    letters = [c for c in name if c.isalpha()]
+    if len(name.split()) >= 2 and letters and sum(1 for c in letters if c.isupper()) >= 0.85 * len(letters):
         return None
     # Reject mostly-lowercase slurred prose.
     caps = sum(1 for w in name.split() if w[:1].isupper())
@@ -354,11 +362,51 @@ def is_unflavored_coverage(ask: str) -> bool:
     return True
 
 
+_SOFT_CONFIRM_RE = re.compile(
+    r"(?i)^confirm (?!.*\b(?:vs\.?|or\b|which|who|what|when|where|how|"
+    r"defer|keep|remove|furnish|include|exclude|ladder|hours|fee|scope|"
+    r"deposit|milestone|net-|any |still |remains?|required|gate)\b).{30,}"
+)
+
+
+def sharpen_soft_confirm(ask: str) -> str:
+    """Turn soft Confirm stems into real PM decisions (choice / who / which)."""
+    q = (ask or "").strip()
+    if not q or not _SOFT_CONFIRM_RE.search(q):
+        return q
+    base = q.rstrip("?").rstrip()
+    pin = ""
+    if " — " in base:
+        base, pin = base.rsplit(" — ", 1)
+        pin = f" — {pin}"
+    # Topic-specific forks — prefer who/which over generic accept/revise.
+    if re.search(r"(?i)site access|badging|escort", base):
+        return (
+            f"{base} — customer confirms as stated, or send revised requirements{pin}?"
+        )
+    if re.search(r"(?i)authoritative AP|AP OEM|model list", base):
+        return f"Which AP OEM/model list is authoritative for this quote wave{pin}?"
+    if re.search(r"(?i)rack space", base):
+        return f"{base} — available now, or defer install until ready{pin}?"
+    if re.search(r"(?i)\bcoi\b|union[\-\s]?labor", base):
+        return (
+            f"{base} — who issues COI, and is a sample required before access{pin}?"
+        )
+    if re.search(r"(?i)parking", base):
+        return f"{base} — free onsite, customer-reimbursed fees, or none{pin}?"
+    if re.search(r"(?i)documentation|photos|completion report", base):
+        return f"{base} — in fixed fee, or bill T&M / change-order{pin}?"
+    if re.search(r"(?i)floor plan|AP map", base):
+        return f"Who provides authoritative floor plans / AP maps before mobilize{pin}?"
+    return f"{base} — accept as written, revise, or defer{pin}?"
+
+
 def normalize_pm_ask(ask: str, *, max_len: int = 190) -> str:
     """Keep first decision only; clamp length so quality gates stay green."""
     q = re.sub(r"\s+", " ", (ask or "").strip())
     if not q:
         return q
+    q = sharpen_soft_confirm(q)
     if "?" in q:
         q = q.split("?", 1)[0].strip() + "?"
     if len(q) > max_len:
@@ -424,7 +472,10 @@ def inject_site_anchor(
             r"existing tvs?/displays stay|"
             r"predictive\s*/\s*heatmap\s+survey|"
             r"staff-aug scope:\s*install-only|"
-            r"project coordination\s*/\s*pm hours)",
+            r"project coordination\s*/\s*pm hours|"
+            # Scope-lock stems — must pin or they clone across deals verbatim.
+            r"remain in fixed fee|lock scope for|quote wave includes|"
+            r"who owns delivery of)",
             ask,
         )
     )
@@ -843,9 +894,11 @@ def rewrite_scope(
                 and 18 <= len(anchor) <= 52
                 and not is_chrome_or_boilerplate(anchor)
                 and not re.search(
-                    r"(?i)^\s*(?:note|col_0|day\s*\(|this form|i\s|we\s|you\s|they\s)\b|"
+                    r"(?i)^\s*(?:note|col_0|day\s*\(|this form|i\s|we\s|you\s|they\s|"
+                    r"client\s+name|customer\s+name|site\s+name)\b|"
                     r"wanted to|hope you|for you to\s*$|thank you|regards|"
-                    r"whiteboarding|forecasting|partnership discussions",
+                    r"whiteboarding|forecasting|partnership discussions|"
+                    r"does the site require",
                     anchor,
                 )
             ):

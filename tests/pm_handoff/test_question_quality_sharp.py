@@ -239,3 +239,39 @@ def test_mode_templates_keep_distinct_families_and_pins():
     )
     assert "Mbrany" in pinned or "Highland Park" in pinned
     assert not is_unflavored_coverage(pinned)
+
+
+def test_rejects_form_label_flavor_and_sharpens_soft_confirm():
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import (
+        extract_deal_flavor,
+        inject_site_anchor,
+        normalize_pm_ask,
+    )
+
+    # SOW form chrome must never become the deal flavor pin.
+    assert (
+        extract_deal_flavor(
+            "Customer: PROVIDED EQUIPMENT DATA\nS1 1A | 114B\nMeraki MR46 APs"
+        )
+        == "Meraki MR46"
+    )
+    assert extract_deal_flavor("Customer: PROVIDED EQUIPMENT DATA\nno oem here") is None
+
+    soft = "Confirm COI / union-labor requirements per site before scheduling haul-out."
+    sharp = normalize_pm_ask(soft)
+    assert "who" in sharp.lower() or "or" in sharp.lower()
+    assert sharp.endswith("?")
+    assert "yes as written" not in sharp.lower()
+
+    access = (
+        "Confirm site access, escort, and badging requirements for Somerset NJ "
+        "— Meraki MR46?"
+    )
+    access_s = normalize_pm_ask(access)
+    assert "or" in access_s.lower()
+    assert "Meraki" in access_s
+    assert "yes as written" not in access_s.lower()
+
+    lock = 'Does "Customer to provide a point of contact for the" remain in fixed fee, or move to T&M / change-order?'
+    pinned = inject_site_anchor(lock, ["Tampa FL"], blob="customer: Verkada\ncamera install")
+    assert "Verkada" in pinned or "Tampa" in pinned
