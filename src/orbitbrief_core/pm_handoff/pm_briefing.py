@@ -383,7 +383,20 @@ def build_pm_briefing_overview_deterministic(pack: dict[str, Any]) -> str:
         or (mode.replace("_", " ") if mode else None)
         or "scoped field work"
     )
+    # Prefer substance from narrative atoms over a mis-routed project_mode label.
+    try:
+        from orbitbrief_core.pm_handoff.question_genre_gates import FIELD_SENSOR_INSTALL_RE
 
+        narr_blob = " ".join(
+            str(a.get("text") or "") for a in (pack.get("narrative_atoms") or [])[:16]
+        )
+        if FIELD_SENSOR_INSTALL_RE.search(narr_blob) and (
+            mode in {"", "av_install", "generic"}
+            or "av install" in work.lower()
+        ):
+            work = "Field tank / telemetry install"
+    except Exception:
+        pass
     p1_bits = [
         f"Engagement covers {work} across {site_phrase}.",
     ]
@@ -475,6 +488,12 @@ def build_pm_briefing_overview_deterministic(pack: dict[str, Any]) -> str:
                     continue
                 snippet = str(a.get("text") or "").strip()
                 if not snippet:
+                    continue
+                # Never surface OEM manual PN dumps in the brief.
+                if re.search(
+                    r"(?i)user\s+guide|part\s+number\s+d[pw]a|mains\s+power\s+supply\s*\(with\s+heater\)",
+                    snippet,
+                ):
                     continue
                 # Skip chrome that slipped into the pack.
                 if facet == "stakeholders" and re.match(
@@ -627,8 +646,8 @@ def build_pm_briefing_overview_deterministic(pack: dict[str, Any]) -> str:
         )
     else:
         control_bits.append(
-            "Site-list authority, access / keep-remove treatment, and commercial "
-            "shape still lack written customer confirmation in the kit."
+            "Site-list authority, access treatment, and commercial shape still "
+            "lack written customer confirmation in the kit."
         )
     p3 = "PM control: " + " ".join(control_bits)
 

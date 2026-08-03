@@ -208,6 +208,15 @@ def validate_question_card(card: GapCard | Mapping[str, Any]) -> list[QualityVio
         out.append(QualityViolation(rid, "email_chrome", text[:120]))
     if _BOILERPLATE_RE.search(text):
         out.append(QualityViolation(rid, "boilerplate", text[:120]))
+    # Evidence genre: helpdesk / OEM manuals must not ground blockers.
+    try:
+        from orbitbrief_core.pm_handoff.question_genre_gates import should_drop_question_card
+
+        drop = should_drop_question_card(card)
+        if drop:
+            out.append(QualityViolation(rid, "wrong_genre_evidence", drop))
+    except Exception:
+        pass
     if _WRAP_RE.search(text):
         out.append(QualityViolation(rid, "confirm_paste", text[:120]))
     if _META_RE.search(text):

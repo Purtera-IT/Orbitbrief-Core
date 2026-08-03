@@ -207,6 +207,17 @@ _CONFIG_ONLY_RE = re.compile(
     re.I,
 )
 
+# Dense field / industrial sensor install — beats weak AV from OEM manuals.
+_FIELD_SENSOR_INSTALL_RE = re.compile(
+    r"\b(?:"
+    r"tank\s+monitor|tank\s+install|tank\s+survey|telemetry|"
+    r"\brtu\b|anova|bulk\s+tank|mini[\-\s]?bulk|"
+    r"level\s+sensor|chemical\s+tank|sensor\s+install|"
+    r"dpw\d+|dpa\d+|dw900|dpw900"
+    r")\b",
+    re.I,
+)
+
 
 @dataclass
 class QuestionCandidate:
@@ -890,13 +901,17 @@ def detect_project_mode(
     text_s = text or ""
     av_strong_n = len(_AV_STRONG_RE.findall(text_s))
     decom_n = len(_DECOM_RE.findall(text_s))
+    field_n = len(_FIELD_SENSOR_INSTALL_RE.findall(text_s))
     # Pack-out / Iron Mountain logistics must not inherit AV mode from stray TV mentions.
     if decom_n >= 3 and decom_n >= max(3, av_strong_n):
         return MODE_DECOM
 
     # Dense conference-room AV evidence wins before incidental SD-WAN / WiFi
     # routing overrides (marketing WiFi must not flip a Neat/Yealink pack).
-    if av_strong_n >= 3 or (primary == "audio_visual" and av_strong_n >= 1):
+    # Dense field-sensor installs must not inherit AV from OEM manual chrome.
+    if field_n >= 4 and field_n > av_strong_n * 2 and primary != "audio_visual":
+        pass  # fall through — do not take early MODE_AV
+    elif av_strong_n >= 3 or (primary == "audio_visual" and av_strong_n >= 1):
         return MODE_AV
 
     if (
@@ -916,8 +931,13 @@ def detect_project_mode(
     wireless_weak = bool(_WIRELESS_WEAK_RE.search(text_s))
 
     # Conference-room / UC-AV evidence wins over a single marketing "WiFi".
-    if primary == "audio_visual" or av_strong_n >= 2 or (
-        _AV_RE.search(text_s) and av_strong_n >= 1 and not wireless_strong
+    if primary == "audio_visual" or (
+        av_strong_n >= 2 and field_n < 4
+    ) or (
+        _AV_RE.search(text_s)
+        and av_strong_n >= 1
+        and not wireless_strong
+        and field_n < 4
     ):
         return MODE_AV
 
@@ -927,6 +947,10 @@ def detect_project_mode(
         if _CONFIG_ONLY_RE.search(text_s):
             return MODE_WIRELESS_CONFIG
         return MODE_WIRELESS_INSTALL
+
+    # Field-sensor installs beat incidental "cable/sensor cable" cabling hits.
+    if field_n >= 4 and field_n > max(1, av_strong_n):
+        return MODE_GENERIC
 
     if primary in {"low_voltage_cabling", "cabling"} or _CABLING_RE.search(text_s):
         return MODE_CABLING
@@ -942,8 +966,9 @@ def detect_project_mode(
         # Remote-hands on network install already returned above.
         return MODE_STAFF_AUG
 
-    # Weak AV lexicon (e.g. stray "projector") must not beat decommission logistics.
-    if _AV_RE.search(text_s) and decom_n < 2:
+    # Weak AV lexicon (e.g. stray "projector") must not beat decommission logistics
+    # or dense field-sensor installs.
+    if _AV_RE.search(text_s) and decom_n < 2 and field_n < 3 and av_strong_n >= 1:
         return MODE_AV
 
     assess_hits = len(_ASSESSMENT_RE.findall(text_s))
@@ -2225,8 +2250,13 @@ _MODE_TEMPLATES: dict[str, tuple[_ModeTemplate, ...]] = {
                 "stay + remove/keeper language in source."
             ),
             trigger=re.compile(
-                r"\b(?:stay\s+in\s+place|tvs?\s+to\s+stay|remain\s+in\s+(?:their\s+)?(?:current\s+)?position|"
-                r"will\s+be\s+removed|except\s+for|hdmi\s+replicator|hdmi\s+over\s+ethernet)\b",
+                r"\b(?:"
+                r"(?:tvs?|displays?|codecs?|soundbars?|room\s+bars?)"
+                r".{0,40}(?:stay\s+in\s+place|remain\s+in\s+(?:their\s+)?(?:current\s+)?position|will\s+be\s+removed|reuse)|"
+                r"(?:stay\s+in\s+place|tvs?\s+to\s+stay|remain\s+in\s+(?:their\s+)?(?:current\s+)?position)"
+                r".{0,40}(?:tvs?|displays?|codecs?|soundbars?)|"
+                r"hdmi\s+replicator|hdmi\s+over\s+ethernet"
+                r")\b",
                 re.I,
             ),
             answered_by=re.compile(
@@ -2881,6 +2911,22 @@ def _candidates_from_mode_templates(
         # gates still see evidence (trigger already matched the deal blob).
         if not grounded.evidence_sources:
             snip = (blob or "")[:180].strip()
+            # Soft blob cite must still match the template genre (never SOW
+            # change-order chrome for AV keep/remove).
+            from orbitbrief_core.pm_handoff.question_genre_gates import (
+                AV_GENRE_RE,
+                evidence_is_change_order_boilerplate,
+            )
+
+            if (
+                project_mode == MODE_AV
+                and tmpl.rule_id.startswith("mode.av_install.")
+                and (
+                    evidence_is_change_order_boilerplate(snip)
+                    or not AV_GENRE_RE.search(snip)
+                )
+            ):
+                continue
             if len(snip) >= 24:
                 grounded = QuestionCandidate(
                     rule_id=grounded.rule_id,
@@ -3490,6 +3536,47 @@ def build_customer_questions(
             grounded_all.append(g)
     candidates = grounded_all
 
+    # Universal genre gates — drop AV-on-field-sensor, helpdesk, user-manual PNs.
+    from orbitbrief_core.pm_handoff.question_genre_gates import (
+        detect_lift_access_conflicts,
+        should_drop_question_card,
+    )
+
+    pre_genre = len(candidates)
+    candidates = [
+        c
+        for c in candidates
+        if not should_drop_question_card(
+            {
+                "rule_id": c.rule_id,
+                "label": c.label,
+                "message": c.message,
+                "suggested_open_question": c.suggested_open_question,
+                "observed_summary": c.observed_summary,
+                "sources": c.evidence_sources,
+            },
+            project_mode=project_mode,
+            deal_blob=blob,
+        )
+    ]
+    # Inject assumption↔instruction contradictions (lift / access equipment).
+    for row in detect_lift_access_conflicts(atoms):
+        candidates.append(
+            QuestionCandidate(
+                rule_id=str(row["rule_id"]),
+                domain_id=str(row.get("domain_id") or "operations"),
+                label=str(row.get("label") or "Conflict"),
+                severity=str(row.get("severity") or "blocker"),
+                message=str(row.get("message") or ""),
+                suggested_open_question=str(row.get("suggested_open_question") or ""),
+                observed_summary=str(row.get("observed_summary") or ""),
+                source="conflict",
+                score=0.96,
+                evidence_sources=list(row.get("sources") or []),
+                project_mode=project_mode,
+            )
+        )
+
     pool_limit = max(int(cap), int(pool_cap))
     ranked, dedupe_meta = rank_and_cap(candidates, cap=pool_limit, evidence_blob=blob)
     pre_filter = len(ranked)
@@ -3509,6 +3596,7 @@ def build_customer_questions(
         if c.evidence_sources or c.source == "pm_gold"
     ]
     after_cite = len(ranked)
+    _ = pre_genre  # kept for future telemetry hooks
     # If filters ate the pool, top-up from grounded candidates that still pass
     # quality gates (dedupe already ran — prefer unused rule_ids).
     if len(ranked) < int(pool_cap):
