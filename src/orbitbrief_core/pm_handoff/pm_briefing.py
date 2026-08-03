@@ -103,6 +103,39 @@ def _gap_detail(g: Any) -> str:
     ).strip()
 
 
+def _gap_source_snippets(g: Any) -> list[str]:
+    """Full evidence quotes from gap sources (preferred over truncated observed_summary)."""
+    raw = []
+    if isinstance(g, Mapping):
+        raw = list(g.get("sources") or [])
+    else:
+        raw = list(getattr(g, "sources", None) or [])
+    out: list[str] = []
+    for src in raw:
+        if isinstance(src, Mapping):
+            snip = str(src.get("snippet") or src.get("text") or "").strip()
+        else:
+            snip = str(getattr(src, "snippet", None) or getattr(src, "text", None) or "").strip()
+        if len(snip) >= 18:
+            out.append(snip)
+    return out
+
+
+def _gap_best_quote(g: Any) -> str:
+    """Prefer complete source snippets; fall back to cleaned observed_summary."""
+    snips = _gap_source_snippets(g)
+    if snips:
+        # Longest complete snippet wins (observed_summary is often mid-word truncated).
+        return max(snips, key=len)
+    return _extract_evidence_quote(_gap_observed_raw(g))
+
+
+def _gap_observed_raw(g: Any) -> str:
+    if isinstance(g, Mapping):
+        return str(g.get("observed_summary") or "").strip()
+    return str(getattr(g, "observed_summary", None) or "").strip()
+
+
 def _extract_evidence_quote(observed: str) -> str:
     """Pull the actionable quote from observed_summary chrome."""
     t = (observed or "").strip()
@@ -125,14 +158,20 @@ def _extract_evidence_quote(observed: str) -> str:
     # Drop leading section path "DELIVERABLES / … —"
     t = re.sub(r"^[^—]{0,90}—\s*", "", t)
     t = re.sub(r"\s+", " ", t).strip(" \"'")
-    if len(t) > 210:
-        t = t[:207].rstrip() + "..."
-    # Reject useless chrome
+    # Soft truncate at a word boundary — never mid-token.
+    if len(t) > 280:
+        cut = t[:280]
+        if " " in cut:
+            cut = cut.rsplit(" ", 1)[0]
+        t = cut.rstrip(" ,;:.-") + "..."
     if len(t) < 18:
         return ""
     if re.search(r"(?i)^olin\s+corpora|purtera will provide field services to support anova", t):
         return ""
     if re.search(r"(?i)no change or modification to this sow shall be effective", t):
+        return ""
+    # Reject obvious mid-word truncation from upstream (ends with 1–2 letter stub).
+    if re.search(r"\s[a-z]{1,2}$", t) and not t.endswith("."):
         return ""
     return t
 
@@ -142,7 +181,9 @@ def _failure_sentence_from_blocker(row: Mapping[str, Any]) -> str:
     detail = str(row.get("detail") or "").strip()
     label = str(row.get("label") or "").strip()
     ask = str(row.get("ask") or "").strip()
-    quote = _extract_evidence_quote(str(row.get("observed") or ""))
+    quote = str(row.get("quote") or "").strip() or _extract_evidence_quote(
+        str(row.get("observed") or "")
+    )
 
     blob = " ".join([detail, quote, ask, label])
     if re.search(r"(?i)SAP\s*S4|Shipment and Delivery numbers", blob):
@@ -272,14 +313,8 @@ def evidence_pack_for_briefing(
                 "label": _gap_label(g),
                 "ask": _gap_q(g),
                 "detail": _gap_detail(g),
-                "observed": (
-                    str(
-                        g.get("observed_summary")
-                        if isinstance(g, Mapping)
-                        else getattr(g, "observed_summary", "")
-                        or ""
-                    ).strip()
-                ),
+                "quote": _gap_best_quote(g),
+                "observed": _gap_observed_raw(g),
             }
             for g in blockers[:8]
         ],
@@ -288,6 +323,7 @@ def evidence_pack_for_briefing(
                 "label": _gap_label(g),
                 "ask": _gap_q(g),
                 "detail": _gap_detail(g),
+                "quote": _gap_best_quote(g),
             }
             for g in warnings[:4]
         ],
@@ -534,9 +570,12 @@ def build_pm_briefing_overview_deterministic(pack: dict[str, Any]) -> str:
                 continue
             key = lab.lower()
             if key in seen_lab and key in {"customer instruction", "constraint"}:
-                quote = _extract_evidence_quote(str(b.get("observed") or ""))
+                quote = str(b.get("quote") or "").strip() or _extract_evidence_quote(
+                    str(b.get("observed") or "")
+                )
                 if quote:
-                    lab = quote[:48].rstrip() + ("…" if len(quote) > 48 else "")
+                    # Soft word-boundary label, not mid-token chop.
+                    lab = quote if len(quote) <= 52 else quote[:52].rsplit(" ", 1)[0] + "…"
                     key = lab.lower()
             if key in seen_lab:
                 continue
