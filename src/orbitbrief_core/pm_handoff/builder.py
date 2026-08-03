@@ -505,6 +505,89 @@ def _build_source_files(report: dict[str, Any]) -> tuple[list[SourceFileSummary]
     return files, by_id
 
 
+def _slugify_site_name(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", (name or "").lower()).strip("_")
+
+
+def _site_key_tokens(slug: str) -> set[str]:
+    stop = {
+        "office",
+        "ne",
+        "nw",
+        "se",
+        "sw",
+        "n",
+        "s",
+        "e",
+        "w",
+        "building",
+        "site",
+        "facility",
+        "plant",
+        "campus",
+        "hq",
+        "location",
+    }
+    return {
+        t
+        for t in (slug or "").split("_")
+        if t and t not in stop and not t.isdigit() and len(t) >= 4
+    }
+
+
+def _slugs_compatible(a: str, b: str) -> bool:
+    """True when display-name slug and physical entity slug describe the same place.
+
+    ``Ne. Decatur Office`` → ``ne_decatur_office`` must match
+    ``ne_decatur_al_35601`` even though the strings are not equal.
+    """
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    if a in b or b in a:
+        return True
+    return bool(_site_key_tokens(a) & _site_key_tokens(b))
+
+
+def _cluster_site_key_candidates(name: str, cluster: dict[str, Any], st: dict[str, Any]) -> set[str]:
+    out: set[str] = set()
+    slug = _slugify_site_name(name)
+    if slug:
+        out.add(slug)
+    for raw in (
+        list(cluster.get("site_keys") or [])
+        + list(st.get("site_keys") or [])
+        + list(cluster.get("member_site_keys") or [])
+        + list(st.get("member_site_keys") or [])
+    ):
+        key = str(raw or "").strip()
+        if key.startswith("site:"):
+            key = key.split(":", 1)[1]
+        key = _slugify_site_name(key.replace("site:", ""))
+        if key:
+            out.add(key)
+    return out
+
+
+def _cluster_matches_physical(
+    name: str,
+    cluster: dict[str, Any],
+    st: dict[str, Any],
+    physical_slugs: set[str],
+) -> bool:
+    if not physical_slugs:
+        return True
+    candidates = _cluster_site_key_candidates(name, cluster, st)
+    if candidates & physical_slugs:
+        return True
+    for c in candidates:
+        for p in physical_slugs:
+            if _slugs_compatible(c, p):
+                return True
+    return False
+
+
 def _build_site_summaries(report: dict[str, Any], case_dir: Path | None = None) -> list[SiteSummary]:
     md_overrides = _read_site_reality_md(case_dir)
     # The inspection report omits ``kind`` / ``publishable`` from its
@@ -553,8 +636,7 @@ def _build_site_summaries(report: dict[str, Any], case_dir: Path | None = None) 
         looks_device_shaped = last_tok in device_acronym_suffixes
         if (member_count <= 2 and artifact_count <= 2) or looks_device_shaped:
             continue
-        cluster_slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
-        if not physical_slugs or cluster_slug not in physical_slugs:
+        if not _cluster_matches_physical(name, cluster if isinstance(cluster, dict) else {}, st, physical_slugs):
             continue
         out.append(
             SiteSummary(
@@ -570,8 +652,16 @@ def _build_site_summaries(report: dict[str, Any], case_dir: Path | None = None) 
                 artifact_count=artifact_count,
             )
         )
-    if not out:
-        out.extend(_site_summaries_from_physical_atoms(report))
+    # Always merge structured physical_site atoms that cluster matching missed
+    # (display-name slug ≠ entity site key is a common miss).
+    existing_slugs = {_slugify_site_name(s.name) for s in out}
+    for extra in _site_summaries_from_physical_atoms(report):
+        slug = _slugify_site_name(extra.name)
+        if any(_slugs_compatible(slug, e) for e in existing_slugs):
+            continue
+        # Prefer the atom's entity key when the display name is generic.
+        out.append(extra)
+        existing_slugs.add(slug)
     if not out and case_dir is not None:
         envelope = (
             _read_json(case_dir / "00_envelope.json")

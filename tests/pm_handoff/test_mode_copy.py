@@ -80,3 +80,36 @@ def test_exec_headline_uses_edge_install():
     )
     assert "Network edge install" in es.headline
     assert "maintenance" not in es.headline.lower()
+    assert "Avon" in es.headline
+    assert es.overview == "x"
+
+
+def test_exec_overview_skips_duplicate_of_headline():
+    sites = [SiteSummary(name="Avon", kind="physical_site", publishable=True)]
+    domains = [
+        DomainSummary(
+            domain_id="av",
+            label="AV install",
+            selected_by_router=True,
+            active_for_sow=True,
+            blockers=0,
+            warnings=0,
+            info=0,
+            pack_name="AV",
+            score=0.5,
+        )
+    ]
+    es = build_executive_summary(
+        case_id="deal-1",
+        status="green",
+        status_label="ok",
+        one_line_summary="**deal-1**: deal across 1 confirmed site(s) (Avon) covering AV install.",
+        money_mentions=[],
+        risks=[],
+        gaps=[],
+        sites=sites,
+        domains=domains,
+        project_mode="av_install",
+    )
+    # When one_line equals the template headline, overview stays empty.
+    assert not es.overview or es.overview != es.headline

@@ -1092,6 +1092,13 @@ class ExecutiveSummary:
     headline: str
     health_line: str
     next_action: str
+    overview: str = ""
+
+
+def _site_display_name(s: Any) -> str:
+    if isinstance(s, Mapping):
+        return str(s.get("name") or "").strip()
+    return str(getattr(s, "name", "") or "").strip()
 
 
 def build_executive_summary(
@@ -1107,7 +1114,13 @@ def build_executive_summary(
     domains: list[Any],
     project_mode: str | None = None,
 ) -> ExecutiveSummary:
-    """Compose the 3-line executive summary from PM-handoff fields."""
+    """Compose the executive summary from PM-handoff fields.
+
+    ``headline`` is the 1-line situational stamp. ``overview`` is the short
+    deal narrative (what this engagement is) — prefers a non-empty
+    ``one_line_summary`` so the UI is not stuck with only the template
+    ``deal across N confirmed site(s)`` line.
+    """
     top_money = next(
         (m.display for m in money_mentions if m.value >= 100_000),
         None,
@@ -1123,6 +1136,7 @@ def build_executive_summary(
         return str(getattr(g, "severity", "") or "")
 
     site_count = sum(1 for s in sites if _pub(s))
+    site_names = [_site_display_name(s) for s in sites if _pub(s) and _site_display_name(s)]
     blocker_count = sum(1 for g in gaps if _sev(g) == "blocker")
     warning_count = sum(1 for g in gaps if _sev(g) == "warning")
     high_risks = sum(
@@ -1149,7 +1163,14 @@ def build_executive_summary(
         workstreams = [d.label for d in domains if getattr(d, "active_for_sow", False)]
 
     deal_value = f" worth {top_money}" if top_money else ""
-    site_phrase = f"{site_count} confirmed site(s)" if site_count else "no confirmed sites yet"
+    if site_names:
+        named = ", ".join(site_names[:3])
+        extra = f" +{site_count - 3} more" if site_count > 3 else ""
+        site_phrase = f"{site_count} confirmed site(s) ({named}{extra})"
+    elif site_count:
+        site_phrase = f"{site_count} confirmed site(s)"
+    else:
+        site_phrase = "no confirmed sites yet"
     workstream_phrase = (
         f" covering {', '.join(workstreams[:3])}" if workstreams else ""
     )
@@ -1158,6 +1179,11 @@ def build_executive_summary(
     headline = (
         f"**{label}**: deal{deal_value} across {site_phrase}{workstream_phrase}."
     )
+
+    overview = (one_line_summary or "").strip()
+    # Don't duplicate the template headline as the narrative body.
+    if overview and overview.replace("*", "").strip() == headline.replace("*", "").strip():
+        overview = ""
 
     if status == "red":
         health = (
@@ -1191,6 +1217,7 @@ def build_executive_summary(
         headline=headline,
         health_line=health,
         next_action=next_action,
+        overview=overview,
     )
 
 
