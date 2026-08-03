@@ -201,6 +201,10 @@ class PMHandoff:
     # no LLM client was supplied. Populated by ``polish_pm_handoff``
     # via a ``replace(handoff, polish_stage=...)`` step.
     polish_stage: dict[str, Any] | None = None
+    # No-loss RAG pack for executive overview — facet-seeded atoms from
+    # the full envelope (not truncated lineage). Polish must reuse this
+    # list so overview regeneration cannot drop commercial/access/BOM.
+    briefing_evidence: list[dict[str, Any]] = field(default_factory=list)
 
     # ── v46 envelope-enrichment fields (Track A passthroughs) ────────
     # parser-os emits a much richer envelope than the historical

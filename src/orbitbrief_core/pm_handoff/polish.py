@@ -978,6 +978,7 @@ def polish_pm_handoff(
                 exclusions=list(handoff.exclusions or []),
                 domains=list(handoff.domains or []),
                 project_mode=project_mode,
+                narrative_atoms=list(getattr(handoff, "briefing_evidence", None) or []),
                 chat_client=chat_client,
                 model=model,
             )

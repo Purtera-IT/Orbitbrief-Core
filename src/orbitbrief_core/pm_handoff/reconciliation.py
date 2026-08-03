@@ -1116,6 +1116,7 @@ def build_executive_summary(
     responsibilities: list[Any] | None = None,
     exclusions: list[Any] | None = None,
     fact_snippets: list[str] | None = None,
+    narrative_atoms: list[Any] | None = None,
 ) -> ExecutiveSummary:
     """Compose short headline stamp + grounded multi-paragraph PM overview."""
     from orbitbrief_core.pm_handoff.pm_briefing import build_pm_briefing_overview
@@ -1189,6 +1190,7 @@ def build_executive_summary(
         domains=domains,
         project_mode=project_mode,
         fact_snippets=fact_snippets,
+        narrative_atoms=narrative_atoms,
     )
     if not overview.strip():
         overview = (one_line_summary or "").strip()

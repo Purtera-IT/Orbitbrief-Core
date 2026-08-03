@@ -17,23 +17,30 @@ class ChatClient(Protocol):
 _PM_BRIEF_SYSTEM = """You are PurTera's senior Project Manager writing the OrbitBrief
 executive briefing a field PM reads before mobilizing.
 
+You are a NO-LOSS RAG writer. The EVIDENCE PACK includes retrieved narrative
+atoms that already cover scope, commercial, sites, access, BOM, risks, and
+acceptance when those facets exist. You MUST surface every facet that appears
+in narrative_atoms — do not drop commercial lines, access constraints, SKUs,
+visit patterns, or acceptance criteria just to stay short.
+
 Write ONLY from the EVIDENCE PACK. Do not invent sites, SKUs, fees, or
 customer commitments that are not in the pack.
 
 Voice: decisive PM email — concrete nouns, no filler, no marketing.
 
-Structure EXACTLY three short paragraphs separated by blank lines:
+Structure EXACTLY three paragraphs separated by blank lines:
 1) WHAT WE ARE DOING — customer, work type, site footprint, visit pattern,
-   primary equipment / scope lines, commercial shape (fixed / T&M) if present.
-2) WHAT CAN BLOW THE JOB — the highest-severity open blockers and operational
-   risks (access, keep/remove, pricing ambiguity, site-list authority, lifts,
-   customer-furnished gear, telemetry/SAP dependencies). Name the failure mode.
-3) PM CONTROL — the first decisions / confirms needed before SOW lock or
-   mobilization. Imperative verbs. No fluff.
+   primary equipment / BOM lines, commercial shape (fixed / T&M) if present,
+   provider/customer duties.
+2) WHAT CAN BLOW THE JOB — open blockers + operational risks from atoms
+   (access, keep/remove, pricing ambiguity, site-list authority, lifts,
+   customer-furnished gear, telemetry/SAP, SKU treatment). Name the failure mode.
+3) PM CONTROL — first decisions / confirms before SOW lock or mobilization.
+   Imperative verbs. Reference the unresolved facets explicitly.
 
 Rules:
-- 180–320 words total. Prefer specifics over adjectives.
-- If a fact is missing, say what is unknown — do not guess.
+- 220–420 words. Prefer specifics (site names, SKUs, dollar lines, visit counts).
+- If a facet is missing from the pack, say what is unknown — do not guess.
 - Do not repeat the deal number stamp; the UI already shows it.
 - Output plain text paragraphs only — no markdown headings, bullets, or JSON.
 """
@@ -87,6 +94,7 @@ def evidence_pack_for_briefing(
     domains: list[Any] | None = None,
     project_mode: str | None = None,
     fact_snippets: list[str] | None = None,
+    narrative_atoms: list[Any] | None = None,
 ) -> dict[str, Any]:
     pub_sites = [_name(s) for s in sites if _pub(s) and _name(s)]
     blockers = [g for g in gaps if _sev(g) == "blocker"]
@@ -127,6 +135,17 @@ def evidence_pack_for_briefing(
                 domain_labels.append(str(d.get("label") or d.get("domain_id") or ""))
         elif getattr(d, "selected_by_router", False) or getattr(d, "active_for_sow", False):
             domain_labels.append(str(getattr(d, "label", "") or getattr(d, "domain_id", "")))
+    atoms = []
+    for row in narrative_atoms or []:
+        if isinstance(row, Mapping):
+            atoms.append(
+                {
+                    "facets": list(row.get("facets") or []),
+                    "text": str(row.get("text") or "")[:1200],
+                    "atom_type": str(row.get("atom_type") or ""),
+                    "confidence": row.get("confidence"),
+                }
+            )
     return {
         "deal_label": label,
         "project_mode": (project_mode or "").strip() or None,
@@ -142,6 +161,8 @@ def evidence_pack_for_briefing(
             {"label": _gap_label(g), "ask": _gap_q(g)} for g in warnings[:4]
         ],
         "fact_snippets": (fact_snippets or [])[:12],
+        "narrative_atoms": atoms[:24],
+        "narrative_atom_count": len(atoms),
     }
 
 
@@ -183,38 +204,154 @@ def build_pm_briefing_overview_deterministic(pack: dict[str, Any]) -> str:
     ]
     if provider:
         p1_bits.append(provider.rstrip(".") + ".")
-    if fee:
-        p1_bits.append(f"Money signals in intake include {fee} (verify which line is the quote).")
+    narrative = pack.get("narrative_atoms") or []
+
+    def _facet_row_priority(row: Mapping[str, Any], facet: str) -> int:
+        """Prefer atoms typed for this facet over lexical cross-tags."""
+        atype = str(row.get("atom_type") or "").strip().lower()
+        type_map = {
+            "scope": {
+                "scope_item",
+                "work_package",
+                "service_line",
+                "deliverable",
+                "exclusion",
+                "responsibility",
+                "open_question",
+            },
+            "commercial": {
+                "money",
+                "pricing",
+                "commercial_term",
+                "vendor_line_item",
+                "quantity",
+                "deal_metadata",
+            },
+            "sites": {"physical_site", "address", "site_roster", "site"},
+            "access": {"access_requirement", "constraint", "safety", "badge"},
+            "bom": {
+                "asset_record",
+                "device",
+                "bom_line",
+                "vendor_line_item",
+                "circuit_inventory",
+                "port_vlan_assignment",
+            },
+            "risks": {"risk", "open_question", "constraint"},
+            "acceptance": {
+                "acceptance",
+                "cutover_validation",
+                "exit_criteria",
+                "checklist_item",
+            },
+            "schedule": {"schedule_phase", "date", "milestone"},
+            "stakeholders": {"stakeholder", "contact", "role"},
+        }
+        if atype in type_map.get(facet, set()):
+            return 2
+        return 1 if facet in set(row.get("facets") or []) else 0
+
+    def _add_facet_bits(
+        target: list[str],
+        facets: tuple[str, ...],
+        *,
+        limit: int,
+        max_len: int = 200,
+        used: set[str] | None = None,
+    ) -> None:
+        seen = used if used is not None else set()
+        for facet in facets:
+            if len(target) >= limit:
+                return
+            for a in sorted(
+                narrative,
+                key=lambda row, f=facet: (
+                    _facet_row_priority(row, f),
+                    1 if "$" in str(row.get("text") or "") and f == "commercial" else 0,
+                    1
+                    if re.search(
+                        r"(?i)\b(confirm|tank|anova|ppe|escort|authoritative|fixed)",
+                        str(row.get("text") or ""),
+                    )
+                    else 0,
+                    len(str(row.get("text") or "")) < 320,
+                ),
+                reverse=True,
+            ):
+                if facet not in (a.get("facets") or []):
+                    continue
+                snippet = str(a.get("text") or "").strip()
+                if not snippet:
+                    continue
+                key = re.sub(r"\s+", " ", snippet.lower())[:120]
+                if key in seen:
+                    continue
+                seen.add(key)
+                if len(snippet) > max_len:
+                    snippet = snippet[: max_len - 3].rstrip() + "..."
+                target.append(snippet if snippet.endswith(".") else snippet + ".")
+                break
+
+    used_p1: set[str] = set()
+    # Cover every operational facet that exists — do not stop at the first hit.
+    _add_facet_bits(
+        p1_bits,
+        ("scope", "sites", "commercial", "bom", "schedule", "stakeholders"),
+        limit=8,
+        max_len=220,
+        used=used_p1,
+    )
+    if fee and not any("$" in b for b in p1_bits):
+        p1_bits.append(
+            f"Money signals in intake include {fee} (verify which line is the quote)."
+        )
     if customer:
         p1_bits.append(f"Customer duty on record: {customer.rstrip('.')}.")
 
     blockers = pack.get("blocker_questions") or []
-    if blockers:
-        failure_bits = []
-        for b in blockers[:5]:
-            ask = (b.get("ask") or b.get("label") or "").strip()
-            if not ask:
-                continue
-            # Compress ask into failure mode when possible
-            failure_bits.append(ask.rstrip("?") + ".")
-        p2 = (
-            "What can blow the job if left open: "
-            + " ".join(failure_bits[:4])
-        )
+    failure_bits: list[str] = []
+    used_p2: set[str] = set()
+    for b in blockers[:5]:
+        ask = (b.get("ask") or b.get("label") or "").strip()
+        if not ask:
+            continue
+        failure_bits.append(ask.rstrip("?") + ".")
+    _add_facet_bits(
+        failure_bits,
+        ("access", "risks", "acceptance"),
+        limit=8,
+        max_len=180,
+        used=used_p2,
+    )
+    if failure_bits:
+        p2 = "What can blow the job if left open: " + " ".join(failure_bits[:7])
     else:
         p2 = "No blocker-severity clarifications are open in the curated queue."
 
+    control_bits: list[str] = []
+    used_p3: set[str] = set()
     if blockers:
-        p3 = (
-            "PM control before SOW lock: settle the blocker checklist in Review Queue "
-            f"({len(blockers)} open), lock the authoritative site list, and do not "
-            "mobilize until access / keep-remove / commercial treatment are confirmed in writing."
+        control_bits.append(
+            f"Settle the blocker checklist in Review Queue ({len(blockers)} open)."
         )
-    else:
-        p3 = (
-            "PM control: walk remaining clarifications, confirm pricing + signatures, "
+    _add_facet_bits(
+        control_bits,
+        ("acceptance", "access", "commercial", "stakeholders"),
+        limit=5,
+        max_len=160,
+        used=used_p3,
+    )
+    if len(control_bits) <= (1 if blockers else 0):
+        control_bits.append(
+            "Walk remaining clarifications, confirm pricing + signatures, "
             "then proceed to SOW drafting from SOW_DRAFT.md."
         )
+    else:
+        control_bits.append(
+            "Lock the authoritative site list and do not mobilize until "
+            "access / keep-remove / commercial treatment are confirmed in writing."
+        )
+    p3 = "PM control before SOW lock: " + " ".join(control_bits)
 
     return "\n\n".join([" ".join(p1_bits), p2, p3]).strip()
 
@@ -244,8 +381,10 @@ def enrich_pm_briefing_with_llm(
 ) -> str | None:
     user = (
         "EVIDENCE PACK (JSON):\n"
-        + json.dumps(pack, ensure_ascii=False, indent=2)[:12000]
-        + "\n\nWrite the three-paragraph PM briefing now."
+        + json.dumps(pack, ensure_ascii=False, indent=2)[:14000]
+        + "\n\nWrite the three-paragraph PM briefing now. Cover EVERY facet present "
+        "in narrative_atoms (scope, commercial, sites, access, bom, risks, "
+        "acceptance, schedule, stakeholders)."
     )
     try:
         raw = chat_client.complete(system=_PM_BRIEF_SYSTEM, user=user, temperature=0.2)
@@ -265,6 +404,7 @@ def build_pm_briefing_overview(
     domains: list[Any] | None = None,
     project_mode: str | None = None,
     fact_snippets: list[str] | None = None,
+    narrative_atoms: list[Any] | None = None,
     chat_client: ChatClient | None = None,
     model: str = "gpt-4.1-mini",
 ) -> str:
@@ -278,6 +418,7 @@ def build_pm_briefing_overview(
         domains=domains,
         project_mode=project_mode,
         fact_snippets=fact_snippets,
+        narrative_atoms=narrative_atoms,
     )
     if chat_client is not None:
         enriched = enrich_pm_briefing_with_llm(pack, chat_client=chat_client, model=model)

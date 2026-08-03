@@ -291,6 +291,13 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     responsibilities = build_responsibilities(report)
     qty_claims = build_quantity_claims(report)
     qty_contradictions = find_quantity_contradictions(qty_claims)
+    from orbitbrief_core.pm_handoff.narrative_evidence import build_narrative_rag_pack
+
+    briefing_evidence = build_narrative_rag_pack(
+        envelope=envelope if isinstance(envelope, dict) else None,
+        report=report if isinstance(report, dict) else None,
+        cap=24,
+    )
     exec_summary = build_executive_summary(
         case_id=display_label,
         status=status,
@@ -304,6 +311,8 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         project_mode=project_mode,
         responsibilities=responsibilities,
         exclusions=exclusions,
+        fact_snippets=[str(r.get("text") or "") for r in briefing_evidence[:12]],
+        narrative_atoms=briefing_evidence,
     )
     # Tier 1-4 PM intelligence
     margin = build_margin_view(report)
@@ -427,6 +436,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         acceptance_checks=[asdict(a) for a in accept_checks],
         rfp_line_items=[asdict(r) for r in rfp_items],
         executive_summary=asdict(exec_summary),
+        briefing_evidence=list(briefing_evidence),
         stakeholder_contacts=[asdict(c) for c in contacts],
         exclusions=[asdict(e) for e in exclusions],
         responsibilities=[asdict(r) for r in responsibilities],
@@ -1074,7 +1084,16 @@ def _build_fact_cards(
             row["review_flags"] = env_a.get("review_flags")
         if not row.get("text") and env_a.get("text"):
             row["text"] = env_a.get("text")
+        # Prefer full envelope text over truncated lineage projection.
+        elif env_a.get("text") and len(str(env_a.get("text") or "")) > len(
+            str(row.get("text") or "")
+        ):
+            row["text"] = env_a.get("text")
         if not row.get("raw_text") and env_a.get("raw_text"):
+            row["raw_text"] = env_a.get("raw_text")
+        elif env_a.get("raw_text") and len(str(env_a.get("raw_text") or "")) > len(
+            str(row.get("raw_text") or "")
+        ):
             row["raw_text"] = env_a.get("raw_text")
         merged.append(row)
 
