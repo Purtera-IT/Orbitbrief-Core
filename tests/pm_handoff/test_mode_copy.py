@@ -81,10 +81,11 @@ def test_exec_headline_uses_edge_install():
     assert "Network edge install" in es.headline
     assert "maintenance" not in es.headline.lower()
     assert "Avon" in es.headline
-    assert es.overview == "x"
+    assert es.overview  # grounded briefing always present
+    assert "Avon" in es.overview or "site" in es.overview.lower()
 
 
-def test_exec_overview_skips_duplicate_of_headline():
+def test_exec_overview_is_multi_paragraph_briefing():
     sites = [SiteSummary(name="Avon", kind="physical_site", publishable=True)]
     domains = [
         DomainSummary(
@@ -111,5 +112,6 @@ def test_exec_overview_skips_duplicate_of_headline():
         domains=domains,
         project_mode="av_install",
     )
-    # When one_line equals the template headline, overview stays empty.
-    assert not es.overview or es.overview != es.headline
+    assert es.overview != es.headline
+    assert "\n\n" in es.overview
+    assert "AV install" in es.headline or "AV" in es.headline

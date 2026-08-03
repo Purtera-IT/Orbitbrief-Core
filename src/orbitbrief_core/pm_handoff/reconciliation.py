@@ -1113,18 +1113,18 @@ def build_executive_summary(
     sites: list[Any],
     domains: list[Any],
     project_mode: str | None = None,
+    responsibilities: list[Any] | None = None,
+    exclusions: list[Any] | None = None,
+    fact_snippets: list[str] | None = None,
 ) -> ExecutiveSummary:
-    """Compose the executive summary from PM-handoff fields.
+    """Compose short headline stamp + grounded multi-paragraph PM overview."""
+    from orbitbrief_core.pm_handoff.pm_briefing import build_pm_briefing_overview
 
-    ``headline`` is the 1-line situational stamp. ``overview`` is the short
-    deal narrative (what this engagement is) — prefers a non-empty
-    ``one_line_summary`` so the UI is not stuck with only the template
-    ``deal across N confirmed site(s)`` line.
-    """
     top_money = next(
         (m.display for m in money_mentions if m.value >= 100_000),
         None,
     )
+
     def _pub(s: Any) -> bool:
         if isinstance(s, Mapping):
             return bool(s.get("publishable"))
@@ -1145,8 +1145,6 @@ def build_executive_summary(
         if (r.likelihood.lower(), r.impact.lower())
         in {("high", "high"), ("high", "medium"), ("medium", "high")}
     )
-    # Prefer project-mode workstream when pack primary is coarser
-    # (e.g. network_edge_install vs network_maintenance pack).
     mode = (project_mode or "").strip()
     mode_overrides = {
         "network_edge_install": "Network edge install",
@@ -1160,30 +1158,40 @@ def build_executive_summary(
     if mode in mode_overrides:
         workstreams = [mode_overrides[mode]]
     else:
-        workstreams = [d.label for d in domains if getattr(d, "active_for_sow", False)]
+        workstreams = [
+            d.label
+            for d in domains
+            if getattr(d, "selected_by_router", False)
+            or (
+                getattr(d, "active_for_sow", False)
+                and (getattr(d, "score", None) or 0)
+            )
+        ]
 
-    deal_value = f" worth {top_money}" if top_money else ""
-    if site_names:
-        named = ", ".join(site_names[:3])
-        extra = f" +{site_count - 3} more" if site_count > 3 else ""
-        site_phrase = f"{site_count} confirmed site(s) ({named}{extra})"
-    elif site_count:
-        site_phrase = f"{site_count} confirmed site(s)"
-    else:
-        site_phrase = "no confirmed sites yet"
-    workstream_phrase = (
-        f" covering {', '.join(workstreams[:3])}" if workstreams else ""
-    )
-    # case_id arg is the display label (never a bare UUID when available).
     label = (case_id or "This engagement").strip() or "This engagement"
-    headline = (
-        f"**{label}**: deal{deal_value} across {site_phrase}{workstream_phrase}."
-    )
+    work = workstreams[0] if workstreams else "scoped work"
+    deal_value = f" · {top_money}" if top_money else ""
+    if site_names:
+        site_bit = f"{site_count} sites · {', '.join(site_names[:3])}"
+    elif site_count:
+        site_bit = f"{site_count} confirmed sites"
+    else:
+        site_bit = "sites unconfirmed"
+    headline = f"**{label}**{deal_value} — {work} · {site_bit}"
 
-    overview = (one_line_summary or "").strip()
-    # Don't duplicate the template headline as the narrative body.
-    if overview and overview.replace("*", "").strip() == headline.replace("*", "").strip():
-        overview = ""
+    overview = build_pm_briefing_overview(
+        label=label,
+        sites=sites,
+        gaps=gaps,
+        money_mentions=money_mentions,
+        responsibilities=responsibilities,
+        exclusions=exclusions,
+        domains=domains,
+        project_mode=project_mode,
+        fact_snippets=fact_snippets,
+    )
+    if not overview.strip():
+        overview = (one_line_summary or "").strip()
 
     if status == "red":
         health = (

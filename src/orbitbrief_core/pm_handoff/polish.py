@@ -961,6 +961,30 @@ def polish_pm_handoff(
         if handoff.executive_summary
         else handoff.executive_summary
     )
+    # Separate multi-paragraph PM briefing (not subject to "never longer than
+    # original" polish rewrite rules). Falls back to deterministic overview.
+    if isinstance(polished_exec, dict) and chat_client is not None:
+        try:
+            from orbitbrief_core.pm_handoff.pm_briefing import build_pm_briefing_overview
+
+            brief = build_pm_briefing_overview(
+                label=str(
+                    (polished_exec.get("headline") or handoff.one_line_summary or "")[:80]
+                ),
+                sites=list(handoff.sites or []),
+                gaps=list(polished_customer_qs or handoff.customer_questions or []),
+                money_mentions=list(handoff.money_mentions or []),
+                responsibilities=list(handoff.responsibilities or []),
+                exclusions=list(handoff.exclusions or []),
+                domains=list(handoff.domains or []),
+                project_mode=project_mode,
+                chat_client=chat_client,
+                model=model,
+            )
+            if brief and len(brief) > 120:
+                polished_exec = {**polished_exec, "overview": brief}
+        except Exception:
+            pass
     polished_slots = _apply_results_to_slots(handoff.customer_answer_slots, results, model)
 
     # validator_enforced reflects whether _validate_polish was the

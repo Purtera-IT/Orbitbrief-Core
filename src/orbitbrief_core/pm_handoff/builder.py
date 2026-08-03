@@ -302,6 +302,8 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         sites=sites,
         domains=domains,
         project_mode=project_mode,
+        responsibilities=responsibilities,
+        exclusions=exclusions,
     )
     # Tier 1-4 PM intelligence
     margin = build_margin_view(report)
