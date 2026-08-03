@@ -121,12 +121,47 @@ def _gap_source_snippets(g: Any) -> list[str]:
     return out
 
 
+def _clean_quote_candidate(text: str) -> str:
+    """Normalize a quote; reject chrome / mid-word stubs; soft-trim at words."""
+    t = re.sub(r"\s+", " ", (text or "").strip(" \"'"))
+    if len(t) < 18:
+        return ""
+    if re.search(
+        r"(?i)^olin\s+corpora|purtera will provide field services to support anova|"
+        r"no change or modification to this sow shall be effective|"
+        r"SAP\s*S4|Shipment and Delivery numbers|"
+        r"devices with batteries may have been shipped|"
+        r"^olin corporation site forest park",
+        t,
+    ):
+        return ""
+    # Reject upstream mid-word truncation (ends with 1–3 letter stub, no terminal punct).
+    if re.search(r"(?i)\s[a-z]{1,3}$", t) and not re.search(r"[.?!…”\"]$", t):
+        # Prefer trim back to last clean word ≥4 chars instead of dropping entirely
+        # when the rest of the sentence is usable.
+        parts = t.rsplit(" ", 1)
+        if len(parts) == 2 and len(parts[1]) <= 3:
+            t = parts[0].rstrip(" ,;:.-")
+            if not t.endswith((".", "?", "!")):
+                t += "..."
+    if len(t) > 280:
+        cut = t[:280]
+        if " " in cut:
+            cut = cut.rsplit(" ", 1)[0]
+        t = cut.rstrip(" ,;:.-") + "..."
+    if len(t) < 18:
+        return ""
+    return t
+
+
 def _gap_best_quote(g: Any) -> str:
     """Prefer complete source snippets; fall back to cleaned observed_summary."""
     snips = _gap_source_snippets(g)
-    if snips:
-        # Longest complete snippet wins (observed_summary is often mid-word truncated).
-        return max(snips, key=len)
+    ranked = sorted(snips, key=len, reverse=True)
+    for snip in ranked:
+        cleaned = _clean_quote_candidate(snip)
+        if cleaned:
+            return cleaned
     return _extract_evidence_quote(_gap_observed_raw(g))
 
 
@@ -157,24 +192,7 @@ def _extract_evidence_quote(observed: str) -> str:
             lower = t.lower()
     # Drop leading section path "DELIVERABLES / … —"
     t = re.sub(r"^[^—]{0,90}—\s*", "", t)
-    t = re.sub(r"\s+", " ", t).strip(" \"'")
-    # Soft truncate at a word boundary — never mid-token.
-    if len(t) > 280:
-        cut = t[:280]
-        if " " in cut:
-            cut = cut.rsplit(" ", 1)[0]
-        t = cut.rstrip(" ,;:.-") + "..."
-    if len(t) < 18:
-        return ""
-    if re.search(r"(?i)^olin\s+corpora|purtera will provide field services to support anova", t):
-        return ""
-    if re.search(r"(?i)no change or modification to this sow shall be effective", t):
-        return ""
-    # Reject obvious mid-word truncation from upstream (ends with 1–2 letter stub).
-    if re.search(r"\s[a-z]{1,2}$", t) and not t.endswith("."):
-        return ""
-    return t
-
+    return _clean_quote_candidate(t)
 
 def _failure_sentence_from_blocker(row: Mapping[str, Any]) -> str:
     """Turn a blocker into an informative failure-mode sentence (not a to-do)."""
