@@ -105,3 +105,69 @@ def test_soft_filter_keeps_acceptance_without_deal_lexemes() -> None:
     facets = {f for r in pack for f in (r.get("facets") or [])}
     assert "acceptance" in facets
     assert "stakeholders" in facets
+
+
+def test_sanitize_ocr_commercial_and_address() -> None:
+    from orbitbrief_core.pm_handoff.narrative_evidence import sanitize_narrative_text
+
+    raw = (
+        "BILLING INCREMENT: 3 Sites: Survey & 8 Tank Installs Fixed | "
+        "TED FEES SD): ( ) $1,960.00"
+    )
+    cleaned = sanitize_narrative_text(raw)
+    assert "TED FEES" not in cleaned.upper()
+    assert "$1,960" in cleaned
+    assert "Survey" in cleaned or "Tank" in cleaned
+    assert "Fixed commercial line:" in cleaned
+    addr = sanitize_narrative_text("1215 S. Jefferson |, Saginaw, MI 48601")
+    assert "|," not in addr
+    assert "Saginaw" in addr
+
+
+def test_drops_thin_stakeholder_raw_address_and_ocr_shred() -> None:
+    pack = build_narrative_rag_pack(
+        envelope={
+            "atoms": [
+                _atom(
+                    "s1",
+                    "Megan Blevins | Global Strategic Account Executive",
+                    atype="stakeholder",
+                ),
+                _atom(
+                    "s2",
+                    "1215 S. Jefferson |, Saginaw, MI 48601",
+                    atype="address",
+                ),
+                _atom(
+                    "s3",
+                    "The estimated Fees for Services outlined below are Fixed Fee.",
+                    atype="money",
+                ),
+                _atom(
+                    "s4",
+                    "DESCRIPTION: DESCRIP — col_2: PTION — BILLING INCREMENT — MATED: (USD).",
+                    atype="money",
+                ),
+                _atom(
+                    "s5",
+                    "BILLING INCREMENT: 3 Sites: Survey & 8 Tank Installs Fixed | "
+                    "TED FEES SD): ( ) $1,960.00",
+                    atype="money",
+                ),
+                _atom(
+                    "s6",
+                    "PurTera will install ANOVA tank monitors at Decatur.",
+                    atype="scope_item",
+                ),
+            ]
+        },
+        cap=10,
+    )
+    texts = " ".join(r["text"] for r in pack)
+    assert "Megan Blevins" not in texts
+    assert "1215" not in texts
+    assert "estimated Fees" not in texts
+    assert "col_2" not in texts
+    assert "TED FEES" not in texts.upper()
+    assert "ANOVA" in texts
+    assert "$1,960" in texts

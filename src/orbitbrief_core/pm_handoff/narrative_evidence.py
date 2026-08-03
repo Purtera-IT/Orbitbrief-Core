@@ -45,6 +45,7 @@ _FACET_ATOM_TYPES: dict[str, frozenset[str]] = {
             "money",
             "pricing",
             "commercial_term",
+            "commercial_total",
             "vendor_line_item",
             "quantity",
             "deal_metadata",
@@ -282,15 +283,151 @@ _OFF_DEAL_CONTACT_RE = re.compile(
     r"(?i)\b(platform\s+science|salesforce\.com|linkedin\.com)\b"
 )
 
+# "Megan Blevins | Global Strategic Account Executive" — title-only, no duty.
+_THIN_STAKEHOLDER_RE = re.compile(
+    r"(?i)^[A-Z][a-z]+(?:\s+[A-Z][a-z.'-]+){0,3}\s*[|—\-]\s*"
+    r"(?:global\s+)?(?:strategic\s+)?(?:account\s+)?(?:executive|manager|director|"
+    r"engineer|coordinator|specialist|ae\b|pm\b|sa\b).*$"
+)
+
+_OCR_SHRED_RE = re.compile(
+    r"(?i)(?:"
+    r"\bcol_\d+\b|"
+    r"\bdescrip(?:tion)?\b\s*:?\s*(?:descrip|ption)\b|"
+    r"\bbilling\s+increment\b|"
+    r"\bmated:\s*\(usd\)|"
+    r"\bted\s*fees?\s*sd\b|"
+    r"\|\s*ted\s*fees|"
+    r"^\(?\s*\)\s*\$|"
+    r"\bsurcharge_\d+\b|"
+    r"^[A-Z]{2,}_[A-Z0-9]{1,}\s+\d+\.?$|"
+    r"^[A-Z0-9]{8,}\s+\d+\.?$"
+    r")"
+)
+
+
+def sanitize_narrative_text(text: str) -> str:
+    """Repair common OCR / table-extract junk before briefing consumes the atom."""
+    t = (text or "").strip()
+    if not t:
+        return ""
+    # Prefer a clean commercial sentence when we can recover amount + line.
+    m = re.search(
+        r"(?i)(\d+\s+sites?[:\s]+survey(?:\s*&\s*\d+\s+tank\s+installs?)?)"
+        r".{0,80}?\$([\d,]+(?:\.\d+)?)",
+        t,
+    )
+    if m and (
+        re.search(r"(?i)billing\s+increment|ted\s*fees|tank\s+install|survey", t)
+        or "$" in t
+    ):
+        line = re.sub(r"\s+", " ", m.group(1)).strip(" :|-")
+        return f"Fixed commercial line: {line} - ${m.group(2)}."
+
+    # Soft-drop quote-validity / currency chrome (no amount).
+    if re.search(
+        r"(?i)^(?:this quote is valid for|fees are in usd)\b",
+        t,
+    ):
+        return ""
+    # Address pipe artifacts: "1215 S. Jefferson |, Saginaw, MI 48601"
+    t = re.sub(r"\s*\|\s*,", ",", t)
+    t = re.sub(r"\s*\|\s*", " — ", t)
+    t = re.sub(r"(?i)billing\s+increment:\s*", "", t)
+    t = re.sub(
+        r"(?i)\s*(?:fixed\s*)?(?:—\s*)?ted\s*fees?\s*sd\)?:?\s*(?:\(\s*\))?\s*",
+        " ",
+        t,
+    )
+    t = re.sub(r"\(\s*\)\s*", " ", t)
+    t = re.sub(r"\s*[—\-]{2,}\s*", " — ", t)
+    t = re.sub(r"\s{2,}", " ", t).strip(" |:—-")
+    return t.strip()
+
+
+def is_ocr_shred(text: str) -> bool:
+    t = text or ""
+    if _OCR_SHRED_RE.search(t):
+        # Keep if we already sanitized to a clean commercial line.
+        if t.lower().startswith("fixed commercial line:") and "$" in t:
+            return False
+        return True
+    # High ratio of short ALLCAPS tokens / broken table cells
+    tokens = re.findall(r"[A-Za-z]{2,}", t)
+    if len(tokens) >= 4:
+        caps = sum(1 for w in tokens if w.isupper() and len(w) <= 6)
+        if caps / len(tokens) >= 0.45 and "$" not in t:
+            return True
+    return False
+
+
+def is_thin_stakeholder_line(text: str) -> bool:
+    t = (text or "").strip()
+    if not t:
+        return True
+    if _THIN_STAKEHOLDER_RE.match(t):
+        return True
+    if "|" in t or "—" in t:
+        if len(t) < 90 and not re.search(
+            r"(?i)\b(will|confirm|email|@|phone|site|tank|anova|olin|purtera)\b",
+            t,
+        ):
+            return True
+    return False
+
+
+def is_raw_address_only(text: str) -> bool:
+    """Street-only rows already covered by publishable site names."""
+    t = sanitize_narrative_text(text)
+    if not t or len(t) > 120:
+        return False
+    has_street = bool(
+        re.search(
+            r"(?i)\b(\d{2,5}\s+[A-Za-z].*\b(?:st|street|ave|avenue|rd|road|blvd|dr|drive|way|ln|lane)\b)",
+            t,
+        )
+    )
+    has_zip = bool(re.search(r"\b\d{5}(?:-\d{4})?\b", t))
+    has_work = bool(
+        re.search(
+            r"(?i)\b(install|survey|tank|anova|visit|access|confirm|scope|fee)\b",
+            t,
+        )
+    )
+    return bool((has_street or has_zip) and not has_work)
+
+
+_EMAIL_INTRO_RE = re.compile(
+    r"(?i)^(?:hi|hey|hello)\s+\w+\b|"
+    r"got a great intro|"
+    r"\$\d[\d.,]*\s+billion\s+manufacturing"
+)
+
 
 def is_narrative_relevant(atom: Mapping[str, Any]) -> bool:
     """Keep deal-operative atoms; drop manuals/boilerplate without killing facets."""
-    text = _atom_text(atom)
+    raw = _atom_text(atom)
+    text = sanitize_narrative_text(raw)
     if len(text) < 12:
+        return False
+    if is_ocr_shred(raw) and not text.lower().startswith("fixed commercial line:"):
+        return False
+    if is_ocr_shred(text) and not text.lower().startswith("fixed commercial line:"):
         return False
     if is_hard_conversation_filler(atom, text):
         return False
     if is_manual_or_boilerplate(text):
+        return False
+    if is_thin_stakeholder_line(text):
+        return False
+    if is_raw_address_only(text):
+        return False
+    if _EMAIL_INTRO_RE.search(text) and not re.search(
+        r"(?i)\b(install|survey|tank|anova|site|sow|quote\s+line)\b",
+        text,
+    ):
+        return False
+    if re.search(r"(?i)^applicable\s+tax/?vat\b", text) and "$" not in text:
         return False
     # Contacts from adjacent vendors with no field-PM signal.
     if _OFF_DEAL_CONTACT_RE.search(text) and not _FIELD_PM_SIGNAL_RE.search(text):
@@ -299,6 +436,12 @@ def is_narrative_relevant(atom: Mapping[str, Any]) -> bool:
     if re.search(r"(?i)bill(?:s|ing)?\s+the\s+customer\s+monthly\s+in\s+arrears", text):
         if not re.search(r"\$\d|tank|survey|fixed|nte|per[\s-]?location", text, re.I):
             return False
+    # Estimated fees chrome with no amount.
+    if re.search(
+        r"(?i)^the estimated fees for services outlined below are fixed fee\.?$",
+        text,
+    ):
+        return False
     atype = _atom_type(atom)
     if atype in _NARRATIVE_KEEP_TYPES:
         return True
@@ -306,12 +449,27 @@ def is_narrative_relevant(atom: Mapping[str, Any]) -> bool:
         return True
     if deal_substance(text) and len(text) <= 420:
         return True
+    # Untyped money lines still matter.
+    if re.search(r"\$[\d,]+", text) and re.search(
+        r"(?i)\b(tank|survey|sites?|revenue|total|fee|quote)\b",
+        text,
+    ):
+        return True
     return False
 
 
 def filter_narrative_atoms(atoms: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Relevance filter for no-loss RAG — never neural-drop structured facets."""
-    return [a for a in atoms if is_narrative_relevant(a)]
+    out: list[dict[str, Any]] = []
+    for atom in atoms:
+        if not is_narrative_relevant(atom):
+            continue
+        row = dict(atom)
+        cleaned = sanitize_narrative_text(_atom_text(row))
+        if cleaned:
+            row["text"] = cleaned
+        out.append(row)
+    return out
 
 
 def _quality(atom: Mapping[str, Any]) -> float:
@@ -338,6 +496,12 @@ def _quality(atom: Mapping[str, Any]) -> float:
     # Prefer concrete site / duty lines over generic MSA clauses.
     if re.search(r"(?i)\b(purtera will|customer will|two visits|tank install)", text):
         bonus += 0.1
+    if text.lower().startswith("fixed commercial line:"):
+        bonus += 0.25
+    if _EMAIL_INTRO_RE.search(text):
+        bonus -= 0.4
+    if re.search(r"(?i)^applicable\s+tax/?vat\b", text):
+        bonus -= 0.3
     n = len(text)
     if 40 <= n <= 420:
         bonus += 0.08
@@ -381,7 +545,7 @@ def _overlap_ratio(a: str, b: str) -> float:
 
 
 def _pack_row(atom: Mapping[str, Any]) -> dict[str, Any]:
-    text = _atom_text(atom)
+    text = sanitize_narrative_text(_atom_text(atom))
     if len(text) > _PACK_TEXT_CAP:
         text = text[: _PACK_TEXT_CAP - 3].rstrip() + "..."
     return {
@@ -495,5 +659,9 @@ __all__ = [
     "filter_narrative_atoms",
     "is_manual_or_boilerplate",
     "is_narrative_relevant",
+    "is_ocr_shred",
+    "is_raw_address_only",
+    "is_thin_stakeholder_line",
+    "sanitize_narrative_text",
     "select_narrative_rag_pack",
 ]

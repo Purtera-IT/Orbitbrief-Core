@@ -223,6 +223,7 @@ def build_pm_briefing_overview_deterministic(pack: dict[str, Any]) -> str:
                 "money",
                 "pricing",
                 "commercial_term",
+                "commercial_total",
                 "vendor_line_item",
                 "quantity",
                 "deal_metadata",
@@ -267,13 +268,20 @@ def build_pm_briefing_overview_deterministic(pack: dict[str, Any]) -> str:
                 narrative,
                 key=lambda row, f=facet: (
                     _facet_row_priority(row, f),
+                    2
+                    if f == "commercial"
+                    and str(row.get("text") or "").lower().startswith(
+                        "fixed commercial line:"
+                    )
+                    else 0,
                     1 if "$" in str(row.get("text") or "") and f == "commercial" else 0,
                     1
                     if re.search(
-                        r"(?i)\b(confirm|tank|anova|ppe|escort|authoritative|fixed)",
+                        r"(?i)\b(confirm|tank|anova|ppe|escort|authoritative|fixed|survey)\b",
                         str(row.get("text") or ""),
                     )
                     else 0,
+                    0 if re.search(r"(?i)^(?:hi|hey)\s+\w+", str(row.get("text") or "")) else 1,
                     len(str(row.get("text") or "")) < 320,
                 ),
                 reverse=True,
@@ -282,6 +290,43 @@ def build_pm_briefing_overview_deterministic(pack: dict[str, Any]) -> str:
                     continue
                 snippet = str(a.get("text") or "").strip()
                 if not snippet:
+                    continue
+                # Skip chrome that slipped into the pack.
+                if facet == "stakeholders" and re.match(
+                    r"(?i)^[A-Z][a-z]+(?:\s+[A-Z][a-z.'-]+){0,3}\s*[|—-]",
+                    snippet,
+                ):
+                    continue
+                if facet == "sites" and re.search(
+                    r"(?i)^\d{2,5}\s+\S+.*\b(?:st|street|ave|rd|blvd)\b",
+                    snippet,
+                ):
+                    # Publishable site names already open the paragraph.
+                    continue
+                if re.search(
+                    r"(?i)ted\s*fees?\s*sd|^\(?\s*\)\s*\$|col_\d+|descrip|surcharge_\d+",
+                    snippet,
+                ):
+                    continue
+                if re.match(r"(?i)^[A-Z]{2,}_[A-Z0-9]+\s+\d+\.?$", snippet.strip()):
+                    continue
+                if re.match(r"^[A-Z0-9]{8,}\s+\d+\.?$", snippet.strip()):
+                    continue
+                if len(snippet) < 28 and re.fullmatch(r"[A-Z0-9][A-Z0-9\s./_-]{4,40}", snippet.strip()):
+                    continue
+                if re.search(
+                    r"(?i)^the estimated fees for services outlined below are fixed fee",
+                    snippet,
+                ):
+                    continue
+                if re.search(r"(?i)billing\s+increment", snippet) and not snippet.lower().startswith(
+                    "fixed commercial line:"
+                ):
+                    continue
+                # Avoid repeating the same scope sentence in control.
+                if facet in {"stakeholders", "commercial"} and any(
+                    snippet[:50].lower() in (x.lower()) for x in target
+                ):
                     continue
                 key = re.sub(r"\s+", " ", snippet.lower())[:120]
                 if key in seen:
@@ -296,8 +341,8 @@ def build_pm_briefing_overview_deterministic(pack: dict[str, Any]) -> str:
     # Cover every operational facet that exists — do not stop at the first hit.
     _add_facet_bits(
         p1_bits,
-        ("scope", "sites", "commercial", "bom", "schedule", "stakeholders"),
-        limit=8,
+        ("scope", "commercial", "bom", "schedule"),
+        limit=7,
         max_len=220,
         used=used_p1,
     )
@@ -336,8 +381,8 @@ def build_pm_briefing_overview_deterministic(pack: dict[str, Any]) -> str:
         )
     _add_facet_bits(
         control_bits,
-        ("acceptance", "access", "commercial", "stakeholders"),
-        limit=5,
+        ("acceptance", "access"),
+        limit=4,
         max_len=160,
         used=used_p3,
     )
