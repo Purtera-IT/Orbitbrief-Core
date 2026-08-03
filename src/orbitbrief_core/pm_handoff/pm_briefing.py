@@ -26,23 +26,26 @@ visit patterns, or acceptance criteria just to stay short.
 Write ONLY from the EVIDENCE PACK. Do not invent sites, SKUs, fees, or
 customer commitments that are not in the pack.
 
-Voice: decisive PM email — concrete nouns, no filler, no marketing.
+Voice: diagnostic PM brief — concrete nouns, evidence-backed, no filler.
+Do NOT write a to-do list. Do NOT open sentences with Confirm / Verify / Settle /
+Lock / Walk. State what is true, what is still open, and why it matters.
 
 Structure EXACTLY three paragraphs separated by blank lines:
 1) WHAT WE ARE DOING — customer, work type, site footprint, visit pattern,
    primary equipment / BOM lines, commercial shape (fixed / T&M) if present,
    provider/customer duties.
-2) WHAT CAN BLOW THE JOB — open blockers + operational risks from atoms
-   (access, keep/remove, pricing ambiguity, site-list authority, lifts,
-   customer-furnished gear, telemetry/SAP, SKU treatment). Name the failure mode.
-3) PM CONTROL — first decisions / confirms before SOW lock or mobilization.
-   Imperative verbs. Reference the unresolved facets explicitly.
+2) WHAT CAN BLOW THE JOB — for each open blocker, name the failure mode and the
+   evidence gap (what intake shows vs what is missing). Use blocker detail /
+   observed summary when present; cite sites, gear, commercial lines, access.
+3) PM CONTROL — state what remains unresolved before SOW lock / mobilization
+   and what evidence already exists. Informative status, not imperative orders.
 
 Rules:
 - 220–420 words. Prefer specifics (site names, SKUs, dollar lines, visit counts).
 - If a facet is missing from the pack, say what is unknown — do not guess.
 - Do not repeat the deal number stamp; the UI already shows it.
 - Output plain text paragraphs only — no markdown headings, bullets, or JSON.
+- Paragraph 2 must start with a capital letter after any label.
 """
 
 
@@ -81,6 +84,116 @@ def _gap_label(g: Any) -> str:
     if isinstance(g, Mapping):
         return str(g.get("label") or g.get("rule_id") or "").strip()
     return str(getattr(g, "label", None) or getattr(g, "rule_id", None) or "").strip()
+
+
+def _gap_detail(g: Any) -> str:
+    """Prefer the diagnostic message / observed summary over the Confirm-ask."""
+    if isinstance(g, Mapping):
+        return str(
+            g.get("message")
+            or g.get("observed_summary")
+            or g.get("evidence_summary")
+            or ""
+        ).strip()
+    return str(
+        getattr(g, "message", None)
+        or getattr(g, "observed_summary", None)
+        or getattr(g, "evidence_summary", None)
+        or ""
+    ).strip()
+
+
+def _extract_evidence_quote(observed: str) -> str:
+    """Pull the actionable quote from observed_summary chrome."""
+    t = (observed or "").strip()
+    if not t:
+        return ""
+    t = re.sub(r"(?i)^Evidence:\s*", "", t)
+    lower = t.lower()
+    for marker in (
+        "customer_instruction:",
+        "constraint:",
+        "scope_item:",
+        "change_order_rule:",
+        "deal_metadata:",
+        "assumption:",
+    ):
+        idx = lower.rfind(marker)
+        if idx >= 0:
+            t = t[idx + len(marker) :].strip()
+            lower = t.lower()
+    # Drop leading section path "DELIVERABLES / … —"
+    t = re.sub(r"^[^—]{0,90}—\s*", "", t)
+    t = re.sub(r"\s+", " ", t).strip(" \"'")
+    if len(t) > 210:
+        t = t[:207].rstrip() + "..."
+    # Reject useless chrome
+    if len(t) < 18:
+        return ""
+    if re.search(r"(?i)^olin\s+corpora|purtera will provide field services to support anova", t):
+        return ""
+    if re.search(r"(?i)no change or modification to this sow shall be effective", t):
+        return ""
+    return t
+
+
+def _failure_sentence_from_blocker(row: Mapping[str, Any]) -> str:
+    """Turn a blocker into an informative failure-mode sentence (not a to-do)."""
+    detail = str(row.get("detail") or "").strip()
+    label = str(row.get("label") or "").strip()
+    ask = str(row.get("ask") or "").strip()
+    quote = _extract_evidence_quote(str(row.get("observed") or ""))
+
+    blob = " ".join([detail, quote, ask, label])
+    if re.search(r"(?i)SAP\s*S4|Shipment and Delivery numbers", blob):
+        return ""
+
+    generic = bool(
+        re.search(
+            r"(?i)requires a PM decision|needs PM confirmation|"
+            r"site-level decision still open|scope commitment needs PM|"
+            r"requirement/constraint needs",
+            detail or "",
+        )
+    )
+
+    if detail and not generic:
+        s = detail.rstrip(" .") + "."
+        return s[0].upper() + s[1:]
+
+    if quote:
+        lab = label.strip()
+        if re.search(r"(?i)^customer instruction$", lab):
+            s = f'Customer wrote: "{quote}" — still open against the kit.'
+        elif re.search(r"(?i)^constraint$", lab):
+            s = f'Constraint on record: "{quote}" — still unresolved for field planning.'
+        elif lab and not re.search(r"(?i)^scope", lab):
+            s = f'{lab} — intake evidence: "{quote}".'
+        else:
+            s = f'Intake evidence: "{quote}" — still unresolved.'
+        return s[0].upper() + s[1:]
+
+    body = ask or label
+    body = re.sub(
+        r"(?i)^(confirm|verify|clarify|please\s+confirm|ensure|make\s+sure)\s+",
+        "",
+        body,
+    ).strip()
+    body = re.sub(
+        r"(?i)\s*[—\-]\s*(?:customer confirms.*|or send revised.*|included as written.*)$",
+        "",
+        body,
+    ).strip()
+    body = body.rstrip(" ?.")
+    if not body:
+        return ""
+    if re.match(r"(?i)^(which|what|who|where|whether)\b", body):
+        s = f"Open risk — {body}."
+    elif label and label.lower() not in body.lower():
+        s = f"{label} remains unresolved — {body}."
+    else:
+        s = f"{body} is still unresolved in intake."
+    return s[0].upper() + s[1:]
 
 
 def evidence_pack_for_briefing(
@@ -155,10 +268,28 @@ def evidence_pack_for_briefing(
         "provider_customer_duties": resp[:6],
         "exclusions": excl[:4],
         "blocker_questions": [
-            {"label": _gap_label(g), "ask": _gap_q(g)} for g in blockers[:8]
+            {
+                "label": _gap_label(g),
+                "ask": _gap_q(g),
+                "detail": _gap_detail(g),
+                "observed": (
+                    str(
+                        g.get("observed_summary")
+                        if isinstance(g, Mapping)
+                        else getattr(g, "observed_summary", "")
+                        or ""
+                    ).strip()
+                ),
+            }
+            for g in blockers[:8]
         ],
         "warning_questions": [
-            {"label": _gap_label(g), "ask": _gap_q(g)} for g in warnings[:4]
+            {
+                "label": _gap_label(g),
+                "ask": _gap_q(g),
+                "detail": _gap_detail(g),
+            }
+            for g in warnings[:4]
         ],
         "fact_snippets": (fact_snippets or [])[:12],
         "narrative_atoms": atoms[:24],
@@ -356,28 +487,68 @@ def build_pm_briefing_overview_deterministic(pack: dict[str, Any]) -> str:
     blockers = pack.get("blocker_questions") or []
     failure_bits: list[str] = []
     used_p2: set[str] = set()
-    for b in blockers[:5]:
-        ask = (b.get("ask") or b.get("label") or "").strip()
-        if not ask:
+    for b in blockers[:6]:
+        if not isinstance(b, Mapping):
             continue
-        failure_bits.append(ask.rstrip("?") + ".")
+        sent = _failure_sentence_from_blocker(b)
+        if not sent:
+            continue
+        key = re.sub(r"\s+", " ", sent.lower())[:100]
+        if key in used_p2:
+            continue
+        used_p2.add(key)
+        failure_bits.append(sent)
+    # Ground with operational evidence atoms (access / risk / acceptance), not to-dos.
+    evidence_bits: list[str] = []
     _add_facet_bits(
-        failure_bits,
+        evidence_bits,
         ("access", "risks", "acceptance"),
-        limit=8,
+        limit=5,
         max_len=180,
         used=used_p2,
     )
+    for bit in evidence_bits:
+        # Skip imperative leftovers that slipped into atoms.
+        if re.match(r"(?i)^(confirm|verify|settle|lock|walk)\b", bit):
+            continue
+        failure_bits.append(bit)
+        if len(failure_bits) >= 7:
+            break
     if failure_bits:
-        p2 = "What can blow the job if left open: " + " ".join(failure_bits[:7])
+        # Short label the UI can strip completely; body starts capitalized.
+        p2 = "What can blow the job: " + " ".join(failure_bits[:7])
     else:
-        p2 = "No blocker-severity clarifications are open in the curated queue."
+        p2 = "What can blow the job: No blocker-severity clarifications are open in the curated queue."
 
     control_bits: list[str] = []
     used_p3: set[str] = set()
     if blockers:
+        # Prefer distinctive labels; collapse duplicate "Customer instruction".
+        labels: list[str] = []
+        seen_lab: set[str] = set()
+        for b in blockers:
+            if not isinstance(b, Mapping):
+                continue
+            lab = str(b.get("label") or "").strip()
+            if not lab:
+                continue
+            key = lab.lower()
+            if key in seen_lab and key in {"customer instruction", "constraint"}:
+                quote = _extract_evidence_quote(str(b.get("observed") or ""))
+                if quote:
+                    lab = quote[:48].rstrip() + ("…" if len(quote) > 48 else "")
+                    key = lab.lower()
+            if key in seen_lab:
+                continue
+            seen_lab.add(key)
+            labels.append(lab)
+        label_phrase = ", ".join(labels[:4])
+        if len(labels) > 4:
+            label_phrase += f", +{len(labels) - 4} more"
         control_bits.append(
-            f"Settle the blocker checklist in Review Queue ({len(blockers)} open)."
+            f"{len(blockers)} blocker-severity items remain open in the Review Queue"
+            + (f" ({label_phrase})" if label_phrase else "")
+            + "; SOW lock and mobilization stay blocked until those gaps close."
         )
     _add_facet_bits(
         control_bits,
@@ -386,17 +557,23 @@ def build_pm_briefing_overview_deterministic(pack: dict[str, Any]) -> str:
         max_len=160,
         used=used_p3,
     )
+    # Drop imperative chrome from control fill.
+    control_bits = [
+        b
+        for b in control_bits
+        if not re.match(r"(?i)^(confirm|verify|settle|lock|walk)\b", b)
+    ]
     if len(control_bits) <= (1 if blockers else 0):
         control_bits.append(
-            "Walk remaining clarifications, confirm pricing + signatures, "
-            "then proceed to SOW drafting from SOW_DRAFT.md."
+            "Pricing, signatures, and the remaining clarifications still need "
+            "written customer resolution before SOW drafting proceeds from SOW_DRAFT.md."
         )
     else:
         control_bits.append(
-            "Lock the authoritative site list and do not mobilize until "
-            "access / keep-remove / commercial treatment are confirmed in writing."
+            "Site-list authority, access / keep-remove treatment, and commercial "
+            "shape still lack written customer confirmation in the kit."
         )
-    p3 = "PM control before SOW lock: " + " ".join(control_bits)
+    p3 = "PM control: " + " ".join(control_bits)
 
     return "\n\n".join([" ".join(p1_bits), p2, p3]).strip()
 
