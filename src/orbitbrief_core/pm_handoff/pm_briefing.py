@@ -162,7 +162,21 @@ def build_pm_briefing_overview_deterministic(pack: dict[str, Any]) -> str:
     fee = next((m.get("display") for m in money if m.get("display")), None)
     domains = pack.get("domains") or []
     mode = pack.get("project_mode") or ""
-    work = ", ".join(domains[:2]) if domains else (mode.replace("_", " ") or "scoped field work")
+    mode_labels = {
+        "network_edge_install": "Network edge install",
+        "wireless_install": "Wireless install",
+        "cabling_install": "Structured cabling install",
+        "av_install": "AV install",
+        "access_control": "Access control",
+        "alm": "Application / lifecycle management",
+        "staff_aug": "Staff augmentation",
+    }
+    work = (
+        mode_labels.get(mode)
+        or (", ".join(domains[:2]) if domains else None)
+        or (mode.replace("_", " ") if mode else None)
+        or "scoped field work"
+    )
 
     p1_bits = [
         f"Engagement covers {work} across {site_phrase}.",
