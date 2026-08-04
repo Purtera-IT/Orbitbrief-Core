@@ -73,20 +73,52 @@ def _contested_scope_items(env: dict) -> list[dict]:
 
 
 def _site_readiness(env: dict) -> list[dict]:
-    """58 sites with per-site readiness scores instead of the 18 names."""
+    """Per-site readiness rows, read with the keys the envelope actually uses.
+
+    ``build_site_readiness`` emits ``site`` / ``readiness`` / ``facility_name``
+    / ``scope_atom_count`` / ``maturity`` / ``band``. This mapper used to ask
+    for ``slug`` / ``readiness_score`` / ``name`` / ``atom_count`` /
+    ``least_ready_reason`` — five names that do not exist on the row. Only
+    ``site`` matched, so the brief rendered one slug per site and null for
+    every other column: 437 rows that each said nothing. The data was in the
+    envelope the whole time.
+
+    ``missing_dimensions`` is derived rather than looked up: the envelope
+    carries the per-signal counts, and a dimension is missing exactly when its
+    count is zero. That is what the field name has always promised.
+    """
     sr = _safe_dict(env.get("site_readiness"))
     sites = _safe_list(sr.get("sites"))
     out: list[dict] = []
     for s in sites:
         if not isinstance(s, dict):
             continue
+        missing = [
+            label
+            for label, present in (
+                ("devices", s.get("device_count") or 0),
+                ("stakeholders", s.get("stakeholder_count") or 0),
+                ("constraints", s.get("constraint_count") or 0),
+                ("scope", s.get("scope_atom_count") or 0),
+                ("commercials", 1 if s.get("money_present") else 0),
+                ("schedule", 1 if s.get("milestone_present") else 0),
+            )
+            if not present
+        ]
+        maturity = s.get("maturity")
         out.append({
-            "site_slug": s.get("slug") or s.get("site") or s.get("name"),
-            "name": s.get("name") or s.get("display_name"),
-            "readiness_score": s.get("readiness_score") or s.get("score"),
-            "missing_dimensions": _safe_list(s.get("missing_dimensions")),
-            "atom_count": s.get("atom_count"),
-            "least_ready_reason": s.get("least_ready_reason"),
+            "site_slug": s.get("site") or s.get("slug") or s.get("name"),
+            "name": s.get("facility_name") or s.get("name") or s.get("display_name"),
+            "address": s.get("street_address") or s.get("address"),
+            "readiness_score": s.get("readiness", s.get("readiness_score", s.get("score"))),
+            "band": s.get("band"),
+            "maturity": maturity,
+            "missing_dimensions": missing,
+            "atom_count": s.get("scope_atom_count", s.get("signal_count", s.get("atom_count"))),
+            "least_ready_reason": (
+                s.get("least_ready_reason")
+                or (f"{maturity}: no {', '.join(missing)} evidence yet" if missing and maturity else None)
+            ),
         })
     return out
 
@@ -174,8 +206,12 @@ def _change_order_timeline(env: dict) -> list[dict]:
             continue
         out.append({
             "atom_id": e.get("atom_id"),
+            # `iso` / `delta` are not emitted by build_change_order_timeline —
+            # kept so the shape stays stable if it starts emitting them.
             "iso_date": e.get("iso") or e.get("iso_date"),
             "delta": e.get("delta") or e.get("structured_delta"),
+            # `kind` IS on every entry and was being dropped on the floor.
+            "kind": e.get("kind"),
             "approval_signal": e.get("approval_signal"),
             "text": e.get("text"),
         })
