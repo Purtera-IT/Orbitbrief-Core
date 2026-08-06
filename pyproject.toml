@@ -53,6 +53,11 @@ where = ["src"]
 "orbitbrief_core.brains.data" = ["*.yaml"]
 # Phase 8 — the reviewer UI ships its Jinja templates.
 "orbitbrief_core.review_ui" = ["templates/*.html"]
+# The question-quality head ships its trained artifact. The dev worker runs off
+# PYTHONPATH so it loads either way, but a wheel build without this silently
+# drops the model and the head degrades to its structural fallback — a ~9pp
+# regression in queue quality that nothing would report.
+"orbitbrief_core.pm_handoff" = ["data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
