@@ -163,6 +163,63 @@ _SHARP_RE = re.compile(
 )
 
 
+# --- Generated-ask gates -------------------------------------------------
+#
+# The scope.* / entity.* templates splice a raw atom's text into a question
+# stem. When the extractor hands over a mid-clause slice, a bullet run, or a
+# contract paragraph, the result is a question no customer can answer. A
+# DeepSeek audit of 464 live pool cards across 14 deals scored these families
+# 0/70 good; the two gates below flag 91 cards at 100% precision (zero cards
+# the auditor rated good are dropped).
+
+# The span the template quoted out of the source atom.
+_QUOTED_SPAN_RE = re.compile(r'"([^"]{6,})"')
+# A quote that ran across list items — the slice is several fragments, not a claim.
+_QUOTE_BULLET_RE = re.compile(r"[•·●▪]")
+# Contract/commercial paragraphs. Real terms, but not an install scope decision.
+_QUOTE_LEGAL_RE = re.compile(
+    r"(?i)\b(terminat|indemnif|warrant|liabilit|governing law|dispute|"
+    r"confidential|net\s*\d{2}\b|purchase order (?:terms|number)|"
+    r"insurance|force majeure|assignment|severab)"
+)
+# "The selected vendor shall …" — true of every bid, decides nothing.
+_QUOTE_RFP_BOILER_RE = re.compile(
+    r"(?i)\b(?:the\s+)?(?:selected\s+)?(?:vendor|contractor|bidder|supplier)\s+"
+    r"(?:shall|must|will)\b"
+)
+# Stems that ask US to classify commercial treatment. Legitimate internal work,
+# but this queue is what gets sent to a customer — they cannot answer these.
+_INTERNAL_SCOPE_STEM_RE = re.compile(
+    r"(?i)("
+    r"which quote wave includes|"
+    r"remain in fixed fee|move to t&m|"
+    r"include as written,\s*defer,\s*or remove|"
+    r"who owns delivery of"
+    r")"
+)
+
+
+def quoted_span_violation(text: str) -> str | None:
+    """Violation code when the atom text spliced into an ask is unusable."""
+    m = _QUOTED_SPAN_RE.search(text or "")
+    if not m:
+        return None
+    frag = m.group(1).strip()
+    if _QUOTE_BULLET_RE.search(frag):
+        return "quote_spliced_bullets"
+    if _QUOTE_LEGAL_RE.search(frag):
+        return "quote_legal_boilerplate"
+    if _QUOTE_RFP_BOILER_RE.search(frag):
+        return "quote_rfp_boilerplate"
+    # Starts lowercase / on punctuation: the slice began mid-clause.
+    if frag[:1].islower() or frag[:1] in ",;:-–—/&":
+        return "quote_mid_sentence"
+    # Ends on a dangling function word: the slice was cut before the point.
+    if re.search(r"(?i)\b(and|or|with|for|to|of|the|a|an|in|on|per|that)$", frag):
+        return "quote_cut_midclause"
+    return None
+
+
 @dataclass(frozen=True)
 class QualityViolation:
     rule_id: str
@@ -214,6 +271,11 @@ def validate_question_card(card: GapCard | Mapping[str, Any]) -> list[QualityVio
         out.append(QualityViolation(rid, "meta_ask", text[:120]))
     if _NAKED_COVERAGE_RE.search(text):
         out.append(QualityViolation(rid, "naked_coverage", text[:120]))
+    quote_code = quoted_span_violation(text)
+    if quote_code:
+        out.append(QualityViolation(rid, quote_code, text[:120]))
+    if _INTERNAL_SCOPE_STEM_RE.search(text):
+        out.append(QualityViolation(rid, "internal_scope_classification", text[:120]))
     if re.search(r"[*_`]{2,}|\*\*[^*]+\*\*", text):
         out.append(QualityViolation(rid, "markdown_leak", text[:120]))
     if re.search(
