@@ -231,6 +231,21 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     # Align metric counters with status (curated questions), not suppressed YAML gaps.
     metrics["blockers"] = sum(1 for q in customer_questions if q.severity == "blocker")
     metrics["warnings"] = sum(1 for q in customer_questions if q.severity == "warning")
+    # The shortlist is capped and every real deal saturates it, so the two
+    # counters above describe what the PM can SEE, not what is known. Publish the
+    # pool totals beside them so "8 blockers" is never read as "8 left to clear".
+    # Deliberately not folded into metrics["blockers"]: status/health_line are
+    # driven by the curated shortlist, and the pool is an audit superset that is
+    # itself capped (ORBITBRIEF_QUESTION_POOL_CAP), making it a floor, not a total.
+    metrics["blockers_known"] = sum(
+        1 for q in customer_questions_pool if q.severity == "blocker"
+    )
+    metrics["warnings_known"] = sum(
+        1 for q in customer_questions_pool if q.severity == "warning"
+    )
+    metrics["questions_hidden"] = max(
+        0, len(customer_questions_pool) - len(customer_questions)
+    )
     metrics["project_mode"] = project_mode
     metrics["customer_question_engine"] = question_meta
     metrics["fact_quality"] = fact_quality_meta

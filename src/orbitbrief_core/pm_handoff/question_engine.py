@@ -40,7 +40,10 @@ from orbitbrief_core.validator.sow_completeness import (
     _atom_text,
 )
 
-DEFAULT_QUESTION_CAP = 8
+# PM Review Queue shortlist size. Env-tunable so queue depth can be dialed
+# without a redeploy — every real deal saturates this cap, so it is the single
+# knob deciding how much of the known work a PM can actually see.
+DEFAULT_QUESTION_CAP = int(__import__("os").environ.get("ORBITBRIEF_QUESTION_CAP", "12"))
 # Evidence-ranked audit pool (not dumped into the PM Review Queue).
 DEFAULT_QUESTION_POOL_CAP = int(
     __import__("os").environ.get("ORBITBRIEF_QUESTION_POOL_CAP", "50")
@@ -3380,6 +3383,40 @@ def _neural_mmr_select(
     return [ranked[i] for i in picked]
 
 
+def select_shortlist(pool_cards: list[GapCard], *, cap: int) -> list[GapCard]:
+    """Cut the capped PM Review Queue shortlist out of the full question pool.
+
+    One ask per family, no unflavored coverage stems (cross-deal clones), and
+    **severity first**. The family filter claims a family for whichever card
+    reaches it first, so walking raw pool order let a warning take the slot and
+    strand a same-family blocker outside the cap — live deals shipped 3 blockers
+    + 5 warnings while 23 blockers sat unshown in the pool. The sort is stable,
+    so the existing rank order still decides ties within a severity.
+    """
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import (
+        family_key_for_question,
+        is_unflavored_coverage,
+        normalize_pm_ask,
+    )
+
+    short_families: set[str] = set()
+    cards: list[GapCard] = []
+    ordered_pool = sorted(pool_cards, key=lambda c: SEVERITY_SORT.get(c.severity, 9))
+    for card in ordered_pool:
+        if len(cards) >= max(1, int(cap)):
+            break
+        qtext = normalize_pm_ask(card.suggested_open_question or card.message or "")
+        if is_unflavored_coverage(qtext):
+            continue
+        fam = family_key_for_question(qtext, card.rule_id)
+        if fam and fam in short_families:
+            continue
+        if fam:
+            short_families.add(fam)
+        cards.append(card)
+    return cards
+
+
 def build_customer_questions(
     *,
     gaps: list[GapCard],
@@ -3654,21 +3691,7 @@ def build_customer_questions(
             )
             if kept is not None:
                 pool_cards.append(kept)
-    # Shortlist: one-per-family; drop unflavored coverage stems (cross-deal clones).
-    short_families: set[str] = set()
-    cards: list[GapCard] = []
-    for card in pool_cards:
-        if len(cards) >= max(1, int(cap)):
-            break
-        qtext = normalize_pm_ask(card.suggested_open_question or card.message or "")
-        if is_unflavored_coverage(qtext):
-            continue
-        fam = family_key_for_question(qtext, card.rule_id)
-        if fam and fam in short_families:
-            continue
-        if fam:
-            short_families.add(fam)
-        cards.append(card)
+    cards = select_shortlist(pool_cards, cap=cap)
     if not cards:
         shortlist_cards, _ = filter_perfect_questions(
             [c.to_gap_card() for c in ranked[: max(1, int(cap))]]
