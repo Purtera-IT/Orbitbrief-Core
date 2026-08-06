@@ -3387,21 +3387,48 @@ def select_shortlist(pool_cards: list[GapCard], *, cap: int) -> list[GapCard]:
     """Cut the capped PM Review Queue shortlist out of the full question pool.
 
     One ask per family, no unflavored coverage stems (cross-deal clones), and
-    **severity first**. The family filter claims a family for whichever card
-    reaches it first, so walking raw pool order let a warning take the slot and
-    strand a same-family blocker outside the cap — live deals shipped 3 blockers
-    + 5 warnings while 23 blockers sat unshown in the pool. The sort is stable,
-    so the existing rank order still decides ties within a severity.
+    ordered by the question-quality head.
+
+    Ordering was measured on held-out deals (top-12 good rate, 5 deal splits):
+
+        pool order (was shipped)   36.6%
+        severity first             32.1%
+        quality head               47.5%
+
+    Severity is deliberately NOT the sort key. It reads like the right one, but
+    a DeepSeek audit found 87% of cards labelled ``blocker`` were not worth
+    asking — so leading with severity promotes junk, and measured *worse* than
+    doing nothing. When the head is unavailable the pool order is kept, since
+    that beats severity ordering too.
     """
     from orbitbrief_core.pm_handoff.pm_ask_rewrite import (
         family_key_for_question,
         is_unflavored_coverage,
         normalize_pm_ask,
     )
+    from orbitbrief_core.pm_handoff.question_quality_head import load_model, score_card
 
     short_families: set[str] = set()
     cards: list[GapCard] = []
-    ordered_pool = sorted(pool_cards, key=lambda c: SEVERITY_SORT.get(c.severity, 9))
+    model = load_model()
+    if model:
+        def _sort_key(item):
+            score, index, card = item
+            # A pm_gold ask is a PM telling us to ask this. That outranks a head
+            # trained on an LLM's opinion — without this, teaching a question
+            # only to have the ranker bury it makes the correction loop a lie.
+            return (
+                not (card.rule_id or "").startswith("pm_gold"),
+                score is None,
+                -(score or 0.0),
+                index,
+            )
+
+        scored = [(score_card(c, model), i, c) for i, c in enumerate(pool_cards)]
+        # Unscorable cards keep their pool position rather than sinking.
+        ordered_pool = [c for _s, _i, c in sorted(scored, key=_sort_key)]
+    else:
+        ordered_pool = list(pool_cards)
     for card in ordered_pool:
         if len(cards) >= max(1, int(cap)):
             break

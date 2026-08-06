@@ -1,24 +1,19 @@
-"""Shortlist ordering: a warning must never displace an unresolved blocker.
+"""Shortlist selection invariants.
 
-The PM Review Queue is a capped slice of a much larger pool, and every real deal
-saturates the cap. The one-per-family filter that builds the slice claims a
-family for whichever card reaches it first, so walking raw pool order let a
-warning take the slot and strand a same-family blocker outside the cap. Observed
-live: deals shipping 3 blockers + 5 warnings with 23 blockers unshown in the pool.
+History worth keeping: this file originally pinned *severity-first* ordering,
+on the reasoning that a warning must never displace an unresolved blocker. That
+was measured and it was wrong — severity ordering scored 32.1% top-12 good rate
+on held-out deals against 36.6% for leaving the pool order alone, because a
+DeepSeek audit found 87% of cards labelled ``blocker`` were not worth asking.
+Leading with severity promotes junk.
+
+Ordering is now the question-quality head (47.5%); see
+``test_question_quality_head.py``. What survives here are the invariants that
+hold regardless of how the queue is ranked.
 """
 
-from orbitbrief_core.pm_handoff.business_labels import SEVERITY_SORT
 from orbitbrief_core.pm_handoff.models import GapCard
-from orbitbrief_core.pm_handoff.question_engine import (
-    build_customer_questions,
-    select_shortlist,
-)
-
-from tests.pm_handoff.test_question_engine import (
-    _ops_junk_gaps,
-    _sites,
-    _sodexo_atoms,
-)
+from orbitbrief_core.pm_handoff.question_engine import select_shortlist
 
 
 def _card(rule_id: str, severity: str, question: str) -> GapCard:
@@ -33,9 +28,6 @@ def _card(rule_id: str, severity: str, question: str) -> GapCard:
     )
 
 
-# Two cards in the same "parking" family, one blocker and one warning, plus an
-# unrelated blocker. In pool order the warning arrives first and claims the
-# family; with cap=2 that strands the parking blocker outside the shortlist.
 _PARKING_WARNING = _card(
     "pmcover.parking.fees",
     "warning",
@@ -53,24 +45,6 @@ _POC_BLOCKER = _card(
 )
 
 
-def test_warning_does_not_strand_a_same_family_blocker():
-    pool = [_PARKING_WARNING, _POC_BLOCKER, _PARKING_BLOCKER]
-    picked = select_shortlist(pool, cap=2)
-
-    assert [c.severity for c in picked] == ["blocker", "blocker"], (
-        "a warning took a shortlist slot while a blocker was left in the pool: "
-        f"{[(c.severity, c.rule_id) for c in picked]}"
-    )
-    assert _PARKING_WARNING.rule_id not in {c.rule_id for c in picked}
-
-
-def test_shortlist_orders_blockers_before_warnings():
-    pool = [_PARKING_WARNING, _POC_BLOCKER, _PARKING_BLOCKER]
-    picked = select_shortlist(pool, cap=10)
-    ranks = [SEVERITY_SORT.get(c.severity, 9) for c in picked]
-    assert ranks == sorted(ranks), [(c.severity, c.rule_id) for c in picked]
-
-
 def test_cap_is_respected():
     pool = [_PARKING_WARNING, _POC_BLOCKER, _PARKING_BLOCKER]
     assert len(select_shortlist(pool, cap=1)) == 1
@@ -78,14 +52,18 @@ def test_cap_is_respected():
     assert len(select_shortlist(pool, cap=0)) == 1
 
 
-def test_real_deal_shortlist_is_severity_ordered():
-    """End-to-end guard through the full engine, not just the helper."""
-    cards, _ = build_customer_questions(
-        gaps=_ops_junk_gaps(),
-        sites=_sites(),
-        envelope={"atoms": _sodexo_atoms()},
-        feedback_events=[],
-        cap=12,
-    )
-    ranks = [SEVERITY_SORT.get(c.severity, 9) for c in cards]
-    assert ranks == sorted(ranks), [(c.severity, c.rule_id) for c in cards]
+def test_no_duplicate_rule_ids():
+    pool = [_PARKING_WARNING, _POC_BLOCKER, _PARKING_BLOCKER, _POC_BLOCKER]
+    picked = select_shortlist(pool, cap=10)
+    rule_ids = [c.rule_id for c in picked]
+    assert len(rule_ids) == len(set(rule_ids))
+
+
+def test_selection_is_deterministic():
+    pool = [_PARKING_WARNING, _POC_BLOCKER, _PARKING_BLOCKER]
+    first = [c.rule_id for c in select_shortlist(pool, cap=3)]
+    assert first == [c.rule_id for c in select_shortlist(pool, cap=3)]
+
+
+def test_empty_pool_is_safe():
+    assert select_shortlist([], cap=12) == []
