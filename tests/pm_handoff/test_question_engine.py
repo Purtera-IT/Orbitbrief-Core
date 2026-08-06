@@ -161,7 +161,13 @@ def test_sodexo_like_questions_are_real_pm_asks_not_ops_junk():
     assert len(cards) >= 3
     # Topology / phase / survey should surface
     assert any("per site" in q or "topology" in q for q in questions)
-    assert any("montreal" in q or "phase" in q or "deferred" in q for q in questions)
+    # Which-sites-are-in-scope must be asked. "wave" is included because the
+    # quality head now promotes "which sites are in this wave?" over the
+    # lower-scoring "this phase vs deferred" wording — same intent, better ask.
+    assert any(
+        "montreal" in q or "phase" in q or "deferred" in q or "wave" in q
+        for q in questions
+    )
     # Site-list copy chatter suppressed when sites already published
     assert not any("copy of those sites" in q for q in questions)
 

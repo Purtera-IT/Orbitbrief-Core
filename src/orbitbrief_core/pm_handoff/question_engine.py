@@ -40,7 +40,10 @@ from orbitbrief_core.validator.sow_completeness import (
     _atom_text,
 )
 
-DEFAULT_QUESTION_CAP = 8
+# PM Review Queue shortlist size. Env-tunable so queue depth can be dialed
+# without a redeploy — every real deal saturates this cap, so it is the single
+# knob deciding how much of the known work a PM can actually see.
+DEFAULT_QUESTION_CAP = int(__import__("os").environ.get("ORBITBRIEF_QUESTION_CAP", "12"))
 # Evidence-ranked audit pool (not dumped into the PM Review Queue).
 DEFAULT_QUESTION_POOL_CAP = int(
     __import__("os").environ.get("ORBITBRIEF_QUESTION_POOL_CAP", "50")
@@ -3380,6 +3383,67 @@ def _neural_mmr_select(
     return [ranked[i] for i in picked]
 
 
+def select_shortlist(pool_cards: list[GapCard], *, cap: int) -> list[GapCard]:
+    """Cut the capped PM Review Queue shortlist out of the full question pool.
+
+    One ask per family, no unflavored coverage stems (cross-deal clones), and
+    ordered by the question-quality head.
+
+    Ordering was measured on held-out deals (top-12 good rate, 5 deal splits):
+
+        pool order (was shipped)   36.6%
+        severity first             32.1%
+        quality head               47.5%
+
+    Severity is deliberately NOT the sort key. It reads like the right one, but
+    a DeepSeek audit found 87% of cards labelled ``blocker`` were not worth
+    asking — so leading with severity promotes junk, and measured *worse* than
+    doing nothing. When the head is unavailable the pool order is kept, since
+    that beats severity ordering too.
+    """
+    from orbitbrief_core.pm_handoff.pm_ask_rewrite import (
+        family_key_for_question,
+        is_unflavored_coverage,
+        normalize_pm_ask,
+    )
+    from orbitbrief_core.pm_handoff.question_quality_head import load_model, score_card
+
+    short_families: set[str] = set()
+    cards: list[GapCard] = []
+    model = load_model()
+    if model:
+        def _sort_key(item):
+            score, index, card = item
+            # A pm_gold ask is a PM telling us to ask this. That outranks a head
+            # trained on an LLM's opinion — without this, teaching a question
+            # only to have the ranker bury it makes the correction loop a lie.
+            return (
+                not (card.rule_id or "").startswith("pm_gold"),
+                score is None,
+                -(score or 0.0),
+                index,
+            )
+
+        scored = [(score_card(c, model), i, c) for i, c in enumerate(pool_cards)]
+        # Unscorable cards keep their pool position rather than sinking.
+        ordered_pool = [c for _s, _i, c in sorted(scored, key=_sort_key)]
+    else:
+        ordered_pool = list(pool_cards)
+    for card in ordered_pool:
+        if len(cards) >= max(1, int(cap)):
+            break
+        qtext = normalize_pm_ask(card.suggested_open_question or card.message or "")
+        if is_unflavored_coverage(qtext):
+            continue
+        fam = family_key_for_question(qtext, card.rule_id)
+        if fam and fam in short_families:
+            continue
+        if fam:
+            short_families.add(fam)
+        cards.append(card)
+    return cards
+
+
 def build_customer_questions(
     *,
     gaps: list[GapCard],
@@ -3654,21 +3718,7 @@ def build_customer_questions(
             )
             if kept is not None:
                 pool_cards.append(kept)
-    # Shortlist: one-per-family; drop unflavored coverage stems (cross-deal clones).
-    short_families: set[str] = set()
-    cards: list[GapCard] = []
-    for card in pool_cards:
-        if len(cards) >= max(1, int(cap)):
-            break
-        qtext = normalize_pm_ask(card.suggested_open_question or card.message or "")
-        if is_unflavored_coverage(qtext):
-            continue
-        fam = family_key_for_question(qtext, card.rule_id)
-        if fam and fam in short_families:
-            continue
-        if fam:
-            short_families.add(fam)
-        cards.append(card)
+    cards = select_shortlist(pool_cards, cap=cap)
     if not cards:
         shortlist_cards, _ = filter_perfect_questions(
             [c.to_gap_card() for c in ranked[: max(1, int(cap))]]
