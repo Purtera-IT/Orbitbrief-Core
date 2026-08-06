@@ -11,8 +11,13 @@ name: Deploy orbitbrief-core-worker to dev
 #   AZURE_TENANT_ID:       f793fa28-2504-447d-893e-f314c51c54de
 #   AZURE_CLIENT_ID:       87c3259e-ed41-4a19-a4fc-86e1b575e31f
 #   AZURE_SUBSCRIPTION_ID: cd493e42-9cd6-4849-975a-3fbeb7fd93d1
-#   PLATFORM_INFRA_CHECKOUT_TOKEN: PAT with repo:read on Purtera-IT/Platform-infra
-#   (fallback secrets also tried: GH_REPO_TOKEN, PURPULSE_FRONTEND_CHECKOUT_TOKEN)
+#
+# No cross-repo PAT is required. orbitbrief-core-worker/ lives in THIS repo —
+# it bundles Orbitbrief-Core, only this workflow builds it, and no Platform-infra
+# workflow references it. It previously lived in Platform-infra, which meant every
+# deploy needed a PAT that was never set: the checkout fell through to
+# github.token, which cannot read a private sibling repo, so every run since
+# 2026-06-29 failed at "Checkout Platform-infra" and Core only shipped by hand.
 
 on:
   push:
@@ -47,17 +52,8 @@ jobs:
         with:
           path: Orbitbrief-Core
 
-      - name: Checkout Platform-infra (for worker Dockerfile)
-        uses: actions/checkout@v4
-        with:
-          repository: Purtera-IT/Platform-infra
-          token: ${{ secrets.PLATFORM_INFRA_CHECKOUT_TOKEN || secrets.GH_REPO_TOKEN || secrets.PURPULSE_FRONTEND_CHECKOUT_TOKEN || github.token }}
-          path: platform-infra-tmp
-
       - name: Stage orbitbrief-core-worker dir at build context root
-        run: |
-          cp -r platform-infra-tmp/orbitbrief-core-worker ./
-          rm -rf platform-infra-tmp
+        run: cp -r Orbitbrief-Core/orbitbrief-core-worker ./
 
       - name: Clone parser-os at pinned ref
         run: |
