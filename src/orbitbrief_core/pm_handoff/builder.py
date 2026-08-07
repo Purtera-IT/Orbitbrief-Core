@@ -598,16 +598,24 @@ def _build_site_summaries(report: dict[str, Any], case_dir: Path | None = None) 
     # resolved (site_id + name). Read them once, from the envelope as well as the
     # report — the report's cluster summary does not carry them, so anything that
     # only consults `report` silently sees zero sites.
-    atom_sources: dict[str, Any] = {"atoms": _iter_report_atoms(report)}
-    if case_dir is not None and not atom_sources["atoms"]:
+    report_atoms = _iter_report_atoms(report)
+    # Gate on the absence of SITE atoms, not on an empty atom list. The report
+    # carries plenty of other atoms while omitting physical_site entirely, so a
+    # "is it empty?" check reads as satisfied and the envelope is never opened —
+    # which is the same mistake as gating the recovery below on `if not out`.
+    if case_dir is not None and not any(
+        a.get("atom_type") == "physical_site" for a in report_atoms
+    ):
         envelope = (
             _read_json(case_dir / "00_envelope.json")
             or _read_json(case_dir / "envelope.json")
             or {}
         )
         if isinstance(envelope, dict):
-            atom_sources = {"atoms": envelope.get("atoms") or []}
-    structured_sites = _site_summaries_from_physical_atoms(atom_sources)
+            env_atoms = envelope.get("atoms") or []
+            if env_atoms:
+                report_atoms = list(report_atoms) + list(env_atoms)
+    structured_sites = _site_summaries_from_physical_atoms({"atoms": report_atoms})
     # A national rollout is not a pile of false positives. When the extractor
     # resolved many distinct structured sites, each one legitimately appears in
     # only one or two documents, which is exactly the shape the micro-cluster
