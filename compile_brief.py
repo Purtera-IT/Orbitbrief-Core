@@ -126,6 +126,27 @@ def main(argv: list[str] | None = None) -> int:
         help="Wire the OpenAI-compatible chat client at OLLAMA_BASE_URL.",
     )
     p.add_argument("--ollama-base-url", default="http://localhost:11434")
+    # The narrative is a plain generation call — nothing here learns or improves
+    # with time, so it does not need to sit on the local box. Pointing it at a
+    # hosted OpenAI-compatible endpoint removes a single-machine dependency that
+    # was silently costing every brief its summary: when the local host wedges,
+    # each LLM stage burns its full timeout and returns ok=fallback, so the brief
+    # ships narrative-less and nothing reports it. Embeddings and the trained
+    # heads deliberately stay where they are.
+    p.add_argument(
+        "--chat-api-key",
+        default=os.environ.get("ORBITBRIEF_CHAT_API_KEY", ""),
+        help="Bearer token for a hosted chat endpoint. Ignored by local Ollama.",
+    )
+    p.add_argument(
+        "--chat-timeout-s",
+        type=float,
+        default=float(os.environ.get("ORBITBRIEF_CHAT_TIMEOUT_S", "1200")),
+        help=(
+            "Transport timeout. 1200s suits a slow local tier; a hosted endpoint "
+            "should fail fast (~90s) so a dead backend costs seconds, not minutes."
+        ),
+    )
     p.add_argument("--chat-model", default="qwen3:14b")
     # Default escalated tier matches default tier on the local Mac path —
     # qwen3:32b on Apple-Silicon Ollama generates ~30 tok/s which exceeds
@@ -174,9 +195,13 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     chat = (
-        # 1200 s transport timeout keeps us safe even when the brain
-        # runs through 12 k tokens of JSON on a slow tier (qwen3:32b ~ 30 tok/s).
-        OpenAIChatClient(base_url=args.ollama_base_url, timeout_s=1200.0)
+        OpenAIChatClient(
+            base_url=args.ollama_base_url,
+            # Hosted endpoints need a bearer token; a local Ollama ignores it.
+            # Same OpenAI-compatible wire format either way.
+            api_key=args.chat_api_key or None,
+            timeout_s=args.chat_timeout_s,
+        )
         if args.ollama
         else None
     )
