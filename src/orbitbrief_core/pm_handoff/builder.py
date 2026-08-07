@@ -520,6 +520,62 @@ def _build_source_files(report: dict[str, Any]) -> tuple[list[SourceFileSummary]
     return files, by_id
 
 
+# A deal with this many distinct structured sites is a rollout, not a pile of
+# address-line false positives. Deliberately low: the guard it relaxes only ever
+# fires on clusters of <=2 atoms, and a genuine 10-site rollout has the same
+# per-site evidence shape as a 400-site one.
+_ROLLOUT_SITE_FLOOR = 10
+
+# "HC-1023" / "hc 1023" / "SITE 42" — an identifier the clusterer normalised,
+# carrying no facility name.
+_SITE_CODE_RE = re.compile(r"^[a-z]{1,4}[\s\-_]?\d{1,6}$", re.I)
+
+
+def _slugify_site_name(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", str(name or "").lower()).strip("_")
+
+
+def _slugs_compatible(a: str, b: str) -> bool:
+    """True when two site slugs denote the same place.
+
+    Containment rather than equality: the clusterer's "clayton_homes_of_marion"
+    and an atom's "clayton_homes_of_marion_sc" are one site, and emitting both
+    double-counts a rollout.
+
+    The containment must land on a token boundary. Bare ``startswith`` merges
+    "..._town_1" with "..._town_10" through "..._town_19", which silently
+    collapsed a 40-site rollout to 10 — the same under-count this whole change
+    exists to fix, reintroduced one layer down.
+    """
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    shorter, longer = (a, b) if len(a) <= len(b) else (b, a)
+    return longer.startswith(shorter + "_")
+
+
+def _prefer_structured_site_name(
+    name: str, structured_by_slug: dict[str, SiteSummary]
+) -> str:
+    """Swap a normalised site code for the facility name the extractor resolved.
+
+    ``11_site_reality`` reduces "HC-1023 Clayton Homes of Moncks Corner" to the
+    canonical name "hc 1023" and drops the rest, so the PM sees a code. The atom
+    still carries the real name; use it when the cluster name is only an id.
+    """
+    if not _SITE_CODE_RE.match(str(name or "").strip()):
+        return name
+    slug = _slugify_site_name(name)
+    hit = structured_by_slug.get(slug)
+    if hit and hit.name and not _SITE_CODE_RE.match(hit.name.strip()):
+        return hit.name
+    for cand_slug, cand in structured_by_slug.items():
+        if _slugs_compatible(slug, cand_slug) and not _SITE_CODE_RE.match(cand.name.strip()):
+            return cand.name
+    return name
+
+
 def _build_site_summaries(report: dict[str, Any], case_dir: Path | None = None) -> list[SiteSummary]:
     md_overrides = _read_site_reality_md(case_dir)
     # The inspection report omits ``kind`` / ``publishable`` from its
@@ -538,10 +594,34 @@ def _build_site_summaries(report: dict[str, Any], case_dir: Path | None = None) 
             except Exception:
                 pass
 
+    # Structured physical_site atoms are the ground truth the extractor already
+    # resolved (site_id + name). Read them once, from the envelope as well as the
+    # report — the report's cluster summary does not carry them, so anything that
+    # only consults `report` silently sees zero sites.
+    atom_sources: dict[str, Any] = {"atoms": _iter_report_atoms(report)}
+    if case_dir is not None and not atom_sources["atoms"]:
+        envelope = (
+            _read_json(case_dir / "00_envelope.json")
+            or _read_json(case_dir / "envelope.json")
+            or {}
+        )
+        if isinstance(envelope, dict):
+            atom_sources = {"atoms": envelope.get("atoms") or []}
+    structured_sites = _site_summaries_from_physical_atoms(atom_sources)
+    # A national rollout is not a pile of false positives. When the extractor
+    # resolved many distinct structured sites, each one legitimately appears in
+    # only one or two documents, which is exactly the shape the micro-cluster
+    # guard below was written to discard.
+    rollout_mode = len(structured_sites) >= _ROLLOUT_SITE_FLOOR
+
     out: list[SiteSummary] = []
     physical_slugs = _physical_site_slugs(report)
+    structured_by_slug = {_slugify_site_name(s.name): s for s in structured_sites}
     for cluster in (report.get("site_reality") or {}).get("clusters") or []:
         name = str(cluster.get("canonical_name") or cluster.get("cluster_id") or "Unknown site")
+        # site_reality normalises "HC-1023" to "hc 1023" and drops the facility
+        # name the extractor already had. Recover it rather than shipping a code.
+        name = _prefer_structured_site_name(name, structured_by_slug)
         md = md_overrides.get(name, {})
         st = state_overrides.get(name, {})
         publishable = _coerce_publishable(
@@ -566,7 +646,9 @@ def _build_site_summaries(report: dict[str, Any], case_dir: Path | None = None) 
         }
         last_tok = name.lower().split()[-1] if name else ""
         looks_device_shaped = last_tok in device_acronym_suffixes
-        if (member_count <= 2 and artifact_count <= 2) or looks_device_shaped:
+        if looks_device_shaped:
+            continue
+        if (member_count <= 2 and artifact_count <= 2) and not rollout_mode:
             continue
         cluster_slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
         if not physical_slugs or cluster_slug not in physical_slugs:
@@ -585,16 +667,17 @@ def _build_site_summaries(report: dict[str, Any], case_dir: Path | None = None) 
                 artifact_count=artifact_count,
             )
         )
-    if not out:
-        out.extend(_site_summaries_from_physical_atoms(report))
-    if not out and case_dir is not None:
-        envelope = (
-            _read_json(case_dir / "00_envelope.json")
-            or _read_json(case_dir / "envelope.json")
-            or {}
-        )
-        if isinstance(envelope, dict):
-            out.extend(_site_summaries_from_physical_atoms({"atoms": envelope.get("atoms") or []}))
+    # Merge structured sites the clusterer missed. This must NOT be gated on an
+    # empty `out`: a rollout where clustering keeps three sites and drops four
+    # hundred is the failure this recovers, and "three" is truthy. Gating it is
+    # how 437 resolved site atoms shipped as 3 sites named "hc 1023".
+    existing_slugs = {_slugify_site_name(s.name) for s in out}
+    for extra in structured_sites:
+        slug = _slugify_site_name(extra.name)
+        if any(_slugs_compatible(slug, e) for e in existing_slugs):
+            continue
+        out.append(extra)
+        existing_slugs.add(slug)
     return sorted(out, key=lambda s: (not s.publishable, s.name))
 
 
