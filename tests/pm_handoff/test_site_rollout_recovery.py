@@ -112,3 +112,32 @@ def test_slug_containment_respects_token_boundaries():
     assert not _slugs_compatible("clayton_homes_of_town_1", "clayton_homes_of_town_10")
     assert not _slugs_compatible("hc_1", "hc_10")
     assert _slugs_compatible("hc_1", "hc_1")
+
+
+def test_envelope_is_read_when_report_has_atoms_but_no_site_atoms(tmp_path):
+    """The real production shape: report is non-empty, just missing site atoms.
+
+    Gating the envelope read on "report has no atoms at all" reads as satisfied
+    here and silently skips recovery — which is exactly how the first version of
+    this fix passed its tests and still shipped 3 sites named "hc 1023".
+    """
+    import json as _json
+
+    (tmp_path / "00_envelope.json").write_text(
+        _json.dumps({"atoms": _rollout(25)}), encoding="utf-8"
+    )
+    report = {
+        "atoms": [{"id": "a1", "atom_type": "scope_item", "value": {"text": "install"}}],
+        "site_reality": {
+            "clusters": [
+                {
+                    "canonical_name": "hc 1023",
+                    "member_atom_ids": ["a", "b", "c", "d"],
+                    "artifact_ids": ["x", "y", "z"],
+                }
+            ]
+        },
+    }
+    sites = _build_site_summaries(report, tmp_path)
+    assert len(sites) >= 25, f"only {len(sites)} sites — envelope was not read"
+    assert any("Clayton Homes of Town" in s.name for s in sites)
