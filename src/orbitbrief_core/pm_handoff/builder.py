@@ -576,7 +576,67 @@ def _prefer_structured_site_name(
     return name
 
 
+def _sites_from_canonical_roster(
+    report: dict[str, Any], case_dir: Path | None
+) -> list[SiteSummary]:
+    """Project the site panel from ``site_readiness`` — the canonical roster.
+
+    ``envelope.py`` already resolves every site once, with name, address and a
+    readiness score, and the handoff carries all of it. Re-deriving the panel
+    from ``site_reality`` clusters is the same duplicated-consumer bug that
+    f257ba4 removed seven of: a 437-site rollout rendered as three entries named
+    "hc 1023", while ``site_readiness`` beside it held all 437 fully populated.
+
+    Read the roster; do not rebuild it.
+    """
+    rows = report.get("site_readiness")
+    if not isinstance(rows, list) or not rows:
+        env: dict[str, Any] = {}
+        if case_dir is not None:
+            env = (
+                _read_json(case_dir / "00_envelope.json")
+                or _read_json(case_dir / "envelope.json")
+                or {}
+            )
+        rows = env.get("site_readiness") if isinstance(env, dict) else None
+    if not isinstance(rows, list):
+        return []
+
+    out: list[SiteSummary] = []
+    seen: set[str] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("name") or "").strip()
+        slug = str(row.get("site_slug") or "").strip()
+        # A roster row with no display name is still a real site; fall back to
+        # its slug rather than dropping it.
+        label = name or slug.split(":", 1)[-1].replace("_", " ").strip()
+        if not label:
+            continue
+        key = slug or label.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(
+            SiteSummary(
+                name=label,
+                kind="physical_site",
+                publishable=True,
+                member_evidence_count=int(row.get("atom_count") or 0),
+                artifact_count=0,
+            )
+        )
+    return out
+
+
 def _build_site_summaries(report: dict[str, Any], case_dir: Path | None = None) -> list[SiteSummary]:
+    # Canonical roster first. The cluster derivation below stays only as a
+    # fallback for briefs built before site_readiness existed.
+    roster = _sites_from_canonical_roster(report, case_dir)
+    if roster:
+        return sorted(roster, key=lambda s: (not s.publishable, s.name))
+
     md_overrides = _read_site_reality_md(case_dir)
     # The inspection report omits ``kind`` / ``publishable`` from its
     # cluster summary; fall back to the dedicated site-reality state
