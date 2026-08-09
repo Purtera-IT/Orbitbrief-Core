@@ -576,6 +576,49 @@ def _prefer_structured_site_name(
     return name
 
 
+def _roster_rows(doc: Any) -> list[dict[str, Any]]:
+    """Pull the site roster out of either shape that carries one.
+
+    The envelope stores ``site_readiness`` as a **dict** — ``sites``,
+    ``site_count``, ``avg_readiness``, … — with the 437 rows nested under
+    ``sites``. The handoff's own enriched roster is a plain list. Reading the
+    envelope's dict as if it were a list is what silently returned zero sites
+    and fell through to cluster derivation.
+    """
+    if not isinstance(doc, dict):
+        return []
+    sr = doc.get("site_readiness")
+    if isinstance(sr, list):
+        return [r for r in sr if isinstance(r, dict)]
+    if isinstance(sr, dict):
+        rows = sr.get("sites")
+        if isinstance(rows, list):
+            return [r for r in rows if isinstance(r, dict)]
+    return []
+
+
+# "HC-100" / "hc 100" — an identifier, not something to show a PM.
+_ALIAS_CODE_RE = re.compile(r"^[a-z]{1,4}[\s\-_]?\d{1,6}$", re.I)
+
+
+def _display_name_from_aliases(aliases: Any) -> str:
+    """Pick the facility name out of an envelope row's aliases.
+
+    Rows carry ``["HC-100", "Clayton Homes of Laurinburg", "12021 Andrew
+    Jackson Highway"]`` — the id, the name, then the street. Take the first
+    entry that is neither a bare code nor an address (addresses lead with a
+    house number), so the PM sees "Clayton Homes of Laurinburg".
+    """
+    if not isinstance(aliases, list):
+        return ""
+    for alias in aliases:
+        text = str(alias or "").strip()
+        if not text or _ALIAS_CODE_RE.match(text) or text[:1].isdigit():
+            continue
+        return text
+    return ""
+
+
 def _sites_from_canonical_roster(
     report: dict[str, Any], case_dir: Path | None
 ) -> list[SiteSummary]:
@@ -589,17 +632,17 @@ def _sites_from_canonical_roster(
 
     Read the roster; do not rebuild it.
     """
-    rows = report.get("site_readiness")
-    if not isinstance(rows, list) or not rows:
-        env: dict[str, Any] = {}
-        if case_dir is not None:
-            env = (
-                _read_json(case_dir / "00_envelope.json")
-                or _read_json(case_dir / "envelope.json")
-                or {}
-            )
-        rows = env.get("site_readiness") if isinstance(env, dict) else None
-    if not isinstance(rows, list):
+    rows = _roster_rows(report)
+    if not rows and case_dir is not None:
+        # The worker writes ``envelope.json`` beside the artifacts; the
+        # ``00_`` prefix only exists in the orchestrator's own case layout.
+        env = (
+            _read_json(case_dir / "envelope.json")
+            or _read_json(case_dir / "00_envelope.json")
+            or {}
+        )
+        rows = _roster_rows(env)
+    if not rows:
         return []
 
     out: list[SiteSummary] = []
@@ -607,11 +650,15 @@ def _sites_from_canonical_roster(
     for row in rows:
         if not isinstance(row, dict):
             continue
-        name = str(row.get("name") or "").strip()
-        slug = str(row.get("site_slug") or "").strip()
-        # A roster row with no display name is still a real site; fall back to
-        # its slug rather than dropping it.
-        label = name or slug.split(":", 1)[-1].replace("_", " ").strip()
+        # Envelope rows key the site as ``site`` ("site:hc_100"); the handoff's
+        # own enriched roster uses ``site_slug`` + ``name``. Accept both.
+        slug = str(row.get("site_slug") or row.get("site") or "").strip()
+        label = str(row.get("name") or "").strip() or _display_name_from_aliases(
+            row.get("aliases")
+        )
+        if not label:
+            # Still a real site — fall back to the slug rather than dropping it.
+            label = slug.split(":", 1)[-1].replace("_", " ").strip()
         if not label:
             continue
         key = slug or label.lower()
@@ -623,7 +670,9 @@ def _sites_from_canonical_roster(
                 name=label,
                 kind="physical_site",
                 publishable=True,
-                member_evidence_count=int(row.get("atom_count") or 0),
+                member_evidence_count=int(
+                    row.get("atom_count") or row.get("signal_count") or 0
+                ),
                 artifact_count=0,
             )
         )
