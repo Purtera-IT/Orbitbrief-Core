@@ -1,0 +1,1214 @@
+{
+ "site_readiness": {
+  "sites": [
+   {
+    "site": "site:hc_100",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-100",
+     "Clayton Homes of Laurinburg",
+     "12021 Andrew Jackson Highway"
+    ],
+    "address": "12021 Andrew Jackson Highway",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Laurinburg",
+    "street_address": "12021 Andrew Jackson Highway",
+    "phone": "9102771339",
+    "email": "hc100@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1005",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1005",
+     "Clayton Homes of Chino Valley",
+     "325 West Industrial Way"
+    ],
+    "address": "325 West Industrial Way",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Chino Valley",
+    "street_address": "325 West Industrial Way",
+    "phone": "9286369843",
+    "email": "hc1005@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1006",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1006",
+     "Clayton Homes of Lumberton",
+     "513 N. Lumberton High School R"
+    ],
+    "address": "513 N. Lumberton High School R",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Lumberton",
+    "street_address": "513 N. Lumberton High School R",
+    "phone": "4097557967",
+    "email": "hc1006@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1007",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1007",
+     "Clayton Homes of Augusta",
+     "1919 Gordon Hwy"
+    ],
+    "address": "1919 Gordon Hwy",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Augusta",
+    "street_address": "1919 Gordon Hwy",
+    "phone": "7067390200",
+    "email": "hc1007@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1011",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1011",
+     "Clayton Homes of Brenham",
+     "1602 Highway 290 West"
+    ],
+    "address": "1602 Highway 290 West",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Brenham",
+    "street_address": "1602 Highway 290 West",
+    "phone": "9792519044",
+    "email": "hc1011@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1016",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes",
+     "stakeholder:santa_rosa"
+    ],
+    "stakeholder_count": 2,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1016",
+     "Clayton Homes of Santa Rosa",
+     "3515 Santa Rosa Avenue"
+    ],
+    "address": "3515 Santa Rosa Avenue",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Santa Rosa",
+    "street_address": "3515 Santa Rosa Avenue",
+    "phone": "7075882725",
+    "email": "hc1016@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1017",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes",
+     "stakeholder:southern_indiana"
+    ],
+    "stakeholder_count": 2,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1017",
+     "Clayton Homes of Southern Indiana",
+     "1151 W Knable Road"
+    ],
+    "address": "1151 W Knable Road",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Southern Indiana",
+    "street_address": "1151 W Knable Road",
+    "phone": "8129238887",
+    "email": "hc1017@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1018",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes",
+     "stakeholder:el_dorado"
+    ],
+    "stakeholder_count": 2,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1018",
+     "Clayton Homes of El Dorado",
+     "3655 Junction City Highway"
+    ],
+    "address": "3655 Junction City Highway",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of El Dorado",
+    "street_address": "3655 Junction City Highway",
+    "phone": "8708624300",
+    "email": "hc1018@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1019",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes",
+     "stakeholder:katy_freeway"
+    ],
+    "stakeholder_count": 2,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1019",
+     "Clayton Homes of Brookshire",
+     "34940 Katy Freeway"
+    ],
+    "address": "34940 Katy Freeway",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Brookshire",
+    "street_address": "34940 Katy Freeway",
+    "phone": "2813756444",
+    "email": "hc1019@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_102",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-102",
+     "Clayton Homes of Goldsboro",
+     "4335 US Hwy. 70 East"
+    ],
+    "address": "4335 US Hwy. 70 East",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Goldsboro",
+    "street_address": "4335 US Hwy. 70 East",
+    "phone": "9197513151",
+    "email": "hc102@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1021",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1021",
+     "Clayton Homes of Louisa",
+     "17151 Highway 23"
+    ],
+    "address": "17151 Highway 23",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Louisa",
+    "street_address": "17151 Highway 23",
+    "phone": "6066384663",
+    "email": "hc1021@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1023",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1023",
+     "Clayton Homes of Barboursville",
+     "5898 Route 60 East"
+    ],
+    "address": "5898 Route 60 East",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Barboursville",
+    "street_address": "5898 Route 60 East",
+    "phone": "3047334663",
+    "email": "hc1023@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1024",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes",
+     "stakeholder:glen_jean"
+    ],
+    "stakeholder_count": 2,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1024",
+     "Clayton Homes of Glen Jean",
+     "401 Wood Mountain Rd"
+    ],
+    "address": "401 Wood Mountain Rd",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Glen Jean",
+    "street_address": "401 Wood Mountain Rd",
+    "phone": "3044651771",
+    "email": "hc1024@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1025",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1025",
+     "Clayton Homes of Buckhannon",
+     "143 Dewberry Trail"
+    ],
+    "address": "143 Dewberry Trail",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Buckhannon",
+    "street_address": "143 Dewberry Trail",
+    "phone": "3044728900",
+    "email": "hc1025@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1026",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1026",
+     "Clayton Homes of Danville",
+     "Route 119 N"
+    ],
+    "address": "Route 119 N",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Danville",
+    "street_address": "Route 119 N",
+    "phone": "3043695002",
+    "email": "hc1026@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1027",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:beverly_pike_route",
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 2,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1027",
+     "Clayton Homes of Elkins",
+     "1865 Beverly Pike Route 250 South"
+    ],
+    "address": "1865 Beverly Pike Route 250 South",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Elkins",
+    "street_address": "1865 Beverly Pike Route 250 South",
+    "phone": "3046366900",
+    "email": "hc1027@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1028",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1028",
+     "Clayton Homes of Morgantown",
+     "1294 Green Bag Rd"
+    ],
+    "address": "1294 Green Bag Rd",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Morgantown",
+    "street_address": "1294 Green Bag Rd",
+    "phone": "3045940700",
+    "email": "hc1028@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1030",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1030",
+     "Clayton Homes of St. Albans",
+     "739 Winfield Rd"
+    ],
+    "address": "739 Winfield Rd",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of St. Albans",
+    "street_address": "739 Winfield Rd",
+    "phone": "3047550181",
+    "email": "hc1030@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1031",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1031",
+     "Clayton Homes of Tazewell",
+     "19538 Gov GC Peery"
+    ],
+    "address": "19538 Gov GC Peery",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Tazewell",
+    "street_address": "19538 Gov GC Peery",
+    "phone": "2769882555",
+    "email": "hc1031@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1034",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1034",
+     "Clayton Homes of Sanford",
+     "1921 Keller Andrews Road"
+    ],
+    "address": "1921 Keller Andrews Road",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Sanford",
+    "street_address": "1921 Keller Andrews Road",
+    "phone": "9197741125",
+    "email": "hc1034@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1035",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1035",
+     "Clayton Homes of Elko",
+     "1450 Stitzel Road"
+    ],
+    "address": "1450 Stitzel Road",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Elko",
+    "street_address": "1450 Stitzel Road",
+    "phone": "7757539670",
+    "email": "hc1035@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1036",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes",
+     "stakeholder:san_angelo"
+    ],
+    "stakeholder_count": 2,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1036",
+     "Clayton Homes of San Angelo",
+     "3883 North Bryant Blvd"
+    ],
+    "address": "3883 North Bryant Blvd",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of San Angelo",
+    "street_address": "3883 North Bryant Blvd",
+    "phone": "3256177869",
+    "email": "hc1036@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1037",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1037",
+     "Clayton Homes of Grand Junction",
+     "671 23 Road"
+    ],
+    "address": "671 23 Road",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Grand Junction",
+    "street_address": "671 23 Road",
+    "phone": "9702459039",
+    "email": "shawn.ruse@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1041",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1041",
+     "Clayton Homes of Conway",
+     "15 Interstate Drive"
+    ],
+    "address": "15 Interstate Drive",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Conway",
+    "street_address": "15 Interstate Drive",
+    "phone": "5012051913",
+    "email": "hc1041@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1042",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1042",
+     "Clayton Homes of Durango",
+     "27015 Hwy 160"
+    ],
+    "address": "27015 Hwy 160",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Durango",
+    "street_address": "27015 Hwy 160",
+    "phone": "9702472299",
+    "email": "hc1042@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1043",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1043",
+     "Clayton Homes of Valdosta",
+     "3201 Hwy 84 West"
+    ],
+    "address": "3201 Hwy 84 West",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Valdosta",
+    "street_address": "3201 Hwy 84 West",
+    "phone": "2292450700",
+    "email": "hc1043@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1044",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1044",
+     "Clayton Homes of Glendale",
+     "6244 NW Grand Ave"
+    ],
+    "address": "6244 NW Grand Ave",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Glendale",
+    "street_address": "6244 NW Grand Ave",
+    "phone": "6239310100",
+    "email": "hc1044@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1045",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1045",
+     "Clayton Homes of Snowflake",
+     "474 South Main St"
+    ],
+    "address": "474 South Main St",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Snowflake",
+    "street_address": "474 South Main St",
+    "phone": "9285362336",
+    "email": "hc1045@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1046",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:oakwood_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1046",
+     "Oakwood Homes of Chino Valley",
+     "3280 N Hwy 89"
+    ],
+    "address": "3280 N Hwy 89",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Oakwood Homes of Chino Valley",
+    "street_address": "3280 N Hwy 89",
+    "phone": "9286369000",
+    "email": "hc1046@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1047",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1047",
+     "Clayton Homes of Benton",
+     "1694 US Hwy 641 North"
+    ],
+    "address": "1694 US Hwy 641 North",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Benton",
+    "street_address": "1694 US Hwy 641 North",
+    "phone": "2705271451",
+    "email": "hc1047@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1048",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:las_vegas"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1048",
+     "Clayton Homes of Las Vegas",
+     "8275 S Eastern Ave Office 200 Suite #117"
+    ],
+    "address": "8275 S Eastern Ave Office 200 Suite #117",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Las Vegas",
+    "street_address": "8275 S Eastern Ave Office 200 Suite #117",
+    "phone": "7027242678",
+    "email": "hc1048@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1049",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:freedom_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1049",
+     "Freedom Homes of Alexandria",
+     "6962 Highway 431"
+    ],
+    "address": "6962 Highway 431",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Freedom Homes of Alexandria",
+    "street_address": "6962 Highway 431",
+    "phone": "2568200510",
+    "email": "hc1049@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1051",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1051",
+     "Clayton Homes of Odessa",
+     "2817 East Hwy 80"
+    ],
+    "address": "2817 East Hwy 80",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Odessa",
+    "street_address": "2817 East Hwy 80",
+    "phone": "4326149614",
+    "email": "hc1051@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1053",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1053",
+     "Clayton Homes of Waycross",
+     "2611 Knight Ave"
+    ],
+    "address": "2611 Knight Ave",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Waycross",
+    "street_address": "2611 Knight Ave",
+    "phone": "9122841728",
+    "email": "hc1053@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1054",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1054",
+     "Clayton Homes of Corsicana",
+     "5656 South I-45 West"
+    ],
+    "address": "5656 South I-45 West",
+    "facility_name": "Clayton Homes of Corsicana",
+    "street_address": "5656 South I-45 West",
+    "phone": "9038729837",
+    "email": "Morgan.Hughey@ClaytonHomes.com"
+   },
+   {
+    "site": "site:hc_1055",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes",
+     "stakeholder:corpus_christi"
+    ],
+    "stakeholder_count": 2,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1055",
+     "Clayton Homes of Corpus Christi",
+     "5858 Leopard St"
+    ],
+    "address": "5858 Leopard St",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Corpus Christi",
+    "street_address": "5858 Leopard St",
+    "phone": "3612991442",
+    "email": "hc1055@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1056",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:freedom_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1056",
+     "Freedom Homes of Alexander",
+     "26163 I-30 South"
+    ],
+    "address": "26163 I-30 South",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Freedom Homes of Alexander",
+    "street_address": "26163 I-30 South",
+    "phone": "5014818128",
+    "email": "hc1056@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1057",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:crossland_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1057",
+     "Crossland Homes of Greenville",
+     "1600 SW Greenville Blvd"
+    ],
+    "address": "1600 SW Greenville Blvd",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Crossland Homes of Greenville",
+    "street_address": "1600 SW Greenville Blvd",
+    "phone": "2527566007",
+    "email": "hc1057@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1058",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1058",
+     "Clayton Homes of Frazeysburg",
+     "6810 Raiders Road"
+    ],
+    "address": "6810 Raiders Road",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Frazeysburg",
+    "street_address": "6810 Raiders Road",
+    "phone": "7408282104",
+    "email": "hc1058@claytonhomes.com"
+   },
+   {
+    "site": "site:hc_1059",
+    "readiness": 0.2,
+    "maturity": "scoping",
+    "band": "amber",
+    "anchored": true,
+    "signal_count": 1,
+    "device_keys": [],
+    "device_count": 0,
+    "stakeholder_keys": [
+     "stakeholder:clayton_homes"
+    ],
+    "stakeholder_count": 1,
+    "constraint_count": 0,
+    "scope_atom_count": 0,
+    "money_present": false,
+    "milestone_present": false,
+    "contradiction_count": 0,
+    "aliases": [
+     "HC-1059",
+     "Clayton Homes of Bellefontaine",
+     "2720 US Route 68 South"
+    ],
+    "address": "2720 US Route 68 South",
+    "access_window": "8:00 AM to 5:00 PM",
+    "facility_name": "Clayton Homes of Bellefontaine",
+    "street_address": "2720 US Route 68 South",
+    "phone": "9375923039",
+    "email": "hc1059@claytonhomes.com"
+   }
+  ],
+  "site_count": 437
+ }
+}
