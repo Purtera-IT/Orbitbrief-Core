@@ -57,7 +57,9 @@ def test_names_come_from_aliases_not_the_code(tmp_path):
 def test_alias_picker_skips_codes_and_addresses():
     aliases = ["HC-100", "Clayton Homes of Laurinburg", "12021 Andrew Jackson Highway"]
     assert _display_name_from_aliases(aliases) == "Clayton Homes of Laurinburg"
-    assert _display_name_from_aliases(["HC-100"]) == ""
+    # A code with nothing else is humanised rather than dropped — the site is
+    # real even when the extractor found no facility name.
+    assert _display_name_from_aliases(["HC-100"]) == "HC 100"
     assert _display_name_from_aliases(None) == ""
 
 
@@ -65,3 +67,38 @@ def test_envelope_json_is_preferred_over_the_orchestrator_name(tmp_path):
     """The worker writes envelope.json; 00_envelope.json is the other layout."""
     shutil.copy(FIXTURE, tmp_path / "envelope.json")
     assert len(_build_site_summaries({}, tmp_path)) == 40
+
+
+def test_prose_sites_get_readable_labels():
+    """Deals without a roster table carry only a slug, or a code plus address.
+
+    Those are still real sites. Present what the row holds rather than printing
+    the extractor's own key at a PM. Nothing is invented.
+    """
+    from orbitbrief_core.pm_handoff.builder import _display_name_from_aliases as f
+
+    # Slug only.
+    assert (
+        f(["site:maricopa_county_iron_mountain_data_centers_azs_1_scottsdale"])
+        == "Maricopa County Iron Mountain Data Centers Azs 1 Scottsdale"
+    )
+    # Code plus its address lines.
+    assert (
+        f(["MARICOPA-COUNTY", "615 N 48th St", "Phoenix, AZ 85008"])
+        == "Maricopa County - 615 N 48th St, Phoenix, AZ 85008"
+    )
+    # A real name still wins over both.
+    assert f(["HC-100", "Clayton Homes of Laurinburg", "12021 Andrew Jackson Highway"]) == (
+        "Clayton Homes of Laurinburg"
+    )
+
+
+def test_acronyms_survive_humanising():
+    from orbitbrief_core.pm_handoff.builder import _humanize_site_token as h
+
+    # A lowercase slug carries no signal that "hc" is an acronym, so it is
+    # title-cased. Only tokens that arrive uppercase are preserved.
+    assert h("site:hc_100") == "Hc 100"
+    assert h("HC-100") == "HC 100"
+    assert h("MARICOPA-COUNTY") == "Maricopa County"
+    assert h("site:dallas_idf_2") == "Dallas IDF 2"
