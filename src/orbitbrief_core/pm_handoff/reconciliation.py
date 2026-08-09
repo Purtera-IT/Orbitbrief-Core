@@ -1092,6 +1092,9 @@ class ExecutiveSummary:
     headline: str
     health_line: str
     next_action: str
+    # The multi-paragraph brief the PM actually reads. Defaulted so any caller
+    # that only supplies the three one-liners keeps working.
+    overview: str = ""
 
 
 def build_executive_summary(
@@ -1106,8 +1109,17 @@ def build_executive_summary(
     sites: list[Any],
     domains: list[Any],
     project_mode: str | None = None,
+    responsibilities: list[Any] | None = None,
+    exclusions: list[Any] | None = None,
+    fact_snippets: list[str] | None = None,
+    narrative_atoms: list[Any] | None = None,
 ) -> ExecutiveSummary:
-    """Compose the 3-line executive summary from PM-handoff fields."""
+    """Compose short headline stamp + grounded multi-paragraph PM overview.
+
+    The overview is the panel a PM actually reads. It is built deterministically
+    from the evidence pack — no LLM in the loop — so a wedged inference host
+    cannot empty it.
+    """
     top_money = next(
         (m.display for m in money_mentions if m.value >= 100_000),
         None,
@@ -1187,10 +1199,36 @@ def build_executive_summary(
             "point and confirm pricing + signatures before customer review."
         )
 
+    # The multi-paragraph PM overview. ExecutiveSummary has carried an
+    # ``overview`` field all along, but nothing populated it, so the panel
+    # rendered with only the three one-liners. Deterministic — never blocked on
+    # an inference host.
+    from orbitbrief_core.pm_handoff.pm_briefing import build_pm_briefing_overview
+
+    try:
+        overview = build_pm_briefing_overview(
+            label=label,
+            sites=sites,
+            gaps=gaps,
+            money_mentions=money_mentions,
+            responsibilities=responsibilities,
+            exclusions=exclusions,
+            domains=domains,
+            project_mode=project_mode,
+            fact_snippets=fact_snippets,
+            narrative_atoms=narrative_atoms,
+        )
+    except Exception:
+        # A summary must never take the brief down.
+        overview = ""
+    if not overview.strip():
+        overview = (one_line_summary or "").strip()
+
     return ExecutiveSummary(
         headline=headline,
         health_line=health,
         next_action=next_action,
+        overview=overview,
     )
 
 
