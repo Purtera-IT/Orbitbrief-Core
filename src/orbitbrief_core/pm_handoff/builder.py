@@ -603,6 +603,50 @@ def _roster_rows(doc: Any) -> list[dict[str, Any]]:
 _ALIAS_CODE_RE = re.compile(r"^[a-z]{1,4}[\s\-_]?\d{1,6}$", re.I)
 
 
+# "615 N 48th St" / "Phoenix, AZ 85008" — a location line, not a facility name.
+_ADDRESS_RE = re.compile(r"^\d|,\s*[A-Z]{2}\s*\d{5}|\b\d{5}(?:-\d{4})?$")
+
+
+def _looks_like_address(text: str) -> bool:
+    return bool(_ADDRESS_RE.search(str(text or "").strip()))
+
+
+def _is_slug_alias(text: str) -> bool:
+    """True for the extractor's own key, e.g. ``site:maricopa_county_iron_...``."""
+    t = str(text or "")
+    return t.startswith("site:") or ("_" in t and " " not in t)
+
+
+# Tokens that should not be title-cased into "Az" / "Nc" when humanising a slug.
+_UPPER_TOKENS = frozenset(
+    {
+        "az", "nc", "sc", "ga", "tn", "tx", "ca", "fl", "va", "pa", "ny", "oh",
+        "il", "mi", "wa", "co", "mo", "ok", "ar", "ms", "al", "ky", "in", "ia",
+        "hq", "dc", "idf", "mdf", "poc", "ap", "us", "usa",
+    }
+)
+
+
+def _humanize_site_token(text: str) -> str:
+    """Turn ``site:maricopa_county_iron_mountain`` into readable words."""
+    t = str(text or "").strip()
+    if t.startswith("site:"):
+        t = t[5:]
+    t = t.replace("_", " ").replace("-", " ").strip()
+    if not t:
+        return ""
+    words = [w for w in t.split() if w]
+    out = []
+    for w in words:
+        # Keep short all-caps tokens as acronyms ("HC", "AZ", "IDF"); title-case
+        # long shouted ones ("MARICOPA" -> "Maricopa").
+        if w.lower() in _UPPER_TOKENS or (w.isupper() and len(w) <= 4):
+            out.append(w.upper())
+        else:
+            out.append(w.capitalize())
+    return " ".join(out)
+
+
 def _display_name_from_aliases(aliases: Any) -> str:
     """Pick the facility name out of an envelope row's aliases.
 
@@ -610,15 +654,52 @@ def _display_name_from_aliases(aliases: Any) -> str:
     Jackson Highway"]`` — the id, the name, then the street. Take the first
     entry that is neither a bare code nor an address (addresses lead with a
     house number), so the PM sees "Clayton Homes of Laurinburg".
+
+    Not every deal has that. Where sites are mentioned in prose rather than a
+    roster table, the extractor produces no facility name and the row carries
+    only a slug, or a bare code plus its address. Those are still real sites, so
+    present what is there rather than printing ``site:maricopa_county_iron_...``
+    at a PM:
+
+    * slug only            -> "Maricopa County Iron Mountain Data Centers Azs 1"
+    * code + address parts -> "Maricopa County - 615 N 48th St, Phoenix, AZ 85008"
+
+    Nothing here invents data; it only formats what the row already holds.
     """
     if not isinstance(aliases, list):
         return ""
-    for alias in aliases:
-        text = str(alias or "").strip()
-        if not text or _ALIAS_CODE_RE.match(text) or text[:1].isdigit():
+    texts = [str(a or "").strip() for a in aliases]
+    texts = [t for t in texts if t]
+    if not texts:
+        return ""
+
+    # 1. A real facility name: not a code, not an address, not a slug.
+    #    An all-caps token like "MARICOPA-COUNTY" is an identifier, not a name —
+    #    let it fall through so it gets its address attached below.
+    for text in texts:
+        if (
+            _ALIAS_CODE_RE.match(text)
+            or text[:1].isdigit()
+            or _is_slug_alias(text)
+            or (text.upper() == text and any(c.isalpha() for c in text))
+            or _looks_like_address(text)
+        ):
             continue
         return text
-    return ""
+
+    # 2. Only a code (plus, usually, its address lines). Join them so the PM
+    #    sees a place instead of an identifier.
+    code = next((t for t in texts if _ALIAS_CODE_RE.match(t) or t.isupper()), "")
+    address = [t for t in texts if t is not code and (t[:1].isdigit() or "," in t)]
+    if code:
+        label = _humanize_site_token(code)
+        return f"{label} - {', '.join(address)}" if address else label
+
+    # 3. Slug only — the extractor's own key is the only thing we have.
+    for text in texts:
+        if _is_slug_alias(text):
+            return _humanize_site_token(text)
+    return texts[0]
 
 
 def _sites_from_canonical_roster(
