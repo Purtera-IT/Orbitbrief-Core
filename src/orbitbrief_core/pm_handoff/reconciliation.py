@@ -1222,7 +1222,16 @@ def build_executive_summary(
         # A summary must never take the brief down.
         overview = ""
     if not overview.strip():
-        overview = (one_line_summary or "").strip()
+        # Say so. A degraded brief that looks complete is worse than one that
+        # admits it: the overview was silently absent for weeks because falling
+        # back to the one-liner reads like a short summary rather than a
+        # failure, and nothing anywhere recorded that a stage had given up.
+        fallback = (one_line_summary or "").strip()
+        notice = (
+            "_Full briefing overview could not be built for this compile — "
+            "the detail below is reduced._"
+        )
+        overview = f"{fallback}\n\n{notice}" if fallback else notice
 
     return ExecutiveSummary(
         headline=headline,
