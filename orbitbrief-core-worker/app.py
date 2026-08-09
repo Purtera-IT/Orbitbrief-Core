@@ -50,10 +50,27 @@ def _execute_compile(deal_id: str, run_id: str, mirror_latest: bool) -> dict[str
 
 
 def _background_compile(deal_id: str, run_id: str, mirror_latest: bool) -> None:
+    """Run a queued compile, and say so at both ends.
+
+    ``?async=1`` answers 202 the moment the task is queued, so the HTTP response
+    proves only that the request was accepted — never that a brief was produced.
+    These tasks live in-process, so a replica roll or a crash drops them with no
+    trace: a caller sees 202, the artifact never changes, and nothing anywhere
+    reports a failure. That is how a dozen compiles vanished in one evening while
+    every response said "accepted".
+
+    Bracketing the run with log lines makes a dropped task visible as a start
+    with no matching end, and re-raising into the log means a failure is recorded
+    rather than swallowed by a bare ``pass``.
+    """
+    log.info("compile start deal=%s run=%s", deal_id, run_id)
     try:
         _execute_compile(deal_id, run_id, mirror_latest)
+        log.info("compile ok deal=%s run=%s", deal_id, run_id)
     except Exception:
-        pass
+        # _execute_compile already logged the traceback and marked the run
+        # failed; this keeps the background task from dying silently.
+        log.error("compile FAILED deal=%s run=%s", deal_id, run_id)
 
 
 @app.get("/healthz")
