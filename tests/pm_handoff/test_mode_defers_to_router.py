@@ -9,6 +9,7 @@ Measured over 20 live deals with DeepSeek gold labels:
     today (cascade wins)                     5/20   25%
     defer to the router, veto on dense AV   15/20   75%
     defer to the router, no AV veto         19/20   95%
+    defer to the router, no veto at all     20/20  100%
 
 Clayton is the case that motivated it: a 437-store dispatch job labelled
 `staff_augmentation`, routed to `wireless` by a head measured at 0.529, and
@@ -19,6 +20,7 @@ from __future__ import annotations
 from orbitbrief_core.pm_handoff.question_engine import (
     MODE_AV,
     MODE_CABLING,
+    MODE_DECOM,
     MODE_NETWORK_EDGE_INSTALL,
     MODE_STAFF_AUG,
     MODE_WIRELESS_CONFIG,
@@ -92,6 +94,30 @@ def test_an_abstaining_router_falls_back_to_evidence():
         blob="Install 40 access points and run a wireless heatmap survey.",
     )
     assert mode == MODE_WIRELESS_INSTALL
+
+
+def test_decommission_vocabulary_does_not_override_the_router():
+    """nyc_migration: a cabling job that legitimately says "de-rack" and
+    "shrink wrap" a dozen times. The decom check used to claim it."""
+    blob = (
+        "De-rack and shrink wrap the legacy gear for removal. De-rack each "
+        "cabinet, shrink wrap the pallets, de-rack the remaining switches. "
+        "Pull new cat6 drops and terminate at the patch panel."
+    )
+    assert detect_project_mode(
+        service_routing={"primary": "low_voltage_cabling"}, blob=blob
+    ) == MODE_CABLING
+
+
+def test_decommission_still_wins_when_the_router_abstains():
+    """The check keeps its purpose on the path it was written for -- an
+    Iron Mountain pack-out, where the head has no opinion."""
+    blob = (
+        "De-rack and shrink wrap the legacy gear. De-rack each cabinet, "
+        "shrink wrap the pallets, de-rack the remaining switches, pack out "
+        "to Iron Mountain."
+    )
+    assert detect_project_mode(service_routing=None, blob=blob) == MODE_DECOM
 
 
 def test_an_unmapped_pack_falls_through():

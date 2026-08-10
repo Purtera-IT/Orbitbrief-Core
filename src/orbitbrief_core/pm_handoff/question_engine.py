@@ -909,25 +909,23 @@ def detect_project_mode(
     text_s = text or ""
     av_strong_n = len(_AV_STRONG_RE.findall(text_s))
     decom_n = len(_DECOM_RE.findall(text_s))
-    # Pack-out / Iron Mountain logistics must not inherit AV mode from stray TV mentions.
-    if decom_n >= 3 and decom_n >= max(3, av_strong_n):
-        return MODE_DECOM
 
-    # The router already answered this question. Below, a cascade of lexicon
-    # checks answers it again and wins, which is why a confident routing
-    # decision barely moves project_mode: measured over 20 live deals, replacing
-    # the router's pick with a perfect one moved mode accuracy 25% -> 35%,
-    # because thirteen of the fifteen errors were decided by the cascade before
-    # the router's pack was ever consulted.
+    # The router already answered this question. Everything below answers it a
+    # second time from vocabulary, and used to win: measured over 20 live deals,
+    # giving the cascade a perfect router moved accuracy only 25% -> 35%,
+    # because thirteen of the fifteen errors were settled before the router's
+    # pack was ever consulted.
     #
-    # So map the router's pack straight to its mode, and let the lexicon act
-    # only as a VETO for the two conflicts it genuinely knows better:
-    # decommission logistics (handled above) and dense conference-room AV, where
-    # a marketing "wifi" mention routinely outranks a Neat/Yealink room build.
-    # No AV veto here. It was measured and it hurts: dense AV vocabulary
-    # overrode the router on four of twenty live deals and was wrong on all
-    # four (a cabling job that mentions displays is still a cabling job).
-    # Accuracy with the veto 15/20, without it 19/20.
+    # So the router's pack maps straight to its mode, with NO lexicon veto.
+    # Both vetoes were measured and both lose to the router:
+    #   * dense AV vocabulary overrode it on 4 of 20 deals and was wrong on all
+    #     4 -- a cabling job that mentions displays is still a cabling job
+    #     (15/20 with the veto, 19/20 without);
+    #   * decommission vocabulary overrode it on nyc_migration, a cabling job
+    #     that legitimately says "de-rack" and "shrink wrap" twelve times
+    #     (19/20 with it, 20/20 without).
+    # Both checks still run below for deals where the router abstains, which is
+    # most of them -- the head is a specialist over four packs by design.
     routed = _MODE_BY_PACK.get(primary)
     if routed is not None:
         # Two refinements the router cannot express, since both are a
@@ -937,6 +935,13 @@ def detect_project_mode(
         if routed == MODE_NETWORK_OPS and _NETWORK_INSTALL_EVIDENCE_RE.search(text_s):
             return MODE_NETWORK_EDGE_INSTALL
         return routed
+
+    # ── From here down the router had no opinion, so vocabulary decides. ──
+
+    # Pack-out / Iron Mountain logistics must not inherit AV mode from stray
+    # TV mentions.
+    if decom_n >= 3 and decom_n >= max(3, av_strong_n):
+        return MODE_DECOM
 
     # Dense conference-room AV evidence wins before incidental SD-WAN / WiFi
     # routing overrides (marketing WiFi must not flip a Neat/Yealink pack).
