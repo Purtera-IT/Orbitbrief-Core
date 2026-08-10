@@ -127,6 +127,39 @@ def classify_scope(
     return RoutingDecision(primary=pack, confidence=0.9, source="llm_scope_router")
 
 
+def training_row(
+    *,
+    decision: RoutingDecision,
+    scope_summary: str,
+    project_id: str = "",
+    compile_id: str = "",
+    head_primary: str = "",
+) -> dict[str, Any]:
+    """A distillation example, produced as a by-product of serving.
+
+    Serving the LLM IS the labelling campaign: every routed deal yields one
+    (scope, label) pair in the representation a head would train on. That
+    matters because the existing corpus is 90 labels across 29 packs -- about
+    three per class, and the reason the contrastive head scored 0.529. There is
+    no need for a separate labelling push; there is a need to stop throwing
+    these away.
+
+    ``head_primary`` is recorded alongside so disagreements are queryable: those
+    rows are where the head is wrong, and they are the most informative training
+    examples in the set.
+    """
+    return {
+        "project_id": project_id,
+        "compile_id": compile_id,
+        "scope_summary": scope_summary,
+        "label": decision.primary,
+        "label_source": decision.source,
+        "confidence": decision.confidence,
+        "head_primary": head_primary,
+        "head_agreed": bool(head_primary) and head_primary == decision.primary,
+    }
+
+
 def resolve_routing(
     *,
     envelope_routing: Mapping[str, Any] | None,
@@ -134,6 +167,7 @@ def resolve_routing(
     packs: Sequence[tuple[str, str]],
     chat: ChatLike | None = None,
     model: str = "",
+    on_training_row: "Any | None" = None,
 ) -> dict[str, Any]:
     """Resolve ONE routing answer from the ladder, or ``{}`` for no opinion.
 
@@ -146,6 +180,16 @@ def resolve_routing(
             scope_summary=scope_summary, packs=packs, chat=chat, model=model
         )
         if decided is not None:
+            if on_training_row is not None:
+                # Never let bookkeeping break a compile.
+                try:
+                    on_training_row(training_row(
+                        decision=decided,
+                        scope_summary=scope_summary,
+                        head_primary=str((envelope_routing or {}).get("primary") or ""),
+                    ))
+                except Exception as exc:
+                    log.warning("scope_router: training-row sink failed (%s)", exc)
             return decided.as_service_routing()
 
     head = dict(envelope_routing or {})
