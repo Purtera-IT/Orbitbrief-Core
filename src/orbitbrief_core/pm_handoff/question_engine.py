@@ -70,6 +70,22 @@ MODE_ASSESSMENT = "security_assessment"
 MODE_DECOM = "decommission_logistics"
 MODE_GENERIC = "generic"
 
+
+# Router pack -> project mode. The router (neural head, or the LLM scope
+# classifier behind it) decides WHICH workstream a deal is; this table is the
+# only place that decision becomes a mode. Packs absent here have no dedicated
+# question set, so they fall through to the evidence cascade below.
+_MODE_BY_PACK: dict[str, str] = {
+    "staff_augmentation": MODE_STAFF_AUG,
+    "wireless": MODE_WIRELESS_INSTALL,
+    "low_voltage_cabling": MODE_CABLING,
+    "cabling": MODE_CABLING,
+    "audio_visual": MODE_AV,
+    "network_maintenance": MODE_NETWORK_OPS,
+    "alm": MODE_ALM,
+    "security_access": MODE_ACCESS,
+}
+
 # YAML domain_ids allowed as safety-net per mode (blockers only, rare).
 _MODE_YAML_ALLOW: dict[str, frozenset[str]] = {
     MODE_NETWORK_EDGE_INSTALL: frozenset({"global", "commercial", "hardware"}),
@@ -896,6 +912,31 @@ def detect_project_mode(
     # Pack-out / Iron Mountain logistics must not inherit AV mode from stray TV mentions.
     if decom_n >= 3 and decom_n >= max(3, av_strong_n):
         return MODE_DECOM
+
+    # The router already answered this question. Below, a cascade of lexicon
+    # checks answers it again and wins, which is why a confident routing
+    # decision barely moves project_mode: measured over 20 live deals, replacing
+    # the router's pick with a perfect one moved mode accuracy 25% -> 35%,
+    # because thirteen of the fifteen errors were decided by the cascade before
+    # the router's pack was ever consulted.
+    #
+    # So map the router's pack straight to its mode, and let the lexicon act
+    # only as a VETO for the two conflicts it genuinely knows better:
+    # decommission logistics (handled above) and dense conference-room AV, where
+    # a marketing "wifi" mention routinely outranks a Neat/Yealink room build.
+    # No AV veto here. It was measured and it hurts: dense AV vocabulary
+    # overrode the router on four of twenty live deals and was wrong on all
+    # four (a cabling job that mentions displays is still a cabling job).
+    # Accuracy with the veto 15/20, without it 19/20.
+    routed = _MODE_BY_PACK.get(primary)
+    if routed is not None:
+        # Two refinements the router cannot express, since both are a
+        # sub-type of the pack it already chose rather than a different pack.
+        if routed == MODE_WIRELESS_INSTALL and _CONFIG_ONLY_RE.search(text_s):
+            return MODE_WIRELESS_CONFIG
+        if routed == MODE_NETWORK_OPS and _NETWORK_INSTALL_EVIDENCE_RE.search(text_s):
+            return MODE_NETWORK_EDGE_INSTALL
+        return routed
 
     # Dense conference-room AV evidence wins before incidental SD-WAN / WiFi
     # routing overrides (marketing WiFi must not flip a Neat/Yealink pack).
