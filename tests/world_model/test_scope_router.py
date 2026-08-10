@@ -135,3 +135,58 @@ def test_the_emitted_shape_is_the_one_downstream_already_reads():
     )
     for field in ("enabled", "primary", "secondary", "confidence", "source", "abstained"):
         assert field in out
+
+
+# ── serving is the labelling campaign ────────────────────────────────────
+
+def test_every_routed_deal_yields_a_training_row():
+    """90 labels across 29 packs is ~3 per class, which is why the head scored
+    0.529. Serving produces the corpus that fixes that."""
+    rows = []
+    out = resolve_routing(
+        envelope_routing={"primary": "wireless", "confidence": 0.8},
+        scope_summary=CLAYTON, packs=PACKS,
+        chat=_Chat("staff_augmentation"), model="deepseek-chat",
+        on_training_row=rows.append,
+    )
+    assert out["primary"] == "staff_augmentation"
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["label"] == "staff_augmentation"
+    assert row["scope_summary"] == CLAYTON
+    assert row["label_source"] == "llm_scope_router"
+
+
+def test_the_row_records_whether_the_head_disagreed():
+    """Disagreements are where the head is wrong, and the most informative
+    examples in the set — they must be queryable."""
+    rows = []
+    resolve_routing(
+        envelope_routing={"primary": "wireless", "confidence": 0.8},
+        scope_summary=CLAYTON, packs=PACKS,
+        chat=_Chat("staff_augmentation"), model="m", on_training_row=rows.append,
+    )
+    assert rows[0]["head_primary"] == "wireless"
+    assert rows[0]["head_agreed"] is False
+
+
+def test_a_broken_sink_never_breaks_a_compile():
+    def boom(_row):
+        raise RuntimeError("disk full")
+    out = resolve_routing(
+        envelope_routing=None, scope_summary=CLAYTON, packs=PACKS,
+        chat=_Chat("audio_visual"), model="m", on_training_row=boom,
+    )
+    assert out["primary"] == "audio_visual"
+
+
+def test_no_row_when_the_model_did_not_decide():
+    """Head fallbacks are not distillation examples — the head is what we are
+    trying to replace, so training on its output would just clone 0.529."""
+    rows = []
+    resolve_routing(
+        envelope_routing={"primary": "wireless", "confidence": 0.95},
+        scope_summary=CLAYTON, packs=PACKS, chat=None, model="",
+        on_training_row=rows.append,
+    )
+    assert rows == []
