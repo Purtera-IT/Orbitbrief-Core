@@ -130,14 +130,22 @@ def _build_snapshot(inputs: PlannerInputs, *, top_k_per_pack: int) -> dict[str, 
     }
 
     # Site clusters.
+    #
+    # ONLY the fields SiteSummary permits on the way back out. This snapshot
+    # used to also carry candidate_names / site_keys / member_atom_ids /
+    # artifact_ids, none of which the model is allowed to return -- and a small
+    # model asked for 437 site objects does the cheapest thing available and
+    # echoes the shape it was handed. Every one of those four came back, plus
+    # cluster_id dropped, so `extra="forbid"` rejected the payload and 42,773
+    # characters produced over eleven minutes were discarded for a fallback
+    # skeleton of 32 sites and no claims.
+    #
+    # Offering only the emittable fields removes the echo target and shrinks the
+    # prompt, which is the other half of the problem at this site count.
     sites = [
         {
             "cluster_id": c.cluster_id,
             "canonical_name": c.canonical_name,
-            "candidate_names": list(c.candidate_names),
-            "site_keys": list(c.site_keys),
-            "member_atom_ids": list(c.member_atom_ids)[:20],
-            "artifact_ids": list(c.artifact_ids),
             "confidence": round(c.confidence, 4),
         }
         for c in inputs.site_reality.clusters
