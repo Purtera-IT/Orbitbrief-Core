@@ -64,6 +64,12 @@ packs:
   - readiness_assessment
   - walkthrough
   - photo_log
+  # "findings"/"readiness"/"photo" appear in ordinary closeout language.
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(site\s+audit|as[-\s]?built(?:\s+documentation)?|punch\s?list)\b
+  - \b(photo\s+documentation|completeness\s+(?:check|report)|closeout\s+package)\b
+  - \b(remediation\s+(?:plan|scope)|findings\s+report|severity\s+(?:1|one|level))\b
 - id: commercial
   display_name: Commercial
   brain:
@@ -152,6 +158,14 @@ packs:
   - power_whip
   - pdu
   - cdu
+  # A facility's NAME is not datacenter WORK: "Data Center Warehouse" is a
+  # customer that buys TV installs. Gate on physical datacenter evidence only.
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(colo\s+(?:cage|cabinet|facility))\b
+  - \b(hot\s+aisle|cold\s+aisle|raised\s+floor|containment)\b
+  - \b(rack\s+elevation|u\s?space|ru\s+(?:count|available)|cabinet\s+layout)\b
+  - \b(pdu|crac|crah|in\s?row\s+cooling|busway)\b
 - id: delivery_execution
   display_name: Delivery / Execution
   brain:
@@ -229,6 +243,12 @@ packs:
   - workstation_refresh
   - device_swap
   - move_add_change
+  # "move"/"add"/"change" are ordinary English. Require IMAC-shaped work.
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(imac\b|install[,/\s]+move[,/\s]+add[,/\s]+change)\b
+  - \b(move[/\s]?add[/\s]?change|mac[-\s]?d\b)\b
+  - \b(desk\s+(?:move|relocation)|seat\s+(?:move|count)|cube\s+move)\b
 - id: itad
   display_name: ITAD
   brain:
@@ -370,6 +390,15 @@ packs:
   - psa
   - connectwise
   - kaseya
+  # Bare "patching"/"monitoring"/"backup" appear in every network install.
+  # Require managed-service delivery evidence before running the MSP brain.
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(managed\s+service(?:s)?(?:\s+provider)?|\bmsp\b)\b
+  - \b(service\s+desk|help\s?desk|ticketing\s+system|itsm)\b
+  - \b(rmm|remote\s+monitoring\s+and\s+management|noc\b)\b
+  - \b(sla\s+(?:tier|target|response)|monthly\s+recurring|mrr\b)\b
+  - \b(endpoint\s+management|patch\s+management|backup\s+and\s+(?:recovery|dr))\b
 - id: other
   display_name: Other / Adjacent
   brain:
@@ -472,6 +501,12 @@ packs:
   - rack_dressing
   - de_rack
   - in_rack_patch
+  # Bare "rack" appears in any closet build. Require rack-and-stack work.
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(rack\s+and\s+stack|rack\s*&\s*stack|racking\s+and\s+stacking)\b
+  - \b(rack\s+elevation|patch\s+matrix|cable\s+dressing)\b
+  - \b(cage\s+nut|blanking\s+panel|cable\s+management\s+arm)\b
 - id: security_access
   display_name: Security / Access
   brain:
@@ -522,6 +557,12 @@ packs:
   - background_check
   - clearance_required
   - background_check
+  # "secure"/"escort"/"badge" appear in site-access boilerplate on any deal.
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(badg(?:e|ing)\s+(?:office|process|request)|escort\s+(?:required|policy))\b
+  - \b(background\s+check|security\s+clearance|cleared\s+(?:tech|personnel))\b
+  - \b(card\s+reader|prox\s+card|access\s+control\s+(?:system|panel)|mag\s?lock)\b
 - id: site_structure
   display_name: Site Structure
   brain:
@@ -613,6 +654,12 @@ packs:
   - granite
   - ringcentral
   - 8x8
+  # "circuit" also means electrical. Require voice/carrier evidence.
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(sip\s+trunk|pri\b|pots\s+line|dial\s?tone|voip|ucaas)\b
+  - \b(e911|number\s+porting|loa\b|carrier\s+circuit)\b
+  - \b(demarc(?:ation)?\s+(?:point|extension)|smart\s?jack)\b
 - id: wireless
   display_name: Wireless
   brain:
@@ -761,6 +808,12 @@ packs:
   - singlewire
   - mass_notification
   - emergency_alerting
+  # "speaker"/"strobe" also belong to AV and fire; require paging evidence.
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(mass\s+notification|public\s+address(?:\s+system)?|pa\s+system)\b
+  - \b(paging\s+(?:system|zone|amplifier)|intercom\s+(?:system|station))\b
+  - \b(bell\s+schedule|ceiling\s+speaker|horn\s?strobe|talkback)\b
 - id: fire_safety
   display_name: Fire Safety and Alarm
   brain:
@@ -791,6 +844,12 @@ packs:
   - annunciator
   - fire_inspection
   - sprinkler_monitor
+  # "alarm"/"panel"/"inspection" are generic; require fire-system evidence.
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(fire\s+alarm(?:\s+(?:panel|system))?|nfpa\s?\d+|facp\b)\b
+  - \b(smoke\s+detector|pull\s+station|notification\s+appliance|horn\s?strobe)\b
+  - \b(annunciator|fire\s+marshal|sprinkler\s+(?:head|monitoring))\b
 - id: das
   display_name: Distributed Antenna System
   brain:
@@ -820,6 +879,12 @@ packs:
   - radio_coverage
   - p25
   - lte_in_building
+  # "signal"/"antenna" are generic RF words; require DAS/ERRCS evidence.
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(distributed\s+antenna(?:\s+system)?|\bdas\b)\b
+  - \b(errcs|public\s+safety\s+(?:radio|das)|bda\b|donor\s+antenna)\b
+  - \b(coax\s+riser|passive\s+das|active\s+das)\b
 - id: electrical
   display_name: Electrical and Power
   brain:
@@ -958,6 +1023,12 @@ packs:
   - distech
   - controls_contractor
   - controls_integrator
+  # "controls"/"sensor" are generic; require BMS/HVAC evidence.
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(\bbms\b|building\s+(?:management|automation)\s+system|\bbas\b)\b
+  - \b(hvac|chiller|boiler|rooftop\s+unit|\brtu\b|air\s+handler)\b
+  - \b(bacnet|modbus|thermostat\s+(?:replacement|controls))\b
 - id: network_maintenance
   display_name: Network Maintenance / Operations
   brain:
@@ -1016,6 +1087,13 @@ packs:
   - circuit_turn_up
   - network_install
   - edge_firewall
+  # "maintenance"/"monitoring"/"patching" are generic; require contract or
+  # network-management evidence.
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(smartnet|maintenance\s+contract|support\s+renewal)\b
+  - \b(firmware\s+upgrade|ios\s+upgrade|code\s+upgrade)\b
+  - \b(sd[-\s]?wan|meraki\s+mx|port\s+map|vlan\s+(?:map|assignment))\b
 - id: camera_vms_operations
   display_name: Camera / VMS Operations
   brain:
@@ -1098,3 +1176,9 @@ packs:
   - wesco
   - anixter
   - bid_bond
+  # "quote"/"approval"/"po" appear on every commercial deal.
+  required_anchor_min_distinct_hits: 2
+  required_anchor_regex_any:
+  - \b(purchase\s+order|\bpo\s?#|po\s+number)\b
+  - \b(net\s?\d{2}\s+terms|payment\s+milestone|billing\s+schedule)\b
+  - \b(invoice\s+(?:schedule|terms)|procurement\s+(?:process|packet))\b
