@@ -123,6 +123,13 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         _read_json(case_dir / "inspection_report.json")
         or _read_json(case_dir / "90_inspection_report.json")
     )
+    # Full envelope, when compile_brief staged it. The inspection report lists at
+    # most 60 atoms per artifact (_MAX_ATOMS_LISTED_PER_ARTIFACT) — fine for a
+    # dashboard, wrong for arithmetic. Anything that must be COMPLETE rather than
+    # representative reads this instead; see the margin view below.
+    full_envelope = _read_json(case_dir / "00_envelope.json")
+    if not (isinstance(full_envelope, dict) and full_envelope.get("atoms")):
+        full_envelope = None
     # Calibrator roll-up: ``BriefPipeline._run_stage`` writes per-pack
     # ``CalibratorReport`` JSON to ``<case>/60_calibrations/<pack_id>.json``.
     # We project a single top-level verdict for PM consumption: the
@@ -321,7 +328,10 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         exclusions=exclusions,
     )
     # Tier 1-4 PM intelligence
-    margin = build_margin_view(report)
+    # Money must be computed over EVERY atom, not the inspection report's
+    # 60-per-file sample — a truncated corpus silently yields $0, which reads as
+    # "no pricing found" rather than "I only looked at part of it".
+    margin = build_margin_view(full_envelope or report)
     phase_dicts = [asdict(p) for p in phases]
     cp = build_critical_path(phase_dicts)
     lt_flags = build_lead_time_flags(report)

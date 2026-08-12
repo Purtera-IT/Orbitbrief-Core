@@ -256,6 +256,23 @@ def main(argv: list[str] | None = None) -> int:
         )
         from pathlib import Path as _Path
         out_dir = _Path(args.out)
+        # Stage the envelope where build_pm_handoff can find it. The handoff
+        # otherwise reads only inspection_report.json, which lists at most
+        # _MAX_ATOMS_LISTED_PER_ARTIFACT (60) atoms per file — a dashboard-sizing
+        # decision that was silently governing financial correctness. Clayton's
+        # deal total lives in a commercial_total atom ~600 rows into a 664-atom
+        # workbook, so the margin view never saw it and reported a $0 deal at 0%
+        # margin on a job that earns 18.8%. The docstring already promises this
+        # file; the prebuilt-envelope path just never wrote it.
+        try:
+            _staged = out_dir / "00_envelope.json"
+            if not _staged.is_file():
+                out_dir.mkdir(parents=True, exist_ok=True)
+                _staged.write_text(
+                    envelope_path.read_text(encoding="utf-8"), encoding="utf-8"
+                )
+        except Exception as _exc:  # never block the brief on this
+            print(f"compile_brief: could not stage 00_envelope.json: {_exc}", file=sys.stderr)
         handoff = build_pm_handoff(out_dir)
 
         # v46.0 enrichment: load envelope once, layer all three nets.
