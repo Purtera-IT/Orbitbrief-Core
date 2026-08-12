@@ -270,6 +270,17 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         or {}
     )
     service_routing = _resolve_service_routing(envelope, case_dir)
+    # Write the resolved answer BACK onto the envelope. Everything downstream —
+    # build_customer_questions, and through it detect_project_mode — reads
+    # envelope["service_routing"] for itself rather than taking this variable, so
+    # without this the ladder resolved one answer and the question engine used a
+    # different one. Measured on Clayton 2026-08-12: DeepSeek returned
+    # `staff_augmentation` (correct, banked in router_training_rows.jsonl with
+    # head_agreed=False) while project_mode stayed `wireless_install` off the
+    # head's answer, and the PM was still asked for an AP count. One resolved
+    # routing answer has to mean one answer everywhere.
+    if isinstance(envelope, dict) and isinstance(service_routing, dict) and service_routing:
+        envelope["service_routing"] = service_routing
 
     source_files, artifact_by_id = _build_source_files(report)
     sites = _build_site_summaries(report, case_dir)
