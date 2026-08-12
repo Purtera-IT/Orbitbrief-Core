@@ -70,6 +70,22 @@ MODE_ASSESSMENT = "security_assessment"
 MODE_DECOM = "decommission_logistics"
 MODE_GENERIC = "generic"
 
+
+# Router pack -> project mode. The router (neural head, or the LLM scope
+# classifier behind it) decides WHICH workstream a deal is; this table is the
+# only place that decision becomes a mode. Packs absent here have no dedicated
+# question set, so they fall through to the evidence cascade below.
+_MODE_BY_PACK: dict[str, str] = {
+    "staff_augmentation": MODE_STAFF_AUG,
+    "wireless": MODE_WIRELESS_INSTALL,
+    "low_voltage_cabling": MODE_CABLING,
+    "cabling": MODE_CABLING,
+    "audio_visual": MODE_AV,
+    "network_maintenance": MODE_NETWORK_OPS,
+    "alm": MODE_ALM,
+    "security_access": MODE_ACCESS,
+}
+
 # YAML domain_ids allowed as safety-net per mode (blockers only, rare).
 _MODE_YAML_ALLOW: dict[str, frozenset[str]] = {
     MODE_NETWORK_EDGE_INSTALL: frozenset({"global", "commercial", "hardware"}),
@@ -893,7 +909,37 @@ def detect_project_mode(
     text_s = text or ""
     av_strong_n = len(_AV_STRONG_RE.findall(text_s))
     decom_n = len(_DECOM_RE.findall(text_s))
-    # Pack-out / Iron Mountain logistics must not inherit AV mode from stray TV mentions.
+
+    # The router already answered this question. Everything below answers it a
+    # second time from vocabulary, and used to win: measured over 20 live deals,
+    # giving the cascade a perfect router moved accuracy only 25% -> 35%,
+    # because thirteen of the fifteen errors were settled before the router's
+    # pack was ever consulted.
+    #
+    # So the router's pack maps straight to its mode, with NO lexicon veto.
+    # Both vetoes were measured and both lose to the router:
+    #   * dense AV vocabulary overrode it on 4 of 20 deals and was wrong on all
+    #     4 -- a cabling job that mentions displays is still a cabling job
+    #     (15/20 with the veto, 19/20 without);
+    #   * decommission vocabulary overrode it on nyc_migration, a cabling job
+    #     that legitimately says "de-rack" and "shrink wrap" twelve times
+    #     (19/20 with it, 20/20 without).
+    # Both checks still run below for deals where the router abstains, which is
+    # most of them -- the head is a specialist over four packs by design.
+    routed = _MODE_BY_PACK.get(primary)
+    if routed is not None:
+        # Two refinements the router cannot express, since both are a
+        # sub-type of the pack it already chose rather than a different pack.
+        if routed == MODE_WIRELESS_INSTALL and _CONFIG_ONLY_RE.search(text_s):
+            return MODE_WIRELESS_CONFIG
+        if routed == MODE_NETWORK_OPS and _NETWORK_INSTALL_EVIDENCE_RE.search(text_s):
+            return MODE_NETWORK_EDGE_INSTALL
+        return routed
+
+    # ── From here down the router had no opinion, so vocabulary decides. ──
+
+    # Pack-out / Iron Mountain logistics must not inherit AV mode from stray
+    # TV mentions.
     if decom_n >= 3 and decom_n >= max(3, av_strong_n):
         return MODE_DECOM
 
