@@ -136,6 +136,11 @@ def classify_scope(
     if not pack:
         log.warning("scope_router: no valid pack in reply %r; deferring", str(reply)[:120])
         return None
+    # Log the SUCCESS too, not just the failures. This module previously logged
+    # only when it gave up, so a rung that failed on 100% of calls looked exactly
+    # like a rung that was never reached — the dict/ChatMessage bug hid behind
+    # that silence. A decision the PM's questions depend on should say so.
+    log.info("scope_router: %s chose %r", model, pack)
     return RoutingDecision(primary=pack, confidence=0.9, source="llm_scope_router")
 
 
@@ -202,12 +207,19 @@ def resolve_routing(
                     ))
                 except Exception as exc:
                     log.warning("scope_router: training-row sink failed (%s)", exc)
+            log.info(
+                "scope_router: LLM rung decided %r (head said %r)",
+                decided.primary,
+                str((envelope_routing or {}).get("primary") or ""),
+            )
             return decided.as_service_routing()
 
     head = dict(envelope_routing or {})
     if not head:
+        log.info("scope_router: no LLM and no head — no opinion")
         return {}
     if head.get("abstained") or str(head.get("abstain_reason") or "").strip():
+        log.info("scope_router: head abstained — no opinion")
         return {}
     primary = str(head.get("primary") or "").strip()
     if not primary:
@@ -226,6 +238,10 @@ def resolve_routing(
             primary, confidence, _HEAD_MIN_CONFIDENCE,
         )
         return {}
+    log.info(
+        "scope_router: head rung decided %r at confidence %.2f (no LLM)",
+        primary, confidence,
+    )
     return dict(head)
 
 

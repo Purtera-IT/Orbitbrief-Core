@@ -33,6 +33,13 @@ ARTIFACT_FILES = (
     # claim text + cited evidence + the rule verdict). _label_claim_verdicts.py
     # reads these across deals to build the calibration-head trainset.
     ("calibration_signals.jsonl", "application/x-ndjson"),
+    # Harvest for the router: one (scope_summary, label) row per routed deal,
+    # with the head's answer alongside so disagreements are queryable. Serving
+    # the LLM router IS the labelling campaign — but only if the rows survive
+    # the compile. Without this line they are written to the ephemeral case dir
+    # and deleted with the container, which is exactly what happened between
+    # the router wiring landing and this fix.
+    ("router_training_rows.jsonl", "application/x-ndjson"),
 )
 
 
