@@ -362,8 +362,32 @@ def build_pm_briefing_overview_deterministic(pack: dict[str, Any]) -> str:
         else "no confirmed publishable sites yet"
     )
     duties = pack.get("provider_customer_duties") or []
-    provider = next((d["text"] for d in duties if d.get("party") == "provider"), "")
-    customer = next((d["text"] for d in duties if d.get("party") == "customer"), "")
+
+    def _first_real_duty(party: str) -> str:
+        """First duty for ``party`` that is not email chrome or a bare deferral.
+
+        Taking duties[0] blindly put "We will come back to you." into Clayton's
+        executive summary as PurTera's obligation of record. The same filter that
+        keeps chatter out of PM questions applies here — a duty the PM is asked to
+        act on has at least the same bar as a question."""
+        from orbitbrief_core.pm_handoff.pm_ask_rewrite import is_unusable_evidence_text
+
+        for d in duties:
+            if d.get("party") != party:
+                continue
+            text = str(d.get("text") or "").strip()
+            if not text:
+                continue
+            try:
+                if is_unusable_evidence_text(text):
+                    continue
+            except Exception:
+                pass
+            return text
+        return ""
+
+    provider = _first_real_duty("provider")
+    customer = _first_real_duty("customer")
     money = pack.get("money") or []
     fee = next((m.get("display") for m in money if m.get("display")), None)
     domains = pack.get("domains") or []

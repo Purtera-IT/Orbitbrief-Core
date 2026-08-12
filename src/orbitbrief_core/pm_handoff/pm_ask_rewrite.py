@@ -125,6 +125,21 @@ def is_unusable_evidence_text(text: str) -> bool:
         t,
     ):
         return True
+    # Pure deferrals — an acknowledgement that promises a later reply and carries
+    # no operational commitment. These read as first-person future obligations, so
+    # duty extraction happily files them as a PROVIDER duty: Clayton's brief opened
+    # with "We will come back to you." presented as what PurTera owes the customer.
+    # Deliberately narrow — "Provider will coordinate dispatch by region" is a real
+    # duty and must survive.
+    if re.search(
+        r"(?i)\b(?:"
+        r"(?:come|get|revert|circle)\s+back\s+to\s+you|"
+        r"circle\s+back|keep\s+you\s+posted|touch\s+base|"
+        r"will\s+revert|more\s+to\s+follow|will\s+advise\s+shortly"
+        r")\b",
+        t,
+    ):
+        return True
     # Manual / guide / caution prose — never a commercial scope lock.
     if re.search(
         r"(?i)(?:"

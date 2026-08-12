@@ -1502,12 +1502,32 @@ def _build_one_line_summary(
         else [d.label for d in domains if d.selected_by_router or d.active_for_sow]
     )
     site_names = [s.name for s in sites if s.publishable]
+    # Naming the first two sites is wrong twice over on a multi-site programme.
+    # Clayton (438 stores) printed "at 5000 Clayton RD Maryville TN 37804 -
+    # 5000 Clayton Rd, Maryville, TN 37804, Clayton Homes" — the SAME address in
+    # two formats, and not a word about the other 436. Collapse labels where one
+    # normalizes to a prefix of another, then lead with the count once there is
+    # more than a handful, the way executive_summary already does.
+    uniq: list[str] = []
+    keys: list[str] = []
+    for n in site_names:
+        k = re.sub(r"[^a-z0-9]", "", (n or "").lower())
+        if not k or any(k.startswith(p) or p.startswith(k) for p in keys):
+            continue
+        keys.append(k)
+        uniq.append(n)
+    if not uniq:
+        where = "no confirmed site"
+    elif len(uniq) <= 2:
+        where = ", ".join(uniq)
+    else:
+        where = f"{len(site_names)} sites incl. {uniq[0]}"
     blockers = sum(1 for g in gaps if g.severity == "blocker")
     warnings = sum(1 for g in gaps if g.severity == "warning")
     label = (case_id or "This engagement").strip() or "This engagement"
     return (
         f"{label}: {', '.join(active[:4]) if active else 'unclassified scope'} at "
-        f"{', '.join(site_names[:2]) if site_names else 'no confirmed site'}; "
+        f"{where}; "
         f"{blockers} blocker and {warnings} clarification(s) need PM/SA review."
     )
 

@@ -5,6 +5,7 @@ No template fires without a matching atom/snippet.
 """
 from __future__ import annotations
 
+import os
 import re
 from typing import Any, Iterable, Mapping
 
@@ -141,7 +142,7 @@ def candidates_from_sites(
     project_mode: str,
     blob: str,
     docs_by_id: Mapping[str, str] | None = None,
-    max_sites: int = 4,
+    max_sites: int | None = None,
 ) -> list:
     """Evidence-grounded asks for primary sites × mode-allowed gaps."""
     from orbitbrief_core.pm_handoff.pm_ask_rewrite import inject_site_anchor
@@ -176,6 +177,19 @@ def candidates_from_sites(
             continue
         seen_labels.add(key)
         cleaned.append(SiteSummary(name=name, kind=s.kind, publishable=True))
+    # A flat cap of 4 meant a 438-store rollout got site-level asks for FOUR
+    # arbitrary stores (Clayton, 2026-08-11: 438 sites in, one site question out),
+    # so the questions were about whichever sites happened to sort first rather
+    # than about the programme. Scale the ceiling with the size of the estate and
+    # let the downstream ranker (which already cuts ~92 candidates to 12) decide
+    # what actually surfaces. Override with ORBITBRIEF_MAX_SITE_QUESTIONS.
+    if max_sites is None:
+        env = os.environ.get("ORBITBRIEF_MAX_SITE_QUESTIONS", "").strip()
+        if env.isdigit() and int(env) > 0:
+            max_sites = int(env)
+        else:
+            n = len(cleaned)
+            max_sites = n if n <= 4 else min(20, max(4, n // 20))
     pub = cleaned[:max_sites]
     if not pub:
         # Prefer the explicit site_list_lock pmcover ask over inventing HQ.
