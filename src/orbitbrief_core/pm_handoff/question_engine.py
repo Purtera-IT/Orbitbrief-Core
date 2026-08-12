@@ -2906,23 +2906,33 @@ def _candidates_from_mode_templates(
             score=tmpl.score + (0.04 if question != tmpl.question else 0.0),
             project_mode=project_mode,
         )
-        # Mode asks must cite real atoms when possible. Soften floor for modes
-        # whose evidence is form/checklist atoms (decom / staff) rather than photos.
-        soft = project_mode in {
-            MODE_DECOM,
-            MODE_STAFF_AUG,
-            MODE_WIRELESS_INSTALL,
-            MODE_WIRELESS_CONFIG,
-            MODE_AV,
-            MODE_GENERIC,
-        }
+        # A mode ask must cite a real atom, like every other generator. This is
+        # the invariant question_generators.py opens by declaring — "no template
+        # fires without a matching atom/snippet" — and mode templates were the
+        # one place exempt from it.
+        #
+        # The exemption is what makes a brief read as "this deal is wireless,
+        # here are the wireless questions" instead of questions about THIS deal:
+        # the pack label alone could fire an ask the documents never support.
+        # Clayton was asked for an AP count, an RF channel plan and a wireless
+        # design owner on a 437-store technician dispatch job.
+        #
+        # Measured on Clayton (1907 atoms), templates surviving per mode:
+        #   wireless_install 17 -> 10   av_install 11 -> 7   decom 21 -> 15
+        #   staff_aug 12 -> 12          generic   11 -> 11
+        # The modes the exemption claimed to protect (checklist-evidence ones)
+        # lose nothing — their templates were already grounded. What it actually
+        # protected were weakly-supported asks in wireless / AV / decom.
+        #
+        # Type still shapes the questioning: _MODE_TEMPLATES decides WHICH
+        # families are worth asking. Evidence decides whether each one is a real
+        # gap in THIS deal.
         grounded = _with_evidence(
             cand,
             atoms=atom_list,
             trigger=tmpl.trigger,
             docs_by_id=docs_by_id,
-            require=not soft,
-            min_score=0.28 if soft else None,
+            require=True,
         )
         if grounded is None:
             continue
