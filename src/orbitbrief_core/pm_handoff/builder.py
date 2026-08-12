@@ -163,6 +163,57 @@ def _router_chat() -> tuple[Any | None, str]:
         return None, ""
 
 
+class _BriefingChat:
+    """Adapts OpenAIChatClient to the ``pm_briefing.ChatClient`` protocol.
+
+    pm_briefing wants ``complete(system=..., user=...)``; the inference client
+    takes a message list plus a model. Two shapes for the same thing, which is
+    part of why the LLM overview path sat unused.
+    """
+
+    def __init__(self, client: Any, model: str) -> None:
+        self._client, self._model = client, model
+
+    def complete(self, *, system: str, user: str, temperature: float = 0.2) -> str:
+        from orbitbrief_core.inference.client import ChatMessage
+
+        return self._client.complete(
+            [ChatMessage("system", system), ChatMessage("user", user)],
+            model=self._model,
+            temperature=temperature,
+        )
+
+
+def _briefing_chat() -> tuple[Any | None, str]:
+    """(client, model) for the executive-summary writer, or (None, "").
+
+    Uses the general chat config — ORBITBRIEF_CHAT_MODEL against
+    OLLAMA_BASE_URL, which is an OpenAI-compatible endpoint whatever it points
+    at. Unset means no client, and the overview stays deterministic.
+    """
+    model = (os.environ.get("ORBITBRIEF_CHAT_MODEL") or "").strip()
+    base = (os.environ.get("OLLAMA_BASE_URL") or "").strip()
+    if not model or not base:
+        return None, ""
+    try:
+        from orbitbrief_core.inference.client import OpenAIChatClient
+
+        timeout = float(os.environ.get("ORBITBRIEF_CHAT_TIMEOUT_S", "120") or 120)
+        return (
+            _BriefingChat(
+                OpenAIChatClient(
+                    base_url=base,
+                    api_key=(os.environ.get("ORBITBRIEF_CHAT_API_KEY") or None),
+                    timeout_s=timeout,
+                ),
+                model,
+            ),
+            model,
+        )
+    except Exception:
+        return None, ""
+
+
 def _resolve_service_routing(envelope: Any, case_dir: Path) -> dict[str, Any] | None:
     """Resolve ONE routing answer from the scope-router ladder.
 
@@ -434,6 +485,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     responsibilities = build_responsibilities(report)
     qty_claims = build_quantity_claims(report)
     qty_contradictions = find_quantity_contradictions(qty_claims)
+    _briefing_chat_client, _briefing_model = _briefing_chat()
     exec_summary = build_executive_summary(
         case_id=display_label,
         status=status,
@@ -447,6 +499,13 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         project_mode=project_mode,
         responsibilities=responsibilities,
         exclusions=exclusions,
+        # The evidence pack is built FROM these. Without them the writer has
+        # only sites/gaps/money to work with, which is why the overview read as
+        # a list of fragments rather than a briefing — the deal's own sentences
+        # were never handed to it.
+        narrative_atoms=(full_envelope or {}).get("atoms") or [],
+        chat_client=_briefing_chat_client,
+        overview_model=_briefing_model,
     )
     # Tier 1-4 PM intelligence
     # Money must be computed over EVERY atom, not the inspection report's
