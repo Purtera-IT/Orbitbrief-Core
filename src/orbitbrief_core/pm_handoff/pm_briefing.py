@@ -267,6 +267,7 @@ def evidence_pack_for_briefing(
     project_mode: str | None = None,
     fact_snippets: list[str] | None = None,
     narrative_atoms: list[Any] | None = None,
+    margin_view: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     pub_sites = [_name(s) for s in sites if _pub(s) and _name(s)]
     blockers = [g for g in gaps if _sev(g) == "blocker"]
@@ -318,10 +319,33 @@ def evidence_pack_for_briefing(
                     "confidence": row.get("confidence"),
                 }
             )
+    # The commercial shape of the deal. Without this the writer reasons about
+    # cost and risk with no idea what the engagement is worth: on Clayton it
+    # produced a paragraph on commercial exposure while saying "no rate card in
+    # the pack", when margin_view had already resolved $149,764 revenue against
+    # $121,608 cost at 18.8%. Money the brief has computed must reach the brief.
+    commercials: dict[str, Any] = {}
+    if isinstance(margin_view, Mapping):
+        for key in ("deal_total", "total_cost", "gross_profit", "margin_pct", "confidence"):
+            val = margin_view.get(key)
+            if val not in (None, "", 0, 0.0):
+                commercials[key] = val
+        notes = margin_view.get("notes")
+        if isinstance(notes, list) and notes:
+            commercials["notes"] = [str(n)[:200] for n in notes[:2]]
+
     return {
         "deal_label": label,
         "project_mode": (project_mode or "").strip() or None,
+        # State the count explicitly and sample the names. The full roster is
+        # 438 entries on Clayton; dumped whole it consumed the prompt budget
+        # (truncated at 14 KB in enrich_pm_briefing_with_llm) and the model
+        # hedged to "roughly 400 locations" because it never saw a total. A
+        # number it can quote beats a list it has to count.
+        "site_count": len(pub_sites),
         "publishable_sites": pub_sites,
+        "site_sample": pub_sites[:20],
+        "commercials": commercials or None,
         "domains": [x for x in domain_labels if x][:4],
         "money": money[:5],
         "provider_customer_duties": resp[:6],
@@ -701,12 +725,19 @@ def enrich_pm_briefing_with_llm(
     chat_client: ChatClient,
     model: str = "gpt-4.1-mini",
 ) -> str | None:
+    # Send the site COUNT and a sample, not the whole roster. The full list is
+    # 438 names on Clayton and the dump is truncated at 14 KB, so the roster
+    # crowded out the rest of the pack and the model hedged to "roughly 400
+    # locations". The deterministic path still gets the complete list.
+    prompt_pack = {k: v for k, v in pack.items() if k != "publishable_sites"}
     user = (
         "EVIDENCE PACK (JSON):\n"
-        + json.dumps(pack, ensure_ascii=False, indent=2)[:14000]
+        + json.dumps(prompt_pack, ensure_ascii=False, indent=2)[:14000]
         + "\n\nWrite the three-paragraph PM briefing now. Cover EVERY facet present "
         "in narrative_atoms (scope, commercial, sites, access, bom, risks, "
-        "acceptance, schedule, stakeholders)."
+        "acceptance, schedule, stakeholders). Use site_count for the number of "
+        "sites — site_sample is only a sample. When commercials is present, state "
+        "the deal value and margin rather than describing pricing as unknown."
     )
     try:
         raw = chat_client.complete(system=_PM_BRIEF_SYSTEM, user=user, temperature=0.2)
@@ -729,6 +760,7 @@ def build_pm_briefing_overview(
     narrative_atoms: list[Any] | None = None,
     chat_client: ChatClient | None = None,
     model: str = "gpt-4.1-mini",
+    margin_view: Any | None = None,
 ) -> str:
     pack = evidence_pack_for_briefing(
         label=label,
@@ -741,6 +773,7 @@ def build_pm_briefing_overview(
         project_mode=project_mode,
         fact_snippets=fact_snippets,
         narrative_atoms=narrative_atoms,
+        margin_view=margin_view,
     )
     if chat_client is not None:
         enriched = enrich_pm_briefing_with_llm(pack, chat_client=chat_client, model=model)
