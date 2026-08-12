@@ -28,6 +28,7 @@ per atom.
 from __future__ import annotations
 
 import logging
+import os
 import re
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol, Sequence
@@ -217,6 +218,27 @@ def resolve_routing(
     head = dict(envelope_routing or {})
     if not head:
         log.info("scope_router: no LLM and no head — no opinion")
+        return {}
+    # The head rung is OFF by default, and the confidence gate below is why it
+    # has to be. service_router._conf_ceiling() clamps the head's reported
+    # confidence to exactly 0.8 — permanently above _HEAD_MIN_CONFIDENCE (0.75) —
+    # so that gate can never reject anything. It reads like a safety check and is
+    # a no-op.
+    #
+    # What it would let through: measured 2026-08-12, the head answered
+    # `wireless` on 6 of 6 sampled deals and scored 41% train/serve agreement
+    # against a 43% majority-class baseline. A constant function is worse than
+    # silence, because `{}` lets the evidence cascade decide while the head
+    # asserts a wrong pack at 0.8 confidence into downstream trust gates
+    # (sow_completeness trusts >= 0.6). Set ORBITBRIEF_ROUTER_TRUST_HEAD=1 to
+    # restore it once a head beats its baseline.
+    if os.environ.get("ORBITBRIEF_ROUTER_TRUST_HEAD", "").strip().lower() not in (
+        "1", "true", "yes", "on",
+    ):
+        log.info(
+            "scope_router: head rung disabled (primary %r) — no opinion",
+            str(head.get("primary") or ""),
+        )
         return {}
     if head.get("abstained") or str(head.get("abstain_reason") or "").strip():
         log.info("scope_router: head abstained — no opinion")
