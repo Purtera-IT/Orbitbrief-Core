@@ -84,6 +84,18 @@ def _site_name(site: SiteSummary) -> str:
     return "site"
 
 
+# Real USPS state / territory codes. The "City ST" collapse below used a bare
+# case-insensitive [A-Z]{2}, which matches ordinary English words: "Clayton Homes
+# of Abilene" normalized to "Clayton Homes OF", and so did 326 other stores.
+# 404 of Clayton's 438 sites collapsed into ~6 labels, the dedupe threw away the
+# rest, and the PM saw one site for a 438-store rollout.
+_US_STATES = frozenset(
+    "AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO "
+    "MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY "
+    "DC PR VI GU AS MP".split()
+)
+
+
 def _clean_site_label(name: str) -> str:
     """Normalize geo labels so 'location santa fe nm 87506' → 'Santa Fe NM'."""
     n = re.sub(r"\s+", " ", (name or "").strip())
@@ -93,11 +105,14 @@ def _clean_site_label(name: str) -> str:
         r"(?i)\b([A-Za-z][A-Za-z .']+?)\s*,?\s*([A-Z]{2})\s+\d{5}(?:-\d{4})?\b",
         n,
     )
-    if m:
+    if m and m.group(2).upper() in _US_STATES:
         city = re.sub(r"\s+", " ", m.group(1)).strip(" ,.")
         return f"{city.title()} {m.group(2).upper()}"
-    m = re.search(r"(?i)\b([A-Za-z][A-Za-z .']+?)\s+([A-Z]{2})\b", n)
-    if m and len(m.group(1)) >= 3:
+    # No ZIP to anchor on, so the two-letter token must be a REAL state code --
+    # otherwise "of" / "in" / "by" / "on" silently become states and every store
+    # in the chain normalizes to the same label.
+    m = re.search(r"(?i)\b([A-Za-z][A-Za-z .']+?)\s+([A-Za-z]{2})\b", n)
+    if m and len(m.group(1)) >= 3 and m.group(2).upper() in _US_STATES:
         return f"{m.group(1).title()} {m.group(2).upper()}"
     return n
 
@@ -188,7 +203,11 @@ def candidates_from_sites(
         if env.isdigit() and int(env) > 0:
             max_sites = int(env)
         else:
-            n = len(cleaned)
+            # Scale off the SITE COUNT, not the deduped label list. Scaling off
+            # `cleaned` was self-defeating: Clayton's 438 sites deduped to 40, and
+            # 40 // 20 = 2 -> max(4, 2) = 4, i.e. exactly the old hard-coded cap,
+            # so raising the ceiling changed nothing at all.
+            n = max(len(sites), len(cleaned))
             max_sites = n if n <= 4 else min(20, max(4, n // 20))
     pub = cleaned[:max_sites]
     if not pub:
