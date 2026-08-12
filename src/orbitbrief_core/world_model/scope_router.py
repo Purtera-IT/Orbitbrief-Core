@@ -113,10 +113,22 @@ def classify_scope(
         packs="\n".join(f"- {pid}: {name}" for pid, name in packs),
         scope=scope_summary[:_MAX_SCOPE_CHARS],
     )
+    # OpenAIChatClient wants ChatMessage objects, not raw dicts — it reads
+    # ``.role`` / ``.content`` off each message. Passing a dict raised
+    # ``'dict' object has no attribute 'role'`` on EVERY call, and because the
+    # except-branch below is deliberately forgiving, the failure surfaced only
+    # as "deferring" in a log nobody reads: the LLM rung of the ladder could
+    # never win, and routing silently fell through to the head this module
+    # exists to stop trusting. Import lazily so the module keeps working with
+    # any ChatLike (tests pass a stub).
     try:
-        reply = chat.complete(
-            [{"role": "user", "content": prompt}], model=model, max_tokens=16
-        )
+        from orbitbrief_core.inference.client import ChatMessage
+
+        messages: list[Any] = [ChatMessage("user", prompt)]
+    except Exception:  # pragma: no cover - stub clients in tests
+        messages = [{"role": "user", "content": prompt}]
+    try:
+        reply = chat.complete(messages, model=model, max_tokens=16)
     except Exception as exc:  # a dead endpoint must never fail a compile
         log.warning("scope_router: model call failed (%s); deferring", exc)
         return None
