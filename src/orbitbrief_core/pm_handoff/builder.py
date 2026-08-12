@@ -485,6 +485,10 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     responsibilities = build_responsibilities(report)
     qty_claims = build_quantity_claims(report)
     qty_contradictions = find_quantity_contradictions(qty_claims)
+    # Money is computed BEFORE the summary now: the executive overview writer
+    # needs the deal's commercial shape, and it used to run first and reason
+    # about cost with no idea what the engagement was worth.
+    margin = build_margin_view(full_envelope or report)
     _briefing_chat_client, _briefing_model = _briefing_chat()
     exec_summary = build_executive_summary(
         case_id=display_label,
@@ -506,12 +510,13 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         narrative_atoms=(full_envelope or {}).get("atoms") or [],
         chat_client=_briefing_chat_client,
         overview_model=_briefing_model,
+        margin_view=asdict(margin) if hasattr(margin, "__dataclass_fields__") else margin,
     )
     # Tier 1-4 PM intelligence
-    # Money must be computed over EVERY atom, not the inspection report's
-    # 60-per-file sample — a truncated corpus silently yields $0, which reads as
-    # "no pricing found" rather than "I only looked at part of it".
-    margin = build_margin_view(full_envelope or report)
+    # (margin computed above, before the summary — it feeds the overview writer.
+    # It must read the FULL envelope, not the inspection report's 60-per-file
+    # sample: a truncated corpus silently yields $0, which reads as "no pricing
+    # found" rather than "I only looked at part of it".)
     phase_dicts = [asdict(p) for p in phases]
     cp = build_critical_path(phase_dicts)
     lt_flags = build_lead_time_flags(report)

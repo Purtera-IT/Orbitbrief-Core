@@ -1115,6 +1115,7 @@ def build_executive_summary(
     narrative_atoms: list[Any] | None = None,
     chat_client: Any | None = None,
     overview_model: str = "",
+    margin_view: Any | None = None,
 ) -> ExecutiveSummary:
     """Compose short headline stamp + grounded multi-paragraph PM overview.
 
@@ -1226,6 +1227,7 @@ def build_executive_summary(
             project_mode=project_mode,
             fact_snippets=fact_snippets,
             narrative_atoms=narrative_atoms,
+            margin_view=margin_view,
             **(
                 {"chat_client": chat_client, "model": overview_model}
                 if chat_client is not None and overview_model
