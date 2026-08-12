@@ -90,12 +90,31 @@ def test_the_model_outranks_a_confident_head():
     assert out["source"] == "llm_scope_router"
 
 
-def test_the_head_is_used_when_there_is_no_model():
+def test_the_head_is_used_when_there_is_no_model_AND_it_is_trusted(monkeypatch):
+    """Contract changed 2026-08-12: the head rung is now opt-in.
+
+    It used to be the automatic fallback. Then it was measured: `wireless` on 6
+    of 6 sampled deals, 41% train/serve agreement against a 43% majority-class
+    baseline — a constant function. Falling back to it is worse than falling
+    back to nothing, because `{}` lets the evidence cascade decide while the
+    head asserts a wrong pack at 0.8 confidence into gates that trust >= 0.6.
+    The behaviour is preserved behind ORBITBRIEF_ROUTER_TRUST_HEAD for whenever
+    a head beats its baseline.
+    """
+    monkeypatch.setenv("ORBITBRIEF_ROUTER_TRUST_HEAD", "1")
     out = resolve_routing(
         envelope_routing={"primary": "wireless", "confidence": 0.9},
         scope_summary=CLAYTON, packs=PACKS, chat=None, model="",
     )
     assert out["primary"] == "wireless"
+
+
+def test_an_untrusted_head_is_no_opinion_not_a_fallback(monkeypatch):
+    monkeypatch.delenv("ORBITBRIEF_ROUTER_TRUST_HEAD", raising=False)
+    assert resolve_routing(
+        envelope_routing={"primary": "wireless", "confidence": 0.9},
+        scope_summary=CLAYTON, packs=PACKS, chat=None, model="",
+    ) == {}
 
 
 def test_a_weak_head_is_not_worth_overriding_evidence_for():
@@ -119,13 +138,26 @@ def test_no_routing_at_all_is_a_valid_answer():
     assert resolve_routing(envelope_routing={}, scope_summary="", packs=PACKS) == {}
 
 
-def test_a_dead_model_falls_back_to_the_head_rather_than_to_nothing():
+def test_a_dead_model_falls_back_to_the_head_when_the_head_is_trusted(monkeypatch):
+    monkeypatch.setenv("ORBITBRIEF_ROUTER_TRUST_HEAD", "1")
     out = resolve_routing(
         envelope_routing={"primary": "wireless", "confidence": 0.9},
         scope_summary=CLAYTON, packs=PACKS,
         chat=_Chat("", boom=True), model="deepseek-chat",
     )
     assert out["primary"] == "wireless"
+
+
+def test_a_dead_model_defers_rather_than_asserting_an_unproven_head(monkeypatch):
+    """A dead endpoint must never fail a compile — but it must not launder the
+    head's constant answer into project_mode either. No opinion is the honest
+    result, and the evidence cascade still decides."""
+    monkeypatch.delenv("ORBITBRIEF_ROUTER_TRUST_HEAD", raising=False)
+    assert resolve_routing(
+        envelope_routing={"primary": "wireless", "confidence": 0.9},
+        scope_summary=CLAYTON, packs=PACKS,
+        chat=_Chat("", boom=True), model="deepseek-chat",
+    ) == {}
 
 
 def test_the_emitted_shape_is_the_one_downstream_already_reads():

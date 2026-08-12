@@ -191,10 +191,23 @@ def _resolve_service_routing(envelope: Any, case_dir: Path) -> dict[str, Any] | 
         scope_summary = str(head.get("scope_summary") or "")
     chat, model = _router_chat()
 
+    # Stamp the row with the deal it came from. training_row() accepts these and
+    # my first cut passed neither, so every banked label was anonymous — fine for
+    # counting, useless for the retrain it exists to feed: you cannot re-derive a
+    # scope summary's deal, audit a suspicious label, or hold out by deal without
+    # it. Empty strings are left in place rather than invented.
+    project_id = str((envelope or {}).get("project_id") or "") if isinstance(envelope, dict) else ""
+    compile_id = str((envelope or {}).get("compile_id") or "") if isinstance(envelope, dict) else ""
+
     def _sink(row: dict[str, Any]) -> None:
         # Serving the router IS the labelling campaign: bank one (scope, label)
         # pair per routed deal. Bookkeeping must never break a compile.
         try:
+            row = dict(row)
+            if not row.get("project_id"):
+                row["project_id"] = project_id
+            if not row.get("compile_id"):
+                row["compile_id"] = compile_id
             with open(case_dir / "router_training_rows.jsonl", "a", encoding="utf-8") as fh:
                 fh.write(json.dumps(row, ensure_ascii=False) + "\n")
         except Exception:
