@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -115,6 +116,104 @@ _INSTALL_IRRELEVANT_GAP_IDS = frozenset({
 })
 
 
+def _router_pack_menu() -> list[tuple[str, str]]:
+    """(pack_id, display_name) for every pack the router may choose from."""
+    try:
+        path = Path(__file__).resolve().parents[1] / "world_model" / "data" / "domain_packs.yaml"
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        entries = raw if isinstance(raw, list) else (raw.get("packs") or [])
+        return [
+            (str(e.get("id") or e.get("pack_id")), str(e.get("display_name") or ""))
+            for e in entries
+            if isinstance(e, dict) and (e.get("id") or e.get("pack_id"))
+        ]
+    except Exception:
+        return []
+
+
+def _router_chat() -> tuple[Any | None, str]:
+    """(client, model) for the LLM rung, or (None, "") when deliberately unwired.
+
+    ``ORBITBRIEF_ROUTER_MODEL`` must be set explicitly — routing does NOT inherit
+    ``ORBITBRIEF_CHAT_MODEL``. That default is qwen2.5:3b on dev, and a 3B model
+    picking among 29 packs is not a router; the rung was measured on qwen3:14b.
+    Silently inheriting it would look wired while answering worse than the head.
+    """
+    model = (os.environ.get("ORBITBRIEF_ROUTER_MODEL") or "").strip()
+    base = (
+        os.environ.get("ORBITBRIEF_ROUTER_BASE_URL")
+        or os.environ.get("OLLAMA_BASE_URL")
+        or ""
+    ).strip()
+    if not model or not base:
+        return None, ""
+    try:
+        from orbitbrief_core.inference.client import OpenAIChatClient
+
+        timeout = float(os.environ.get("ORBITBRIEF_ROUTER_TIMEOUT_S", "180") or 180)
+        return (
+            OpenAIChatClient(
+                base_url=base,
+                api_key=(os.environ.get("ORBITBRIEF_CHAT_API_KEY") or None),
+                timeout_s=timeout,
+            ),
+            model,
+        )
+    except Exception:
+        return None, ""
+
+
+def _resolve_service_routing(envelope: Any, case_dir: Path) -> dict[str, Any] | None:
+    """Resolve ONE routing answer from the scope-router ladder.
+
+    ``service_routing.primary`` decides ``project_mode``, which decides which
+    questions the PM is asked. The contrastive head that used to decide it alone
+    answered ``wireless`` on all six deals sampled 2026-08-12 — a constant
+    function — including a 437-store technician dispatch job that was then asked
+    for an AP count and an RF channel plan. The ladder tries the LLM first, falls
+    back to the head only when the head is confident, and otherwise returns ``{}``
+    meaning "no opinion", which leaves every keyword path deciding exactly as it
+    does today. That is why this cannot regress routing.
+
+    Unwired (no ``ORBITBRIEF_ROUTER_MODEL``) it is a pass-through: the head's own
+    answer, unchanged.
+    """
+    head = envelope.get("service_routing") if isinstance(envelope, dict) else None
+    try:
+        from orbitbrief_core.world_model.scope_router import resolve_routing
+    except Exception:
+        return head if isinstance(head, dict) else None
+
+    # The parser logs the exact string the head embedded; reuse it so the LLM
+    # judges the same representation rather than a second, divergent one.
+    scope_summary = ""
+    if isinstance(head, dict):
+        scope_summary = str(head.get("scope_summary") or "")
+    chat, model = _router_chat()
+
+    def _sink(row: dict[str, Any]) -> None:
+        # Serving the router IS the labelling campaign: bank one (scope, label)
+        # pair per routed deal. Bookkeeping must never break a compile.
+        try:
+            with open(case_dir / "router_training_rows.jsonl", "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+        except Exception:
+            pass
+
+    try:
+        resolved = resolve_routing(
+            envelope_routing=head if isinstance(head, dict) else None,
+            scope_summary=scope_summary,
+            packs=_router_pack_menu(),
+            chat=chat,
+            model=model,
+            on_training_row=_sink if chat is not None else None,
+        )
+    except Exception:
+        return head if isinstance(head, dict) else None
+    return resolved or None
+
+
 def build_pm_handoff(case_dir: Path) -> PMHandoff:
     case_dir = Path(case_dir)
     # Inspection report — orchestrator emits ``90_inspection_report.json``,
@@ -157,9 +256,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         or _read_json(case_dir / "envelope.json")
         or {}
     )
-    service_routing = (
-        envelope.get("service_routing") if isinstance(envelope, dict) else None
-    )
+    service_routing = _resolve_service_routing(envelope, case_dir)
 
     source_files, artifact_by_id = _build_source_files(report)
     sites = _build_site_summaries(report, case_dir)
