@@ -56,6 +56,25 @@ def _iter_atoms_with_files(report: dict[str, Any]) -> list[tuple[dict[str, Any],
         filename = str(art.get("filename") or art.get("artifact_id") or "unknown")
         for atom in art.get("atoms") or []:
             out.append((atom, filename))
+    if out:
+        return out
+    # Fallback: the parser envelope is FLAT — top-level ``atoms`` plus a
+    # ``documents`` list, with no nested ``artifacts[].atoms``. When a caller
+    # hands us that shape this loop found nothing and every downstream number
+    # silently became 0. Clayton (2026-08-11) reported deal_total=$0 on a deal
+    # whose envelope carries ``money:149764`` on a contractual_scope atom
+    # ("Total Deal Revenue: $149,764", sheet "Deal Kit"). Zero is indistinguishable
+    # from "no pricing found", so the brief asserted a $0 deal instead of failing loudly.
+    atoms = report.get("atoms")
+    if isinstance(atoms, list) and atoms:
+        names = {
+            d.get("artifact_id"): str(d.get("filename") or d.get("artifact_id") or "unknown")
+            for d in (report.get("documents") or [])
+            if isinstance(d, dict)
+        }
+        for atom in atoms:
+            if isinstance(atom, dict):
+                out.append((atom, names.get(atom.get("artifact_id"), "unknown")))
     return out
 
 
@@ -169,17 +188,25 @@ def build_margin_view(report: dict[str, Any]) -> MarginView:
 
     # ── BOM qty × unit_price sum — used only when text matches absent ──
     bom_sum = 0
+    # The parser emits priced rows as BOTH ``vendor_line_item`` and ``bom_line``,
+    # and spells the structured fields ``qty``/``unit_cost`` on the xlsx path but
+    # ``quantity``/``unit_price_raw`` on the quote path. Reading only one type and
+    # one spelling made this silently 0 on real deals: Clayton's priced row is
+    # ``bom_line`` with ``qty=428`` and the unit price in ``_row``
+    # ("Fees per Site | 349.92 | 428 | 149765.76"), while its lone
+    # ``vendor_line_item`` carries ``quantity`` but no unit price at all.
     for atom, _ in _iter_atoms_with_files(report):
-        if atom.get("atom_type") != "vendor_line_item":
+        if atom.get("atom_type") not in ("vendor_line_item", "bom_line"):
             continue
         s = atom.get("structured") or {}
         if not isinstance(s, dict):
             continue
-        try:
-            qty = int(float(s.get("quantity") or 0))
-            unit = int(float(str(s.get("unit_price_raw") or 0).replace(",", "")))
-        except (TypeError, ValueError):
-            continue
+        qty = _money_int(s.get("quantity") if s.get("quantity") is not None else s.get("qty"))
+        unit = _money_int(
+            s.get("unit_price_raw")
+            if s.get("unit_price_raw") is not None
+            else (s.get("unit_price") if s.get("unit_price") is not None else s.get("unit_cost"))
+        )
         if qty > 0 and unit > 0:
             bom_sum += qty * unit
 
@@ -205,11 +232,33 @@ def build_margin_view(report: dict[str, Any]) -> MarginView:
         confidence = "low"
 
     total_cost = hardware_subtotal + services_subtotal + other_subtotal
+
+    # Deal Kit / P&L fallback. Labour-priced deals have no BOM at all, so every
+    # route above legitimately yields 0 and the margin came out 0% on a deal that
+    # actually earns 18.8% (Clayton: revenue $149,764, cost $121,609). The
+    # estimating workbook already states its own totals — the parser lifts them as
+    # ``pl_metric`` atoms — so prefer the customer's own arithmetic over inferring
+    # one. NB the parser stamps every pl_metric ``metric="margin_pct"`` even when
+    # the value is dollars, so match on the text, not the metric name.
+    pl_cost = 0
+    if not total_cost:
+        for atom, _ in _iter_atoms_with_files(report):
+            s = atom.get("structured") or {}
+            if not isinstance(s, dict) or s.get("kind") != "pl_metric":
+                continue
+            if re.search(r"(?i)\btotal\s+deal\s+cost\b", str(atom.get("text") or "")):
+                pl_cost = max(pl_cost, _money_int(s.get("value")))
+        if pl_cost:
+            total_cost = pl_cost
+            confidence = "medium"
+
     gross = deal_total - total_cost if deal_total and total_cost else 0
     margin_pct = (gross / deal_total * 100.0) if deal_total else 0.0
 
-    if hardware_subtotal == 0:
+    if hardware_subtotal == 0 and not pl_cost:
         notes.append("Hardware subtotal could not be computed — no vendor_line_item atoms with quantity × unit_price and no text-matched subtotal.")
+    elif pl_cost:
+        notes.append(f"Cost taken from the estimating workbook's own Total Deal Cost ({_display_money(pl_cost)}); no BOM in this deal.")
     if deal_total and total_cost and gross < 0:
         notes.append(
             f"⚠ Costs exceed deal total ({_display_money(total_cost)} > "
