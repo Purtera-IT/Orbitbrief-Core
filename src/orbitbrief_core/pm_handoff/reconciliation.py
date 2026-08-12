@@ -1113,6 +1113,8 @@ def build_executive_summary(
     exclusions: list[Any] | None = None,
     fact_snippets: list[str] | None = None,
     narrative_atoms: list[Any] | None = None,
+    chat_client: Any | None = None,
+    overview_model: str = "",
 ) -> ExecutiveSummary:
     """Compose short headline stamp + grounded multi-paragraph PM overview.
 
@@ -1201,8 +1203,15 @@ def build_executive_summary(
 
     # The multi-paragraph PM overview. ExecutiveSummary has carried an
     # ``overview`` field all along, but nothing populated it, so the panel
-    # rendered with only the three one-liners. Deterministic — never blocked on
-    # an inference host.
+    # rendered with only the three one-liners.
+    #
+    # build_pm_briefing_overview has ALWAYS had an LLM path — it builds an
+    # evidence pack from narrative atoms, writes a grounded briefing, and falls
+    # back to deterministic assembly if the model is absent or unusable. It was
+    # never given a client, so every brief took the deterministic branch and the
+    # overview read as concatenated fragments. Passing one through changes the
+    # panel from assembled to written; passing none keeps today's behaviour
+    # exactly, so this is safe when no model is configured.
     from orbitbrief_core.pm_handoff.pm_briefing import build_pm_briefing_overview
 
     try:
@@ -1217,6 +1226,11 @@ def build_executive_summary(
             project_mode=project_mode,
             fact_snippets=fact_snippets,
             narrative_atoms=narrative_atoms,
+            **(
+                {"chat_client": chat_client, "model": overview_model}
+                if chat_client is not None and overview_model
+                else {}
+            ),
         )
     except Exception:
         # A summary must never take the brief down.
