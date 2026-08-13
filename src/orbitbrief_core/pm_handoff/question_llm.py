@@ -67,15 +67,15 @@ What does NOT qualify:
   read, it is wrong.
 * Anything you cannot point at evidence for.
 
-Every question MUST cite at least one atom id from the EVIDENCE you were given.
-Cite the atom that makes the question necessary — the rate card line, the
-exclusion, the site count, the delivery note. If you cannot cite one, do not ask
-the question.
+Every question MUST cite at least one evidence tag from the EVIDENCE block —
+the bracketed tag at the start of each line, like E1 or E17. Cite the tag whose
+line makes the question necessary: the rate card line, the exclusion, the site
+count, the delivery note. If you cannot cite one, do not ask the question.
 
 Reply with ONLY a JSON array, no prose:
 [
   {"question": "...", "label": "3-6 words", "why": "what it costs if omitted",
-   "severity": "blocker" | "warning", "atom_ids": ["..."]}
+   "severity": "blocker" | "warning", "atom_ids": ["E1", "E7"]}
 ]
 At most %d questions. Fewer, sharper questions beat a long list.""" % _MAX_QUESTIONS
 
@@ -150,6 +150,7 @@ def candidates_from_llm(
     chat: ChatLike | None,
     model: str,
     deal_label: str = "",
+    diagnostics: dict[str, Any] | None = None,
 ) -> list[Any]:
     """Deal-specific exposure questions. Empty list on any failure."""
     if chat is None or not model:
@@ -160,10 +161,16 @@ def candidates_from_llm(
     from orbitbrief_core.pm_handoff.question_engine import QuestionCandidate
 
     picked = _pick_atoms(atom_list)
-    valid_ids = {_atom_id(a) for a in picked}
+    # Cite E1/E2/E3, not the raw atom id. The ids are long opaque strings, and
+    # asking a model to copy one back exactly is a needless failure mode: the
+    # first live run returned zero usable questions with every one dropped at
+    # the citation check. A short tag it can echo, mapped back here, keeps the
+    # grounding contract identical while removing the transcription burden.
+    token_to_id = {f"E{i + 1}": _atom_id(a) for i, a in enumerate(picked)}
+    id_set = {v for v in token_to_id.values() if v}
     evidence = "\n".join(
-        f"[{_atom_id(a)}] ({a.get('atom_type')}) {str(a.get('text') or '')[:_MAX_ATOM_CHARS]}"
-        for a in picked
+        f"[E{i + 1}] ({a.get('atom_type')}) {str(a.get('text') or '')[:_MAX_ATOM_CHARS]}"
+        for i, a in enumerate(picked)
     )
     already = "\n".join(f"- {q}" for q in existing_questions[:20] if q)
     user = (
@@ -185,16 +192,24 @@ def candidates_from_llm(
         reply = chat.complete(messages, model=model, max_tokens=1400)
     except Exception as exc:  # a dead endpoint must never fail a compile
         log.warning("question_llm: model call failed (%s); no candidates", exc)
+        if diagnostics is not None:
+            diagnostics["error"] = f"{type(exc).__name__}: {exc}"[:200]
         return []
 
+    rows = _parse(reply if isinstance(reply, str) else str(reply))
     out: list[Any] = []
     dropped_uncited = 0
-    for i, row in enumerate(_parse(reply if isinstance(reply, str) else str(reply))):
+    for i, row in enumerate((rows)):
         q = str(row.get("question") or "").strip()
         if len(q) < 20:
             continue
-        cited = [str(x).strip() for x in (row.get("atom_ids") or []) if str(x).strip()]
-        cited = [c for c in cited if c in valid_ids]
+        raw_cites = [str(x).strip() for x in (row.get("atom_ids") or []) if str(x).strip()]
+        cited: list[str] = []
+        for c in raw_cites:
+            # Accept the token we asked for, or a real id if it echoed one.
+            resolved = token_to_id.get(c.upper()) or (c if c in id_set else "")
+            if resolved and resolved not in cited:
+                cited.append(resolved)
         if not cited:
             # The whole contract. An uncited question is a guess with a
             # confident voice, and this generator has no rule behind it to fall
@@ -219,6 +234,17 @@ def candidates_from_llm(
                 project_mode=project_mode,
             )
         )
+    if diagnostics is not None:
+        # On a zero-yield run this is the only way to see WHY without shipping
+        # the whole reply into the artifact: how much came back, how much parsed,
+        # how much failed the citation check, and a short sample when nothing
+        # survived. Guessing cost a full deploy cycle the first time.
+        diagnostics["reply_chars"] = len(reply) if isinstance(reply, str) else 0
+        diagnostics["parsed_rows"] = len(rows)
+        diagnostics["dropped_uncited"] = dropped_uncited
+        diagnostics["atoms_offered"] = len(picked)
+        if not out:
+            diagnostics["sample_reply"] = str(reply)[:400]
     if dropped_uncited:
         log.info("question_llm: dropped %d uncited question(s)", dropped_uncited)
     log.info("question_llm: %d exposure question(s) from %d atoms", len(out), len(picked))
