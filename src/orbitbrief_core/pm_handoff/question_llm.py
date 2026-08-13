@@ -80,6 +80,70 @@ Reply with ONLY a JSON array, no prose:
 At most %d questions. Fewer, sharper questions beat a long list.""" % _MAX_QUESTIONS
 
 
+def _cache_path(case_dir: Any = None) -> "Any":
+    """Where generated exposure questions are remembered, keyed by input hash.
+
+    Same idiom as question_feedback.default_feedback_path: explicit env, else the
+    case dir, else cwd.
+    """
+    import os
+    from pathlib import Path
+
+    env = os.environ.get("ORBITBRIEF_EXPOSURE_CACHE_PATH", "").strip()
+    if env:
+        return Path(env).expanduser()
+    if case_dir is not None:
+        return Path(case_dir) / ".orbitbrief_exposure_cache.json"
+    return Path.cwd() / ".orbitbrief_exposure_cache.json"
+
+
+def _cache_enabled() -> bool:
+    import os
+
+    return os.environ.get("ORBITBRIEF_EXPOSURE_CACHE", "1").strip().lower() not in (
+        "0", "false", "no", "off",
+    )
+
+
+def _cache_read(path: Any, key: str) -> list[dict[str, Any]] | None:
+    try:
+        if not path.exists():
+            return None
+        blob = json.loads(path.read_text(encoding="utf-8"))
+        rows = (blob or {}).get(key)
+        # An empty hit is not a hit. A run that returned [] must never be frozen
+        # in: the same deal produced 8, 8, 8 then 0 candidates, and caching that
+        # zero would have pinned an empty brief until the deal itself changed.
+        if isinstance(rows, list) and rows:
+            return rows
+    except Exception:
+        return None
+    return None
+
+
+def _cache_write(path: Any, key: str, rows: list[dict[str, Any]]) -> None:
+    if not rows:
+        return
+    try:
+        blob = {}
+        if path.exists():
+            try:
+                blob = json.loads(path.read_text(encoding="utf-8")) or {}
+            except Exception:
+                blob = {}
+        if not isinstance(blob, dict):
+            blob = {}
+        blob[key] = rows
+        # Bound it: this is a per-deal file, not an archive.
+        if len(blob) > 24:
+            for k in list(blob)[: len(blob) - 24]:
+                blob.pop(k, None)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(blob), encoding="utf-8")
+    except Exception:
+        pass
+
+
 def _atom_id(a: Mapping[str, Any]) -> str:
     return str(a.get("id") or a.get("atom_id") or "").strip()
 
@@ -151,6 +215,7 @@ def candidates_from_llm(
     model: str,
     deal_label: str = "",
     diagnostics: dict[str, Any] | None = None,
+    case_dir: Any = None,
 ) -> list[Any]:
     """Deal-specific exposure questions. Empty list on any failure."""
     if chat is None or not model:
@@ -204,15 +269,47 @@ def candidates_from_llm(
         diagnostics["atom_ids_sha"] = _h.sha256(
             "|".join(_atom_id(a) for a in picked).encode("utf-8")
         ).hexdigest()[:16]
-    try:
-        reply = chat.complete(messages, model=model, max_tokens=1400)
-    except Exception as exc:  # a dead endpoint must never fail a compile
-        log.warning("question_llm: model call failed (%s); no candidates", exc)
-        if diagnostics is not None:
-            diagnostics["error"] = f"{type(exc).__name__}: {exc}"[:200]
-        return []
+    # Same prompt, different questions -- measured, not assumed.
+    #
+    # Two back-to-back runs on an unchanged deal sent a byte-identical prompt
+    # (input_sha 86281b59e5cca1d0 both times) and came back with three entirely
+    # DISJOINT questions. temperature is already 0; DeepSeek is a hosted MoE and
+    # does not promise determinism at temperature 0, because expert routing
+    # varies with batch composition. That is outside our control.
+    #
+    # The cost is not cosmetic: a PM reopening an unchanged deal saw a different
+    # brief, and correction feedback attaches to rule_ids that might never
+    # reappear. So remember the answer against the exact input. The deal changes
+    # -> the atoms change -> input_sha changes -> regenerate. Nothing else does.
+    cache_key = str((diagnostics or {}).get("input_sha") or "")
+    if not cache_key:
+        import hashlib as _h
 
-    rows = _parse(reply if isinstance(reply, str) else str(reply))
+        cache_key = _h.sha256(user.encode("utf-8")).hexdigest()[:16]
+    cache_file = _cache_path(case_dir)
+    use_cache = _cache_enabled()
+    cached = _cache_read(cache_file, cache_key) if use_cache else None
+    if cached is not None:
+        rows = cached
+        reply = ""
+        if diagnostics is not None:
+            diagnostics["cache"] = "hit"
+            diagnostics["parsed_rows"] = len(rows)
+    else:
+        try:
+            reply = chat.complete(messages, model=model, max_tokens=1400)
+        except Exception as exc:  # a dead endpoint must never fail a compile
+            log.warning("question_llm: model call failed (%s); no candidates", exc)
+            if diagnostics is not None:
+                diagnostics["error"] = f"{type(exc).__name__}: {exc}"[:200]
+                diagnostics["cache"] = "miss"
+            return []
+
+        rows = _parse(reply if isinstance(reply, str) else str(reply))
+        if use_cache:
+            _cache_write(cache_file, cache_key, rows)
+        if diagnostics is not None:
+            diagnostics["cache"] = "miss"
     out: list[Any] = []
     dropped_uncited = 0
     for i, row in enumerate((rows)):
