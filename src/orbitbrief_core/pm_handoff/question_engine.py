@@ -926,6 +926,17 @@ def detect_project_mode(
     #     (19/20 with it, 20/20 without).
     # Both checks still run below for deals where the router abstains, which is
     # most of them -- the head is a specialist over four packs by design.
+    # Density floor for letting vocabulary override a router answer whose pack
+    # has no bespoke mode. Measured 2026-08-13 (strong AV+wireless hits per 10k
+    # chars of atom text):
+    #     test_an_unmapped_pack_falls_through  ......  2.0   (59 chars, decisive)
+    #     paulweiss  (router said telecom)  .........  0.3   (250k chars)
+    #     la_relocation (router said data_migration)   0.3   (309k chars)
+    #     oxblue (router said security_camera) ......  0.0   (256k chars)
+    # Three mentions of a display in a 250k-char corpus is not evidence that a
+    # Cisco voice RFP is an AV job; the same regex on a one-line scope is.
+    _UNMAPPED_LEXICON_DENSITY = 1.0
+
     routed = _MODE_BY_PACK.get(primary)
     if routed is not None:
         # Two refinements the router cannot express, since both are a
@@ -935,6 +946,34 @@ def detect_project_mode(
         if routed == MODE_NETWORK_OPS and _NETWORK_INSTALL_EVIDENCE_RE.search(text_s):
             return MODE_NETWORK_EDGE_INSTALL
         return routed
+    if primary:
+        # The router answered a pack with no dedicated question set. Falling
+        # straight through to vocabulary throws that answer away: measured
+        # 2026-08-13, DeepSeek routed a Cisco voice RFP to `telecom` and a Dell
+        # relocation to `data_migration` -- both right -- and both became
+        # `av_install` off a handful of incidental display mentions in a
+        # quarter-million characters.
+        #
+        # Vocabulary still wins when it is DENSE enough to be decisive, which is
+        # what test_an_unmapped_pack_falls_through is really about: a scope that
+        # says "install 40 access points and run a wireless heatmap survey" IS a
+        # wireless job whatever the router said. Density tells those apart;
+        # presence does not.
+        # Count every family the cascade below can decide on, not just AV and
+        # wireless: a short blob that is decisively an ASSESSMENT (pentest,
+        # rules of engagement) must still reach that branch. Counting only two
+        # families sent test_assessment_mode_beats_access_control_primary to
+        # generic, because its evidence is dense but in a third family.
+        _hits = (
+            len(_AV_STRONG_RE.findall(text_s))
+            + len(_WIRELESS_STRONG_RE.findall(text_s))
+            + len(_ASSESSMENT_RE.findall(text_s))
+            + len(_ACCESS_RE.findall(text_s))
+            + len(_DECOM_RE.findall(text_s))
+            + len(_ALM_RE.findall(text_s))
+        )
+        if _hits / max(1.0, len(text_s) / 10000.0) < _UNMAPPED_LEXICON_DENSITY:
+            return MODE_GENERIC
 
     # ── From here down the router had no opinion, so vocabulary decides. ──
 
