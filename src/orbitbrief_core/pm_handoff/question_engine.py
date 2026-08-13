@@ -29,6 +29,7 @@ from orbitbrief_core.pm_handoff.question_feedback import (
 )
 from orbitbrief_core.pm_handoff.semantic_dedupe import (
     cosine_similarity,
+    embedder_health as _embedder_health,
     evidence_relevance_scores,
     is_near_duplicate_of_any,
     is_neural_embedder,
@@ -3478,6 +3479,10 @@ def rank_and_cap(
         "semantic_dedupe_output": cluster_meta.output_count,
         "semantic_dedupe_merged_pairs": cluster_meta.merged_pairs,
         "semantic_dedupe_embedder": cluster_meta.embedder_model,
+        # Loud, structural, and in the artifact: a brief built on hash
+        # vectors must SAY so. Silent degradation is why the embedder
+        # was found down only by going and looking.
+        "embedder_health": _embedder_health(),
         "semantic_dedupe_cosine_threshold": cluster_meta.cosine_threshold,
         "mmr_selected": len(selected),
         **relevance_meta,

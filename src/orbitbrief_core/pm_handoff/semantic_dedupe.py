@@ -16,7 +16,7 @@ import math
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Callable, Protocol, Sequence, TypeVar
+from typing import Any, Callable, Protocol, Sequence, TypeVar
 
 from orbitbrief_core.retrieval.embedder import DeterministicHashEmbedder, Embedder
 
@@ -27,6 +27,20 @@ DEFAULT_CONTAINMENT_THRESHOLD = float(
     # 0.75 catches subset paraphrases under the hash embedder; real
     # Qwen embeddings still dominate via cosine when available.
     os.environ.get("ORBITBRIEF_QUESTION_DEDUP_CONTAINMENT", "0.75")
+)
+# Containment gate on the NEURAL path. Was hardcoded 0.92, tuned when the
+# embedder was qwen3-embedding:8b. Different embedders place paraphrases at
+# different cosines, so this has to move with them.
+#
+# Measured 2026-08-13 over 630 real question pairs from Clayton under
+# text-embedding-3-small: the highest cosine of ANY pair was 0.773, so the 0.82
+# cosine gate merged NOTHING -- dedupe was dead on arrival. Worse, the ranking
+# inverts: a FALSE pair ("day-of onsite contact" vs "access/escort/badging")
+# scores 0.773 while a TRUE duplicate ("confirm site access, escort, badging"
+# vs "confirm access/escort/badging/after-hours") scores 0.760, so no cosine
+# threshold separates them. Containment does, cleanly: 0.400 vs 0.875.
+DEFAULT_NEURAL_CONTAINMENT = float(
+    os.environ.get("ORBITBRIEF_QUESTION_DEDUP_NEURAL_CONTAINMENT", "0.92")
 )
 # When both signals are moderate, still merge (subset + lexical overlap).
 DEFAULT_HYBRID_COSINE = float(os.environ.get("ORBITBRIEF_QUESTION_DEDUP_HYBRID_COSINE", "0.55"))
@@ -165,18 +179,22 @@ def pair_near_duplicate(
     containment_threshold: float = DEFAULT_CONTAINMENT_THRESHOLD,
     hybrid_cosine: float = DEFAULT_HYBRID_COSINE,
     hybrid_containment: float = DEFAULT_HYBRID_CONTAINMENT,
+    neural_containment: float = DEFAULT_NEURAL_CONTAINMENT,
     neural: bool = False,
 ) -> tuple[bool, float, float]:
     """Return (is_dup, cosine, containment).
 
-    Neural path: cosine only (plus near-exact containment ≥0.92). Intent-family
+    Neural path: cosine, plus a near-exact containment escape hatch. Intent-family
     and soft lexical gates over-merged SOP vs approval on live deals — disabled
-    when Qwen embeddings are available.
+    when real embeddings are available.
+
+    The containment gate is configurable because it has to track the embedder:
+    see DEFAULT_NEURAL_CONTAINMENT for the measurement that forced this.
     """
     cos = cosine_similarity(vec_a, vec_b)
     cont = soft_containment(text_a, text_b)
     if neural:
-        is_dup = cos >= cosine_threshold or cont >= 0.92
+        is_dup = cos >= cosine_threshold or cont >= neural_containment
         return is_dup, cos, cont
     is_dup = (
         cos >= cosine_threshold
@@ -233,6 +251,104 @@ def _l2_normalize(vec: list[float]) -> list[float]:
     if norm <= 0:
         return vec
     return [x / norm for x in vec]
+
+
+@dataclass
+class AzureOpenAIEmbedder:
+    """Azure OpenAI ``/embeddings`` client — a hosted endpoint that does not sleep.
+
+    The previous backend was one Mac serving ``qwen3-embedding:8b`` behind a
+    Cloudflare tunnel. Measured on 2026-08-13 it returned 530 (no tunnel), then
+    502 (tunnel up, Ollama not listening), then 401 — and every brief in that
+    window silently fell back to hash vectors that encode nothing. qwen3-8b is
+    the stronger embedder on paper; an embedder that is asleep is not an
+    embedder.
+
+    Nothing is retrained by this swap. Core uses these vectors only for live
+    cosine comparisons (question near-dup + fact quality) -- there is no head
+    trained on top of them. parser-os keeps its own bundled encoder, and the
+    heads/kNN store pinned to that vector space are untouched.
+    """
+
+    endpoint: str  # https://<res>.openai.azure.com
+    deployment: str
+    api_key: str
+    api_version: str = "2024-02-01"
+    model_id: str = "text-embedding-3-small"
+    dim: int = 1536
+    _cache: dict[str, list[float]] = field(default_factory=dict, repr=False)
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        import json
+        import urllib.request
+
+        if not texts:
+            return []
+        out: list[list[float] | None] = [None] * len(texts)
+        miss: list[tuple[int, str]] = []
+        for i, t in enumerate(texts):
+            cached = self._cache.get(t)
+            if cached is not None:
+                out[i] = cached
+            else:
+                miss.append((i, t))
+        if not miss:
+            return [v for v in out if v is not None]
+
+        url = (
+            f"{self.endpoint.rstrip('/')}/openai/deployments/{self.deployment}"
+            f"/embeddings?api-version={self.api_version}"
+        )
+        headers = {
+            "Content-Type": "application/json",
+            "api-key": self.api_key,
+            "User-Agent": "orbitbrief-core-question-dedupe/1.0",
+        }
+        fresh: list[list[float]] = []
+        # Azure caps inputs per request; batch so a long brief cannot 400.
+        BATCH = 256
+        try:
+            for start in range(0, len(miss), BATCH):
+                chunk = [t for _, t in miss[start : start + BATCH]]
+                body = json.dumps({"input": chunk}).encode("utf-8")
+                req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=90) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                rows = sorted(
+                    (data.get("data") or []), key=lambda r: int(r.get("index") or 0)
+                )
+                fresh.extend(
+                    _l2_normalize([float(x) for x in (r.get("embedding") or [])])
+                    for r in rows
+                )
+        except Exception as exc:
+            import logging
+
+            logging.getLogger(__name__).error(
+                "EMBEDDER DOWN: azure openai %s/%s failed (%s) -- falling back to "
+                "deterministic-hash. Semantic dedupe and fact-quality are DEGRADED "
+                "for this brief.",
+                self.endpoint,
+                self.deployment,
+                exc,
+            )
+            record_embedder_failure(str(exc), url=f"{self.endpoint}#{self.deployment}")
+            hash_emb = DeterministicHashEmbedder(dim=256)
+            fresh = hash_emb.embed([t for _, t in miss])
+            self.model_id = "deterministic-hash-v1"
+            self.dim = 256
+
+        if len(fresh) != len(miss):
+            hash_emb = DeterministicHashEmbedder(dim=256)
+            fresh = hash_emb.embed([t for _, t in miss])
+            self.model_id = "deterministic-hash-v1"
+            self.dim = 256
+        for (i, t), vec in zip(miss, fresh):
+            if self.dim and len(vec) != self.dim:
+                self.dim = len(vec)
+            self._cache[t] = vec
+            out[i] = vec
+        return [v for v in out if v is not None]
 
 
 @dataclass
@@ -324,12 +440,26 @@ class OllamaHttpEmbedder:
             if last_err is not None and len(fresh) != len(miss):
                 # Never kill PM handoff when the embed proxy flaps (e.g. HTTP 530).
                 # Hash vectors keep dedupe/fact-quality functional in degraded mode.
+                #
+                # But degrading QUIETLY is its own bug. Hash vectors carry no
+                # semantic meaning at all: two questions that say the same thing
+                # in different words land far apart, so "semantic" dedupe becomes
+                # near-exact-match dedupe and fact-quality scoring degrades with
+                # it. Every brief produced in this state is worse in a way that
+                # is invisible unless someone reads the metrics. This was logged
+                # at WARNING and the embedder was found down only because someone
+                # went looking. Record it loudly and structurally so a brief can
+                # be TOLD it ran degraded.
                 import logging
 
-                logging.getLogger(__name__).warning(
-                    "ollama embed unavailable (%s); falling back to deterministic-hash",
+                logging.getLogger(__name__).error(
+                    "EMBEDDER DOWN: %s unreachable (%s) -- falling back to "
+                    "deterministic-hash. Semantic dedupe and fact-quality are "
+                    "DEGRADED for this brief.",
+                    _embed_url() or "<unset>",
                     last_err,
                 )
+                record_embedder_failure(str(last_err), url=_embed_url())
                 hash_emb = DeterministicHashEmbedder(dim=256)
                 fresh = hash_emb.embed([t for _, t in miss])
                 self.model_id = "deterministic-hash-v1"
@@ -348,10 +478,77 @@ class OllamaHttpEmbedder:
         return [v for v in out if v is not None]
 
 
+def _embed_url() -> str:
+    return (
+        os.environ.get("ORBITBRIEF_OLLAMA_EMBED_URL", "").strip()
+        or os.environ.get("OLLAMA_EMBED_URL", "").strip()
+    )
+
+
+# Process-level record of embedder failure, read by the handoff builder so a
+# degraded brief SAYS it is degraded instead of looking identical to a healthy
+# one. Reset per compile by reset_embedder_health().
+_EMBEDDER_FAILURE: dict[str, Any] = {}
+
+
+def record_embedder_failure(error: str, *, url: str = "") -> None:
+    if not _EMBEDDER_FAILURE:
+        _EMBEDDER_FAILURE.update({"error": error[:300], "url": url, "count": 0})
+    _EMBEDDER_FAILURE["count"] = int(_EMBEDDER_FAILURE.get("count", 0)) + 1
+
+
+def reset_embedder_health() -> None:
+    _EMBEDDER_FAILURE.clear()
+
+
+def embedder_health() -> dict[str, Any]:
+    """Health of the embedding backend for THIS compile.
+
+    `degraded` true means every semantic comparison in the brief was made with
+    hash vectors, which encode nothing. Callers should surface it, not swallow
+    it -- a brief that silently reads as normal while its dedupe is off is
+    worse than one that admits it.
+    """
+    if not _EMBEDDER_FAILURE:
+        return {"degraded": False, "backend": _embed_url() or "hash-only"}
+    return {
+        "degraded": True,
+        "backend": _EMBEDDER_FAILURE.get("url") or "<unset>",
+        "error": _EMBEDDER_FAILURE.get("error", ""),
+        "failures": _EMBEDDER_FAILURE.get("count", 0),
+        "impact": (
+            "semantic dedupe and fact-quality ran on deterministic-hash vectors; "
+            "paraphrased duplicates were NOT collapsed"
+        ),
+    }
+
+
 def resolve_question_embedder(embedder: Embedder | None = None) -> Embedder:
     """Prefer Ollama/vLLM embeddings when configured; else deterministic hash."""
     if embedder is not None:
         return embedder
+
+    # 0) Azure OpenAI — hosted, always up. Preferred over the Mac because
+    # availability beats benchmark rank for a backend whose failure is silent.
+    aoai_endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT", "").strip()
+    aoai_key = os.environ.get("AZURE_OPENAI_API_KEY", "").strip()
+    aoai_deployment = (
+        os.environ.get("AZURE_OPENAI_EMBED_DEPLOYMENT", "").strip()
+        or "text-embedding-3-small"
+    )
+    if aoai_endpoint and aoai_key:
+        try:
+            return AzureOpenAIEmbedder(
+                endpoint=aoai_endpoint,
+                deployment=aoai_deployment,
+                api_key=aoai_key,
+                api_version=(
+                    os.environ.get("AZURE_OPENAI_API_VERSION", "").strip() or "2024-02-01"
+                ),
+                model_id=aoai_deployment,
+            )
+        except Exception:
+            pass
 
     # 1) Ollama (PurPulse host) — real neural near-dup for PM asks
     ollama_url = (
