@@ -3637,6 +3637,7 @@ def build_customer_questions(
     # can silently contribute zero has to say so somewhere the artifact keeps.
     _llm_status = "unwired"
     _llm_count = 0
+    _llm_diag: dict[str, Any] = {}
     try:
         from orbitbrief_core.pm_handoff.question_llm import candidates_from_llm
         from orbitbrief_core.pm_handoff.builder import _briefing_chat
@@ -3656,6 +3657,7 @@ def build_customer_questions(
                     deal_label=str((envelope or {}).get("project_id") or "")
                     if isinstance(envelope, Mapping)
                     else "",
+                    diagnostics=_llm_diag,
                 )
             )
             _llm_count = len(_llm_new)
@@ -3878,7 +3880,7 @@ def build_customer_questions(
         "candidate_count_before_cap": len(candidates),
         # "unwired" (no chat model) | "ran" | "error:<Type>" — plus how many it
         # contributed. Without this a zero-contribution stage is invisible.
-        "llm_exposure": {"status": _llm_status, "candidates": _llm_count},
+        "llm_exposure": {"status": _llm_status, "candidates": _llm_count, **_llm_diag},
         "sources": {
             "evidence": sum(1 for c in ranked[: len(cards)] if c.source == "evidence"),
             "mode_template": sum(
