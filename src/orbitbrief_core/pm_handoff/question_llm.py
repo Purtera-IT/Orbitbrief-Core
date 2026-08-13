@@ -111,6 +111,54 @@ def _cache_enabled() -> bool:
     )
 
 
+def _prior_handoff_rows(case_dir: Any, key: str) -> list[dict[str, Any]] | None:
+    """Read cached rows out of the PREVIOUS brief.
+
+    A sidecar cache file does not survive: exposure_cache.json (and the dotted
+    name before it) appears nowhere in blob -- not under latest/, not under any
+    run folder -- while both compiles still logged cache "hit" from
+    container-local state. Two guesses at the worker's upload rules were both
+    wrong, so stop guessing and use the one artifact that is certainly written,
+    certainly mirrored, and certainly re-read: PM_HANDOFF.json.
+
+    Best-effort by design. If the prior handoff is absent or shaped differently,
+    this returns None and the generator makes a live call.
+    """
+    if case_dir is None:
+        return None
+    try:
+        from pathlib import Path
+
+        f = Path(case_dir) / "PM_HANDOFF.json"
+        if not f.exists():
+            return None
+        blob = json.loads(f.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+    def _walk(o: Any) -> dict[str, Any] | None:
+        if isinstance(o, dict):
+            if "llm_exposure" in o and isinstance(o["llm_exposure"], dict):
+                return o["llm_exposure"]
+            for v in o.values():
+                r = _walk(v)
+                if r is not None:
+                    return r
+        elif isinstance(o, list):
+            for v in o:
+                r = _walk(v)
+                if r is not None:
+                    return r
+        return None
+
+    le = _walk(blob) or {}
+    if str(le.get("input_sha") or "") != key:
+        return None
+    rows = le.get("cache_rows")
+    # Never resurrect an empty answer.
+    return rows if isinstance(rows, list) and rows else None
+
+
 def _cache_read(path: Any, key: str) -> list[dict[str, Any]] | None:
     try:
         if not path.exists():
@@ -295,6 +343,10 @@ def candidates_from_llm(
     cache_file = _cache_path(case_dir)
     use_cache = _cache_enabled()
     cached = _cache_read(cache_file, cache_key) if use_cache else None
+    if cached is None and use_cache:
+        cached = _prior_handoff_rows(case_dir, cache_key)
+    if diagnostics is not None:
+        diagnostics["cache_path"] = str(cache_file)
     if cached is not None:
         rows = cached
         reply = ""
@@ -362,6 +414,11 @@ def candidates_from_llm(
         diagnostics["parsed_rows"] = len(rows)
         diagnostics["dropped_uncited"] = dropped_uncited
         diagnostics["atoms_offered"] = len(picked)
+        # Carried in the artifact so the NEXT compile can reuse them. This is the
+        # cache that actually survives -- PM_HANDOFF.json is written, mirrored to
+        # latest/, and re-read, none of which was true of a sidecar file.
+        if rows:
+            diagnostics["cache_rows"] = rows
         if not out:
             diagnostics["sample_reply"] = str(reply)[:400]
     if dropped_uncited:
