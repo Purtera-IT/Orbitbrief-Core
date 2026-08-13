@@ -188,6 +188,22 @@ def candidates_from_llm(
             {"role": "system", "content": _SYSTEM},
             {"role": "user", "content": user},
         ]
+    if diagnostics is not None:
+        # Is the run-to-run variance ours or the model's?
+        #
+        # The same deal produced 8, 8, 8 then 0 candidates, and different
+        # questions each time. temperature is already 0 (OpenAIChatClient
+        # defaults it and sends it), so either the INPUT differs between runs or
+        # the hosted model is simply not deterministic at temperature 0 -- which
+        # is true of DeepSeek and most hosted MoE serving. Those need opposite
+        # fixes, so hash what we actually sent: identical input_sha across runs
+        # with differing output proves the model; differing input_sha proves us.
+        import hashlib as _h
+
+        diagnostics["input_sha"] = _h.sha256(user.encode("utf-8")).hexdigest()[:16]
+        diagnostics["atom_ids_sha"] = _h.sha256(
+            "|".join(_atom_id(a) for a in picked).encode("utf-8")
+        ).hexdigest()[:16]
     try:
         reply = chat.complete(messages, model=model, max_tokens=1400)
     except Exception as exc:  # a dead endpoint must never fail a compile
