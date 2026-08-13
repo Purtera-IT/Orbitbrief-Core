@@ -3613,6 +3613,38 @@ def build_customer_questions(
             docs_by_id=docs_by_id,
         )
     )
+    # Deal-specific exposure, written by a model that reads the atoms and the
+    # questions already being asked. Templates cannot ask what nobody wrote down
+    # in advance -- reviewed 2026-08-13, they covered technical execution well
+    # and never asked who eats an aborted visit on a 437-site T&M dispatch, or
+    # for a building COI on a Manhattan display install. Additive: these join
+    # the same pool and the same ranker, and every one must cite a real atom id
+    # or it is dropped inside the generator.
+    try:
+        from orbitbrief_core.pm_handoff.question_llm import candidates_from_llm
+        from orbitbrief_core.pm_handoff.builder import _briefing_chat
+
+        _chat, _model = _briefing_chat()
+        if _chat is not None and _model:
+            candidates.extend(
+                candidates_from_llm(
+                    atoms=atoms,
+                    project_mode=project_mode,
+                    existing_questions=[
+                        getattr(c, "suggested_open_question", "") for c in candidates
+                    ],
+                    chat=_chat,
+                    model=_model,
+                    deal_label=str((envelope or {}).get("project_id") or "")
+                    if isinstance(envelope, Mapping)
+                    else "",
+                )
+            )
+    except Exception as exc:  # never let the extra questions break the brief
+        import logging as _logging
+
+        _logging.getLogger(__name__).warning("question_llm: skipped (%s)", exc)
+
     candidates = suppress_answered(candidates, blob=blob, sites=sites)
     candidates = apply_feedback(candidates, feedback_policy, project_mode=project_mode)
 
