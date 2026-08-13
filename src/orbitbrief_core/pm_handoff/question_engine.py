@@ -1263,6 +1263,16 @@ def _candidates_from_evidence_atoms(
             continue
         if atype == "risk":
             continue
+        # A roster row is data, not a gap. Un-truncating the inspection report
+        # made all 438 of Clayton's site rows visible to this generator, and it
+        # turned each one into a question: "evidence.site_roster.1007 clayton
+        # homes of augusta flg cla traditional r...". They were suppressed
+        # downstream, but they pushed candidates 92 -> 148 and crowded the funnel
+        # that MMR and the 12-slot cap select from — the fix for one blindness
+        # created noise in its place. Roster/site rows describe WHERE the work
+        # is, and the site generators already ask about that properly.
+        if atype in {"site_roster", "physical_site", "site_attribute", "address"}:
+            continue
         # Soft-filter ops language on install mode
         if project_mode == MODE_NETWORK_EDGE_INSTALL:
             if re.search(
@@ -3620,13 +3630,21 @@ def build_customer_questions(
     # for a building COI on a Manhattan display install. Additive: these join
     # the same pool and the same ranker, and every one must cite a real atom id
     # or it is dropped inside the generator.
+    # Report this in the METRICS, not just the log. question_llm and
+    # scope_router both log at INFO, and production only emits the worker's own
+    # logger — so after the first live run I could not tell whether the
+    # generator had run and produced nothing, or never run at all. A stage that
+    # can silently contribute zero has to say so somewhere the artifact keeps.
+    _llm_status = "unwired"
+    _llm_count = 0
     try:
         from orbitbrief_core.pm_handoff.question_llm import candidates_from_llm
         from orbitbrief_core.pm_handoff.builder import _briefing_chat
 
         _chat, _model = _briefing_chat()
         if _chat is not None and _model:
-            candidates.extend(
+            _llm_status = "ran"
+            _llm_new = list(
                 candidates_from_llm(
                     atoms=atoms,
                     project_mode=project_mode,
@@ -3640,9 +3658,12 @@ def build_customer_questions(
                     else "",
                 )
             )
+            _llm_count = len(_llm_new)
+            candidates.extend(_llm_new)
     except Exception as exc:  # never let the extra questions break the brief
         import logging as _logging
 
+        _llm_status = f"error:{type(exc).__name__}"
         _logging.getLogger(__name__).warning("question_llm: skipped (%s)", exc)
 
     candidates = suppress_answered(candidates, blob=blob, sites=sites)
@@ -3855,6 +3876,9 @@ def build_customer_questions(
     meta = {
         "project_mode": project_mode,
         "candidate_count_before_cap": len(candidates),
+        # "unwired" (no chat model) | "ran" | "error:<Type>" — plus how many it
+        # contributed. Without this a zero-contribution stage is invisible.
+        "llm_exposure": {"status": _llm_status, "candidates": _llm_count},
         "sources": {
             "evidence": sum(1 for c in ranked[: len(cards)] if c.source == "evidence"),
             "mode_template": sum(
