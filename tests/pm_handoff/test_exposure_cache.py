@@ -101,7 +101,22 @@ def test_cache_can_be_disabled(monkeypatch, tmp_path):
 
 
 def test_corrupt_cache_file_does_not_break_the_compile(tmp_path):
-    (tmp_path / ".orbitbrief_exposure_cache.json").write_text("{not json", encoding="utf-8")
+    (tmp_path / "exposure_cache.json").write_text("{not json", encoding="utf-8")
     chat = _Chat(REPLY_A)
     out = _run(chat, tmp_path)
     assert len(out) == 1
+
+
+def test_cache_file_is_not_a_dotfile(tmp_path):
+    """The worker uploads case_dir to blob but skips dotfiles.
+
+    The first version wrote .orbitbrief_exposure_cache.json, which never left the
+    container: two consecutive compiles both logged cache "hit" yet published
+    different questions, because each replica hit its own local copy. The blob
+    listing confirmed the file was simply absent while router_training_rows.jsonl
+    and calibration_signals.jsonl (both undotted) were present.
+    """
+    from orbitbrief_core.pm_handoff.question_llm import _cache_path
+
+    name = _cache_path(tmp_path).name
+    assert not name.startswith("."), f"{name} will not persist to blob"
