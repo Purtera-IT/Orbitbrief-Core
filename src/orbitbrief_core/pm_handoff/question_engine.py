@@ -3598,6 +3598,69 @@ def select_shortlist(pool_cards: list[GapCard], *, cap: int) -> list[GapCard]:
     return cards
 
 
+# Slots on the handoff guaranteed to deal-specific exposure asks. 0 disables.
+EXPOSURE_RESERVED_SLOTS = int(
+    __import__("os").environ.get("ORBITBRIEF_EXPOSURE_RESERVED_SLOTS", "3")
+)
+
+
+def _is_exposure(card: Any) -> bool:
+    return str(getattr(card, "rule_id", "") or "").startswith("llm.exposure.")
+
+
+def _reserve_exposure_slots(
+    cards: list[Any],
+    pool_cards: list[Any],
+    *,
+    cap: int,
+    reserve: int = EXPOSURE_RESERVED_SLOTS,
+) -> list[Any]:
+    """Guarantee a few PM slots to deal-specific exposure asks.
+
+    Coverage templates and exposure asks are not competing on one axis, but the
+    shortlist ranks them as if they were, and templates win. Measured across
+    three modes 2026-08-13, all with 8 generated candidates and 7-8 admitted to
+    the pool:
+
+        av_install        pool 50 (at cap)  ->  0 published
+        wireless_install  pool 32           ->  1 published
+        staff_aug         pool 44           ->  3 published
+
+    The av_install brief dropped, among others, "the SOW references 3 primary
+    room installations, but the deal mentions 4 conference rooms -- which count
+    is correct?" -- a contradiction between two documents in the deal -- and an
+    unconfirmed union-labour surcharge. Its twelve published asks were all
+    generic coverage (pathway ownership, badging, wall type) that a PM could ask
+    from memory on any AV job. Losing a document contradiction to "what wall
+    type is it" is the ranking making the wrong trade.
+
+    So reserve, rather than re-score: exposure asks take at most `reserve` of the
+    cap, displacing the LOWEST-ranked non-exposure cards. Nothing is invented --
+    only pool cards that already passed grounding, quality and dedupe are
+    eligible, and if the generator produced none this is a no-op.
+    """
+    if reserve <= 0 or not cards or not pool_cards:
+        return cards
+    have = sum(1 for c in cards if _is_exposure(c))
+    want = min(reserve, max(0, int(cap))) - have
+    if want <= 0:
+        return cards
+    chosen = {id(c) for c in cards}
+    # pool_cards is in rank order, so this takes the best unpublished exposure asks.
+    extra = [c for c in pool_cards if _is_exposure(c) and id(c) not in chosen][:want]
+    if not extra:
+        return cards
+    keep = [c for c in cards if _is_exposure(c)]
+    others = [c for c in cards if not _is_exposure(c)]
+    # Drop from the tail: the lowest-ranked coverage asks.
+    others = others[: max(0, len(others) - len(extra))]
+    merged = keep + extra + others
+    # Preserve the original ordering for everything that survived.
+    order = {id(c): i for i, c in enumerate(cards)}
+    merged.sort(key=lambda c: order.get(id(c), 10_000))
+    return merged[: max(1, int(cap))]
+
+
 def build_customer_questions(
     *,
     gaps: list[GapCard],
@@ -3940,6 +4003,7 @@ def build_customer_questions(
             if kept is not None:
                 pool_cards.append(kept)
     cards = select_shortlist(pool_cards, cap=cap)
+    cards = _reserve_exposure_slots(cards, pool_cards, cap=cap)
     if not cards:
         shortlist_cards, _ = filter_perfect_questions(
             [c.to_gap_card() for c in ranked[: max(1, int(cap))]]
