@@ -92,9 +92,15 @@ def _cache_path(case_dir: Any = None) -> "Any":
     env = os.environ.get("ORBITBRIEF_EXPOSURE_CACHE_PATH", "").strip()
     if env:
         return Path(env).expanduser()
+    # NO leading dot. The worker uploads case_dir to blob but skips dotfiles, so
+    # the first version of this (.orbitbrief_exposure_cache.json) never left the
+    # container: two consecutive compiles both logged cache "hit" yet published
+    # different questions, because each replica was hitting its OWN local file.
+    # router_training_rows.jsonl and calibration_signals.jsonl round-trip; they
+    # are undotted, and so is this.
     if case_dir is not None:
-        return Path(case_dir) / ".orbitbrief_exposure_cache.json"
-    return Path.cwd() / ".orbitbrief_exposure_cache.json"
+        return Path(case_dir) / "exposure_cache.json"
+    return Path.cwd() / "exposure_cache.json"
 
 
 def _cache_enabled() -> bool:
