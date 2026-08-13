@@ -255,6 +255,36 @@ class _BriefingChat:
         )
 
 
+def _raw_chat() -> tuple[Any | None, str]:
+    """(OpenAIChatClient, model) — the INFERENCE protocol: complete(messages, model=).
+
+    Distinct from _briefing_chat below, which wraps this in the pm_briefing
+    protocol: complete(system=, user=). Two protocols for one idea is a trap, and
+    it caught me: question_llm was handed the _BriefingChat wrapper and threw
+    `_BriefingChat.complete() got an unexpected keyword argument 'model'` on
+    every call, so the exposure generator produced zero questions live while
+    looking wired. Callers must take the shape they actually speak.
+    """
+    model = (os.environ.get("ORBITBRIEF_CHAT_MODEL") or "").strip()
+    base = (os.environ.get("OLLAMA_BASE_URL") or "").strip()
+    if not model or not base:
+        return None, ""
+    try:
+        from orbitbrief_core.inference.client import OpenAIChatClient
+
+        timeout = float(os.environ.get("ORBITBRIEF_CHAT_TIMEOUT_S", "120") or 120)
+        return (
+            OpenAIChatClient(
+                base_url=base,
+                api_key=(os.environ.get("ORBITBRIEF_CHAT_API_KEY") or None),
+                timeout_s=timeout,
+            ),
+            model,
+        )
+    except Exception:
+        return None, ""
+
+
 def _briefing_chat() -> tuple[Any | None, str]:
     """(client, model) for the executive-summary writer, or (None, "").
 

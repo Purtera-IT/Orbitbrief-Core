@@ -3640,9 +3640,11 @@ def build_customer_questions(
     _llm_diag: dict[str, Any] = {}
     try:
         from orbitbrief_core.pm_handoff.question_llm import candidates_from_llm
-        from orbitbrief_core.pm_handoff.builder import _briefing_chat
+        # RAW client: question_llm speaks the inference protocol
+        # (messages, model=), not pm_briefing's (system=, user=).
+        from orbitbrief_core.pm_handoff.builder import _raw_chat
 
-        _chat, _model = _briefing_chat()
+        _chat, _model = _raw_chat()
         if _chat is not None and _model:
             _llm_status = "ran"
             _llm_new = list(
