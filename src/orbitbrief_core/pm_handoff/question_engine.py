@@ -757,6 +757,50 @@ def _with_evidence(
 ) -> QuestionCandidate | None:
     """Attach matching sources; drop candidate when require=True and nothing matches."""
     atom_list = [a for a in atoms if isinstance(a, Mapping)]
+    # A candidate that NAMES its evidence is grounded by that evidence.
+    #
+    # Only evidence_sources was honoured here, so a candidate carrying verified
+    # evidence_atom_ids fell through to _collect_matching_evidence and was
+    # re-grounded by text similarity against a 0.42 gate -- the citations were
+    # discarded and re-derived. For generated exposure questions that is both
+    # wrong and unstable: the model cites the rate-card line that makes the
+    # question necessary, while the matcher scores the question's own wording
+    # against atom text. Measured on Clayton, the same 8 candidates published
+    # 2, then 1, then 0 across three runs purely on which side of the gate the
+    # re-match landed, and a question that survived could be attributed to an
+    # atom it never cited.
+    #
+    # Resolving the cited ids directly makes grounding exact and deterministic.
+    # It cannot weaken the contract: question_llm already validates every id
+    # against the real atom set and drops uncited questions.
+    if not candidate.evidence_sources and candidate.evidence_atom_ids:
+        cited_by_id = _atoms_by_id(atom_list)
+        cited_srcs: list[dict[str, Any]] = []
+        cited_ids: list[str] = []
+        for aid in candidate.evidence_atom_ids:
+            atom = cited_by_id.get(str(aid))
+            if atom is None:
+                continue
+            cited_srcs.append(
+                _source_from_atom(
+                    atom,
+                    _atom_evidence_text(atom),
+                    score=1.0,  # an explicit citation is not a similarity guess
+                    docs_by_id=docs_by_id,
+                    atoms_by_id=cited_by_id,
+                )
+            )
+            cited_ids.append(str(aid))
+        if cited_srcs:
+            from dataclasses import replace as _replace
+
+            return _replace(
+                candidate,
+                evidence_atom_ids=cited_ids,
+                evidence_sources=cited_srcs,
+                observed_summary=_pointed_observed(cited_srcs)
+                or candidate.observed_summary,
+            )
     if candidate.evidence_sources:
         sources, observed = _repoint_sources(
             list(candidate.evidence_sources),
