@@ -556,6 +556,16 @@ def embedder_health() -> dict[str, Any]:
     worse than one that admits it.
     """
     if not _EMBEDDER_FAILURE:
+        # Report the backend actually in use. This read _embed_url() (the Ollama
+        # var) unconditionally, so a healthy Azure run announced the Mac's URL --
+        # a health field naming the wrong backend is worse than none.
+        aoai = os.environ.get("AZURE_OPENAI_ENDPOINT", "").strip()
+        if aoai:
+            deployment = (
+                os.environ.get("AZURE_OPENAI_EMBED_DEPLOYMENT", "").strip()
+                or "text-embedding-3-small"
+            )
+            return {"degraded": False, "backend": f"{aoai}#{deployment}"}
         return {"degraded": False, "backend": _embed_url() or "hash-only"}
     return {
         "degraded": True,
