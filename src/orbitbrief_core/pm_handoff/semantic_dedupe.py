@@ -253,6 +253,10 @@ def _l2_normalize(vec: list[float]) -> list[float]:
     return [x / norm for x in vec]
 
 
+# Process-wide embedding cache (see AzureOpenAIEmbedder._cache).
+_AOAI_CACHE: dict[str, list[float]] = {}
+
+
 @dataclass
 class AzureOpenAIEmbedder:
     """Azure OpenAI ``/embeddings`` client — a hosted endpoint that does not sleep.
@@ -276,7 +280,12 @@ class AzureOpenAIEmbedder:
     api_version: str = "2024-02-01"
     model_id: str = "text-embedding-3-small"
     dim: int = 1536
-    _cache: dict[str, list[float]] = field(default_factory=dict, repr=False)
+    # Shared across instances on purpose. resolve_question_embedder() is called
+    # from several stages and each call previously built an embedder with its
+    # OWN cache, so the same question text was re-embedded per stage -- the first
+    # live run made 277 requests and tripped the 350-per-10s limit. One cache per
+    # process means each distinct string costs exactly one API call per compile.
+    _cache: dict[str, list[float]] = field(default_factory=lambda: _AOAI_CACHE, repr=False)
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         import json
@@ -307,13 +316,50 @@ class AzureOpenAIEmbedder:
         fresh: list[list[float]] = []
         # Azure caps inputs per request; batch so a long brief cannot 400.
         BATCH = 256
+
+        def _post_with_retry(body: bytes) -> dict:
+            """Retry 429/5xx with backoff. A rate limit is not an outage.
+
+            The first live run recorded 277 consecutive 429s and fell all the way
+            back to hash vectors, because this had no retry at all: one throttle
+            response was treated as "the embedder is down". The deployment allows
+            350 requests / 10s, so a brief that briefly exceeds it needs to WAIT,
+            not abandon semantics for the whole compile. Honours Retry-After when
+            the service sends one.
+            """
+            import time
+            import urllib.error
+
+            delay = 1.0
+            last: Exception | None = None
+            for attempt in range(6):
+                try:
+                    req = urllib.request.Request(
+                        url, data=body, headers=headers, method="POST"
+                    )
+                    with urllib.request.urlopen(req, timeout=90) as resp:
+                        return json.loads(resp.read().decode("utf-8"))
+                except urllib.error.HTTPError as exc:  # noqa: PERF203
+                    last = exc
+                    if exc.code != 429 and exc.code < 500:
+                        raise
+                    hinted = exc.headers.get("Retry-After") if exc.headers else None
+                    try:
+                        wait = float(hinted) if hinted else delay
+                    except (TypeError, ValueError):
+                        wait = delay
+                    time.sleep(min(wait, 30.0))
+                    delay = min(delay * 2, 30.0)
+                except Exception as exc:
+                    last = exc
+                    time.sleep(min(delay, 30.0))
+                    delay = min(delay * 2, 30.0)
+            raise last if last is not None else RuntimeError("embed failed")
+
         try:
             for start in range(0, len(miss), BATCH):
                 chunk = [t for _, t in miss[start : start + BATCH]]
-                body = json.dumps({"input": chunk}).encode("utf-8")
-                req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-                with urllib.request.urlopen(req, timeout=90) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
+                data = _post_with_retry(json.dumps({"input": chunk}).encode("utf-8"))
                 rows = sorted(
                     (data.get("data") or []), key=lambda r: int(r.get("index") or 0)
                 )
