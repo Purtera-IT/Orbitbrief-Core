@@ -3638,6 +3638,7 @@ def build_customer_questions(
     _llm_status = "unwired"
     _llm_count = 0
     _llm_diag: dict[str, Any] = {}
+    _llm_rule_ids: list[str] = []
     try:
         from orbitbrief_core.pm_handoff.question_llm import candidates_from_llm
         # RAW client: question_llm speaks the inference protocol
@@ -3663,6 +3664,7 @@ def build_customer_questions(
                 )
             )
             _llm_count = len(_llm_new)
+            _llm_rule_ids = [str(c.rule_id) for c in _llm_new]
             candidates.extend(_llm_new)
     except Exception as exc:  # never let the extra questions break the brief
         import logging as _logging
@@ -3798,6 +3800,18 @@ def build_customer_questions(
 
     have_texts: set[str] = set()
 
+    # Why each generated question did or did not reach the PM. The exposure
+    # generator emitted 8 candidates on Clayton and published 2, then 1; the
+    # other 6-7 left no trace anywhere in the artifact, so there was no way to
+    # tell a quality drop from a family collapse from an out-rank without
+    # guessing. Guessing cost a full deploy cycle on the last bug, so measure
+    # instead: every admission decision records itself here.
+    _llm_fate: dict[str, str] = {}
+
+    def _note_fate(rule_id: str, why: str) -> None:
+        if str(rule_id or "").startswith("llm."):
+            _llm_fate.setdefault(str(rule_id), why)
+
     def _norm_q(text: str) -> str:
         return re.sub(r"\W+", " ", (text or "").lower()).strip()
 
@@ -3809,28 +3823,34 @@ def build_customer_questions(
         family_limit: bool,
     ) -> GapCard | None:
         if card.rule_id in have_ids:
+            _note_fate(card.rule_id, "duplicate_rule_id")
             return None
         qtext = normalize_pm_ask(card.suggested_open_question or card.message or "")
         if not qtext:
+            _note_fate(card.rule_id, "empty_after_normalize")
             return None
         from dataclasses import replace
 
         card = replace(card, suggested_open_question=qtext)
         nq = _norm_q(qtext)
         if nq and nq in have_texts:
+            _note_fate(card.rule_id, "duplicate_text")
             return None
         viols = validate_question_card(card)
         if viols:
             quality_dropped.extend(viols)
+            _note_fate(card.rule_id, "quality:" + ",".join(sorted({v.code for v in viols})))
             return None
         fam = family_key_for_question(qtext, card.rule_id)
         if fam and fam in have_families and (family_limit or fam in _SINGLETON_FAMILIES):
+            _note_fate(card.rule_id, f"family_collapse:{fam}")
             return None
         have_ids.add(card.rule_id)
         if nq:
             have_texts.add(nq)
         if fam:
             have_families.add(fam)
+        _note_fate(card.rule_id, "admitted_to_pool")
         return card
 
     # Quality-aware fill: keep pulling ranked candidates until perfect pool hits cap.
@@ -3882,7 +3902,24 @@ def build_customer_questions(
         "candidate_count_before_cap": len(candidates),
         # "unwired" (no chat model) | "ran" | "error:<Type>" — plus how many it
         # contributed. Without this a zero-contribution stage is invisible.
-        "llm_exposure": {"status": _llm_status, "candidates": _llm_count, **_llm_diag},
+        "llm_exposure": {
+            "status": _llm_status,
+            "candidates": _llm_count,
+            **_llm_diag,
+            # generated -> published, with the reason for every one that fell out.
+            # "not_admitted" is the default and means it never reached the pool
+            # admission check at all: cut by suppress_answered / apply_feedback,
+            # or out-ranked before the pool filled. That is a different problem
+            # from a quality drop or a family collapse, and the distinction is
+            # the whole point of measuring.
+            "fate": {
+                **{rid: "not_admitted" for rid in _llm_rule_ids},
+                **_llm_fate,
+            },
+            "published": sorted(
+                r.rule_id for r in cards if str(r.rule_id or "").startswith("llm.")
+            ),
+        },
         "sources": {
             "evidence": sum(1 for c in ranked[: len(cards)] if c.source == "evidence"),
             "mode_template": sum(

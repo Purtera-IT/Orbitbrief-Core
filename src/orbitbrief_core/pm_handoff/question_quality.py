@@ -199,6 +199,47 @@ _INTERNAL_SCOPE_STEM_RE = re.compile(
 )
 
 
+# Words that cannot END a grammatical question. English strands prepositions
+# freely -- "Who should I report to?", "What is this for?", "What is it made of?"
+# are all valid -- so a naive function-word list would flag real questions. These
+# are the tails with no grammatical reading: coordinators, determiners and
+# subordinators that must be followed by something.
+_DANGLING_TAIL_RE = re.compile(
+    r"(?i)\b(and|or|but|nor|the|a|an|if|that|per|than|both|either|neither|whether)\s*\?*\s*$"
+)
+
+# A stranded "to" is ambiguous: "Who do I report to?" is fine, "who has the
+# authority to?" is not. The tell is the word before it -- these nouns take an
+# infinitive, so a "to" after them means the verb was cut off.
+_CUT_INFINITIVE_RE = re.compile(
+    r"(?i)\b(authority|ability|right|need|plan|intent|obligation|responsibility|"
+    r"option|permission|requirement|duty|discretion|leeway|mandate)\s+to\s*\?*\s*$"
+)
+
+
+def dangling_tail_violation(text: str) -> str | None:
+    """Violation code when the ask itself stops before it asks anything.
+
+    quoted_span_violation checks the QUOTE for a mid-clause cut; nothing checked
+    the ask's own tail. So when normalize_pm_ask clamped a long question, Clayton
+    published "...who has the authority to?" and "...and what happens if?" to a
+    PM on 2026-08-13 -- both cited real atoms, both passed every gate, and
+    neither asks anything answerable.
+
+    The clamp no longer produces these (it drops the set-up instead), but any
+    generator can emit a fragment, and an unanswerable ask should be impossible
+    to publish rather than merely unlikely.
+    """
+    q = (text or "").strip()
+    if not q:
+        return None
+    if _CUT_INFINITIVE_RE.search(q):
+        return "ask_cut_infinitive"
+    if _DANGLING_TAIL_RE.search(q):
+        return "ask_dangling_tail"
+    return None
+
+
 def quoted_span_violation(text: str) -> str | None:
     """Violation code when the atom text spliced into an ask is unusable."""
     m = _QUOTED_SPAN_RE.search(text or "")
@@ -274,6 +315,9 @@ def validate_question_card(card: GapCard | Mapping[str, Any]) -> list[QualityVio
     quote_code = quoted_span_violation(text)
     if quote_code:
         out.append(QualityViolation(rid, quote_code, text[:120]))
+    tail_code = dangling_tail_violation(text)
+    if tail_code:
+        out.append(QualityViolation(rid, tail_code, text[:120]))
     if _INTERNAL_SCOPE_STEM_RE.search(text):
         out.append(QualityViolation(rid, "internal_scope_classification", text[:120]))
     if re.search(r"[*_`]{2,}|\*\*[^*]+\*\*", text):
