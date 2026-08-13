@@ -3773,6 +3773,7 @@ def build_customer_questions(
                     if isinstance(envelope, Mapping)
                     else "",
                     diagnostics=_llm_diag,
+                    case_dir=case_dir,
                 )
             )
             _llm_count = len(_llm_new)
