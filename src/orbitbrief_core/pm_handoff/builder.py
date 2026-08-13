@@ -163,6 +163,77 @@ def _router_chat() -> tuple[Any | None, str]:
         return None, ""
 
 
+def _untruncate_report_atoms(report: Any, envelope: Any) -> Any:
+    """Backfill the inspection report's per-artifact atom lists from the envelope.
+
+    ``inspection.py`` lists at most ``_MAX_ATOMS_LISTED_PER_ARTIFACT`` (60) atoms
+    per artifact. That is a dashboard-sizing decision — and 34 analytical
+    builders read those same lists through ``_iter_atoms_with_files(report)``,
+    so a display cap silently governs what the brief can know.
+
+    Measured on Clayton 2026-08-13: 1907 atoms across 17 artifacts, 727 visible,
+    **1180 hidden (62%)**. Clayton Homes CALC.xlsx alone lost 604 of 664 rows.
+
+    What that cost, measured by running the builders against a truncated and an
+    un-truncated report:
+
+        build_money_mentions   28 -> 93      build_date_mentions  42 -> 77
+        top money value    13,696 -> 149,764
+
+    The executive summary quoted $13,696 on a $149,764 deal not because it chose
+    badly but because every larger figure sat past row 60 — the real total was
+    never a candidate.
+
+    NOT explained by truncation, despite the obvious suspicion: acceptance_checks
+    (0 -> 0), quantity_claims (0 -> 0), rfp_line_items (0 -> 0) and
+    build_risk_register (4 -> 4) are unchanged with every atom visible. Their
+    emptiness has some other cause and is still open.
+
+    Backfilled rows carry every field the builders read (atom_type,
+    authority_class, confidence, verified, text, locator, entity_keys,
+    structured) but not the three dashboard-only flags — ``in_bundle``,
+    ``cited_by_brain``, ``in_composed_brief`` — which no pm_handoff builder
+    reads; only inspection.py does. Text keeps the report's 1200-char clamp so
+    nothing downstream sees a longer string than it did before.
+
+    No-op when either side is missing, so a caller without an envelope behaves
+    exactly as it does today.
+    """
+    if not isinstance(report, dict) or not isinstance(envelope, dict):
+        return report
+    arts = report.get("artifacts")
+    atoms = envelope.get("atoms")
+    if not isinstance(arts, list) or not isinstance(atoms, list) or not atoms:
+        return report
+    by_art: dict[Any, list[dict[str, Any]]] = defaultdict(list)
+    for a in atoms:
+        if isinstance(a, dict):
+            by_art[a.get("artifact_id")].append(a)
+    for art in arts:
+        if not isinstance(art, dict):
+            continue
+        rows = art.get("atoms")
+        if not isinstance(rows, list):
+            continue
+        have = {r.get("id") for r in rows if isinstance(r, dict)}
+        for a in by_art.get(art.get("artifact_id"), ()):
+            aid = a.get("id")
+            if aid in have:
+                continue
+            rows.append({
+                "id": aid,
+                "atom_type": a.get("atom_type"),
+                "authority_class": a.get("authority_class"),
+                "confidence": a.get("confidence"),
+                "verified": a.get("verified"),
+                "text": str(a.get("text") or "")[:1200],
+                "locator": a.get("locator") or {},
+                "entity_keys": list(a.get("entity_keys") or ()),
+                "structured": dict(a.get("structured") or {}),
+            })
+    return report
+
+
 class _BriefingChat:
     """Adapts OpenAIChatClient to the ``pm_briefing.ChatClient`` protocol.
 
@@ -293,6 +364,9 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     full_envelope = _read_json(case_dir / "00_envelope.json")
     if not (isinstance(full_envelope, dict) and full_envelope.get("atoms")):
         full_envelope = None
+    # Every builder below reads atoms through the report. Un-truncate it once,
+    # here, so none of them is reasoning about 38% of the deal.
+    report = _untruncate_report_atoms(report, full_envelope)
     # Calibrator roll-up: ``BriefPipeline._run_stage`` writes per-pack
     # ``CalibratorReport`` JSON to ``<case>/60_calibrations/<pack_id>.json``.
     # We project a single top-level verdict for PM consumption: the

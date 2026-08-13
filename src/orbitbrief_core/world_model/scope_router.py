@@ -77,6 +77,25 @@ _PROMPT = (
     "customer called \"Data Center Warehouse\" buying TV installs is "
     "audio_visual, not datacenter. A job dispatching technicians to stores is "
     "staff_augmentation even if those stores have wifi.\n\n"
+    # The packs separate WHAT IS SOLD, not what gets touched -- and the tell is
+    # who furnishes the materials. Measured 2026-08-13 on oxblue_ft_worth: the
+    # model answered security_camera because the scope describes mounting
+    # cameras and solar panels, while gold is staff_augmentation. The brief's
+    # own overview held the disproof: "Customer-furnished items include the
+    # camera system, solar units, and mount assemblies (all shipped to site);
+    # PurTera provides the knowledgeable resource." The customer bought labour,
+    # not cameras. A technician and a camera both appear in the scope; only the
+    # furnishing tells you which one is being sold.
+    "DECIDING RULE — who furnishes the materials:\n"
+    "* Customer-furnished equipment (CFE/CF) shipped to site, and the provider "
+    "supplies technicians, hours, or day-rates -> this is staff_augmentation or "
+    "professional_services, NOT the pack matching the equipment. A crew mounting "
+    "customer-bought cameras is labour, not security_camera.\n"
+    "* Provider-furnished equipment (OFE/PF) — a materials BOM, SKUs, part "
+    "numbers, unit prices — is sold WITH the work, so the pack matching the "
+    "equipment is correct.\n"
+    "* Priced in hours, days, tech-days, crews or per-site visit rates -> "
+    "labour. Priced per part, per unit, or as a materials list -> equipment.\n\n"
     "Packs:\n{packs}\n\n"
     "Deal scope:\n{scope}\n\n"
     "Reply with ONLY the pack id, nothing else."
