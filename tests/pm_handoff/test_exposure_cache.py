@@ -120,3 +120,65 @@ def test_cache_file_is_not_a_dotfile(tmp_path):
 
     name = _cache_path(tmp_path).name
     assert not name.startswith("."), f"{name} will not persist to blob"
+
+
+def _handoff(tmp_path, sha, rows):
+    (tmp_path / "PM_HANDOFF.json").write_text(
+        json.dumps({"metrics": {"questions": {"llm_exposure": {
+            "input_sha": sha, "cache_rows": rows}}}}), encoding="utf-8")
+
+
+def test_prior_handoff_supplies_the_cache(tmp_path):
+    """The sidecar file never reaches blob; PM_HANDOFF.json does."""
+    chat = _Chat(REPLY_A)
+    d = {}
+    _run(chat, tmp_path, d)                      # populates input_sha + rows
+    sha, rows = d["input_sha"], d["cache_rows"]
+    (tmp_path / "exposure_cache.json").unlink()  # sidecar lost, as in production
+    _handoff(tmp_path, sha, rows)
+
+    chat2 = _Chat(REPLY_B)                       # model WOULD answer differently
+    out = candidates_from_llm(
+        atoms=ATOMS, project_mode="staff_augmentation", existing_questions=[],
+        chat=chat2, model="deepseek-chat", deal_label="D",
+        diagnostics={}, case_dir=tmp_path,
+    )
+    assert chat2.calls == 0, "prior handoff must serve the answer"
+    assert "aborted site visit" in out[0].suggested_open_question.lower()
+
+
+def test_prior_handoff_ignored_when_the_deal_changed(tmp_path):
+    chat = _Chat(REPLY_A)
+    d = {}
+    _run(chat, tmp_path, d)
+    (tmp_path / "exposure_cache.json").unlink()
+    _handoff(tmp_path, "a_different_sha", d["cache_rows"])
+
+    chat2 = _Chat(REPLY_B)
+    candidates_from_llm(
+        atoms=ATOMS, project_mode="staff_augmentation", existing_questions=[],
+        chat=chat2, model="deepseek-chat", deal_label="D",
+        diagnostics={}, case_dir=tmp_path,
+    )
+    assert chat2.calls == 1, "a changed deal must re-ask"
+
+
+def test_empty_prior_rows_are_not_resurrected(tmp_path):
+    chat = _Chat(REPLY_A)
+    d = {}
+    _run(chat, tmp_path, d)
+    (tmp_path / "exposure_cache.json").unlink()
+    _handoff(tmp_path, d["input_sha"], [])
+    chat2 = _Chat(REPLY_B)
+    candidates_from_llm(
+        atoms=ATOMS, project_mode="staff_augmentation", existing_questions=[],
+        chat=chat2, model="deepseek-chat", deal_label="D",
+        diagnostics={}, case_dir=tmp_path,
+    )
+    assert chat2.calls == 1
+
+
+def test_missing_prior_handoff_degrades_to_a_live_call(tmp_path):
+    chat = _Chat(REPLY_A)
+    out = _run(chat, tmp_path)
+    assert chat.calls == 1 and len(out) == 1
