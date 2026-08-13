@@ -490,6 +490,41 @@ def sharpen_soft_confirm(ask: str) -> str:
     return f"{base} — include as written, revise the assumption, or defer{pin}?"
 
 
+# A sentence boundary, tolerating a closing quote: ...costs.' With 428 sites...
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!])['\"’”]?\s+(?=[A-Z])")
+
+
+def _drop_leading_setup(q: str, max_len: int) -> str:
+    """Lose the set-up, never the ask.
+
+    Tail-clamping assumes the question is front-loaded, which is true of
+    template asks and false of any ask that quotes its evidence first. Measured
+    on Clayton 2026-08-13, the generated question
+
+        The SOW states 'Cancellation or reschedule 1 business day before
+        scheduled visit-100% of total planned visit site costs.' With 428 sites
+        and concurrent crews, who has the authority to approve a reschedule
+        inside the 1-day window?
+
+    reached the PM as "...who has the authority to?" - the clamp ate the verb
+    and its object and left a grammatical fragment that asks nothing. A PM
+    cannot answer it, and it reads as a system defect.
+
+    So when the ask is too long, drop whole leading sentences and keep the
+    largest trailing run that still fits and still ends in a question mark. The
+    quoted set-up is the redundant part: it is already carried on the card as
+    `message` and as a cited atom_id.
+    """
+    parts = _SENTENCE_SPLIT.split(q)
+    if len(parts) < 2:
+        return q
+    for i in range(1, len(parts)):
+        cand = " ".join(parts[i:]).strip()
+        if len(cand) <= max_len and cand.endswith("?"):
+            return cand
+    return q
+
+
 def normalize_pm_ask(ask: str, *, max_len: int = 190) -> str:
     """Keep first decision only; clamp length so quality gates stay green."""
     q = re.sub(r"\s+", " ", (ask or "").strip())
@@ -499,6 +534,9 @@ def normalize_pm_ask(ask: str, *, max_len: int = 190) -> str:
     if "?" in q:
         q = q.split("?", 1)[0].strip() + "?"
     if len(q) > max_len:
+        q = _drop_leading_setup(q, max_len)
+    if len(q) > max_len:
+        # Still too long: a single unbroken sentence. Tail-clamp as before.
         cut = q[: max_len - 1].rsplit(" ", 1)[0].rstrip(" ?.,;:—-")
         q = (cut or q[: max_len - 1].rstrip()) + "?"
     return q
