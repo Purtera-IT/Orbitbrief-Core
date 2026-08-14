@@ -7,6 +7,7 @@ robust to schema drift while we ship the v46 enrichment surface.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from typing import Any
 
@@ -46,6 +47,79 @@ def _sow_readiness_dimensions(env: dict) -> dict:
     }
 
 
+# A standards citation is not a quantity. Measured on a real deal 2026-08-14 the
+# contested-scope surface reported:
+#
+#   device:rack   canonical_quantity=1992   competing=[6, 24]
+#     qty 1992  contractual_scope  rank 90
+#       "NUMBER: EIA-310 (Sep 1992) | TITLE: Racks, Panels and Associated Equipment"
+#
+# 1992 is the YEAR of the EIA-310 revision. It outranked the real claims because
+# a standards document is contractual_scope (rank 90), so the false value did not
+# just appear — it WON. Shipping "1992 racks" to a PM discredits every genuine
+# conflict on the page.
+_CITATION_RE = re.compile(
+    r"(?i)\b(eia|tia|ansi|iso|iec|ieee|nfpa|astm|ul|bicsi|ashrae|nec)\b[\s-]*\d"
+    r"|\brev(?:ision)?\.?\s*\d"
+    r"|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(?:19|20)\d{2}\b"
+    r"|\bpublished\b|\bstandard\b|\bspecification\s+no"
+)
+
+
+def _is_citation_year(quantity: Any, text: str) -> bool:
+    """True when a 'quantity' is a year lifted out of a standards citation."""
+    try:
+        q = int(quantity)
+    except (TypeError, ValueError):
+        return False
+    if not (1900 <= q <= 2099):
+        return False
+    return bool(_CITATION_RE.search(text or ""))
+
+
+def _clean_contested(entry: dict) -> dict | None:
+    """Drop citation-year claims and re-derive the canonical value without them.
+
+    Only removes claims that are BOTH a plausible year and sitting in a citation.
+    A genuine quantity that happens to be 2024 in ordinary prose is untouched.
+    """
+    audit = _safe_list(entry.get("audit"))
+    kept_audit: list[dict] = []
+    dropped: set = set()
+    for row in audit:
+        if not isinstance(row, dict):
+            continue
+        claims = [
+            c for c in _safe_list(row.get("claims"))
+            if isinstance(c, dict)
+            and not _is_citation_year(c.get("quantity"), str(c.get("text") or ""))
+        ]
+        if claims:
+            kept_audit.append({**row, "claims": claims})
+        else:
+            dropped.add(row.get("quantity"))
+    if not kept_audit:
+        return None
+    canonical = entry.get("canonical_quantity")
+    if canonical in dropped:
+        # Re-derive: highest authority rank wins, then the most-supported value.
+        best, best_key = None, (-1, -1)
+        for row in kept_audit:
+            for c in row.get("claims") or []:
+                key = (int(c.get("authority_rank") or 0), len(row.get("claims") or []))
+                if key > best_key:
+                    best_key, best = key, c.get("quantity")
+        canonical = best
+    competing = [
+        v for v in _safe_list(entry.get("competing_values"))
+        if v not in dropped and v != canonical
+    ]
+    if not competing:
+        return None  # nothing left to contest
+    return {**entry, "canonical_quantity": canonical, "competing_values": competing,
+            "audit": kept_audit}
+
+
 def _contested_scope_items(env: dict) -> list[dict]:
     """The five-alarm fire surface.
 
@@ -60,6 +134,10 @@ def _contested_scope_items(env: dict) -> list[dict]:
     for c in contested:
         if not isinstance(c, dict):
             continue
+        cleaned = _clean_contested(c)
+        if cleaned is None:
+            continue
+        c = cleaned
         out.append({
             "device": c.get("device"),
             "site": c.get("site"),
