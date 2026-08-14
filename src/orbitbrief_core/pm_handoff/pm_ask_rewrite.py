@@ -281,7 +281,16 @@ _BRAND_FLAVOR_RE = re.compile(
     r"(?i)\b("
     r"Tilly'?s|Dollar\s+Tree|GRUBBRR|Grubbrr|Serviot|Park\s+Place(?:\s+Tech)?|"
     r"Iron\s+Mountain|Meter(?:\s+Inc)?|Choate|Olin|"
-    r"CDW|DCW|Connections|Mbrany|Neat(?:\s+Bar)?|Sonance|Verkada"
+    # "Neat" is both a video-conferencing brand and an ordinary adjective, and
+    # "installed in a neat and workmanlike manner" is boilerplate in almost every
+    # cabling SOW. Matching it bare tagged 8 of 12 PM questions on a real deal
+    # with "— neat ·", e.g. "Confirm access/escort/badging ... — neat · at
+    # Philadelph IA?". Block the adjectival continuations; keep the brand, which
+    # appears as "Neat bars", "Neat Devices", "Neat + Yealink".
+    r"CDW|DCW|Connections|Mbrany|"
+    r"Neat\b(?!\s*[,;]|\s+(?:and|or|but|manner|fashion|workmanlike|professional|"
+    r"orderly|appearance|condition|installation)\b)"
+    r"|Sonance|Verkada"
     r")\b"
 )
 
