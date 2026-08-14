@@ -327,6 +327,30 @@ _SCOPE_SUMMARY_ATOMS = 40
 _SCOPE_ATOM_CHARS = 160
 
 
+# Words that are already plural or uncountable as equipment nouns. Appending "s"
+# to these produced "storages" and "switchs" in a live headline.
+_NO_PLURAL = frozenset({
+    "storage", "cabling", "hardware", "software", "equipment", "gear",
+    "infrastructure", "media", "furniture", "signage", "wiring", "labour", "labor",
+})
+
+
+def _plural(word: str) -> str:
+    """Plural of an equipment noun, for a line a customer-facing PM reads.
+
+    `word + "s"` is wrong often enough to matter: "switch" -> "switchs" and
+    "storage" -> "storages" both reached a real brief headline.
+    """
+    w = (word or "").strip()
+    if not w or w in _NO_PLURAL or w.endswith("s"):
+        return w
+    if w.endswith(("ch", "sh", "x", "z")):
+        return w + "es"
+    if w.endswith("y") and len(w) > 1 and w[-2] not in "aeiou":
+        return w[:-1] + "ies"
+    return w + "s"
+
+
 def _derive_scope_summary(envelope: Any) -> str:
     """A description of the work, for when the parser did not record one.
 
@@ -1989,8 +2013,8 @@ def _build_one_line_summary(
                 kinds.append(d)
     equip = ""
     if kinds:
-        plural = [k if k.endswith("s") else f"{k}s" for k in kinds[:3]]
-        equip = f" · {', '.join(plural)}{' and more' if len(kinds) > 3 else ''}"
+        equip = f" · {', '.join(_plural(k) for k in kinds[:3])}"
+        equip += " and more" if len(kinds) > 3 else ""
 
     # When, from the dated evidence. A single date is a point, not a window.
     isos = sorted(
@@ -2020,10 +2044,17 @@ def _build_one_line_summary(
         window = f" · dated {isos[0]}"
 
     # What is actually in the way — the leading blocker topics, not just a count.
-    top = [
-        (getattr(g, "label", "") or "").strip()
-        for g in gaps
-        if getattr(g, "severity", "") == "blocker"
+    # Deal-SPECIFIC asks lead. The template blockers rank identically on every
+    # deal, so "leading: Pathway ownership; CF vs OFE hardware" appeared verbatim
+    # on three different briefs — the one line meant to distinguish a deal was
+    # the line that made them look the same.
+    def _label(g: Any) -> str:
+        return (getattr(g, "label", "") or "").strip()
+
+    blockers_only = [g for g in gaps if getattr(g, "severity", "") == "blocker"]
+    specific = [g for g in blockers_only if str(getattr(g, "rule_id", "")).startswith("llm.")]
+    top = [_label(g) for g in specific] + [
+        _label(g) for g in blockers_only if g not in specific
     ]
     top = [t for t in top if t][:2]
     tail = (
