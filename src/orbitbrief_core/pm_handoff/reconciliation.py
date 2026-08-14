@@ -658,6 +658,82 @@ def build_acceptance_checks(report: dict[str, Any]) -> list[AcceptanceCheck]:
                         source=filename,
                     )
                 )
+    out.extend(_typed_acceptance_atoms(report, seen))
+    return out
+
+
+# Internal data/import QA masquerading as customer acceptance. Measured on a real
+# deal 2026-08-13: a Dispatch_Readiness workbook's QA_Checks sheet produced 13
+# `acceptance_criterion` atoms, e.g.
+#
+#   "Pending rows with valid HC imported | PASS | 428 | Expected 428 valid HC
+#    rows after excluding malformed/non-site rows"
+#
+# That is the tooling validating its own import, not the customer accepting work.
+# It reads as an acceptance table to a classifier -- criteria, PASS, threshold --
+# which is exactly why it needs an explicit guard rather than better prompting.
+# No bare "checks?" here: a real SOW section is often called "Acceptance Checks",
+# and excluding that would drop exactly what this is trying to surface.
+_QA_SECTION_RE = re.compile(
+    r"(?i)\b(qa|qc|quality\s*check\w*|validation|sanity\s*check\w*|data\s*check\w*)\b"
+)
+_QA_TEXT_RE = re.compile(
+    r"(?i)\b(rows?|records?|imported|import|malformed|deduped|de-duped|parsed|"
+    r"non-site|ingest(?:ed)?|dataset|spreadsheet|column)\b"
+)
+# A signature block is a contract formality, not a testable criterion.
+_SIGNATURE_RE = re.compile(
+    r"(?i)(by\s+(?:customer|client)\s+signature|accepts?\s+this\s+sow\s+as\s+issued|"
+    r"signature\s+below|agrees?\s+to\s+the\s+terms)"
+)
+
+
+def _typed_acceptance_atoms(
+    report: dict[str, Any], seen: set[tuple[str, str]]
+) -> list[AcceptanceCheck]:
+    """Acceptance criteria the parser typed, which structured cells never see.
+
+    build_acceptance_checks only read `structured.canonical_cells`, so it found
+    acceptance criteria ONLY when they arrived as spreadsheet rows with an
+    exit_criteria / checklist_item column. Prose criteria -- which is how most
+    SOWs state them -- were typed `acceptance_criterion` by the parser and then
+    dropped on the floor, leaving the handoff and the SOW section empty.
+
+    Two things are filtered out, both seen on real deals: internal data/import QA
+    (see _QA_SECTION_RE) and contract signature blocks. Surfacing either to a PM
+    is worse than showing nothing, which is why this was not simply switched on.
+    """
+    out: list[AcceptanceCheck] = []
+    for atom, filename in _iter_atoms_with_files(report):
+        if str(atom.get("atom_type") or "") != "acceptance_criterion":
+            continue
+        text = re.sub(r"\s+", " ", str(atom.get("text") or "")).strip()
+        if len(text) < 12:
+            continue
+        if _SIGNATURE_RE.search(text):
+            continue
+        # Underscores are word characters, so "QA_Checks" defeats qa —
+        # normalise separators before matching or the guard silently misses.
+        section = " ".join(str(x) for x in (atom.get("section_path") or []))
+        section = re.sub(r"[_\-/]+", " ", section)
+        # A QA/validation SECTION disqualifies on its own. Requiring the text to
+        # also look data-ish let 11 of 13 real QA_Checks rows through, because
+        # most read like ordinary criteria ("Three-site bundles modeled | PASS |
+        # 0"). The section is the reliable signal; the text check catches QA rows
+        # filed under an innocuous heading.
+        if _QA_SECTION_RE.search(section) or _QA_TEXT_RE.search(text):
+            continue
+        key = ("typed", text[:200])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(
+            AcceptanceCheck(
+                phase_or_step=(section.split()[-1] if section else "Acceptance"),
+                criterion=text[:280],
+                source=filename,
+            )
+        )
     return out
 
 
