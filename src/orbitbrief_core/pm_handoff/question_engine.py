@@ -3661,6 +3661,33 @@ def _reserve_exposure_slots(
     return merged[: max(1, int(cap))]
 
 
+def _routing_provenance(routing: Any) -> dict[str, Any]:
+    """Which rung of the router decided, and did the head agree.
+
+    `source` is the useful field. "llm_scope_router" means the LLM rung decided;
+    "service_router_head" means the parser's head answer was passed through
+    untouched. The head measured 0.529 held-out and answered `wireless` on six
+    consecutive sampled deals, so knowing WHICH produced a mode is the difference
+    between trusting the questions and re-deriving them by hand.
+
+    Absent routing is reported as `{"decided": False}` rather than omitted — a
+    missing key reads as a bug, and "no opinion" is a real, deliberate answer
+    that leaves the keyword cascade in charge.
+    """
+    if not isinstance(routing, Mapping) or not routing:
+        return {"decided": False}
+    out: dict[str, Any] = {"decided": True}
+    for key in ("primary", "source", "confidence", "abstained", "abstain_reason"):
+        val = routing.get(key)
+        if val not in (None, "", []):
+            out[key] = val
+    # Scope summary itself is large; its hash is enough to tell two runs apart.
+    sha = routing.get("scope_summary_sha256")
+    if sha:
+        out["scope_summary_sha256"] = sha
+    return out
+
+
 def build_customer_questions(
     *,
     gaps: list[GapCard],
@@ -4013,6 +4040,16 @@ def build_customer_questions(
     quality = pool_scorecard(pool_cards)
     meta = {
         "project_mode": project_mode,
+        # WHY this mode. service_routing.primary decides project_mode, which
+        # decides which questions the PM is asked — and none of it appeared in
+        # the artifact, so an audit could see the answer and not the reasoning.
+        # That cost a wrong diagnosis: routing was read as broken ("absent on
+        # every deal") when it was working and correctly overriding a bad head.
+        # The head answered `wireless` for a staff-augmentation deal; the LLM
+        # rung said `staff_augmentation` and won. Only the banked training rows
+        # showed it. A decision this load-bearing has to be legible where the
+        # questions are.
+        "service_routing": _routing_provenance(service_routing),
         "candidate_count_before_cap": len(candidates),
         # "unwired" (no chat model) | "ran" | "error:<Type>" — plus how many it
         # contributed. Without this a zero-contribution stage is invisible.
