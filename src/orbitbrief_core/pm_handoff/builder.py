@@ -315,6 +315,18 @@ def _briefing_chat() -> tuple[Any | None, str]:
         return None, ""
 
 
+def _stash_router_diag(envelope: Any, diag: dict[str, Any]) -> None:
+    """Keep the router's reasoning even when its answer is discarded.
+
+    When the ladder declines, `service_routing` is dropped from the envelope so
+    the distrusted head cannot win — which also removes the only place the
+    provenance could have lived. The reason has to outlive the answer, or a
+    declined rung is once again indistinguishable from a rung that never ran.
+    """
+    if isinstance(envelope, dict) and diag:
+        envelope["service_routing_diagnostics"] = dict(diag)
+
+
 def _resolve_service_routing(envelope: Any, case_dir: Path) -> dict[str, Any] | None:
     """Resolve ONE routing answer from the scope-router ladder.
 
@@ -369,6 +381,7 @@ def _resolve_service_routing(envelope: Any, case_dir: Path) -> dict[str, Any] | 
     # answer stands, exactly as before this module existed.
     if chat is None or not model:
         return head if isinstance(head, dict) else None
+    diag: dict[str, Any] = {}
     try:
         resolved = resolve_routing(
             envelope_routing=head if isinstance(head, dict) else None,
@@ -377,9 +390,13 @@ def _resolve_service_routing(envelope: Any, case_dir: Path) -> dict[str, Any] | 
             chat=chat,
             model=model,
             on_training_row=_sink,
+            diagnostics=diag,
         )
-    except Exception:
+    except Exception as exc:
+        diag.update(rung="error", reason=f"{type(exc).__name__}: {exc}"[:200])
+        _stash_router_diag(envelope, diag)
         return head if isinstance(head, dict) else None
+    _stash_router_diag(envelope, diag)
     # `{}` is returned as `{}`, NOT collapsed to None. The two mean opposite
     # things and collapsing them is what let the head win:
     #
