@@ -3661,7 +3661,7 @@ def _reserve_exposure_slots(
     return merged[: max(1, int(cap))]
 
 
-def _routing_provenance(routing: Any) -> dict[str, Any]:
+def _routing_provenance(routing: Any, diagnostics: Any = None) -> dict[str, Any]:
     """Which rung of the router decided, and did the head agree.
 
     `source` is the useful field. "llm_scope_router" means the LLM rung decided;
@@ -3674,9 +3674,15 @@ def _routing_provenance(routing: Any) -> dict[str, Any]:
     missing key reads as a bug, and "no opinion" is a real, deliberate answer
     that leaves the keyword cascade in charge.
     """
+    diag = dict(diagnostics) if isinstance(diagnostics, Mapping) else {}
     if not isinstance(routing, Mapping) or not routing:
-        return {"decided": False}
+        # Why it declined matters more than the fact that it did: the rung is
+        # intermittent, and without this a decline is indistinguishable from a
+        # router that was never wired.
+        return {"decided": False, **({"diagnostics": diag} if diag else {})}
     out: dict[str, Any] = {"decided": True}
+    if diag:
+        out["diagnostics"] = diag
     for key in ("primary", "source", "confidence", "abstained", "abstain_reason"):
         val = routing.get(key)
         if val not in (None, "", []):
@@ -4049,7 +4055,12 @@ def build_customer_questions(
         # rung said `staff_augmentation` and won. Only the banked training rows
         # showed it. A decision this load-bearing has to be legible where the
         # questions are.
-        "service_routing": _routing_provenance(service_routing),
+        "service_routing": _routing_provenance(
+            service_routing,
+            envelope.get("service_routing_diagnostics")
+            if isinstance(envelope, Mapping)
+            else None,
+        ),
         "candidate_count_before_cap": len(candidates),
         # "unwired" (no chat model) | "ran" | "error:<Type>" — plus how many it
         # contributed. Without this a zero-contribution stage is invisible.

@@ -124,10 +124,30 @@ def classify_scope(
     packs: Sequence[tuple[str, str]],
     chat: ChatLike | None,
     model: str,
+    diagnostics: dict[str, Any] | None = None,
 ) -> RoutingDecision | None:
-    """Ask the model which pack this scope is. ``None`` means no opinion."""
-    if chat is None or not scope_summary.strip() or not packs:
+    """Ask the model which pack this scope is. ``None`` means no opinion.
+
+    ``diagnostics`` records WHY, because the rung declines intermittently and the
+    reason is otherwise unrecoverable: it logs at warning level into a stream
+    dominated by Azure SDK chatter, and the artifact recorded only the outcome.
+    Measured 2026-08-14, the same deal decided `staff_augmentation` on one run
+    and declined on the next, and nothing anywhere said what changed.
+    """
+    def _note(**kw: Any) -> None:
+        if diagnostics is not None:
+            diagnostics.update(kw)
+
+    if chat is None or not model:
+        _note(llm_rung="unwired")
         return None
+    if not scope_summary.strip():
+        _note(llm_rung="skipped", reason="empty_scope_summary")
+        return None
+    if not packs:
+        _note(llm_rung="skipped", reason="no_pack_menu")
+        return None
+    _note(scope_summary_chars=len(scope_summary))
     valid = frozenset(pid for pid, _ in packs)
     prompt = _PROMPT.format(
         packs="\n".join(f"- {pid}: {name}" for pid, name in packs),
@@ -151,16 +171,20 @@ def classify_scope(
         reply = chat.complete(messages, model=model, max_tokens=16)
     except Exception as exc:  # a dead endpoint must never fail a compile
         log.warning("scope_router: model call failed (%s); deferring", exc)
+        _note(llm_rung="error", reason=f"{type(exc).__name__}: {exc}"[:200])
         return None
     pack = _extract_pack(reply if isinstance(reply, str) else str(reply), valid)
     if not pack:
         log.warning("scope_router: no valid pack in reply %r; deferring", str(reply)[:120])
+        _note(llm_rung="unparseable", reason="no_valid_pack_in_reply",
+              sample_reply=str(reply)[:160])
         return None
     # Log the SUCCESS too, not just the failures. This module previously logged
     # only when it gave up, so a rung that failed on 100% of calls looked exactly
     # like a rung that was never reached — the dict/ChatMessage bug hid behind
     # that silence. A decision the PM's questions depend on should say so.
     log.info("scope_router: %s chose %r", model, pack)
+    _note(llm_rung="decided", chose=pack)
     return RoutingDecision(primary=pack, confidence=0.9, source="llm_scope_router")
 
 
@@ -205,6 +229,7 @@ def resolve_routing(
     chat: ChatLike | None = None,
     model: str = "",
     on_training_row: "Any | None" = None,
+    diagnostics: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Resolve ONE routing answer from the ladder, or ``{}`` for no opinion.
 
@@ -214,7 +239,8 @@ def resolve_routing(
     """
     if chat is not None and model:
         decided = classify_scope(
-            scope_summary=scope_summary, packs=packs, chat=chat, model=model
+            scope_summary=scope_summary, packs=packs, chat=chat, model=model,
+            diagnostics=diagnostics,
         )
         if decided is not None:
             if on_training_row is not None:
@@ -232,11 +258,18 @@ def resolve_routing(
                 decided.primary,
                 str((envelope_routing or {}).get("primary") or ""),
             )
+            if diagnostics is not None:
+                diagnostics["rung"] = "llm"
             return decided.as_service_routing()
 
     head = dict(envelope_routing or {})
+    if diagnostics is not None:
+        diagnostics.setdefault("llm_rung", "unwired" if not chat else "declined")
+        diagnostics["head_primary"] = str(head.get("primary") or "")
     if not head:
         log.info("scope_router: no LLM and no head — no opinion")
+        if diagnostics is not None:
+            diagnostics["rung"] = "none"
         return {}
     # The head rung is OFF by default, and the confidence gate below is why it
     # has to be. service_router._conf_ceiling() clamps the head's reported
@@ -258,6 +291,9 @@ def resolve_routing(
             "scope_router: head rung disabled (primary %r) — no opinion",
             str(head.get("primary") or ""),
         )
+        if diagnostics is not None:
+            diagnostics["rung"] = "none"
+            diagnostics["head_rung"] = "disabled"
         return {}
     if head.get("abstained") or str(head.get("abstain_reason") or "").strip():
         log.info("scope_router: head abstained — no opinion")
