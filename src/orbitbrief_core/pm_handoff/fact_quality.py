@@ -586,6 +586,16 @@ _CLAIM_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 
+# Directory names that describe a pipeline stage, not a deal. case_dir.name is
+# "out" on every compile, so without this the fallback labels a deal after the
+# folder it happened to be built in.
+_GENERIC_DIR_NAMES = frozenset({
+    "out", "output", "outputs", "work", "workdir", "working", "data", "latest",
+    "artifacts", "artifact", "case", "cases", "run", "runs", "dist", "build",
+    "results", "result", "staging", "scratch", "input", "inputs", "src", "bin",
+})
+
+
 def display_case_label(
     case_id: str,
     *,
@@ -608,6 +618,15 @@ def display_case_label(
             return
         # Skip temp / audit folder names.
         if s.startswith("_") or s.lower().startswith(("tmp", "temp", "ob-", "audit")):
+            return
+        # ...and generic working-directory names. The compile runs in
+        # /tmp/ob-core-<rand>/out, so case_dir.name is literally "out" — which
+        # passed every prefix check above and became a deal's display label:
+        #
+        #   out: Managed services / NOC / SOC, Structured cabling, ... at ...
+        #
+        # A headline that opens with "out:" reads as a broken record, not a deal.
+        if s.lower() in _GENERIC_DIR_NAMES:
             return
         if re.fullmatch(r"\d{4,8}", s):
             numbered.append(s)
