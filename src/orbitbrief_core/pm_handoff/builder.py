@@ -550,14 +550,6 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         sow=sow if isinstance(sow, dict) else None,
         case_dir_name=case_dir.name if case_dir else None,
     )
-    one_line = _build_one_line_summary(
-        display_label,
-        domains,
-        sites,
-        customer_questions,
-        project_mode=project_mode,
-    )
-
     # A5 reconciliation: build money / date mentions and near-value
     # flags from the inspection report. These are stored as dicts so
     # PMHandoff.to_dict() stays JSON-clean (no dataclass nesting
@@ -568,6 +560,17 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     risks = build_risk_register(report)
     phases = build_schedule_phases(report)
     site_rolls = build_site_rollups(report)
+    # Built AFTER rollups and dates: the summary needs the equipment and the
+    # window, and it used to run first and know neither.
+    one_line = _build_one_line_summary(
+        display_label,
+        domains,
+        sites,
+        customer_questions,
+        project_mode=project_mode,
+        site_rollups=site_rolls,
+        date_mentions=dates,
+    )
     actions = build_action_items(gaps=gaps, risk_rows=risks, schedule_phases=phases)
     pagers = build_stakeholder_pagers(
         gaps=gaps,
@@ -1793,7 +1796,27 @@ def _build_one_line_summary(
     gaps: list[GapCard],
     *,
     project_mode: str | None = None,
+    site_rollups: list[Any] | None = None,
+    date_mentions: list[Any] | None = None,
 ) -> str:
+    """One line a PM can read instead of opening the brief.
+
+    This used to be pure status — work type, site names, and two counts:
+
+        "000050: Staff augmentation at Site 1, Site 2; 9 blocker and 3
+         clarification(s) need PM/SA review."
+
+    97 characters that restate the metadata already on screen. It says nothing
+    about what is being installed, when, or what is actually blocking, so it
+    previews nothing.
+
+    What is added here is only what can be sourced: equipment kinds come from
+    site_rollups, the window from date_mentions, and the leading blockers from
+    the questions already computed. Deal VALUE is deliberately absent — on the
+    audited deals margin_view reported deal_total 0 at low confidence, and a
+    headline dollar figure that the margin view cannot stand behind is worse
+    than no figure at all.
+    """
     mode_label = _project_mode_workstream_label(project_mode)
     active = (
         [mode_label]
@@ -1824,10 +1847,63 @@ def _build_one_line_summary(
     blockers = sum(1 for g in gaps if g.severity == "blocker")
     warnings = sum(1 for g in gaps if g.severity == "warning")
     label = (case_id or "This engagement").strip() or "This engagement"
+
+    # What is being touched, from the site rollups.
+    kinds: list[str] = []
+    for roll in site_rollups or []:
+        devices = getattr(roll, "devices", None)
+        if devices is None and isinstance(roll, dict):
+            devices = roll.get("devices")
+        for dev in devices or []:
+            d = str(dev).strip().lower()
+            if d and d not in kinds:
+                kinds.append(d)
+    equip = ""
+    if kinds:
+        plural = [k if k.endswith("s") else f"{k}s" for k in kinds[:3]]
+        equip = f" · {', '.join(plural)}{' and more' if len(kinds) > 3 else ''}"
+
+    # When, from the dated evidence. A single date is a point, not a window.
+    isos = sorted(
+        {
+            str((m.get("iso") if isinstance(m, dict) else getattr(m, "iso", "")) or "")[:10]
+            for m in (date_mentions or [])
+        }
+        - {""}
+    )
+    window = ""
+    if len(isos) >= 2:
+        # Only claim a window the dates can support. One audited deal spanned
+        # 2022-10-01 to 2026-05-26 — boilerplate and template dates swept in
+        # alongside real ones. Printing that as the project window states
+        # something false with the authority of a headline, so a span beyond ~18
+        # months is treated as contaminated and simply omitted.
+        try:
+            from datetime import date
+
+            lo = date.fromisoformat(isos[0])
+            hi = date.fromisoformat(isos[-1])
+            if 0 <= (hi - lo).days <= 550:
+                window = f" · {isos[0]} to {isos[-1]}"
+        except ValueError:
+            window = ""
+    elif len(isos) == 1:
+        window = f" · dated {isos[0]}"
+
+    # What is actually in the way — the leading blocker topics, not just a count.
+    top = [
+        (getattr(g, "label", "") or "").strip()
+        for g in gaps
+        if getattr(g, "severity", "") == "blocker"
+    ]
+    top = [t for t in top if t][:2]
+    tail = (
+        f" {blockers} blocker and {warnings} clarification(s) need PM/SA review"
+        + (f" — leading: {'; '.join(top)}." if top else ".")
+    )
     return (
         f"{label}: {', '.join(active[:4]) if active else 'unclassified scope'} at "
-        f"{where}; "
-        f"{blockers} blocker and {warnings} clarification(s) need PM/SA review."
+        f"{where}{equip}{window}.{tail}"
     )
 
 
