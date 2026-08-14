@@ -101,11 +101,24 @@ def _clean_site_label(name: str) -> str:
     n = re.sub(r"\s+", " ", (name or "").strip())
     n = re.sub(r"(?i)^(location|site|address)\s+", "", n).strip(" ,.-")
     # Prefer City ST when a ZIP is present.
+    #
+    # The separator is REQUIRED. It used to be `\s*,?\s*`, which permits zero
+    # characters, so a non-greedy city group split words in half whenever the
+    # last two letters happened to spell a state:
+    #
+    #     "Philadelphia 19120 - ..."  ->  "Philadelph IA"
+    #     "Alexandria 22314"          ->  "Alexandr IA"
+    #     "Peoria 61602"              ->  "Peor IA"
+    #     "Waco 76701"                ->  "Wa CO"
+    #
+    # Those shipped to a PM inside real questions ("...escort/badging for
+    # Philadelph IA?"). A state code is its own word in every address that has
+    # one, so demand a comma or whitespace before it.
     m = re.search(
-        r"(?i)\b([A-Za-z][A-Za-z .']+?)\s*,?\s*([A-Z]{2})\s+\d{5}(?:-\d{4})?\b",
+        r"(?i)\b([A-Za-z][A-Za-z .']+?)(?:\s*,\s*|\s+)([A-Z]{2})\s+\d{5}(?:-\d{4})?\b",
         n,
     )
-    if m and m.group(2).upper() in _US_STATES:
+    if m and len(m.group(1)) >= 3 and m.group(2).upper() in _US_STATES:
         city = re.sub(r"\s+", " ", m.group(1)).strip(" ,.")
         return f"{city.title()} {m.group(2).upper()}"
     # No ZIP to anchor on, so the two-letter token must be a REAL state code --
