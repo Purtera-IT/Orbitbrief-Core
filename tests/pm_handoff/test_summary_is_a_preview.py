@@ -103,3 +103,28 @@ def test_deal_specific_blockers_lead_over_templates():
     out = _build_one_line_summary("D-1", [], SITES, tmpl + [specific],
                                   project_mode="av_install")
     assert "Union labour surcharge" in out
+
+
+import pytest
+from orbitbrief_core.pm_handoff.builder import _collapse_repeated_address
+
+
+@pytest.mark.parametrize("raw,want", [
+    ("5000 Clayton RD Maryville TN 37804 - 5000 Clayton Rd, Maryville, TN 37804",
+     "5000 Clayton Rd, Maryville, TN 37804"),
+    ("Philadelphia 19120 - Philadelphia, PA 19120", "Philadelphia, PA 19120"),
+    ("Austin 78749 - Austin, TX 78749", "Austin, TX 78749"),
+    ("Alpharetta 30009 - Alpharetta, GA 30009", "Alpharetta, GA 30009"),
+])
+def test_one_address_printed_once(raw, want):
+    """Clayton's headline carried the same address twice, joined by a dash."""
+    assert _collapse_repeated_address(raw) == want
+
+
+@pytest.mark.parametrize("raw", [
+    "HQ - 3828 Pecana Trail, Austin, TX 78749",   # name - address: two real parts
+    "Building A - Building B",                    # two distinct places
+    "Site 1",
+])
+def test_genuine_two_part_labels_are_untouched(raw):
+    assert _collapse_repeated_address(raw) == raw

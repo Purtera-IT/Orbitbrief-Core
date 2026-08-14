@@ -1942,6 +1942,43 @@ def _build_sa_focus(
     return unique[:18]
 
 
+def _collapse_repeated_address(label: str) -> str:
+    """One address, once. A site label often carries the same place twice.
+
+    Clayton's headline read:
+
+        5000 Clayton RD Maryville TN 37804 - 5000 Clayton Rd, Maryville, TN 37804
+
+    Two spellings of one address, joined by a dash — the raw label as the parser
+    assembled it. It is not wrong, it just looks unfinished in the one line a PM
+    reads first. When both halves normalise to the same string, keep the tidier
+    half: the one with punctuation, which reads as an address rather than a slug.
+    """
+    text = re.sub(r"\s+", " ", (label or "").strip())
+    if " - " not in text:
+        return text
+    parts = [p.strip() for p in text.split(" - ") if p.strip()]
+    if len(parts) != 2:
+        return text
+    norm = [re.sub(r"[^a-z0-9]", "", p.lower()) for p in parts]
+    if norm[0] and norm[0] == norm[1]:
+        # Same address twice — prefer the punctuated spelling.
+        return max(parts, key=lambda p: (p.count(","), len(p)))
+    # Same place, one half carrying the state: "Austin 78749 - Austin, TX 78749"
+    # and "Philadelphia 19120 - Philadelphia, PA 19120". Match on ZIP plus the
+    # leading city token so a genuine two-part label ("HQ - 3828 Pecana Trail")
+    # is left alone.
+    zips = [re.findall(r"\b(\d{5})\b", p) for p in parts]
+    if zips[0] and zips[1] and zips[0][-1] == zips[1][-1]:
+        city = [re.match(r"[A-Za-z .']+", p) for p in parts]
+        if city[0] and city[1]:
+            c0 = city[0].group(0).strip().lower()
+            c1 = city[1].group(0).strip().lower()
+            if c0 and (c0 == c1 or c0.startswith(c1) or c1.startswith(c0)):
+                return max(parts, key=lambda p: (p.count(","), len(p)))
+    return text
+
+
 def _build_one_line_summary(
     case_id: str,
     domains: list[DomainSummary],
@@ -1986,6 +2023,7 @@ def _build_one_line_summary(
     uniq: list[str] = []
     keys: list[str] = []
     for n in site_names:
+        n = _collapse_repeated_address(n)
         k = re.sub(r"[^a-z0-9]", "", (n or "").lower())
         if not k or any(k.startswith(p) or p.startswith(k) for p in keys):
             continue
