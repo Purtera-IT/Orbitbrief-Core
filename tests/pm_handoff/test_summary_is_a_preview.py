@@ -73,3 +73,33 @@ def test_still_works_with_no_extra_facts():
 def test_it_is_materially_longer_than_the_old_status_line():
     out = _run(site_rollups=ROLLS, date_mentions=[{"iso": "2026-04-10"}, {"iso": "2026-07-17"}])
     assert len(out) > 140
+
+
+def test_equipment_nouns_pluralise_correctly():
+    """"switchs" and "storages" both reached a live brief headline."""
+    from orbitbrief_core.pm_handoff.builder import _plural
+
+    assert _plural("switch") == "switches"
+    assert _plural("box") == "boxes"
+    assert _plural("battery") == "batteries"
+    assert _plural("storage") == "storage"      # uncountable
+    assert _plural("cabling") == "cabling"      # uncountable
+    assert _plural("displays") == "displays"    # already plural
+
+
+def test_deal_specific_blockers_lead_over_templates():
+    """The same two template labels led three different briefs verbatim."""
+    tmpl = [
+        GapCard(rule_id="pmcover.pathway", domain_id="d", domain_label="D",
+                label="Pathway ownership", severity="blocker", message="m",
+                suggested_open_question="q?"),
+        GapCard(rule_id="pmcover.furnish", domain_id="d", domain_label="D",
+                label="CF vs OFE hardware", severity="blocker", message="m",
+                suggested_open_question="q?"),
+    ]
+    specific = GapCard(rule_id="llm.exposure.union_labor", domain_id="d",
+                       domain_label="D", label="Union labour surcharge",
+                       severity="blocker", message="m", suggested_open_question="q?")
+    out = _build_one_line_summary("D-1", [], SITES, tmpl + [specific],
+                                  project_mode="av_install")
+    assert "Union labour surcharge" in out
