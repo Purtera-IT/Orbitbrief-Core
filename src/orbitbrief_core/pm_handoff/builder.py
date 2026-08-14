@@ -365,6 +365,10 @@ def _resolve_service_routing(envelope: Any, case_dir: Path) -> dict[str, Any] | 
         except Exception:
             pass
 
+    # Unwired is a pass-through by design: with no router model the head's own
+    # answer stands, exactly as before this module existed.
+    if chat is None or not model:
+        return head if isinstance(head, dict) else None
     try:
         resolved = resolve_routing(
             envelope_routing=head if isinstance(head, dict) else None,
@@ -372,11 +376,24 @@ def _resolve_service_routing(envelope: Any, case_dir: Path) -> dict[str, Any] | 
             packs=_router_pack_menu(),
             chat=chat,
             model=model,
-            on_training_row=_sink if chat is not None else None,
+            on_training_row=_sink,
         )
     except Exception:
         return head if isinstance(head, dict) else None
-    return resolved or None
+    # `{}` is returned as `{}`, NOT collapsed to None. The two mean opposite
+    # things and collapsing them is what let the head win:
+    #
+    #   None -> unwired / errored -> leave the envelope alone (pass-through)
+    #   {}   -> wired, and the ladder declined -> the head must NOT be trusted
+    #
+    # `resolved or None` mapped {} to None, the write-back below was skipped, and
+    # the envelope kept the parser's head answer — which question_engine reads
+    # directly. So "no opinion" silently became "trust the head". Measured on
+    # 02557291 2026-08-14: the LLM rung decided `staff_augmentation` on one run
+    # and declined on the next, and the deal came out `wireless_install` at 0.8
+    # confidence off a head that answered `wireless` on six consecutive sampled
+    # deals. The PM was then asked for an AP count on a staff-aug job.
+    return resolved if isinstance(resolved, dict) else None
 
 
 def build_pm_handoff(case_dir: Path) -> PMHandoff:
@@ -434,8 +451,17 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     # head_agreed=False) while project_mode stayed `wireless_install` off the
     # head's answer, and the PM was still asked for an AP count. One resolved
     # routing answer has to mean one answer everywhere.
-    if isinstance(envelope, dict) and isinstance(service_routing, dict) and service_routing:
-        envelope["service_routing"] = service_routing
+    if isinstance(envelope, dict) and isinstance(service_routing, dict):
+        if service_routing:
+            envelope["service_routing"] = service_routing
+        else:
+            # Wired, and the ladder declined. Dropping the key is the whole point
+            # of "no opinion": it hands the decision to the keyword cascade, which
+            # is what the ladder promises. Leaving the head in place instead is a
+            # regression the ladder was built to prevent — and was silently
+            # causing, because downstream reads the envelope rather than the
+            # resolved answer.
+            envelope.pop("service_routing", None)
 
     source_files, artifact_by_id = _build_source_files(report)
     sites = _build_site_summaries(report, case_dir)
