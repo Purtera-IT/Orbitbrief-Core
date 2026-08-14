@@ -315,6 +315,73 @@ def _briefing_chat() -> tuple[Any | None, str]:
         return None, ""
 
 
+# Atom types that describe WHAT THE WORK IS. Pricing lines and site rosters
+# dominate a large deal by count (Clayton: 218 pricing_assumption, 438
+# physical_site) and say almost nothing about which service pack it belongs to.
+_SCOPE_ATOM_TYPES = (
+    "scope_item", "task", "deliverable", "service_line", "requirement",
+    "constraint", "exclusion", "assumption", "customer_instruction",
+    "milestone_phase", "work_scope_item",
+)
+_SCOPE_SUMMARY_ATOMS = 40
+_SCOPE_ATOM_CHARS = 160
+
+
+def _derive_scope_summary(envelope: Any) -> str:
+    """A description of the work, for when the parser did not record one.
+
+    Mirrors the parser's shape — a FILES line plus a stride over scope-bearing
+    atoms — without claiming to reproduce its exact string. Scope-bearing types
+    come first because a deal's atom count is dominated by pricing lines and site
+    rows that do not identify the service.
+    """
+    if not isinstance(envelope, dict):
+        return ""
+    atoms = envelope.get("atoms") or []
+    if not isinstance(atoms, list) or not atoms:
+        return ""
+    # The envelope calls them `documents`; `artifacts` is the inspection-report
+    # spelling. Accept both — filenames alone often name the service
+    # ("Premise Wiring proposal", "AP Swap"), and the parser's own summary
+    # leads with them for that reason.
+    names: list[str] = []
+    for art in ((envelope.get("documents") or envelope.get("artifacts")) or [])[:12]:
+        if isinstance(art, dict):
+            n = str(art.get("filename") or art.get("name") or "").strip()
+            if n and n not in names:
+                names.append(n)
+    lines: list[str] = []
+    if names:
+        lines.append(("FILES: " + ", ".join(names))[:200])
+
+    def _texts(pred) -> list[str]:
+        out = []
+        for a in atoms:
+            if not isinstance(a, dict) or not pred(a):
+                continue
+            t = re.sub(r"\s+", " ", str(a.get("text") or "")).strip()
+            if len(t) >= 12:
+                out.append(t[:_SCOPE_ATOM_CHARS])
+        return out
+
+    picked = _texts(lambda a: str(a.get("atom_type") or "") in _SCOPE_ATOM_TYPES)
+    if len(picked) < _SCOPE_SUMMARY_ATOMS:
+        seen = set(picked)
+        for t in _texts(lambda a: True):
+            if t not in seen:
+                picked.append(t)
+                seen.add(t)
+            if len(picked) >= _SCOPE_SUMMARY_ATOMS:
+                break
+    # Stride rather than truncate: the first N atoms of a long parse are usually
+    # one document's front matter.
+    if len(picked) > _SCOPE_SUMMARY_ATOMS:
+        step = max(1, len(picked) // _SCOPE_SUMMARY_ATOMS)
+        picked = picked[::step][:_SCOPE_SUMMARY_ATOMS]
+    lines.extend(picked)
+    return chr(10).join(lines)[:8000]
+
+
 def _stash_router_diag(envelope: Any, diag: dict[str, Any]) -> None:
     """Keep the router's reasoning even when its answer is discarded.
 
@@ -353,6 +420,25 @@ def _resolve_service_routing(envelope: Any, case_dir: Path) -> dict[str, Any] | 
     scope_summary = ""
     if isinstance(head, dict):
         scope_summary = str(head.get("scope_summary") or "")
+    if not scope_summary.strip():
+        # The parser only emits scope_summary on builds carrying cd6a6d1, and the
+        # deployed worker bundles a ref that does not. Measured 2026-08-14: two of
+        # three deals had NO scope_summary key, so the LLM rung recorded
+        # `skipped / empty_scope_summary` and never ran — after which #54 drops
+        # the distrusted head and the keyword cascade decides. A cabling deal came
+        # out `wireless_install` that way.
+        #
+        # Core owns this decision, so it should not be unable to make it because
+        # of which branch the parser was built from. Derive the summary here when
+        # it is absent.
+        #
+        # This is explicitly NOT a substitute for the head's own recorded input:
+        # the parser strides the FULL parse while the envelope keeps a compacted
+        # subset, and rebuilding it reproduced only 2 of 9 live routes. That
+        # matters for EVALUATING the head. The LLM rung reads scope prose and
+        # picks a pack; it needs a faithful description of the work, not a
+        # byte-identical embedding input.
+        scope_summary = _derive_scope_summary(envelope)
     chat, model = _router_chat()
 
     # Stamp the row with the deal it came from. training_row() accepts these and
