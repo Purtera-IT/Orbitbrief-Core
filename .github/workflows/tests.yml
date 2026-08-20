@@ -30,6 +30,8 @@ env:
 jobs:
   pytest:
     runs-on: ubuntu-latest
+    # A hung network call should fail loudly, not sit on a runner for six hours.
+    timeout-minutes: 30
     steps:
       - name: Checkout Orbitbrief-Core
         uses: actions/checkout@v4
@@ -54,7 +56,11 @@ jobs:
         run: pip install -e ./parser-os
 
       - name: Install Orbitbrief-Core
-        run: pip install -e "./Orbitbrief-Core[dev]"
+        # [ui] as well as [dev]: tests/review_ui imports create_app_from_artifacts,
+        # which raises ImportError without FastAPI + Jinja2. The extra is optional
+        # for the worker image, which never serves the reviewer UI, but the test
+        # suite covers it.
+        run: pip install -e "./Orbitbrief-Core[dev,ui]"
 
       - name: Import check
         working-directory: Orbitbrief-Core
