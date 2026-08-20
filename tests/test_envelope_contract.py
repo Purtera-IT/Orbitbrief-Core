@@ -136,7 +136,9 @@ def test_write_envelope_emits_named_artifact(tmp_path: Path) -> None:
     )
 
     out_dir = tmp_path / "envelope_out"
-    json_path, md_path = write_orbitbrief_envelope(
+    # write_orbitbrief_envelope returns three paths, not two: the third is the
+    # SowSmith-rendered sow.md, or None when sowsmith is not installed.
+    json_path, md_path, _sow_path = write_orbitbrief_envelope(
         project_dir=tmp_path,
         envelope=envelope,
         out_dir=out_dir,
