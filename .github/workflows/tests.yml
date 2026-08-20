@@ -1,0 +1,108 @@
+# The Core test suite, on every pull request.
+#
+# Until this existed, nothing ran the 669 tests on a PR: the repository's only
+# workflows were the dev deploy and its drift alarm.  Core is the second half
+# of the pipeline — parser-os produces the envelope, Core turns it into the
+# brief and the SOW draft — so an untested change here reaches every PM.
+name: Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The same ref deploy-dev.yml bundles.  Core imports app.core.schemas and
+  # app.parsers.structured_projection across the seam, so the suite is only
+  # meaningful against the parser-os the worker actually runs.  Testing against
+  # a different ref would prove something nobody ships.
+  PARSER_OS_REF: feat/clean-rubric-heads
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    # A hung network call should fail loudly, not sit on a runner for six hours.
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Orbitbrief-Core
+        uses: actions/checkout@v4
+        with:
+          path: Orbitbrief-Core
+
+      - name: Clone parser-os at the deployed ref
+        run: |
+          git clone --depth 1 --branch "$PARSER_OS_REF" \
+            https://github.com/Purtera-IT/parser-os.git parser-os
+          echo "parser-os @ $(git -C parser-os rev-parse --short HEAD)"
+
+      - uses: actions/setup-python@v5
+        with:
+          # 3.12, matching orbitbrief-core-worker's python:3.12-slim-bookworm.
+          # The first run of this workflow was pinned to 3.11 and found the
+          # package unimportable there; pyproject now declares 3.12 honestly.
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install parser-os
+        # pyproject declares purtera-evidence-mvp only for sys_platform ==
+        # 'darwin' (a file:// path on the original Mac host), so on Linux the
+        # seam dependency has to be installed by hand.
+        run: pip install -e ./parser-os
+
+      - name: Install Orbitbrief-Core
+        # [ui] as well as [dev]: tests/review_ui imports create_app_from_artifacts,
+        # which raises ImportError without FastAPI + Jinja2. The extra is optional
+        # for the worker image, which never serves the reviewer UI, but the test
+        # suite covers it.
+        run: pip install -e "./Orbitbrief-Core[dev,ui]"
+
+      - name: Import check
+        working-directory: Orbitbrief-Core
+        run: python -c "import orbitbrief_core.envelope, orbitbrief_core.envelope_builders"
+
+      - name: Import contracts
+        working-directory: Orbitbrief-Core
+        # .importlinter encodes the seam: nothing in orbitbrief_core may reach
+        # past the envelope into parser-os internals.  That contract is the
+        # reason the two repositories can move independently.
+        run: lint-imports
+
+      - name: Run the suite
+        working-directory: Orbitbrief-Core
+        env:
+          PARSER_OS_ROOT: ${{ github.workspace }}/parser-os
+        run: |
+          # Deselect the known-failing baseline so a NEW failure turns this red
+          # immediately. tests/known_failures.txt carries the list and the rule.
+          mapfile -t known < <(grep -vE '^[[:space:]]*(#|$)' tests/known_failures.txt)
+          args=(); for t in "${known[@]}"; do args+=(--deselect "$t"); done
+          echo "deselecting ${#known[@]} known failures"
+          pytest tests -q --durations=15 "${args[@]}"
+
+      - name: Known failures - has anything started passing?
+        working-directory: Orbitbrief-Core
+        # Non-blocking. A deselect list that only ever grows is an amnesty; this
+        # step is what makes it a ratchet, by naming the entries that are now
+        # green so they can be deleted from the file.
+        if: always()
+        env:
+          PARSER_OS_ROOT: ${{ github.workspace }}/parser-os
+        run: |
+          mapfile -t known < <(grep -vE '^[[:space:]]*(#|$)' tests/known_failures.txt)
+          pytest -q --no-header -rA --continue-on-collection-errors "${known[@]}" 2>/dev/null             | grep '^PASSED' > now_passing.txt || true
+          n=$(wc -l < now_passing.txt)
+          if [ "$n" -gt 0 ]; then
+            echo "::warning::$n known-failing test(s) now pass - delete them from tests/known_failures.txt"
+            cat now_passing.txt
+          else
+            echo "all ${#known[@]} known failures still fail; nothing to remove"
+          fi

@@ -222,8 +222,13 @@ def _top_atoms_by_confidence(
         TopAtom(
             id=a.id,
             artifact_id=a.artifact_id,
-            atom_type=a.atom_type.value,
-            authority_class=a.authority_class.value,
+            # EnvelopeAtom declares both of these as `str` (seam/envelope.py
+            # 113-114), so pydantic has already coerced any enum by the time an
+            # atom reaches here and `.value` could never have worked. The
+            # `.value` calls in envelope.py are correct -- those operate on
+            # parser-os EvidenceAtom, where the fields really are enums.
+            atom_type=a.atom_type,
+            authority_class=a.authority_class,
             confidence=a.confidence,
             text=a.text,
             section_path=list(a.section_path),
