@@ -1,0 +1,74 @@
+# The Core test suite, on every pull request.
+#
+# Until this existed, nothing ran the 669 tests on a PR: the repository's only
+# workflows were the dev deploy and its drift alarm.  Core is the second half
+# of the pipeline — parser-os produces the envelope, Core turns it into the
+# brief and the SOW draft — so an untested change here reaches every PM.
+name: Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The same ref deploy-dev.yml bundles.  Core imports app.core.schemas and
+  # app.parsers.structured_projection across the seam, so the suite is only
+  # meaningful against the parser-os the worker actually runs.  Testing against
+  # a different ref would prove something nobody ships.
+  PARSER_OS_REF: feat/clean-rubric-heads
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Orbitbrief-Core
+        uses: actions/checkout@v4
+        with:
+          path: Orbitbrief-Core
+
+      - name: Clone parser-os at the deployed ref
+        run: |
+          git clone --depth 1 --branch "$PARSER_OS_REF" \
+            https://github.com/Purtera-IT/parser-os.git parser-os
+          echo "parser-os @ $(git -C parser-os rev-parse --short HEAD)"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install parser-os
+        # pyproject declares purtera-evidence-mvp only for sys_platform ==
+        # 'darwin' (a file:// path on the original Mac host), so on Linux the
+        # seam dependency has to be installed by hand.
+        run: pip install -e ./parser-os
+
+      - name: Install Orbitbrief-Core
+        run: pip install -e "./Orbitbrief-Core[dev]"
+
+      - name: Import check
+        working-directory: Orbitbrief-Core
+        run: python -c "import orbitbrief_core.envelope, orbitbrief_core.envelope_builders"
+
+      - name: Import contracts
+        working-directory: Orbitbrief-Core
+        # .importlinter encodes the seam: nothing in orbitbrief_core may reach
+        # past the envelope into parser-os internals.  That contract is the
+        # reason the two repositories can move independently.
+        run: lint-imports
+
+      - name: Run the suite
+        working-directory: Orbitbrief-Core
+        env:
+          PARSER_OS_ROOT: ${{ github.workspace }}/parser-os
+        run: pytest tests -q --durations=15
