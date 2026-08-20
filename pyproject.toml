@@ -6,7 +6,13 @@ build-backend = "setuptools.build_meta"
 name = "orbitbrief-core"
 version = "0.1.0"
 description = "Stage 2 runtime spine for OrbitBrief professional services"
-requires-python = ">=3.11"
+# 3.12, not 3.11. Four f-string expressions in pm_handoff contain a
+# backslash (render_markdown 1090/1224, question_generators 1231/1313),
+# which PEP 701 only legalised in 3.12 -- so this package has never been
+# importable on 3.11. orbitbrief-core-worker ships python:3.12-slim, so
+# nothing was ever broken in production; the declaration was simply
+# untrue, and a >=3.11 install would fail at import.
+requires-python = ">=3.12"
 dependencies = [
   "pydantic>=2.8.0",
   "PyYAML>=6.0.1",
