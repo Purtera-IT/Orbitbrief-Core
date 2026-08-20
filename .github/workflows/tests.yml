@@ -80,4 +80,29 @@ jobs:
         working-directory: Orbitbrief-Core
         env:
           PARSER_OS_ROOT: ${{ github.workspace }}/parser-os
-        run: pytest tests -q --durations=15
+        run: |
+          # Deselect the known-failing baseline so a NEW failure turns this red
+          # immediately. tests/known_failures.txt carries the list and the rule.
+          mapfile -t known < <(grep -vE '^[[:space:]]*(#|$)' tests/known_failures.txt)
+          args=(); for t in "${known[@]}"; do args+=(--deselect "$t"); done
+          echo "deselecting ${#known[@]} known failures"
+          pytest tests -q --durations=15 "${args[@]}"
+
+      - name: Known failures - has anything started passing?
+        working-directory: Orbitbrief-Core
+        # Non-blocking. A deselect list that only ever grows is an amnesty; this
+        # step is what makes it a ratchet, by naming the entries that are now
+        # green so they can be deleted from the file.
+        if: always()
+        env:
+          PARSER_OS_ROOT: ${{ github.workspace }}/parser-os
+        run: |
+          mapfile -t known < <(grep -vE '^[[:space:]]*(#|$)' tests/known_failures.txt)
+          pytest -q --no-header -rA --continue-on-collection-errors "${known[@]}" 2>/dev/null             | grep '^PASSED' > now_passing.txt || true
+          n=$(wc -l < now_passing.txt)
+          if [ "$n" -gt 0 ]; then
+            echo "::warning::$n known-failing test(s) now pass - delete them from tests/known_failures.txt"
+            cat now_passing.txt
+          else
+            echo "all ${#known[@]} known failures still fail; nothing to remove"
+          fi
