@@ -113,6 +113,13 @@ class PMHandoff:
     money_mentions: list[dict[str, Any]] = field(default_factory=list)
     date_mentions: list[dict[str, Any]] = field(default_factory=list)
     reconciliation_flags: list[dict[str, Any]] = field(default_factory=list)
+    # Phase-2 (parser-os reconcile.py): authority-lattice VERDICTS with
+    # receipts, read from envelope["reconciliation"]. Distinct from
+    # reconciliation_flags above (core's own A5 numeric-mention flags):
+    # these are resolved conflicts ("56 governs because rank-90 beats
+    # rank-65") and honest refusals (top-tier ties surfaced for a PM to
+    # judge). Empty dict when the envelope predates the key.
+    reconciliation_verdicts: dict[str, Any] = field(default_factory=dict)
     # B2: PM-ready risk register projected from atom_type=risk rows.
     risk_register: list[dict[str, Any]] = field(default_factory=list)
     # B5: project-schedule rows projected from atom_type=schedule_phase

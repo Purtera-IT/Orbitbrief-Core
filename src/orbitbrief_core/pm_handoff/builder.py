@@ -120,6 +120,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     service_routing = (
         envelope.get("service_routing") if isinstance(envelope, dict) else None
     )
+    reconciliation_verdicts = _build_reconciliation_verdicts(envelope)
 
     source_files, artifact_by_id = _build_source_files(report)
     sites = _build_site_summaries(report, case_dir)
@@ -280,6 +281,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         money_mentions=[asdict(m) for m in money],
         date_mentions=[asdict(d) for d in dates],
         reconciliation_flags=[asdict(f) for f in flags],
+        reconciliation_verdicts=reconciliation_verdicts,
         risk_register=[asdict(r) for r in risks],
         schedule_phases=[asdict(p) for p in phases],
         site_rollups=[asdict(s) for s in site_rolls],
@@ -473,6 +475,39 @@ def _build_gap_cards(sow: dict[str, Any]) -> list[GapCard]:
             )
         )
     return sorted(gaps, key=lambda g: (SEVERITY_SORT.get(g.severity, 9), g.domain_label, g.label))
+
+
+def _build_reconciliation_verdicts(envelope: Any) -> dict[str, Any]:
+    """Project envelope["reconciliation"] (parser-os phase-2) for the handoff.
+
+    Pass-through with guardrails, never a rewrite: entries already carry
+    their receipts (winner, rank, every superseded claim, edge ids).
+    Lists are capped so one pathological deal cannot balloon the handoff;
+    the counts always report the UNCAPPED truth. {} when the envelope
+    predates the key -- the section simply does not render.
+    """
+    if not isinstance(envelope, dict):
+        return {}
+    rec = envelope.get("reconciliation")
+    if not isinstance(rec, dict):
+        return {}
+    resolved = [e for e in (rec.get("resolved") or []) if isinstance(e, dict)]
+    open_conflicts = [e for e in (rec.get("open_conflicts") or [])
+                      if isinstance(e, dict)]
+    counts = rec.get("counts") if isinstance(rec.get("counts"), dict) else {
+        "conflict_sets": len(resolved) + len(open_conflicts),
+        "resolved": len(resolved),
+        "open": len(open_conflicts),
+    }
+    out: dict[str, Any] = {
+        "resolved": resolved[:50],
+        "open_conflicts": open_conflicts[:50],
+        "counts": counts,
+    }
+    prec = rec.get("edge_rule_precision")
+    if isinstance(prec, dict):
+        out["edge_rule_precision"] = prec
+    return out
 
 
 def _build_domains(
