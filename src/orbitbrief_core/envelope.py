@@ -1115,6 +1115,12 @@ def _compact_atom(atom: EvidenceAtom) -> dict[str, Any]:
         # B6 (per-site pricing rollup), etc.
         "entity_keys": list(atom.entity_keys),
         "structured": dict(atom.value) if atom.value else {},
+        # Keep in sync with parser-os app/core/orbitbrief_envelope._compact_atom:
+        # project the per-atom trust signal so this (secondary) envelope path
+        # doesn't drop review_status the way the runtime writer used to.
+        "calibrated_confidence": getattr(atom, "calibrated_confidence", None),
+        "review_status": atom.review_status.value if hasattr(getattr(atom, "review_status", None), "value") else getattr(atom, "review_status", None),
+        "confidence_raw": getattr(atom, "confidence_raw", None),
     }
 
 

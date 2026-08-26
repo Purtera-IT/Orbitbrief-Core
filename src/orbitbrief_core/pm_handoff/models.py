@@ -85,6 +85,12 @@ class EvidenceCard:
     source: SourcePointer
     confidence: float | None = None
     verified: str = ""
+    # Per-atom trust signal from the parser's calibrator/review gate. review_status
+    # is "needs_review" when the deal should double-check this fact; the frontend
+    # renders it as a "check this" badge. calibrated_confidence is the calibrated
+    # probability (vs the raw heuristic `confidence`).
+    review_status: str = ""
+    calibrated_confidence: float | None = None
     internal_id: str = ""
 
 
@@ -112,6 +118,20 @@ class PMHandoff:
     money_mentions: list[dict[str, Any]] = field(default_factory=list)
     date_mentions: list[dict[str, Any]] = field(default_factory=list)
     reconciliation_flags: list[dict[str, Any]] = field(default_factory=list)
+    # Phase-2 (parser-os reconcile.py): authority-lattice VERDICTS with
+    # receipts, read from envelope["reconciliation"]. Distinct from
+    # reconciliation_flags above (core's own A5 numeric-mention flags):
+    # these are resolved conflicts ("56 governs because rank-90 beats
+    # rank-65") and honest refusals (top-tier ties surfaced for a PM to
+    # judge). Empty dict when the envelope predates the key.
+    reconciliation_verdicts: dict[str, Any] = field(default_factory=dict)
+    # Disputed image skips (parser-os pdf_image_vision veto head): the gate
+    # ruled an image skippable, a trained head confidently disagrees. Shape:
+    # {"cards": [{pdf, page, region_ref, kind_ruled, via, veto_prob,
+    # ocr_preview}], "counts": {"disputed": N}} — cards capped, counts
+    # uncapped. Empty dict when the envelope predates gate_verdict stamping
+    # or no skip was veto'd, so the section renders nothing.
+    disputed_images: dict[str, Any] = field(default_factory=dict)
     # B2: PM-ready risk register projected from atom_type=risk rows.
     risk_register: list[dict[str, Any]] = field(default_factory=list)
     # B5: project-schedule rows projected from atom_type=schedule_phase
@@ -240,6 +260,14 @@ class PMHandoff:
     # immediately know what the numbers mean and what to do.  See
     # risk_net/narrator.py.
     section_narration: dict[str, str] = field(default_factory=dict)
+
+    # Neural-heads outputs (orbitbrief_core.neural_heads). Additive + empty by
+    # default, so a brief with the ORBITBRIEF_NEURAL_HEADS flag OFF serializes
+    # exactly as before. Each is a grounded, deal-specific section that the UI
+    # renders in place of the legacy template/rule output when present.
+    gap_findings: list[dict[str, Any]] = field(default_factory=list)
+    risk_synthesis: list[dict[str, Any]] = field(default_factory=list)
+    commercial_narrative: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
