@@ -121,6 +121,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         envelope.get("service_routing") if isinstance(envelope, dict) else None
     )
     reconciliation_verdicts = _build_reconciliation_verdicts(envelope)
+    disputed_images = _build_disputed_images(envelope)
 
     source_files, artifact_by_id = _build_source_files(report)
     sites = _build_site_summaries(report, case_dir)
@@ -282,6 +283,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         date_mentions=[asdict(d) for d in dates],
         reconciliation_flags=[asdict(f) for f in flags],
         reconciliation_verdicts=reconciliation_verdicts,
+        disputed_images=disputed_images,
         risk_register=[asdict(r) for r in risks],
         schedule_phases=[asdict(p) for p in phases],
         site_rollups=[asdict(s) for s in site_rolls],
@@ -508,6 +510,86 @@ def _build_reconciliation_verdicts(envelope: Any) -> dict[str, Any]:
     if isinstance(prec, dict):
         out["edge_rule_precision"] = prec
     return out
+
+
+# One brief page of culprit cards is plenty — the review queue holds the rest.
+_MAX_DISPUTED_IMAGE_CARDS = 20
+
+
+def _build_disputed_images(envelope: Any) -> dict[str, Any]:
+    """Project veto'd image skips (parser-os pdf_image_vision) as culprit cards.
+
+    parser-os stamps every skip decision onto its ``image_marker`` atom as
+    ``value["gate_verdict"]`` (landing in the compact envelope row under
+    ``structured``). A verdict WITH a ``veto`` key means the trained veto
+    head disputes the skip — it thinks the image is meaningful — which makes
+    it the highest-value review item. Verdicts without ``veto`` are ordinary
+    receipted skips and are NOT cards.
+
+    Same discipline as :func:`_build_reconciliation_verdicts`: defensive
+    pass-through with guardrails, capped list with UNCAPPED counts, and
+    ``{}`` on envelopes that predate the key (old envelopes, clean compiles)
+    so the section renders nothing.
+    """
+    if not isinstance(envelope, dict):
+        return {}
+    atoms = envelope.get("atoms")
+    if not isinstance(atoms, list):
+        return {}
+    filename_by_artifact: dict[str, str] = {}
+    for doc in envelope.get("documents") or []:
+        if not isinstance(doc, dict):
+            continue
+        aid = doc.get("artifact_id")
+        fname = doc.get("filename")
+        if aid and fname:
+            filename_by_artifact[str(aid)] = str(fname)
+    cards: list[dict[str, Any]] = []
+    disputed_total = 0
+    for atom in atoms:
+        if not isinstance(atom, dict):
+            continue
+        structured = atom.get("structured")
+        if not isinstance(structured, dict):
+            continue
+        verdict = structured.get("gate_verdict")
+        if not isinstance(verdict, dict):
+            continue
+        veto = verdict.get("veto")
+        if not isinstance(veto, dict):
+            continue  # ordinary receipted skip — traceable, but not a card
+        disputed_total += 1
+        if len(cards) >= _MAX_DISPUTED_IMAGE_CARDS:
+            continue  # keep counting the uncapped truth
+        locator = atom.get("locator")
+        locator = locator if isinstance(locator, dict) else {}
+        region_ref = str(
+            structured.get("region_ref") or locator.get("region_ref") or ""
+        )
+        page = _maybe_int(locator.get("page"))
+        if page is None and region_ref:
+            m = re.match(r"page(\d+)/", region_ref)
+            if m:
+                page = int(m.group(1))
+        artifact_id = str(atom.get("artifact_id") or "")
+        ocr_preview = verdict.get("ocr_preview")
+        ocr_preview = (
+            str(ocr_preview).strip()[:160]
+            if isinstance(ocr_preview, (str, int, float)) else ""
+        )
+        cards.append({
+            "pdf": filename_by_artifact.get(artifact_id)
+            or artifact_id or "unknown source",
+            "page": page,
+            "region_ref": region_ref,
+            "kind_ruled": str(verdict.get("kind") or "skip"),
+            "via": str(verdict.get("via") or ""),
+            "veto_prob": _maybe_float(veto.get("meaningful_prob")),
+            "ocr_preview": ocr_preview,
+        })
+    if not cards:
+        return {}
+    return {"cards": cards, "counts": {"disputed": disputed_total}}
 
 
 def _build_domains(
@@ -818,6 +900,15 @@ def _maybe_float(value: Any) -> float | None:
         if value is None:
             return None
         return float(value)
+    except Exception:
+        return None
+
+
+def _maybe_int(value: Any) -> int | None:
+    try:
+        if value is None or isinstance(value, bool):
+            return None
+        return int(value)
     except Exception:
         return None
 

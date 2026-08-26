@@ -161,6 +161,38 @@ def main(argv: list[str] | None = None) -> int:
                             "", "", "", "", "no", "no", "no",
                         ])
                         rows += 1
+                    # Disputed image skips (veto head disagrees with the
+                    # gate) — PM-assignable review rows, same columns.
+                    di = getattr(h, "disputed_images", None) or {}
+                    for c in di.get("cards") or []:
+                        if not isinstance(c, dict):
+                            continue
+                        page = c.get("page")
+                        where = str(c.get("pdf") or "unknown source") + (
+                            f" page {page}" if page is not None else ""
+                        )
+                        prob = c.get("veto_prob")
+                        prob_txt = (
+                            f"{round(float(prob) * 100)}% likely meaningful"
+                            if isinstance(prob, (int, float))
+                            else "likely meaningful"
+                        )
+                        preview = str(c.get("ocr_preview") or "").strip()
+                        w.writerow([
+                            h.case_id, h.status, "warning",
+                            "Parser evidence", "disputed_image_skip",
+                            f"Skipped image disputed by veto head ({where})",
+                            (
+                                f"An image in {where} was skipped as "
+                                f"'{c.get('kind_ruled', 'skip')}' but the veto "
+                                f"head rates it {prob_txt}. The image was "
+                                "still skipped; confirm to reclaim its "
+                                "content."
+                                + (f" OCR preview: {preview}" if preview else "")
+                            ),
+                            "", "", "", "", "no", "no", "no",
+                        ])
+                        rows += 1
             print(
                 f"  PM_QUESTION_QUEUE written ({rows} questions across "
                 f"{len(handoffs)} cases) → {queue_path}",
