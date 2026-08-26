@@ -40,7 +40,8 @@ env:
   # brief-gen validates). v45.2 drifted — its AtomType enum lacks
   # acceptance_criterion / service_line / site_implementation_note / etc., so
   # envelope load fails orbitbrief.input.v2 validation on current parser output.
-  PARSER_OS_REF: feat/clean-rubric-heads
+  # Must match parser-os-worker bundle (skip-veto + silver channel live on main).
+  PARSER_OS_REF: main
 
 jobs:
   build-and-deploy:

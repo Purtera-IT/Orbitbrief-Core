@@ -1578,10 +1578,19 @@ def candidates_from_skipped_image_culprits(
     seen: set[str] = set()
     for atom in atom_list:
         val, st = _atom_payload_maps(atom)
-        kind = str(val.get("kind") or st.get("kind") or "").lower()
+        # Live parser envelopes stamp image markers on ``structured`` (no
+        # ``value`` map). Tests / older shapes put them on ``value``. Accept both.
+        kind = str(
+            val.get("kind")
+            or st.get("kind")
+            or atom.get("kind")
+            or ""
+        ).lower()
         if kind != "image_marker":
             continue
         gv = val.get("gate_verdict") if isinstance(val.get("gate_verdict"), Mapping) else None
+        if not isinstance(gv, Mapping):
+            gv = st.get("gate_verdict") if isinstance(st.get("gate_verdict"), Mapping) else None
         if not isinstance(gv, Mapping):
             continue
         gate_kind = str(gv.get("kind") or "skip").strip().lower()
