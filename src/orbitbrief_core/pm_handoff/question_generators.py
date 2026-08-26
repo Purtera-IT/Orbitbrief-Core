@@ -1226,9 +1226,10 @@ def candidates_from_schematic_warnings(
                 f"what device/outlet does it represent for the quote?"
             )
         elif wtype == "ambiguous_legend_reference":
+            snippet = re.sub(r"\s+", " ", text).strip()[:120]
             q = (
                 f"Resolve ambiguous legend reference on sheet {sheet or page}: "
-                f"{re.sub(r'\\s+', ' ', text).strip()[:120]}"
+                f"{snippet}"
             )
             if not q.endswith("?"):
                 q += "?"
@@ -1310,7 +1311,8 @@ def candidates_from_schematic_rooms(
             continue
         src = _source_from_atom(atom, text, score=0.84, docs_by_id=docs_by_id, atoms_by_id=by_id)
         aid = str(atom.get("id") or atom.get("atom_id") or "")
-        rid = f"room.{re.sub(r'[^\\w]+', '_', room.lower())[:40]}"
+        room_slug = re.sub(r"[^\w]+", "_", room.lower())[:40]
+        rid = f"room.{room_slug}"
         cand = QuestionCandidate(
             rule_id=rid,
             domain_id="audio_visual" if project_mode == "av_install" else "site",
@@ -1521,6 +1523,148 @@ def candidates_from_entities(
     return out
 
 
+# Quantity / critical-vocab hints that make a skip verdict suspicious.
+# Mirror of parser-os tools/build_image_review_queue.QUANTITY_RE (kept local —
+# Orbitbrief must not import parser-os).
+_SKIP_CULPRIT_QTY_RE = re.compile(
+    r"(?ix)"
+    r"\$\s?\d[\d,]*"
+    r"|\b\d+\s*(?:x|ea|each|units?|pcs?)\b"
+    r"|\bqty\.?\s*:?\s*\d+"
+    r"|\(\s*\d+\s*\)"
+    r"|\b\d+\s*(?:-|–)?\s*(?:[a-z]+\s+){0,2}"
+    r"(?:ports?|outlets?|drops?|cameras?|cables?|jacks?|racks?|panels?|"
+    r"aps?\b|switch(?:es)?|phones?|licenses?|devices?)"
+)
+_SKIP_CULPRIT_TERMS_RE = re.compile(
+    r"(?i)\b(?:"
+    r"patch\s*panel|data\s+outlets?|comm(?:unication)?\s+cabinet|"
+    r"idf|mdf|rack\s+elevation|floor\s+plan|bom|bill\s+of\s+materials|"
+    r"liquidated\s+damages|performance\s+bond|vlan|cat\s*[56]"
+    r")\b"
+)
+_SKIP_KINDS = frozenset({
+    "skip", "logo", "decorative", "signature", "empty",
+})
+
+
+def candidates_from_skipped_image_culprits(
+    atoms: Iterable[Mapping[str, Any]],
+    *,
+    project_mode: str,
+    docs_by_id: Mapping[str, str] | None = None,
+    max_items: int = 12,
+) -> list:
+    """Culprit cards: skipped PDF images that still look like real scope.
+
+    Fires when an ``image_marker`` carries a stamped ``gate_verdict`` that is a
+    skip (or a fired skip-veto), AND the caption/OCR preview hits quantity or
+    PM-critical vocab — or the veto already fired. One tap in the PM queue
+    becomes gold (``teacher='pm'``, eval-only). Routing was already skip; this
+    only asks the human.
+    """
+    from orbitbrief_core.pm_handoff.question_engine import (
+        QuestionCandidate,
+        _atom_payload_maps,
+        _is_customer_facing_question,
+        _parse_region_ref,
+        _source_from_atom,
+        _with_evidence,
+    )
+
+    docs = docs_by_id or {}
+    atom_list = [a for a in atoms if isinstance(a, Mapping)]
+    out = []
+    seen: set[str] = set()
+    for atom in atom_list:
+        val, st = _atom_payload_maps(atom)
+        kind = str(val.get("kind") or st.get("kind") or "").lower()
+        if kind != "image_marker":
+            continue
+        gv = val.get("gate_verdict") if isinstance(val.get("gate_verdict"), Mapping) else None
+        if not isinstance(gv, Mapping):
+            continue
+        gate_kind = str(gv.get("kind") or "skip").strip().lower()
+        via = str(gv.get("via") or "").strip().lower()
+        veto = gv.get("veto") if isinstance(gv.get("veto"), Mapping) else None
+        if via == "cpu_gate" and not veto:
+            # Distilled student's own skip — no independent disagreement signal.
+            continue
+        if gate_kind not in _SKIP_KINDS and not veto:
+            continue
+        caption = str(
+            val.get("expected_content") or st.get("expected_content") or ""
+        ).strip()
+        ocr = str(gv.get("ocr_preview") or "").strip()
+        blob = f"{caption}\n{ocr}".strip()
+        qty = [m.group(0).strip() for m in _SKIP_CULPRIT_QTY_RE.finditer(blob)]
+        term_hit = bool(_SKIP_CULPRIT_TERMS_RE.search(blob))
+        if not veto and not qty and not term_hit:
+            continue
+        region = str(val.get("region_ref") or st.get("region_ref") or "").strip()
+        page, _img = _parse_region_ref(region)
+        page_bit = f"page {page}" if page is not None else (region or "an embedded image")
+        ruled = gate_kind if gate_kind in _SKIP_KINDS else "skip"
+        hint = (qty[0] if qty else None) or (
+            _SKIP_CULPRIT_TERMS_RE.search(blob).group(0) if term_hit else None
+        )
+        if veto and hint:
+            ask = (
+                f"{page_bit.title()}'s image was ruled {ruled}, but its text "
+                f"mentions {hint!r} and the skip-veto flagged it — real content?"
+            )
+        elif veto:
+            ask = (
+                f"{page_bit.title()}'s image was ruled {ruled}, but the skip-veto "
+                f"says it looks meaningful — real content?"
+            )
+        else:
+            ask = (
+                f"{page_bit.title()}'s image was ruled {ruled}, but its text "
+                f"says {hint!r} — real content?"
+            )
+        if not _is_customer_facing_question(ask):
+            continue
+        fp = fingerprint_question(ask + "|" + region)
+        if fp in seen:
+            continue
+        seen.add(fp)
+        aid = str(atom.get("id") or atom.get("atom_id") or "")
+        score = 0.92 if veto else 0.86
+        cand = QuestionCandidate(
+            rule_id=f"image.skip_culprit.{fingerprint_question(region or aid)[:40]}",
+            domain_id="field_evidence",
+            label="Skipped image — possible evidence loss",
+            severity="critical" if veto else "warning",
+            message=(
+                "A PDF embedded image was gated as skip but still carries "
+                "scope-looking text (or a skip-veto fired)."
+            ),
+            suggested_open_question=ask,
+            observed_summary=(
+                f"Skip culprit · {ruled}"
+                + (f" · veto={float(veto.get('meaningful_prob') or 0):.2f}" if veto else "")
+                + (f" · {hint}" if hint else "")
+            ),
+            source="evidence",
+            score=score,
+            evidence_atom_ids=[aid] if aid else [],
+            project_mode=project_mode,
+        )
+        src = _source_from_atom(
+            atom, blob or ask, score=score, docs_by_id=docs,
+        )
+        cand.evidence_sources = [src]
+        grounded = _with_evidence(
+            cand, atoms=atom_list, docs_by_id=docs, require=False, min_score=0.2
+        )
+        if grounded is not None:
+            out.append(grounded)
+        if len(out) >= max_items:
+            break
+    return out
+
+
 def build_extended_candidates(
     *,
     sites: list[SiteSummary],
@@ -1620,6 +1764,11 @@ def build_extended_candidates(
     )
     out.extend(
         candidates_from_photo_facts(
+            atom_list, project_mode=project_mode, docs_by_id=docs
+        )
+    )
+    out.extend(
+        candidates_from_skipped_image_culprits(
             atom_list, project_mode=project_mode, docs_by_id=docs
         )
     )
