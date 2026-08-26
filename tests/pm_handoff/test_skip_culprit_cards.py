@@ -49,3 +49,29 @@ def test_cpu_gate_skip_without_veto_ignored():
 def test_clean_logo_skip_without_signals_ignored():
     atoms = [_marker(kind="logo", ocr="Acme Corp")]
     assert candidates_from_skipped_image_culprits(atoms, project_mode="install") == []
+
+
+def test_structured_payload_shape_matches_live_envelope():
+    """parser-os stamps gate_verdict on structured, not value."""
+    atoms = [
+        {
+            "id": "atm_live_skip",
+            "atom_type": "image",
+            "structured": {
+                "kind": "image_marker",
+                "region_ref": "page12/image0",
+                "expected_content": "Floor plan detail",
+                "gate_verdict": {
+                    "kind": "skip",
+                    "via": "vlm_gate",
+                    "ocr_preview": "18 Total Data Outlets Comm Cabinet",
+                },
+            },
+            "source_refs": [{"filename": "drawings.pdf"}],
+        }
+    ]
+    out = candidates_from_skipped_image_culprits(atoms, project_mode="install")
+    assert len(out) == 1
+    ask = out[0].suggested_open_question.lower()
+    assert "page 12" in ask
+    assert "outlet" in ask or "18" in ask
