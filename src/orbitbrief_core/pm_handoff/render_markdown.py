@@ -1085,10 +1085,9 @@ def _render_sla_penalties(handoff: PMHandoff) -> list[str]:
         "|---|---|---|",
     ]
     for p in pens:
-        lines.append(
-            f"| {pretty.get(p.get('kind',''), p.get('kind',''))} | "
-            f"`{p.get('source','')}` | {p.get('snippet','')[:180].replace('|','\\|')} |"
-        )
+        snippet = str(p.get("snippet", "") or "")[:180].replace("|", "\\|")
+        kind = pretty.get(p.get("kind", ""), p.get("kind", ""))
+        lines.append(f"| {kind} | `{p.get('source', '')}` | {snippet} |")
     lines.append("")
     return lines
 
@@ -1212,10 +1211,11 @@ def _render_risk_aging(handoff: PMHandoff) -> list[str]:
     bucket_emoji = {"fresh": "🟢", "active": "🟡", "stale": "🔴"}
     for a in aging:
         emoji = bucket_emoji.get(a.get("aging_bucket",""), "")
+        desc = str(a.get("description", "") or "")[:120].replace("|", "\\|")
         lines.append(
             f"| {a.get('risk_id','')} | {a.get('severity','')} | "
             f"{a.get('days_open', 0)} | {emoji} {a.get('aging_bucket','')} | "
-            f"{a.get('description','')[:120].replace('|','\\|')} |"
+            f"{desc} |"
         )
     lines.append("")
     return lines
