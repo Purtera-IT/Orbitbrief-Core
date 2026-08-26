@@ -291,6 +291,18 @@ def main(argv: list[str] | None = None) -> int:
             print("compile_brief: v46 step apply_claim_consensus...", file=sys.stderr)
             handoff = apply_claim_consensus(handoff, envelope_obj)
 
+            # Neural heads — grounded, deal-specific sections (exec summary today;
+            # gap/risk/commercial as they land) that replace template/rule output.
+            # Gated OFF by default behind ORBITBRIEF_NEURAL_HEADS; a no-op when the
+            # flag is unset, and individually error-isolated so a head can never
+            # block or break a compile. Uses the same chat client as the brains.
+            try:
+                from orbitbrief_core.neural_heads import apply_neural_heads
+                handoff = apply_neural_heads(handoff, envelope_obj, chat_client=chat)
+                print("compile_brief: neural_heads step applied", file=sys.stderr)
+            except Exception as _nh_exc:  # pragma: no cover - defensive
+                print(f"compile_brief: neural_heads skipped ({_nh_exc})", file=sys.stderr)
+
         # v46.1 Track D: per-section PM-voice narrator.  One batched
         # LLM call against qwen2.5:3b produces a single sentence per
         # section explaining what the numbers mean and what to do.
@@ -361,6 +373,22 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         _tb.print_exc(file=sys.stderr)
+        # Write a failure marker beside the artifacts so the worker can upload it
+        # and the PM surface can show "brief regeneration failed — showing the
+        # previous version" instead of silently serving a stale PM_HANDOFF.json.
+        try:
+            root = getattr(getattr(result, "artifacts", None), "root", None)
+            if root is not None:
+                (root / "brief_failed.json").write_text(
+                    json.dumps({
+                        "brief_failed": True,
+                        "stage": "pm_handoff_render",
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }),
+                    encoding="utf-8",
+                )
+        except Exception:
+            pass
 
     if not args.quiet:
         manifest = json.loads(result.artifacts.manifest_path.read_text(encoding="utf-8"))

@@ -54,6 +54,8 @@ def render_pm_handoff_markdown(handoff: PMHandoff) -> str:
     lines.extend(_render_exclusions(handoff))
     lines.extend(_render_responsibilities(handoff))
     lines.extend(_render_reconciliation(handoff))
+    lines.extend(_render_reconciliation_verdicts(handoff))
+    lines.extend(_render_disputed_images(handoff))
     lines.extend(_render_quantity_reconciliation(handoff))
     lines.extend(_render_questions(handoff))
     lines.extend(_render_known_facts(handoff))
@@ -144,6 +146,120 @@ def _render_responsibilities(handoff: PMHandoff) -> list[str]:
         for r in provider_items:
             lines.append(f"- {r.get('text','')} _(source: `{r.get('source','')}`)_")
         lines.append("")
+    return lines
+
+
+def _render_reconciliation_verdicts(handoff: PMHandoff) -> list[str]:
+    """Phase-2 verdicts: what the authority lattice resolved, with receipts,
+    and the ties it refused to guess on. Renders nothing for envelopes that
+    predate the key."""
+    rv = handoff.reconciliation_verdicts or {}
+    resolved = rv.get("resolved") or []
+    open_conflicts = rv.get("open_conflicts") or []
+    if not resolved and not open_conflicts:
+        return []
+
+    def _claim(c: dict) -> str:
+        val = c.get("value")
+        auth = c.get("authority", "")
+        rank = c.get("rank", "")
+        txt = (c.get("text") or "").strip()
+        head = f"**{val}** ({auth}, rank {rank})" if val is not None else f"({auth}, rank {rank})"
+        return f"{head} — {txt}" if txt else head
+
+    lines = [
+        "## Cross-document conflicts — resolved by authority, and the ones that need you",
+        "",
+    ]
+    counts = rv.get("counts") or {}
+    lines.append(
+        f"_{counts.get('conflict_sets', len(resolved) + len(open_conflicts))} conflict set(s): "
+        f"{counts.get('resolved', len(resolved))} resolved by the authority lattice, "
+        f"{counts.get('open', len(open_conflicts))} left open for PM judgment._"
+    )
+    prec = rv.get("edge_rule_precision") or {}
+    if prec.get("contradicts") is not None:
+        lines.append(
+            f"_Caveat: the rule that proposes contradictions measured "
+            f"{round(float(prec['contradicts']) * 100)}% precise on "
+            f"{prec.get('n_labelled_pairs', '?')} labelled pairs — treat each "
+            f"entry as a lead with receipts, not a verdict without them._"
+        )
+    lines.append("")
+
+    if open_conflicts:
+        lines.extend(["### Needs your call — equal authority, no honest tiebreak", ""])
+        for e in open_conflicts:
+            lines.append(f"- **{e.get('scope_key', 'conflict')}**: {e.get('reason', '')}")
+            for c in e.get("superseded") or []:
+                lines.append(f"  - {_claim(c)}")
+            if e.get("winner"):
+                lines.append(f"  - {_claim(e['winner'])}")
+        lines.append("")
+
+    if resolved:
+        lines.extend(["### Resolved — highest authority governs, receipts attached", ""])
+        for e in resolved:
+            w = e.get("winner") or {}
+            lines.append(f"- **{e.get('scope_key', 'conflict')}** → {_claim(w)}")
+            reason = (e.get("reason") or "").strip()
+            if reason:
+                lines.append(f"  - {reason}")
+            for c in e.get("superseded") or []:
+                lines.append(f"  - superseded: {_claim(c)}")
+        lines.append("")
+    return lines
+
+
+def _render_disputed_images(handoff: PMHandoff) -> list[str]:
+    """Culprit cards for veto'd image skips: the gate ruled an image
+    skippable, the trained veto head disputes it. Renders nothing for
+    envelopes that predate gate_verdict stamping or clean compiles."""
+    di = handoff.disputed_images or {}
+    cards = di.get("cards") or []
+    if not cards:
+        return []
+    counts = di.get("counts") or {}
+    total = counts.get("disputed")
+    total = total if isinstance(total, int) else len(cards)
+    lines = [
+        "## Images we skipped — but doubt",
+        "",
+        f"_{total} skipped image(s) are disputed by the trained veto head, "
+        "which thinks the image is meaningful. In every case the image was "
+        "still skipped; confirm to reclaim its content._",
+        "",
+    ]
+    for c in cards:
+        if not isinstance(c, dict):
+            continue
+        pdf = c.get("pdf") or "unknown source"
+        page = c.get("page")
+        where = f"`{pdf}`" + (f", page {page}" if page is not None else "")
+        prob = c.get("veto_prob")
+        try:
+            prob_str = f"{round(float(prob) * 100)}% meaningful"
+        except (TypeError, ValueError):
+            prob_str = "meaningful (probability unavailable)"
+        line = (
+            f"- {where} — ruled **{c.get('kind_ruled', 'skip')}** "
+            f"(via {c.get('via') or 'gate'}); veto head says {prob_str}."
+        )
+        # OCR is the strongest receipt; fall back to the parser's expected
+        # caption when OCR came back empty (ported from PR #66, which scanned
+        # caption + OCR alike).
+        preview = str(c.get("ocr_preview") or "").strip() or str(
+            c.get("expected_content") or ""
+        ).strip()
+        if preview:
+            line += f' Why we doubt the skip: "{preview}"'
+        hint = str(c.get("scope_hint") or "").strip()
+        if hint and hint.lower() not in preview.lower():
+            line += f" (mentions {hint!r})"
+        lines.append(line)
+    if total > len(cards):
+        lines.append(f"- _… {total - len(cards)} more disputed skip(s) not shown_")
+    lines.append("")
     return lines
 
 
