@@ -55,6 +55,7 @@ def render_pm_handoff_markdown(handoff: PMHandoff) -> str:
     lines.extend(_render_responsibilities(handoff))
     lines.extend(_render_reconciliation(handoff))
     lines.extend(_render_reconciliation_verdicts(handoff))
+    lines.extend(_render_disputed_images(handoff))
     lines.extend(_render_quantity_reconciliation(handoff))
     lines.extend(_render_questions(handoff))
     lines.extend(_render_known_facts(handoff))
@@ -207,6 +208,50 @@ def _render_reconciliation_verdicts(handoff: PMHandoff) -> list[str]:
             for c in e.get("superseded") or []:
                 lines.append(f"  - superseded: {_claim(c)}")
         lines.append("")
+    return lines
+
+
+def _render_disputed_images(handoff: PMHandoff) -> list[str]:
+    """Culprit cards for veto'd image skips: the gate ruled an image
+    skippable, the trained veto head disputes it. Renders nothing for
+    envelopes that predate gate_verdict stamping or clean compiles."""
+    di = handoff.disputed_images or {}
+    cards = di.get("cards") or []
+    if not cards:
+        return []
+    counts = di.get("counts") or {}
+    total = counts.get("disputed")
+    total = total if isinstance(total, int) else len(cards)
+    lines = [
+        "## Images we skipped — but doubt",
+        "",
+        f"_{total} skipped image(s) are disputed by the trained veto head, "
+        "which thinks the image is meaningful. In every case the image was "
+        "still skipped; confirm to reclaim its content._",
+        "",
+    ]
+    for c in cards:
+        if not isinstance(c, dict):
+            continue
+        pdf = c.get("pdf") or "unknown source"
+        page = c.get("page")
+        where = f"`{pdf}`" + (f", page {page}" if page is not None else "")
+        prob = c.get("veto_prob")
+        try:
+            prob_str = f"{round(float(prob) * 100)}% meaningful"
+        except (TypeError, ValueError):
+            prob_str = "meaningful (probability unavailable)"
+        line = (
+            f"- {where} — ruled **{c.get('kind_ruled', 'skip')}** "
+            f"(via {c.get('via') or 'gate'}); veto head says {prob_str}."
+        )
+        preview = str(c.get("ocr_preview") or "").strip()
+        if preview:
+            line += f' Why we doubt the skip: "{preview}"'
+        lines.append(line)
+    if total > len(cards):
+        lines.append(f"- _… {total - len(cards)} more disputed skip(s) not shown_")
+    lines.append("")
     return lines
 
 

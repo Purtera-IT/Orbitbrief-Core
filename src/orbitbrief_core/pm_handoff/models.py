@@ -120,6 +120,13 @@ class PMHandoff:
     # rank-65") and honest refusals (top-tier ties surfaced for a PM to
     # judge). Empty dict when the envelope predates the key.
     reconciliation_verdicts: dict[str, Any] = field(default_factory=dict)
+    # Disputed image skips (parser-os pdf_image_vision veto head): the gate
+    # ruled an image skippable, a trained head confidently disagrees. Shape:
+    # {"cards": [{pdf, page, region_ref, kind_ruled, via, veto_prob,
+    # ocr_preview}], "counts": {"disputed": N}} — cards capped, counts
+    # uncapped. Empty dict when the envelope predates gate_verdict stamping
+    # or no skip was veto'd, so the section renders nothing.
+    disputed_images: dict[str, Any] = field(default_factory=dict)
     # B2: PM-ready risk register projected from atom_type=risk rows.
     risk_register: list[dict[str, Any]] = field(default_factory=list)
     # B5: project-schedule rows projected from atom_type=schedule_phase
