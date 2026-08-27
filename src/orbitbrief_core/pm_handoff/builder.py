@@ -1739,6 +1739,22 @@ def _build_disputed_images(envelope: Any) -> dict[str, Any]:
             str(expected_content).strip()[:160]
             if isinstance(expected_content, (str, int, float)) else ""
         )
+        # Saved pixel crop of the disputed image (parser-os uploads it so
+        # humans can see what the veto head saw): a blob path like
+        # "deals/<deal>/orbitbrief/disputed_crops/<sha16>.png". When the
+        # upload failed the parser stamps crop_ref_error instead — a
+        # liveness receipt we must carry, not swallow. Both optional;
+        # absent/None/odd types degrade to "".
+        crop_ref = verdict.get("crop_ref")
+        crop_ref = (
+            str(crop_ref).strip()
+            if isinstance(crop_ref, (str, int, float)) else ""
+        )
+        crop_ref_error = verdict.get("crop_ref_error")
+        crop_ref_error = (
+            str(crop_ref_error).strip()[:160]
+            if isinstance(crop_ref_error, (str, int, float)) else ""
+        )
         cards.append({
             "pdf": filename_by_artifact.get(artifact_id)
             or artifact_id or "unknown source",
@@ -1749,6 +1765,8 @@ def _build_disputed_images(envelope: Any) -> dict[str, Any]:
             "veto_prob": _maybe_float(veto.get("meaningful_prob")),
             "ocr_preview": ocr_preview,
             "expected_content": expected_content,
+            "crop_ref": crop_ref,
+            "crop_ref_error": crop_ref_error,
             # First quantity / PM-critical vocab hit in the caption+OCR —
             # the concrete "why this looks like real scope" token ("18 Total
             # Data Outlets", "patch panel"). Empty when nothing hits.

@@ -256,6 +256,16 @@ def _render_disputed_images(handoff: PMHandoff) -> list[str]:
         hint = str(c.get("scope_hint") or "").strip()
         if hint and hint.lower() not in preview.lower():
             line += f" (mentions {hint!r})"
+        # Saved pixel crop receipt: plain blob path only — the FE turns it
+        # into a thumbnail; markdown must not fabricate a URL. When the
+        # upload failed, the liveness receipt is rendered, not swallowed.
+        crop_ref = str(c.get("crop_ref") or "").strip()
+        if crop_ref:
+            line += f" · crop saved: `{crop_ref}`"
+        else:
+            crop_err = str(c.get("crop_ref_error") or "").strip()
+            if crop_err:
+                line += f" · crop upload failed ({crop_err})"
         lines.append(line)
     if total > len(cards):
         lines.append(f"- _… {total - len(cards)} more disputed skip(s) not shown_")
