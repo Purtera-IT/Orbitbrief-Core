@@ -268,6 +268,13 @@ class TestCropRefs:
         assert f"crop saved: `{self.CROP}`" in md
         assert "crop upload failed" not in md
 
+    def test_crop_thumb_and_crop_ref_are_independent(self):
+        """A crop can be uploaded, thumbnailed, both, or neither."""
+        atom = _marker(crop_ref=self.CROP, crop_thumb=TestCropThumbs.THUMB)
+        (card,) = _build_disputed_images({"atoms": [atom]})["cards"]
+        assert card["crop_ref"] == self.CROP
+        assert card["crop_thumb"] == TestCropThumbs.THUMB
+
     def test_veto_soft_only_is_never_a_card(self):
         soft = _marker(veto=False)
         soft["structured"]["gate_verdict"]["veto_soft"] = {
@@ -285,3 +292,123 @@ class TestCropRefs:
         assert out["counts"] == {"disputed": 1}       # soft not even counted
         (card,) = out["cards"]
         assert card["crop_ref"] == self.CROP
+
+
+class TestCropThumbs:
+    """parser-os also stamps gate_verdict["crop_thumb"] — a small inline JPEG
+    data URI of the same crop (<=24KB, hard vetoes only) — plus a
+    "crop_thumb_error" receipt when generation failed.
+
+    The thumbnail is for the JSON/UI surface. It is an untrusted blob headed
+    for a rendered document, so the builder validates its shape before letting
+    it through, and markdown never inlines the base64.
+    """
+
+    CROP = "deals/d1/orbitbrief/disputed_crops/ab12cd34ef56ab78.png"
+    THUMB = "data:image/jpeg;base64," + "R0lGODlhAQABAIAAAAAAAP" * 4
+
+    def test_valid_data_uri_is_carried(self):
+        atom = _marker(crop_thumb=self.THUMB)
+        (card,) = _build_disputed_images({"atoms": [atom]})["cards"]
+        assert card["crop_thumb"] == self.THUMB
+        assert card["crop_thumb_error"] == ""
+
+    def test_png_and_webp_data_uris_also_accepted(self):
+        for uri in ("data:image/png;base64,iVBORw0KGgo=",
+                    "data:image/webp;base64,UklGRg=="):
+            atom = _marker(crop_thumb=uri)
+            (card,) = _build_disputed_images({"atoms": [atom]})["cards"]
+            assert card["crop_thumb"] == uri
+
+    def test_non_data_uri_junk_is_rejected_to_empty(self):
+        """Anything that is not an image data URI never reaches a card —
+        including URLs, script payloads, and other data: scheme types."""
+        junk = [
+            "https://evil.example/x.png",
+            "javascript:alert(1)",
+            "data:text/html;base64,PHNjcmlwdD4=",   # wrong media type
+            "<img src=x onerror=alert(1)>",
+            " data:image/jpeg;base64,AAAA",          # leading space, not a URI
+            "deals/d1/orbitbrief/disputed_crops/ab12.png",
+            "",
+        ]
+        env = {"atoms": [_marker(crop_thumb=j) for j in junk]}
+        cards = _build_disputed_images(env)["cards"]
+        assert [c["crop_thumb"] for c in cards] == [""] * len(junk)
+
+    def test_wrong_types_degrade_to_empty(self):
+        absent = _marker()                                  # never stamped
+        nones = _marker(crop_thumb=None, crop_thumb_error=None)
+        numeric = _marker(crop_thumb=123)                   # str only
+        listed = _marker(crop_thumb=["data:image/jpeg;base64,AAAA"])
+        dicted = _marker(crop_thumb={"uri": "data:image/jpeg;base64,AAAA"})
+        env = {"atoms": [absent, nones, numeric, listed, dicted]}
+        cards = _build_disputed_images(env)["cards"]
+        assert [c["crop_thumb"] for c in cards] == [""] * 5
+        assert [c["crop_thumb_error"] for c in cards] == [""] * 5
+
+    def test_oversized_thumb_is_rejected_to_empty(self):
+        fat = "data:image/jpeg;base64," + "A" * 60_000
+        (card,) = _build_disputed_images(
+            {"atoms": [_marker(crop_thumb=fat)]}
+        )["cards"]
+        assert card["crop_thumb"] == ""
+
+    def test_thumb_at_the_cap_still_passes(self):
+        prefix = "data:image/jpeg;base64,"
+        ok = prefix + "A" * (40_000 - len(prefix))
+        (card,) = _build_disputed_images(
+            {"atoms": [_marker(crop_thumb=ok)]}
+        )["cards"]
+        assert card["crop_thumb"] == ok
+
+    def test_crop_thumb_error_is_carried(self):
+        atom = _marker(crop_thumb_error="pillow: cannot open truncated JPEG")
+        (card,) = _build_disputed_images({"atoms": [atom]})["cards"]
+        assert card["crop_thumb"] == ""
+        assert card["crop_thumb_error"] == "pillow: cannot open truncated JPEG"
+
+    def test_crop_thumb_error_is_clamped(self):
+        atom = _marker(crop_thumb_error="x" * 500)
+        (card,) = _build_disputed_images({"atoms": [atom]})["cards"]
+        assert len(card["crop_thumb_error"]) == 160
+
+    def test_markdown_notes_the_thumbnail_without_inlining_base64(self):
+        atom = _marker(crop_ref=self.CROP, crop_thumb=self.THUMB)
+        h = _handoff(disputed_images=_build_disputed_images({"atoms": [atom]}))
+        md = "\n".join(_render_disputed_images(h))
+        assert "· thumbnail attached" in md
+        # The path receipt is untouched, and the payload never lands in prose.
+        assert f"crop saved: `{self.CROP}`" in md
+        assert "data:image" not in md
+        assert "base64" not in md
+
+    def test_full_markdown_document_never_contains_base64(self):
+        atom = _marker(crop_ref=self.CROP, crop_thumb=self.THUMB)
+        h = _handoff(disputed_images=_build_disputed_images({"atoms": [atom]}))
+        md = render_pm_handoff_markdown(h)
+        assert "thumbnail attached" in md
+        assert "data:image" not in md
+        assert "base64" not in md
+
+    def test_markdown_omits_the_note_when_thumb_absent_or_rejected(self):
+        for atom in (_marker(crop_ref=self.CROP),
+                     _marker(crop_thumb="https://evil.example/x.png"),
+                     _marker(crop_thumb_error="pillow blew up")):
+            h = _handoff(
+                disputed_images=_build_disputed_images({"atoms": [atom]})
+            )
+            md = "\n".join(_render_disputed_images(h))
+            assert "thumbnail attached" not in md
+
+    def test_thumb_survives_json_round_trip(self):
+        atom = _marker(crop_thumb=self.THUMB)
+        out = _build_disputed_images({"atoms": [atom]})
+        (card,) = json.loads(json.dumps(out))["cards"]
+        assert card["crop_thumb"] == self.THUMB
+
+    def test_builder_does_not_mutate_the_envelope(self):
+        env = {"atoms": [_marker(crop_thumb=self.THUMB)]}
+        before = copy.deepcopy(env)
+        _build_disputed_images(env)
+        assert env == before

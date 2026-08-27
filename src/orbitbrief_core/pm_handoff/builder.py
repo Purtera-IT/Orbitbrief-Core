@@ -1629,6 +1629,12 @@ def _build_reconciliation_verdicts(envelope: Any) -> dict[str, Any]:
 # One brief page of culprit cards is plenty — the review queue holds the rest.
 _MAX_DISPUTED_IMAGE_CARDS = 20
 
+# Inline crop thumbnails must look like image data URIs and stay small.
+# parser-os targets <=24KB; we accept a little slack and hard-reject the rest
+# so an oversized or wrong-shaped blob can never reach a rendered surface.
+_CROP_THUMB_PREFIX = "data:image/"
+_MAX_CROP_THUMB_CHARS = 40_000
+
 # Quantity / critical-vocab hints that make a skip verdict suspicious.
 # Ported from the retired question_generators.candidates_from_skipped_image_culprits
 # (PR #66) — mirror of parser-os tools/build_image_review_queue.QUANTITY_RE
@@ -1755,6 +1761,26 @@ def _build_disputed_images(envelope: Any) -> dict[str, Any]:
             str(crop_ref_error).strip()[:160]
             if isinstance(crop_ref_error, (str, int, float)) else ""
         )
+        # Inline thumbnail of the same crop: a small JPEG data URI parser-os
+        # stamps for the JSON/UI surface (markdown never inlines it). This is
+        # an untrusted blob headed for a rendered document, so it is validated
+        # rather than merely stringified: str only (no int/float dressing —
+        # a number can never be a data URI), the "data:image/" scheme prefix,
+        # and a hard length cap. Anything else degrades to "".
+        crop_thumb = verdict.get("crop_thumb")
+        if (
+            isinstance(crop_thumb, str)
+            and crop_thumb.startswith(_CROP_THUMB_PREFIX)
+            and len(crop_thumb) <= _MAX_CROP_THUMB_CHARS
+        ):
+            crop_thumb = crop_thumb.strip()
+        else:
+            crop_thumb = ""
+        crop_thumb_error = verdict.get("crop_thumb_error")
+        crop_thumb_error = (
+            str(crop_thumb_error).strip()[:160]
+            if isinstance(crop_thumb_error, (str, int, float)) else ""
+        )
         cards.append({
             "pdf": filename_by_artifact.get(artifact_id)
             or artifact_id or "unknown source",
@@ -1767,6 +1793,8 @@ def _build_disputed_images(envelope: Any) -> dict[str, Any]:
             "expected_content": expected_content,
             "crop_ref": crop_ref,
             "crop_ref_error": crop_ref_error,
+            "crop_thumb": crop_thumb,
+            "crop_thumb_error": crop_thumb_error,
             # First quantity / PM-critical vocab hit in the caption+OCR —
             # the concrete "why this looks like real scope" token ("18 Total
             # Data Outlets", "patch panel"). Empty when nothing hits.
