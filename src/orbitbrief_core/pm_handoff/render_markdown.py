@@ -266,6 +266,11 @@ def _render_disputed_images(handoff: PMHandoff) -> list[str]:
             crop_err = str(c.get("crop_ref_error") or "").strip()
             if crop_err:
                 line += f" · crop upload failed ({crop_err})"
+        # The inline thumbnail is a base64 data URI for the JSON/UI surface
+        # only. Markdown must stay readable, so we note its presence and never
+        # inline the payload.
+        if str(c.get("crop_thumb") or "").strip():
+            line += " · thumbnail attached"
         lines.append(line)
     if total > len(cards):
         lines.append(f"- _… {total - len(cards)} more disputed skip(s) not shown_")
