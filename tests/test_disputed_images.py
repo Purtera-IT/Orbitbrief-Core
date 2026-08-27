@@ -204,3 +204,84 @@ class TestPortedFromSkipCulpritGenerator:
         h = _handoff(disputed_images=_build_disputed_images({"atoms": [atom]}))
         md = "\n".join(_render_disputed_images(h))
         assert 'Why we doubt the skip: "Floor plan detail"' in md
+
+
+class TestCropRefs:
+    """parser-os (parallel branch) stamps gate_verdict["crop_ref"] — a blob
+    path to a saved pixel crop of the disputed image — plus an optional
+    "crop_ref_error" liveness receipt when the upload failed, and a
+    "veto_soft" soft-band veto that must NEVER become a card (only the hard
+    "veto" key makes cards)."""
+
+    CROP = "deals/d1/orbitbrief/disputed_crops/ab12cd34ef56ab78.png"
+
+    def test_crop_ref_passthrough(self):
+        atom = _marker(crop_ref=self.CROP)
+        (card,) = _build_disputed_images({"atoms": [atom]})["cards"]
+        assert card["crop_ref"] == self.CROP
+        assert card["crop_ref_error"] == ""
+
+    def test_crop_ref_error_passthrough(self):
+        atom = _marker(crop_ref_error="blob PUT 503 after 3 retries")
+        (card,) = _build_disputed_images({"atoms": [atom]})["cards"]
+        assert card["crop_ref"] == ""
+        assert card["crop_ref_error"] == "blob PUT 503 after 3 retries"
+
+    def test_absent_none_and_string_dressed_tolerated(self):
+        absent = _marker()                               # keys never stamped
+        nones = _marker(crop_ref=None, crop_ref_error=None)
+        dressed = _marker(crop_ref=123)                  # string-dressed
+        junk = _marker(crop_ref=["deals/x.png"],         # wrong types degrade
+                       crop_ref_error={"code": 503})
+        env = {"atoms": [absent, nones, dressed, junk]}
+        cards = _build_disputed_images(env)["cards"]
+        assert [c["crop_ref"] for c in cards] == ["", "", "123", ""]
+        assert [c["crop_ref_error"] for c in cards] == ["", "", "", ""]
+
+    def test_markdown_renders_crop_saved_receipt_as_plain_path(self):
+        atom = _marker(crop_ref=self.CROP)
+        h = _handoff(disputed_images=_build_disputed_images({"atoms": [atom]}))
+        md = "\n".join(_render_disputed_images(h))
+        assert f"crop saved: `{self.CROP}`" in md
+        assert "crop upload failed" not in md
+        # Plain path text only — the FE makes the thumbnail; markdown must
+        # not fabricate a URL around the blob path.
+        assert "http" not in md and "](" not in md
+
+    def test_markdown_renders_error_receipt_when_upload_failed(self):
+        atom = _marker(crop_ref_error="blob PUT 503 after 3 retries")
+        h = _handoff(disputed_images=_build_disputed_images({"atoms": [atom]}))
+        md = "\n".join(_render_disputed_images(h))
+        assert "crop upload failed (blob PUT 503 after 3 retries)" in md
+        assert "crop saved" not in md
+
+    def test_markdown_omits_both_receipts_when_neither_stamped(self):
+        h = _handoff(disputed_images=_build_disputed_images(_ENVELOPE))
+        md = "\n".join(_render_disputed_images(h))
+        assert "crop saved" not in md
+        assert "crop upload failed" not in md
+
+    def test_crop_ref_wins_when_both_present(self):
+        atom = _marker(crop_ref=self.CROP, crop_ref_error="late failure")
+        h = _handoff(disputed_images=_build_disputed_images({"atoms": [atom]}))
+        md = "\n".join(_render_disputed_images(h))
+        assert f"crop saved: `{self.CROP}`" in md
+        assert "crop upload failed" not in md
+
+    def test_veto_soft_only_is_never_a_card(self):
+        soft = _marker(veto=False)
+        soft["structured"]["gate_verdict"]["veto_soft"] = {
+            "meaningful_prob": 0.55, "model": "pdf_image_veto"
+        }
+        assert _build_disputed_images({"atoms": [soft]}) == {}
+
+    def test_veto_soft_does_not_leak_into_mixed_envelopes(self):
+        soft = _marker(veto=False)
+        soft["structured"]["gate_verdict"]["veto_soft"] = {
+            "meaningful_prob": 0.55
+        }
+        hard = _marker(crop_ref=self.CROP)
+        out = _build_disputed_images({"atoms": [soft, hard]})
+        assert out["counts"] == {"disputed": 1}       # soft not even counted
+        (card,) = out["cards"]
+        assert card["crop_ref"] == self.CROP

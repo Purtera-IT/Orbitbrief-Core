@@ -178,6 +178,17 @@ def main(argv: list[str] | None = None) -> int:
                             else "likely meaningful"
                         )
                         preview = str(c.get("ocr_preview") or "").strip()
+                        # Saved crop receipt rides inside the existing
+                        # detail field — the 14-column schema is fixed
+                        # (mirrored in build_pm_question_queue.py and
+                        # consumed downstream), so no extra column.
+                        crop_ref = str(c.get("crop_ref") or "").strip()
+                        crop_err = str(c.get("crop_ref_error") or "").strip()
+                        crop_txt = (
+                            f" Crop saved: {crop_ref}" if crop_ref
+                            else (f" Crop upload failed ({crop_err})"
+                                  if crop_err else "")
+                        )
                         w.writerow([
                             h.case_id, h.status, "warning",
                             "Parser evidence", "disputed_image_skip",
@@ -189,6 +200,7 @@ def main(argv: list[str] | None = None) -> int:
                                 "still skipped; confirm to reclaim its "
                                 "content."
                                 + (f" OCR preview: {preview}" if preview else "")
+                                + crop_txt
                             ),
                             "", "", "", "", "no", "no", "no",
                         ])
