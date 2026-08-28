@@ -70,7 +70,12 @@ jobs:
 
       - name: Import check
         working-directory: Orbitbrief-Core
-        run: python -c "import orbitbrief_core.envelope, orbitbrief_core.envelope_builders"
+        # Guards the modules that actually run: the seam (core's only
+        # contract with parser-os) and the handoff builder/renderer. The
+        # previous check imported orbitbrief_core.envelope[_builders],
+        # which nothing else imported -- it smoke-tested dead code and
+        # would have kept passing while the real path broke.
+        run: python -c "import orbitbrief_core.seam, orbitbrief_core.pm_handoff.builder, orbitbrief_core.pm_handoff.render_markdown"
 
       - name: Import contracts
         working-directory: Orbitbrief-Core
