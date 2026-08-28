@@ -9,22 +9,6 @@
 # seven were two real bugs, fixed in the same PR that created this file.
 
 # ---------------------------------------------------------------------------
-# Architectural — needs a coordinated two-repo change (1)
-#
-# orbitbrief_core.envelope imports DERIVED_DIR_SUFFIX, STRUCTURED_FILENAME and
-# structured_doc_to_markdown from app.parsers.structured_projection, which the
-# Phase-0 seam contract forbids (.importlinter, and this test as a backstop).
-#
-# The fix is to re-export those three from parser-os's sanctioned seam module
-# (app/core/orbitbrief_core.py) and import from there, preserving the contract
-# rather than weakening it. parser-os has no such re-export today, and Core's
-# CI pins feat/clean-rubric-heads, so the parser-os half has to land on that
-# branch first.
-#
-# Relaxing the contract instead would be the wrong trade: the seam is the
-# reason these two repositories can move independently.
-# ---------------------------------------------------------------------------
-tests/test_envelope_contract.py::test_orbitbrief_core_does_not_import_parser_internals
 
 # ---------------------------------------------------------------------------
 # Behavioural — product decisions, not bugs (4)
