@@ -83,14 +83,23 @@ def test_risk_writes_only_its_field(patched, monkeypatch):
 
 
 def test_commercial_conflict_flag(patched, monkeypatch):
+    # Tags are assigned A1..AN over the atoms each head KEEPs, not over the whole
+    # envelope -- so a tag means something different per head. commercial.KEEP
+    # admits 3 of _env()'s 6 atoms (scope_item, commercial_total, payment_term),
+    # making the commercial_total atom A2 here and A4 to the gap head. A cite
+    # outside that range is a phantom cite by construction, and gets dropped.
     teacher = {"value_summary": "Deal value $134,912", "billing_model": "hybrid",
                "flags": [{"label": "Conflicting deal totals", "note": "$21,560 vs $134,912",
-                          "severity": "blocker", "atom_ids": ["A5"]}]}
+                          "severity": "blocker", "atom_ids": ["A2"]},      # commercial_total
+                         {"label": "Fabricated", "note": "cites nothing real",
+                          "severity": "blocker", "atom_ids": ["A9"]}]}     # phantom
     monkeypatch.setattr("orbitbrief_core.neural_heads.commercial.deepseek_json", _mock_deepseek(teacher))
     from orbitbrief_core.neural_heads.commercial import apply_commercial
     out = apply_commercial(FakeHandoff(), _env())
     assert out.commercial_narrative["billing_model"] == "hybrid"
-    assert out.commercial_narrative["flags"][0]["label"] == "Conflicting deal totals"
+    labels = [f["label"] for f in out.commercial_narrative["flags"]]
+    assert labels == ["Conflicting deal totals"]           # phantom-cite flag dropped
+    assert out.commercial_narrative["flags"][0]["evidence_ids"] == ["A2"]
 
 
 def test_teacher_failure_is_noop(patched, monkeypatch):

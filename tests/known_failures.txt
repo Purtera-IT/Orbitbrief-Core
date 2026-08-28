@@ -5,10 +5,9 @@
 # this list and reports any entry that now passes. When CI says an entry
 # passes, delete the line -- the list is only allowed to shrink.
 #
-# 5 entries, down from 12 on the first honest run of this suite. The other
-# seven were two real bugs, fixed in the same PR that created this file.
-
-# ---------------------------------------------------------------------------
+# 4 entries, down from 12 on the first honest run of this suite. Seven were two
+# real bugs, fixed in the same PR that created this file; the eighth was the
+# architectural seam entry, retired when PR #72 deleted core's diverged envelope.
 
 # ---------------------------------------------------------------------------
 # Behavioural — product decisions, not bugs (4)
