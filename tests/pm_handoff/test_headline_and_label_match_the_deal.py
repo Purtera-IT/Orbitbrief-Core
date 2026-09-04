@@ -105,3 +105,23 @@ def test_a_short_name_with_no_street_stands_alone() -> None:
 
 def test_a_slug_is_still_the_last_resort() -> None:
     assert _display_name_from_aliases(["site_palo_alto_ca_94304"]) == "Site Palo Alto CA 94304"
+
+
+def test_the_devices_are_read_from_the_envelope_not_the_inspection_report() -> None:
+    """`report` in build_pm_handoff is the inspection report, which does not
+    carry scope_truth. The first cut of this read it there, found nothing every
+    time, and the headline went on naming a third party's equipment even after
+    the fix shipped."""
+    import inspect
+
+    from orbitbrief_core.pm_handoff import builder
+
+    src = inspect.getsource(builder.build_pm_handoff)
+    assert "scope_devices=_adjudicated_devices(full_envelope or report)" in src
+
+    assert _adjudicated_devices({"artifacts": []}) == []
+    assert _adjudicated_devices(YEALINK_SCOPE_TRUTH) == [
+        "MP38 WHE2 Teams",
+        "MPS2 E2 Teams",
+        "MPS6 E2 Teams",
+    ]
