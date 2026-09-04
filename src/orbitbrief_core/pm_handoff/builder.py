@@ -725,7 +725,10 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         project_mode=project_mode,
         site_rollups=site_rolls,
         date_mentions=dates,
-        scope_devices=_adjudicated_devices(report),
+        # scope_truth lives in the ENVELOPE. `report` is the inspection report,
+        # which does not carry it, so the first cut of this silently found
+        # nothing and the headline kept naming a third party's equipment.
+        scope_devices=_adjudicated_devices(full_envelope or report),
     )
     actions = build_action_items(gaps=gaps, risk_rows=risks, schedule_phases=phases)
     pagers = build_stakeholder_pagers(
@@ -2237,7 +2240,7 @@ def _collapse_repeated_address(label: str) -> str:
     return text
 
 
-def _adjudicated_devices(report: dict[str, Any]) -> list[str]:
+def _adjudicated_devices(source: dict[str, Any]) -> list[str]:
     """What parser-os says this deal actually installs.
 
     `scope_truth` is the adjudicated answer: competing claims resolved by
@@ -2247,7 +2250,7 @@ def _adjudicated_devices(report: dict[str, Any]) -> list[str]:
     them from a March 2025 NewBold/CDW statement of work that the envelope
     marks `third_party_terms: true`. The deal is Yealink phones.
     """
-    truth = (report or {}).get("scope_truth") or {}
+    truth = (source or {}).get("scope_truth") or {}
     out: list[str] = []
     for row in truth.get("devices") or []:
         key = str((row or {}).get("device") or "")
