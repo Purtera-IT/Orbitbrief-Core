@@ -725,6 +725,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         project_mode=project_mode,
         site_rollups=site_rolls,
         date_mentions=dates,
+        scope_devices=_adjudicated_devices(report),
     )
     actions = build_action_items(gaps=gaps, risk_rows=risks, schedule_phases=phases)
     pagers = build_stakeholder_pagers(
@@ -1134,7 +1135,16 @@ def _display_name_from_aliases(aliases: Any) -> str:
 
     # 1. A real facility name: not a code, not an address, not a slug.
     #    An all-caps token like "MARICOPA-COUNTY" is an identifier, not a name —
-    #    let it fall through so it gets its address attached below.
+    #    let it fall through so it gets its address attached below. A SHORT
+    #    all-letters one is different: "HQ", "NOC", "MDF", "DC" are what the
+    #    building is called, and rejecting them cost a real label. Live 010300
+    #    carried ["2970-BRANDYWINE-RD-STE-200", "HQ", "2970 Brandywine Rd"] and
+    #    printed "2970 Brandywine RD STE 200 - 2970 Brandywine Rd" — the same
+    #    address twice — in four of the twelve questions the PM reads.
+    short_name = next(
+        (t for t in texts if t.isupper() and t.isalpha() and 2 <= len(t) <= 5),
+        "",
+    )
     for text in texts:
         if (
             _ALIAS_CODE_RE.match(text)
@@ -1145,6 +1155,21 @@ def _display_name_from_aliases(aliases: Any) -> str:
         ):
             continue
         return text
+    if short_name:
+        # A written address, not the same address shouted as a slug: a real
+        # street line has spaces, "2970-BRANDYWINE-RD-STE-200" does not.
+        street = next(
+            (
+                t
+                for t in texts
+                if " " in t
+                and not _ALIAS_CODE_RE.match(t)
+                and not _is_slug_alias(t)
+                and (t[:1].isdigit() or _looks_like_address(t))
+            ),
+            "",
+        )
+        return f"{short_name} - {street}" if street else short_name
 
     # 2. Only a code (plus, usually, its address lines). Join them so the PM
     #    sees a place instead of an identifier.
@@ -1152,7 +1177,15 @@ def _display_name_from_aliases(aliases: Any) -> str:
     address = [t for t in texts if t is not code and (t[:1].isdigit() or "," in t)]
     if code:
         label = _humanize_site_token(code)
-        return f"{label} - {', '.join(address)}" if address else label
+        if not address:
+            return label
+        # A "code" that is only the address shouted in a slug says nothing the
+        # address does not. Printing both reads as two places.
+        norm = lambda t: re.sub(r"[^a-z0-9]", "", (t or "").lower())
+        joined = ", ".join(address)
+        if norm(joined) and (norm(joined) in norm(label) or norm(label) in norm(joined)):
+            return joined
+        return f"{label} - {joined}"
 
     # 3. Slug only — the extractor's own key is the only thing we have.
     for text in texts:
@@ -2204,6 +2237,33 @@ def _collapse_repeated_address(label: str) -> str:
     return text
 
 
+def _adjudicated_devices(report: dict[str, Any]) -> list[str]:
+    """What parser-os says this deal actually installs.
+
+    `scope_truth` is the adjudicated answer: competing claims resolved by
+    authority, so a third party's contract cannot outvote our own scope. The
+    raw union of `device:*` keys cannot tell the difference, and on live 010300
+    the headline read "access points, controllers, firewalls" — every one of
+    them from a March 2025 NewBold/CDW statement of work that the envelope
+    marks `third_party_terms: true`. The deal is Yealink phones.
+    """
+    truth = (report or {}).get("scope_truth") or {}
+    out: list[str] = []
+    for row in truth.get("devices") or []:
+        key = str((row or {}).get("device") or "")
+        name = _humanize_device_token(key.split(":", 1)[-1].replace("_", " ").strip())
+        if name and name not in out:
+            out.append(name)
+    return out
+
+
+def _humanize_device_token(name: str) -> str:
+    """A model code reads as a model code. "mp38 whe2 teams" is a product, and
+    lower-casing it makes the headline look like a parse artifact."""
+    words = [w for w in str(name or "").split() if w]
+    return " ".join(w.upper() if any(c.isdigit() for c in w) else w.capitalize() for w in words)
+
+
 def _build_one_line_summary(
     case_id: str,
     domains: list[DomainSummary],
@@ -2213,6 +2273,7 @@ def _build_one_line_summary(
     project_mode: str | None = None,
     site_rollups: list[Any] | None = None,
     date_mentions: list[Any] | None = None,
+    scope_devices: list[str] | None = None,
 ) -> str:
     """One line a PM can read instead of opening the brief.
 
@@ -2264,9 +2325,12 @@ def _build_one_line_summary(
     warnings = sum(1 for g in gaps if g.severity == "warning")
     label = (case_id or "This engagement").strip() or "This engagement"
 
-    # What is being touched, from the site rollups.
-    kinds: list[str] = []
-    for roll in site_rollups or []:
+    # What is being touched. The adjudicated scope first: it already settled
+    # which claims govern, so a third party's contract cannot put its equipment
+    # in our headline. The rollup union is the fallback for deals whose scope
+    # truth is empty.
+    kinds: list[str] = [k for k in (scope_devices or []) if k]
+    for roll in [] if kinds else (site_rollups or []):
         devices = getattr(roll, "devices", None)
         if devices is None and isinstance(roll, dict):
             devices = roll.get("devices")
