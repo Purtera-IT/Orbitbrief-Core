@@ -84,8 +84,13 @@ def test_risk_writes_only_its_field(patched, monkeypatch):
 
 def test_commercial_conflict_flag(patched, monkeypatch):
     teacher = {"value_summary": "Deal value $134,912", "billing_model": "hybrid",
+               # A1, not A5. The commercial head keeps only commercial atom
+               # types, so this envelope's six atoms tag down to two: A1 the
+               # commercial_total, A2 the payment_term. "A5" is a tag this head
+               # can never mint, and dropping a flag that cites it is the
+               # citation contract working, not a bug.
                "flags": [{"label": "Conflicting deal totals", "note": "$21,560 vs $134,912",
-                          "severity": "blocker", "atom_ids": ["A5"]}]}
+                          "severity": "blocker", "atom_ids": ["A1"]}]}
     monkeypatch.setattr("orbitbrief_core.neural_heads.commercial.deepseek_json", _mock_deepseek(teacher))
     from orbitbrief_core.neural_heads.commercial import apply_commercial
     out = apply_commercial(FakeHandoff(), _env())
