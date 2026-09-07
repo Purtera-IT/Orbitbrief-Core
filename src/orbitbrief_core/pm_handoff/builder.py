@@ -1252,9 +1252,30 @@ def _sites_from_canonical_roster(
                     row.get("atom_count") or row.get("signal_count") or 0
                 ),
                 artifact_count=0,
+                # The roster row already holds the parsed address. Carry it.
+                # Envelope rows write ``address`` (some writers ``street_address``)
+                # and ``zip``; the handoff's own re-serialised roster writes
+                # ``postal_code``. Accept both spellings on the way in so a
+                # rebuild from a saved handoff does not silently lose geography.
+                address=_clean_geo(row.get("address") or row.get("street_address")),
+                city=_clean_geo(row.get("city")),
+                state=_clean_geo(row.get("state")),
+                postal_code=_clean_geo(row.get("postal_code") or row.get("zip")),
             )
         )
     return out
+
+
+def _clean_geo(value: Any) -> str | None:
+    """Normalise one address field, treating blanks as absent.
+
+    An empty string is worse than ``None`` here: it renders as a populated
+    field in the tier panel and reads as reviewed.
+    """
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def _build_site_summaries(report: dict[str, Any], case_dir: Path | None = None) -> list[SiteSummary]:
@@ -1348,6 +1369,10 @@ def _build_site_summaries(report: dict[str, Any], case_dir: Path | None = None) 
         cluster_slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
         if not physical_slugs or cluster_slug not in physical_slugs:
             continue
+        # `site_reality` clusters carry no address of their own, but the
+        # structured site they were matched against does — the same object
+        # `_prefer_structured_site_name` just used to recover the name.
+        geo = structured_by_slug.get(cluster_slug)
         out.append(
             SiteSummary(
                 name=name,
@@ -1360,6 +1385,10 @@ def _build_site_summaries(report: dict[str, Any], case_dir: Path | None = None) 
                 publishable=publishable,
                 member_evidence_count=member_count,
                 artifact_count=artifact_count,
+                address=geo.address if geo else None,
+                city=geo.city if geo else None,
+                state=geo.state if geo else None,
+                postal_code=geo.postal_code if geo else None,
             )
         )
     # Merge structured sites the clusterer missed. This must NOT be gated on an
@@ -1444,6 +1473,13 @@ def _site_summaries_from_physical_atoms(report: dict[str, Any]) -> list[SiteSumm
                 publishable=True,
                 member_evidence_count=max(1, by_slug_count.get(slug, 1)),
                 artifact_count=1,
+                # `_physical_atom_has_location` above SELECTS these atoms on the
+                # strength of exactly these fields, so reading them here costs
+                # nothing and dropping them was never intentional.
+                address=_clean_geo(value.get("street_address") or value.get("address")),
+                city=_clean_geo(value.get("city")),
+                state=_clean_geo(value.get("state")),
+                postal_code=_clean_geo(value.get("zip") or value.get("postal_code")),
             )
         )
     return out
