@@ -39,6 +39,16 @@ class SiteSummary:
     publishable: bool
     member_evidence_count: int = 0
     artifact_count: int = 0
+    # Geography, carried from the canonical roster rather than re-derived.
+    # ``envelope.site_readiness`` resolves the address once and holds
+    # ``address`` / ``city`` / ``state`` / ``zip`` fully populated; the handoff
+    # read that row and dropped every one of them, so a brief whose own site
+    # was "HQ - 2970 Brandywine Rd, Atlanta, GA" could not answer "what state
+    # is this in". Nothing downstream should geocode a name we already parsed.
+    address: str | None = None
+    city: str | None = None
+    state: str | None = None
+    postal_code: str | None = None
 
 
 @dataclass(frozen=True)
