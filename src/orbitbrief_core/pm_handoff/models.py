@@ -150,6 +150,12 @@ class PMHandoff:
     # B6: per-site evidence rollup — devices, money, dates, and
     # stakeholders each site touches, aggregated across all docs.
     site_rollups: list[dict[str, Any]] = field(default_factory=list)
+    #: Pairs of sites that look like one place, for a PM to judge. Proposed by
+    #: parser-os during envelope build; nothing here has been merged. Each row
+    #: carries the exemplar the `same_site` head is asked with, so the answer
+    #: is taught on the same string — the site head's existing chip teaches on
+    #: a different one, which is why nothing it recorded could ever fire.
+    site_duplicate_candidates: list[dict[str, Any]] = field(default_factory=list)
     # B6 polish: explicit BOM-allocation cost lines (e.g. "ATL-HQ:
     # 52 Wi-Fi APs × $995 = $51,740") with per-site totals.
     site_allocations: list[dict[str, Any]] = field(default_factory=list)

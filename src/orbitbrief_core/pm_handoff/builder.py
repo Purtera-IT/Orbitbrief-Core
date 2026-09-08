@@ -898,6 +898,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         risk_register=[asdict(r) for r in risks],
         schedule_phases=[asdict(p) for p in phases],
         site_rollups=[asdict(s) for s in site_rolls],
+        site_duplicate_candidates=_duplicate_candidates(report, case_dir),
         action_items=[asdict(a) for a in actions],
         stakeholder_pagers=[asdict(p) for p in pagers],
         compliance_callouts=[asdict(c) for c in compliance],
@@ -1039,6 +1040,35 @@ def _prefer_structured_site_name(
         if _slugs_compatible(slug, cand_slug) and not _SITE_CODE_RE.match(cand.name.strip()):
             return cand.name
     return name
+
+
+def _duplicate_candidates(report: dict[str, Any], case_dir: Path | None) -> list[dict[str, Any]]:
+    """Site pairs parser-os proposed as possibly one place.
+
+    Read from the same block and the same two locations as the roster itself —
+    the report when it carries one, otherwise the envelope beside the
+    artifacts. Nothing here is a merge: each row is a question with its
+    reasoning and the exemplar the `same_site` head is asked with.
+    """
+
+    def _from(doc: Any) -> list[dict[str, Any]]:
+        if not isinstance(doc, dict):
+            return []
+        sr = doc.get("site_readiness")
+        if not isinstance(sr, dict):
+            return []
+        rows = sr.get("duplicate_candidates")
+        return [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
+
+    found = _from(report)
+    if found or case_dir is None:
+        return found
+    env = (
+        _read_json(case_dir / "envelope.json")
+        or _read_json(case_dir / "00_envelope.json")
+        or {}
+    )
+    return _from(env)
 
 
 def _roster_rows(doc: Any) -> list[dict[str, Any]]:
