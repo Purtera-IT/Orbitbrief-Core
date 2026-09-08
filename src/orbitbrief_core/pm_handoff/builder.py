@@ -1247,7 +1247,7 @@ def _sites_from_canonical_roster(
             SiteSummary(
                 name=label,
                 kind="physical_site",
-                publishable=True,
+                publishable=_roster_row_is_publishable(row),
                 member_evidence_count=int(
                     row.get("atom_count") or row.get("signal_count") or 0
                 ),
@@ -1264,6 +1264,35 @@ def _sites_from_canonical_roster(
             )
         )
     return out
+
+
+def _roster_row_is_publishable(row: dict[str, Any]) -> bool:
+    """Is this roster row a confirmed site, or a name still looking for a place?
+
+    This used to be hardcoded ``True``, which is why the brief and the parser
+    disagreed on how many sites a deal has. The envelope row already carries
+    ``anchored`` — the parser's own judgement that a physical_site atom pinned
+    this row to somewhere real — and the brief threw it away along with the
+    address, the city and the state.
+
+    Live case (deal 010302): "Palo Alto Office" at 3300 Hillview Ave, anchored,
+    and "SymphonyAI Hillview Office" with no address, no city, no state and
+    anchored false. One office, published twice, and the second one is the
+    street of the first read as a separate place.
+
+    A row is publishable when the parser anchored it OR the documents located
+    it at all. A row with neither is not deleted — it renders as "needs review"
+    instead of "publishable", so it stays visible and stops inflating the site
+    count that drives the project tier. Measured on a 140-envelope sample
+    (2026-09-07): 59 of 514 rows, inflating the count on 21% of deals.
+    """
+    if row.get("anchored"):
+        return True
+    located = any(
+        str(row.get(field) or "").strip()
+        for field in ("address", "street_address", "city", "state", "zip", "postal_code")
+    )
+    return bool(located)
 
 
 def _clean_geo(value: Any) -> str | None:
