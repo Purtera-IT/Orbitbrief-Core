@@ -57,3 +57,38 @@ def test_the_symphony_case() -> None:
     assert len(rows) == 2, "the row is not deleted — it still renders, as needs-review"
     published = [r for r in rows if r.publishable]
     assert [r.name for r in published] == ["Palo Alto Office"]
+
+
+def test_duplicate_candidates_reach_the_brief() -> None:
+    """parser-os proposes the pair; the brief has to carry it, or nobody is
+    ever asked and the `same_site` head learns nothing."""
+    from orbitbrief_core.pm_handoff.builder import _duplicate_candidates
+
+    envelope = {
+        "site_readiness": {
+            "sites": [],
+            "duplicate_candidates": [
+                {
+                    "unlocated": "site:symphonyai_hillview_office",
+                    "located": "site:palo_alto_ca_94304",
+                    "exemplar": "Palo Alto Office — 3300 Hillview Ave — Palo Alto, CA "
+                                "|| Symphony Ai Hillview Office",
+                    "shared_token": "hillview",
+                    "why": "no address of its own",
+                }
+            ],
+        }
+    }
+    out = _duplicate_candidates(envelope, None)
+    assert len(out) == 1
+    # The exemplar is the whole point: it must arrive intact, because the
+    # answer is taught on exactly this string.
+    assert out[0]["exemplar"].startswith("Palo Alto Office — 3300 Hillview Ave")
+
+
+def test_no_candidates_is_an_empty_list_not_a_crash() -> None:
+    from orbitbrief_core.pm_handoff.builder import _duplicate_candidates
+
+    assert _duplicate_candidates({}, None) == []
+    assert _duplicate_candidates({"site_readiness": []}, None) == []
+    assert _duplicate_candidates({"site_readiness": {"sites": []}}, None) == []
