@@ -8,6 +8,13 @@ from typing import Any
 class SourcePointer:
     filename: str
     locator: str = ""
+    #: The figure this evidence came out of, as an inline JPEG data URI.
+    #:
+    #: parser-os stamps it on a description atom for an image it could read.
+    #: It rides the payload because no route serves artifact blobs by path --
+    #: the same reason a disputed-skip card carries its crop inline. Empty for
+    #: every atom that is text, which is nearly all of them.
+    thumb: str = ""
 
     def display(self) -> str:
         if self.locator:

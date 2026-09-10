@@ -234,6 +234,20 @@ def _untruncate_report_atoms(report: Any, envelope: Any) -> Any:
     return report
 
 
+
+#: Only an inline image, never a URL: a payload field that became a URL would
+#: turn into a fetch the brief performs on content the parser chose.
+def _atom_thumb(atom: dict) -> str:
+    """The figure an atom describes, as a data URI, or "" when it has none."""
+    structured = atom.get("structured")
+    if not isinstance(structured, dict):
+        return ""
+    thumb = structured.get("thumb")
+    if isinstance(thumb, str) and thumb.startswith("data:image/"):
+        return thumb
+    return ""
+
+
 class _BriefingChat:
     """Adapts OpenAIChatClient to the ``pm_briefing.ChatClient`` protocol.
 
@@ -2127,6 +2141,11 @@ def _build_fact_cards(
             source=SourcePointer(
                 filename=str(artifact.get("filename") or atom.get("artifact_id") or "unknown source"),
                 locator=_format_locator(atom.get("locator") or {}),
+                # An atom describing a figure should be able to SHOW it. A
+                # description with no picture is a claim a person cannot check,
+                # and a question about a component is far easier to answer next
+                # to the component.
+                thumb=_atom_thumb(atom),
             ),
             # neural-heads: lead with the calibrated probability when the
             # parser's calibrator stamped one; fall back to the raw heuristic.
