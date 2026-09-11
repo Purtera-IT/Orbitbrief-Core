@@ -327,6 +327,245 @@ def _figures(report: dict, artifact_by_id: dict) -> list[dict[str, Any]]:
     return out
 
 
+#: A procedure is a handful of steps, not a chapter. The real Clayton runbook's
+#: longest section (connecting three makes of smart TV) is 21 notes.
+_MAX_NOTES_PER_PROCEDURE = 40
+
+#: Eleven procedures is what the human runbook for this deal has. Twice that is
+#: room for a bigger programme without letting a mis-typed document flood the
+#: brief.
+_MAX_PROCEDURES = 24
+
+#: A note is an instruction a technician reads standing up. Past this it is
+#: prose that belongs in the source document, and the locator points there.
+_MAX_NOTE_CHARS = 400
+
+#: A heading names a thing; a sentence says something about it. parser-os
+#: records a paragraph lead-in in section_path when a document has no real
+#: outline, and those arrive as headings like "These devices require a password
+#: to connect, which will be provided by the assigned Clayton Service Desk
+#: resource". Length alone is a blunt test, but it is the one that does not
+#: depend on knowing what the document is about.
+_MAX_PROCEDURE_NAME_CHARS = 80
+
+#: Ordinals parser-os stamps, most specific first. A docx paragraph carries
+#: ``paragraph_index``; a PDF block carries ``block_index``; a spreadsheet row
+#: carries ``row``. Whichever is present orders the steps.
+_NOTE_ORDINAL_KEYS = (
+    "block_index",
+    "paragraph_index",
+    "line_start",
+    "row",
+    "utterance_index",
+    "sentence_index",
+)
+
+
+def _as_locator_dict(value: Any) -> dict[str, Any]:
+    """The locator, whether the envelope stored it as a dict or stringified it."""
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str) and value.strip().startswith("{"):
+        try:
+            import ast
+
+            loaded = ast.literal_eval(value)
+            if isinstance(loaded, dict):
+                return loaded
+        except (ValueError, SyntaxError):
+            return {}
+    return {}
+
+
+def _note_sort_key(atom: dict) -> tuple[float, float]:
+    """Where this note sits in its document.
+
+    Envelope order is not document order -- the atoms for the Samsung TV
+    procedure arrive with "select Open Network Settings" before "press the Home
+    button". Steps in the wrong order are worse than no steps, so a note with
+    no ordinal at all sorts last rather than landing somewhere arbitrary in the
+    middle.
+    """
+    locator = _as_locator_dict(atom.get("locator"))
+    page = locator.get("page")
+    page_num = float(page) if isinstance(page, (int, float)) else 0.0
+    for key in _NOTE_ORDINAL_KEYS:
+        value = locator.get(key)
+        if isinstance(value, (int, float)):
+            return (page_num, float(value))
+    return (page_num, float("inf"))
+
+
+#: What a note was lifted OUT of, read from the locator parser-os stamped
+#: rather than guessed from the file extension. All three arrive typed
+#: ``site_implementation_note``, and only one of them is a procedure:
+#:
+#: - prose -- a paragraph or bullet under a heading. A step.
+#: - table -- a spreadsheet cell. Its tab name is not a heading and its rows
+#:   are records, so 30 rows of a territory-planning tab are not 30 steps.
+#: - discussion -- a transcript utterance. Its "heading" is whoever was
+#:   speaking, which is why "Gillison, Jeff" shows up looking like a procedure.
+_MEDIUM_RANK = {"prose": 0, "table": 1, "discussion": 2}
+
+
+def _note_medium(locator: dict[str, Any]) -> str:
+    if locator.get("speaker") is not None or locator.get("utterance_index") is not None:
+        return "discussion"
+    if locator.get("sheet") is not None or locator.get("cell") is not None:
+        return "table"
+    return "prose"
+
+
+def _section_parts(atom: dict) -> list[str]:
+    """The document outline above a note, outermost first."""
+    raw = atom.get("section_path")
+    if isinstance(raw, list):
+        return [str(x).strip() for x in raw if str(x).strip()]
+    if isinstance(raw, str) and raw.strip():
+        # Some envelopes stringify the list. Parse it back rather than treating
+        # "['A', 'B']" as a heading.
+        text = raw.strip()
+        if text.startswith("[") and text.endswith("]"):
+            try:
+                import ast
+
+                loaded = ast.literal_eval(text)
+                if isinstance(loaded, list):
+                    return [str(x).strip() for x in loaded if str(x).strip()]
+            except (ValueError, SyntaxError):
+                return []
+            return []
+        return [text]
+    return []
+
+
+def _procedure_name(atom: dict) -> str:
+    """The innermost heading above a note, exactly as recorded."""
+    parts = _section_parts(atom)
+    return parts[-1] if parts else ""
+
+
+def _is_lead_in(procedure: str, text: str) -> bool:
+    """True when the "heading" is just the first words of the note itself.
+
+    A document with no outline gives parser-os a paragraph lead-in to record,
+    and it arrives looking exactly like a heading. The tell is structural and
+    needs no vocabulary: a real heading is ABOUT its notes, a lead-in IS one.
+    """
+    head = procedure.rstrip(". ").casefold()
+    return bool(head) and text.casefold().startswith(head[: min(len(head), 40)])
+
+
+def _heading_path(atom: dict, text: str) -> tuple[str, ...]:
+    """The outline above a note, down to the deepest part that is a heading FOR it.
+
+    A heading that fails -- a sentence, or the note's own lead-in -- is stepped
+    OVER to its parent rather than taking the note down with it. Dropping the
+    note was the first version, and it lost "On iPad go to Settings > tap
+    General > then tap About": its heading was an 86-character sentence, and
+    the perfectly good heading above that, "Obtaining Information from iPads",
+    never got a chance.
+    """
+    parts = _section_parts(atom)
+    while parts and (len(parts[-1]) > _MAX_PROCEDURE_NAME_CHARS or _is_lead_in(parts[-1], text)):
+        parts = parts[:-1]
+    return tuple(parts)
+
+
+#: A parent heading with this many child headings or fewer is a PROCEDURE whose
+#: children are branches of it ("Depending on your device model"). With more,
+#: it is a chapter and its children are the procedures.
+_MAX_BRANCHES_PER_PROCEDURE = 2
+
+
+def _implementation_notes(report: dict) -> list[dict[str, Any]]:
+    """The procedure, grouped under the heading its author wrote it under.
+
+    Notes with no usable heading at any level are dropped rather than pooled
+    into an "other" bucket. A step with no procedure is a sentence a technician
+    cannot place.
+
+    A BRANCH IS PART OF ITS PROCEDURE. The ecobee section of deal 000043's
+    runbook has a sub-heading, "Depending on your device model", and under it
+    sit the three notes a technician most needs: set Wi-Fi radio to Enabled,
+    choose the network (which contradicts the section title), and wait up to
+    90 seconds. Grouped by the innermost heading, those became a procedure
+    called "Depending on your device model" -- a fragment that names no
+    device -- and a generated runbook cited none of its seven notes. A child
+    heading is folded into its parent when the parent is a procedure (it has
+    notes of its own and at most two child headings). When the parent has more
+    children than that it is a chapter, and folding would swallow every
+    procedure in the document into its title.
+
+    Prose beats tables for the cap, read from the locators each group's own
+    notes carry rather than guessed from the file extension -- see _note_medium.
+    """
+    rows_by_key: dict[tuple[str, tuple[str, ...]], list[tuple]] = {}
+    for art in (report.get("artifacts") or ()):
+        if not isinstance(art, dict):
+            continue
+        filename = str(art.get("filename") or "")
+        for atom in (art.get("atoms") or ()):
+            if not isinstance(atom, dict):
+                continue
+            if str(atom.get("atom_type") or "") != "site_implementation_note":
+                continue
+            text = compact_text(str(atom.get("text") or ""), _MAX_NOTE_CHARS)
+            if not text:
+                continue
+            path = _heading_path(atom, text)
+            if not path:
+                continue
+            rows_by_key.setdefault((filename, path), []).append((_note_sort_key(atom), text, atom))
+
+    # Child headings per parent, within one document.
+    children: dict[tuple[str, tuple[str, ...]], int] = defaultdict(int)
+    for filename, path in rows_by_key:
+        if len(path) >= 2:
+            children[(filename, path[:-1])] += 1
+
+    # Deepest first, so a branch of a branch lands in the procedure, not midway.
+    for key in sorted(list(rows_by_key), key=lambda k: -len(k[1])):
+        filename, path = key
+        if key not in rows_by_key or len(path) < 2:
+            continue
+        parent = (filename, path[:-1])
+        if parent in rows_by_key and children[parent] <= _MAX_BRANCHES_PER_PROCEDURE:
+            rows_by_key[parent].extend(rows_by_key.pop(key))
+
+    out: list[dict[str, Any]] = []
+    for (filename, path), rows in rows_by_key.items():
+        notes: list[dict[str, Any]] = []
+        kinds: list[str] = []
+        for _, text, atom in sorted(rows, key=lambda r: r[0]):
+            # The same instruction repeated across two pages of one document is
+            # one step to the person following it.
+            if any(n["text"] == text for n in notes):
+                continue
+            kinds.append(_note_medium(_as_locator_dict(atom.get("locator"))))
+            notes.append({
+                "text": text,
+                "filename": filename,
+                "locator": _format_locator(atom.get("locator") or {}),
+                "atom_id": str(atom.get("id") or ""),
+            })
+            if len(notes) >= _MAX_NOTES_PER_PROCEDURE:
+                break
+        if not notes:
+            continue
+        out.append({
+            "procedure": path[-1],
+            "source": filename,
+            "kind": Counter(kinds).most_common(1)[0][0],
+            "notes": notes,
+        })
+
+    # Procedures first, then longest: the ones with the most steps are the ones
+    # a technician spends the visit on.
+    out.sort(key=lambda g: (_MEDIUM_RANK.get(g["kind"], 9), -len(g["notes"])))
+    return out[:_MAX_PROCEDURES]
+
+
 class _BriefingChat:
     """Adapts OpenAIChatClient to the ``pm_briefing.ChatClient`` protocol.
 
@@ -989,6 +1228,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         reconciliation_verdicts=reconciliation_verdicts,
         disputed_images=disputed_images,
         figures=_figures(report, artifact_by_id),
+        implementation_notes=_implementation_notes(report),
         risk_register=[asdict(r) for r in risks],
         schedule_phases=[asdict(p) for p in phases],
         site_rollups=[asdict(s) for s in site_rolls],

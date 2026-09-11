@@ -162,6 +162,25 @@ class PMHandoff:
     #: "locator", "region_ref"}]. Capped, with the caption trimmed -- see
     #: builder._figures for why both numbers match the runbook renderer's.
     figures: list[dict[str, Any]] = field(default_factory=list)
+    #: The step-by-step procedure a technician follows on site, grouped by the
+    #: thing being worked on.
+    #:
+    #: ``site_implementation_note`` atoms already route to the "sites" fact
+    #: category, where twelve slots are shared with the whole of site planning
+    #: -- so on a deal with 209 of them and 439 site rows, every one lost. The
+    #: brief that came out described the commercial shape of the work and none
+    #: of the work.
+    #:
+    #: That was invisible while the brief's only readers were commercial, and
+    #: disqualifying the moment one of them became the runbook generator, which
+    #: is asked to write a field procedure and could not see the field
+    #: procedure. Measured on deal 000043: `ecobee` 45 times in the envelope
+    #: and 0 in the brief; `thermostat` 60 and 0; "90 seconds to connect" 3
+    #: and 0.
+    #:
+    #: Shape: [{"procedure", "source", "notes": [{"text", "filename",
+    #: "locator", "atom_id"}]}] -- see builder._implementation_notes.
+    implementation_notes: list[dict[str, Any]] = field(default_factory=list)
     # B2: PM-ready risk register projected from atom_type=risk rows.
     risk_register: list[dict[str, Any]] = field(default_factory=list)
     # B5: project-schedule rows projected from atom_type=schedule_phase
