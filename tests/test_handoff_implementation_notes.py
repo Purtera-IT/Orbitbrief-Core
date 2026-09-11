@@ -278,3 +278,63 @@ def test_a_chapter_does_not_swallow_its_procedures():
     assert sorted(g["procedure"] for g in groups) == sorted(
         [title, "Connecting Smart TVs", "Connecting iPads", "Connecting ecobee thermostats"]
     )
+
+
+# --- the live pipeline --------------------------------------------------------
+#
+# Every test above built `report` straight from atoms that carry section_path at
+# the top level. The live pipeline does not: _untruncate_report_atoms backfills
+# envelope atoms into the report, and it copied every field except
+# section_path. Deal 000043's first brief on this code shipped
+# `implementation_notes: []`. These go through that path.
+
+from orbitbrief_core.pm_handoff.builder import _untruncate_report_atoms
+
+
+def _envelope_note(atom_id, text, path, i, *, in_locator_only=False):
+    atom = {
+        "id": atom_id,
+        "artifact_id": "art-rb",
+        "atom_type": "site_implementation_note",
+        "text": text,
+        "locator": {"paragraph_index": i, "section_path": list(path)},
+    }
+    if not in_locator_only:
+        atom["section_path"] = list(path)
+    return atom
+
+
+def test_a_note_backfilled_from_the_envelope_keeps_its_heading():
+    ecobee = "Connecting ecobee thermostats to 'HC-Other' SSID"
+    envelope = {"atoms": [
+        _envelope_note("n1", "Touch the main menu icon.", [ecobee], 1),
+        _envelope_note("n2", "The thermostat can take up to 90 seconds to connect.",
+                       [ecobee, "Depending on your device model"], 2),
+    ]}
+    # The report knows the artifact but, as in the live pipeline, not these atoms.
+    report = {"artifacts": [{"artifact_id": "art-rb", "filename": "OnSite Runbook.docx", "atoms": []}]}
+    report = _untruncate_report_atoms(report, envelope)
+
+    backfilled = report["artifacts"][0]["atoms"]
+    assert all(row.get("section_path") for row in backfilled), "backfill dropped the outline"
+
+    groups = _implementation_notes(report)
+    assert [g["procedure"] for g in groups] == [ecobee]
+    assert "90 seconds" in " ".join(n["text"] for n in groups[0]["notes"])
+
+
+def test_a_heading_only_on_the_locator_still_places_the_note():
+    """A row that lost its top-level section_path still has the one parser-os
+    stamped on the locator -- and on deal 000043 that is 126 of the 140 notes
+    that have a heading at all."""
+    atom = _envelope_note("n3", "Select HC-Other.", ["Connecting iPads to 'HC-Other' SSID"], 1, in_locator_only=True)
+    assert "section_path" not in atom
+    groups = _implementation_notes({"artifacts": [{"artifact_id": "art-rb", "filename": "r.docx", "atoms": [atom]}]})
+    assert [g["procedure"] for g in groups] == ["Connecting iPads to 'HC-Other' SSID"]
+
+
+def test_an_empty_top_level_path_falls_through_to_the_locator():
+    atom = _envelope_note("n4", "Press Home.", ["Connecting Smart TVs"], 1)
+    atom["section_path"] = []
+    groups = _implementation_notes({"artifacts": [{"artifact_id": "art-rb", "filename": "r.docx", "atoms": [atom]}]})
+    assert [g["procedure"] for g in groups] == ["Connecting Smart TVs"]
