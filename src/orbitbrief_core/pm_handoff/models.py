@@ -149,6 +149,19 @@ class PMHandoff:
     # uncapped. Empty dict when the envelope predates gate_verdict stamping
     # or no skip was veto'd, so the section renders nothing.
     disputed_images: dict[str, Any] = field(default_factory=dict)
+    #: Every figure the parser could read, so a downstream surface can SHOW
+    #: one rather than only describe it.
+    #:
+    #: Until now a picture only reached the brief attached to a gap citation --
+    #: an image had to be DISPUTED to be visible. But the runbook generator
+    #: writes steps a technician follows on site, and "mount the bracket as
+    #: shown" is a different instruction from "mount the bracket". The figures
+    #: worth showing there are the ordinary ones the parser read fine.
+    #:
+    #: Shape: [{"id", "caption", "kind", "thumb", "filename", "artifact_id",
+    #: "locator", "region_ref"}]. Capped, with the caption trimmed -- see
+    #: builder._figures for why both numbers match the runbook renderer's.
+    figures: list[dict[str, Any]] = field(default_factory=list)
     # B2: PM-ready risk register projected from atom_type=risk rows.
     risk_register: list[dict[str, Any]] = field(default_factory=list)
     # B5: project-schedule rows projected from atom_type=schedule_phase

@@ -248,6 +248,85 @@ def _atom_thumb(atom: dict) -> str:
     return ""
 
 
+#: One page of figures. A runbook that cites forty pictures is a document
+#: nobody carries, and the cap matches shared/runbook-figures.js so the brief
+#: never offers a figure the renderer would drop.
+_MAX_FIGURES = 24
+
+#: A caption is what the model is given to pick a figure BY. Past a couple of
+#: lines it stops being a label and starts being the description again, which
+#: the step already holds.
+_MAX_FIGURE_CAPTION_CHARS = 240
+
+
+def _figure_id(filename: str, region_ref: str, atom_id: str) -> str:
+    """A name a person -- or a model -- can pick out of a list.
+
+    ``PO-00034222.pdf#page0/vector4`` says which document and where. An atom id
+    (``atm_37c684dd4c708560``) is unique and says nothing, so it is only the
+    fallback for a figure with no region of its own.
+    """
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "-", str(filename or "").rsplit("/", 1)[-1]).strip("-")
+    ref = re.sub(r"[^A-Za-z0-9._/-]+", "-", str(region_ref or "")).strip("-")
+    if stem and ref:
+        return f"{stem}#{ref}"
+    return str(atom_id or ref or stem or "figure")
+
+
+def _figures(report: dict, artifact_by_id: dict) -> list[dict[str, Any]]:
+    """The pictures the parser read, with the description it wrote for each.
+
+    Only atoms parser-os stamped as an image description AND that carry the
+    image inline. A description with no picture cannot be shown, and showing a
+    picture with no description leaves the reader to guess what it is of --
+    both halves or neither.
+
+    Deduped on the image itself, not on the id: the same diagram lifted from
+    two pages of the same PDF is one figure to a person holding the runbook.
+    """
+    out: list[dict[str, Any]] = []
+    seen_thumbs: set[str] = set()
+    for art in (report.get("artifacts") or ()):
+        if not isinstance(art, dict):
+            continue
+        for atom in (art.get("atoms") or ()):
+            if not isinstance(atom, dict):
+                continue
+            structured = atom.get("structured")
+            if not isinstance(structured, dict):
+                continue
+            if structured.get("fact_kind") != "image_description":
+                continue
+            thumb = _atom_thumb(atom)
+            if not thumb:
+                continue
+            # The data URI is the identity. Two atoms describing the same bytes
+            # are the same figure however they were named.
+            if thumb in seen_thumbs:
+                continue
+            seen_thumbs.add(thumb)
+            artifact_id = str(atom.get("artifact_id") or art.get("artifact_id") or "")
+            filename = str(
+                art.get("filename")
+                or (artifact_by_id.get(artifact_id) or {}).get("filename")
+                or ""
+            )
+            region_ref = str(structured.get("region_ref") or "")
+            out.append({
+                "id": _figure_id(filename, region_ref, str(atom.get("id") or "")),
+                "caption": compact_text(str(atom.get("text") or ""), _MAX_FIGURE_CAPTION_CHARS),
+                "kind": str(structured.get("image_kind") or ""),
+                "thumb": thumb,
+                "filename": filename,
+                "artifact_id": artifact_id,
+                "locator": _format_locator(atom.get("locator") or {}),
+                "region_ref": region_ref,
+            })
+            if len(out) >= _MAX_FIGURES:
+                return out
+    return out
+
+
 class _BriefingChat:
     """Adapts OpenAIChatClient to the ``pm_briefing.ChatClient`` protocol.
 
@@ -909,6 +988,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         reconciliation_flags=[asdict(f) for f in flags],
         reconciliation_verdicts=reconciliation_verdicts,
         disputed_images=disputed_images,
+        figures=_figures(report, artifact_by_id),
         risk_register=[asdict(r) for r in risks],
         schedule_phases=[asdict(p) for p in phases],
         site_rollups=[asdict(s) for s in site_rolls],
