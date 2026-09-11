@@ -1,0 +1,280 @@
+"""The procedure a technician follows has to reach the brief.
+
+``site_implementation_note`` atoms already routed to the "sites" fact
+category, where twelve slots are shared with the whole of site planning. On
+deal 000043 that meant 209 of them competed with 439 site rows and every one
+lost: `ecobee` appears 45 times in the envelope and 0 times in the brief,
+`thermostat` 60 and 0, "90 seconds to connect" 3 and 0.
+
+Invisible while the brief's only readers were commercial. Disqualifying the
+moment one of them became the runbook generator, which is asked to write a
+field procedure from a brief that contains no field procedure.
+"""
+
+from __future__ import annotations
+
+from orbitbrief_core.pm_handoff.builder import (
+    _MAX_NOTES_PER_PROCEDURE,
+    _MAX_PROCEDURES,
+    _implementation_notes,
+    _is_lead_in,
+    _note_medium,
+    _procedure_name,
+)
+
+
+def note(text, procedure="Connecting Smart TVs to 'HC-Other' SSID", **locator):
+    return {
+        "id": f"atm-{abs(hash(text)) % 10**8}",
+        "atom_type": "site_implementation_note",
+        "text": text,
+        "section_path": [procedure] if procedure else [],
+        "locator": locator,
+    }
+
+
+def report(atoms, filename="Clayton OnSite Inventory Runbook.docx"):
+    return {"artifacts": [{"artifact_id": "art-1", "filename": filename, "atoms": atoms}]}
+
+
+def test_a_procedure_comes_through_grouped_by_its_own_heading():
+    """The grouping is the author's, not one we imposed -- parser-os already
+    records the document outline on every atom."""
+    groups = _implementation_notes(
+        report([
+            note("On the Samsung TV remote, press the Home button.", paragraph_index=1),
+            note("Select the Network option.", paragraph_index=2),
+        ])
+    )
+    assert len(groups) == 1
+    assert groups[0]["procedure"] == "Connecting Smart TVs to 'HC-Other' SSID"
+    assert groups[0]["source"] == "Clayton OnSite Inventory Runbook.docx"
+    assert [n["text"] for n in groups[0]["notes"]] == [
+        "On the Samsung TV remote, press the Home button.",
+        "Select the Network option.",
+    ]
+
+
+def test_steps_are_put_back_in_document_order():
+    """Envelope order is not document order. The real Samsung procedure arrives
+    with "select Open Network Settings" BEFORE "press the Home button", and
+    steps in the wrong order are worse than no steps."""
+    groups = _implementation_notes(
+        report([
+            note("On the Connections menu, select Open Network Settings.", paragraph_index=7),
+            note("On the Samsung TV remote, press the Home button.", paragraph_index=4),
+            note("Navigate to Settings.", paragraph_index=5),
+        ])
+    )
+    assert [n["text"][:20] for n in groups[0]["notes"]] == [
+        "On the Samsung TV re",
+        "Navigate to Settings",
+        "On the Connections m",
+    ]
+
+
+def test_a_note_with_no_ordinal_sorts_last_not_into_the_middle():
+    groups = _implementation_notes(
+        report([
+            note("Unplaceable.", ),
+            note("First.", paragraph_index=1),
+            note("Second.", paragraph_index=2),
+        ])
+    )
+    assert [n["text"] for n in groups[0]["notes"]] == ["First.", "Second.", "Unplaceable."]
+
+
+def test_page_beats_paragraph_index():
+    groups = _implementation_notes(
+        report([
+            note("Page two, first block.", page=2, block_index=1),
+            note("Page one, later block.", page=1, block_index=9),
+        ])
+    )
+    assert groups[0]["notes"][0]["text"] == "Page one, later block."
+
+
+def test_a_note_with_no_heading_is_dropped():
+    """A step with no procedure is a sentence a technician cannot place. On
+    deal 000043 that is 63 of 209 notes -- contract boilerplate, not steps."""
+    assert _implementation_notes(report([note("Supplier shall comply.", procedure="")])) == []
+
+
+def test_a_paragraph_lead_in_is_not_a_heading():
+    """A document with no outline gives parser-os a lead-in to record, and it
+    arrives looking exactly like a heading. A real heading is ABOUT its notes;
+    a lead-in IS one."""
+    text = "These devices require a password to connect, which will be provided by the Service Desk."
+    assert _is_lead_in("These devices require a password to connect, which will be", text)
+    assert not _is_lead_in("Connecting iPads to 'HC-Other' SSID", text)
+    assert _implementation_notes(
+        report([note(text, procedure="These devices require a password to connect, which will be")])
+    ) == []
+
+
+def test_a_sentence_is_too_long_to_be_a_heading():
+    long_heading = "All personal devices including BYOD laptops and mobile phones may only connect to Guest"
+    assert len(long_heading) > 80
+    assert _implementation_notes(report([note("Connect it.", procedure=long_heading)])) == []
+
+
+def test_the_medium_is_read_from_the_locator_not_the_file_extension():
+    """All three arrive typed site_implementation_note, and only one is a
+    procedure."""
+    assert _note_medium({"paragraph_index": 4}) == "prose"
+    assert _note_medium({"sheet": "Territory_Needs", "row": 12}) == "table"
+    assert _note_medium({"speaker": "Gillison, Jeff", "utterance_index": 88}) == "discussion"
+
+
+def test_a_spreadsheet_tab_is_not_a_procedure():
+    """Its tab name is not a heading and its rows are records. Thirty rows of a
+    territory-planning tab are not thirty steps."""
+    groups = _implementation_notes(
+        report(
+            [note(f"Market {i} needs 3 techs.", procedure="Territory_Needs", sheet="Territory_Needs", row=i)
+             for i in range(4)],
+            filename="Clayton_Dispatch_Readiness.xlsx",
+        )
+    )
+    assert groups[0]["kind"] == "table"
+
+
+def test_a_transcript_speaker_is_not_a_procedure():
+    """Its "heading" is whoever was speaking, which is why "Gillison, Jeff"
+    turns up looking like one."""
+    groups = _implementation_notes(
+        report(
+            [note("We should start with the pilot.", procedure="Gillison, Jeff",
+                  speaker="Gillison, Jeff", utterance_index=i) for i in range(3)],
+            filename="Kickoff call.txt",
+        )
+    )
+    assert groups[0]["kind"] == "discussion"
+
+
+def test_a_real_procedure_outranks_a_tab_for_the_cap():
+    """The failure this ordering prevents: the smart-TV procedure falling off
+    the end so a territory-planning tab can be in the brief instead."""
+    atoms = []
+    for i in range(_MAX_PROCEDURES + 4):
+        atoms += [note(f"Row {i}.{j}", procedure=f"Tab_{i}", sheet=f"Tab_{i}", row=j) for j in range(3)]
+    atoms += [note("Press the Home button.", paragraph_index=1)]
+    groups = _implementation_notes(report(atoms))
+    assert len(groups) == _MAX_PROCEDURES
+    assert groups[0]["procedure"] == "Connecting Smart TVs to 'HC-Other' SSID"
+    assert groups[0]["kind"] == "prose"
+
+
+def test_the_same_instruction_twice_is_one_step():
+    groups = _implementation_notes(
+        report([
+            note("Enter the wi-fi password provided to you.", paragraph_index=3),
+            note("Enter the wi-fi password provided to you.", paragraph_index=9),
+        ])
+    )
+    assert len(groups[0]["notes"]) == 1
+
+
+def test_a_procedure_is_capped():
+    groups = _implementation_notes(
+        report([note(f"Step {i}.", paragraph_index=i) for i in range(_MAX_NOTES_PER_PROCEDURE + 15)])
+    )
+    assert len(groups[0]["notes"]) == _MAX_NOTES_PER_PROCEDURE
+
+
+def test_the_last_heading_is_the_specific_one():
+    """A note under ['Services Proposal', 'Project Scope', 'Customer
+    Responsibilities'] is about customer responsibilities; the first element
+    only says which document."""
+    assert _procedure_name(
+        {"section_path": ["Services Proposal", "Project Scope", "Customer Responsibilities"]}
+    ) == "Customer Responsibilities"
+
+
+def test_a_stringified_section_path_is_parsed_back():
+    """Some envelopes stringify the list, and "['A', 'B']" is not a heading."""
+    assert _procedure_name({"section_path": "['1.1 PURPOSE', 'Per-site instructions']"}) == (
+        "Per-site instructions"
+    )
+    assert _procedure_name({"section_path": "Device Information Required"}) == (
+        "Device Information Required"
+    )
+    assert _procedure_name({"section_path": None}) == ""
+
+
+def test_each_note_keeps_a_pointer_back_to_the_document():
+    """A step a PM cannot trace is a step they cannot check."""
+    groups = _implementation_notes(report([note("Press the Home button.", page=7, paragraph_index=2)]))
+    n = groups[0]["notes"][0]
+    assert n["filename"] == "Clayton OnSite Inventory Runbook.docx"
+    assert n["atom_id"]
+    assert "7" in n["locator"]
+
+
+def test_a_report_with_nothing_in_it_is_not_an_error():
+    assert _implementation_notes({}) == []
+    assert _implementation_notes({"artifacts": None}) == []
+    assert _implementation_notes({"artifacts": [None, {"atoms": None}]}) == []
+    assert _implementation_notes(report([{"atom_type": "scope_item", "text": "x"}])) == []
+
+
+def test_a_sentence_heading_steps_over_to_its_parent_instead_of_losing_the_note():
+    """The first version dropped the note. It lost "On iPad go to Settings > tap
+    General > then tap About" because its heading was an 86-character sentence
+    -- while a perfectly good heading sat right above it."""
+    atom = {
+        "id": "atm-ipad",
+        "atom_type": "site_implementation_note",
+        "text": "On iPad go to Settings > tap General > then tap About.",
+        "section_path": [
+            "Obtaining Information from iPads",
+            "For the iPad, you can view the information from the device by following the steps below",
+        ],
+        "locator": {"paragraph_index": 3},
+    }
+    groups = _implementation_notes(report([atom]))
+    assert [g["procedure"] for g in groups] == ["Obtaining Information from iPads"]
+
+
+def test_a_branch_is_folded_into_its_procedure_in_document_order():
+    """The notes a technician most needs on deal 000043 -- radio Enabled, the
+    network, the 90-second wait -- sat under "Depending on your device model".
+    As their own group they named no device, and a runbook cited none of them."""
+    ecobee = "Connecting ecobee thermostats to 'HC-Other' SSID"
+
+    def at(text, path, i):
+        return {"id": f"a{i}", "atom_type": "site_implementation_note", "text": text,
+                "section_path": path, "locator": {"paragraph_index": i}}
+
+    groups = _implementation_notes(report([
+        at("Touch the main menu icon.", [ecobee], 1),
+        at("Set Wi-Fi radio to Enabled.", [ecobee, "Depending on your device model"], 3),
+        at("The thermostat can take up to 90 seconds to connect.", [ecobee, "Depending on your device model"], 4),
+        at("Now you will see a list of menus.", [ecobee], 2),
+    ]))
+    assert len(groups) == 1
+    assert groups[0]["procedure"] == ecobee
+    assert [n["text"][:12] for n in groups[0]["notes"]] == [
+        "Touch the ma", "Now you will", "Set Wi-Fi ra", "The thermost",
+    ]
+
+
+def test_a_chapter_does_not_swallow_its_procedures():
+    """A title with several procedures under it is a chapter. Folding children
+    into it would turn the whole runbook into one procedure named after the
+    document."""
+    title = "Retail Network Segmentation"
+
+    def at(text, path, i):
+        return {"id": f"c{i}", "atom_type": "site_implementation_note", "text": text,
+                "section_path": path, "locator": {"paragraph_index": i}}
+
+    groups = _implementation_notes(report([
+        at("This guide covers device inventory.", [title], 0),
+        at("Press Home.", [title, "Connecting Smart TVs"], 1),
+        at("Open Settings.", [title, "Connecting iPads"], 2),
+        at("Touch the menu icon.", [title, "Connecting ecobee thermostats"], 3),
+    ]))
+    assert sorted(g["procedure"] for g in groups) == sorted(
+        [title, "Connecting Smart TVs", "Connecting iPads", "Connecting ecobee thermostats"]
+    )
