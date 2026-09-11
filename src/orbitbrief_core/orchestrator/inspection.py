@@ -573,6 +573,11 @@ def _artifact_view(
                 # used to be cut off mid-phrase.
                 "text": (atom.get("text") or "")[:1200],
                 "locator": atom.get("locator") or {},
+                # The document outline the atom sits under. pm_handoff groups a
+                # deal's field procedure by it; without it every note in a
+                # document with at most 60 atoms -- which never gets backfilled
+                # from the envelope -- arrives headingless and is dropped.
+                "section_path": list(atom.get("section_path") or ()),
                 "in_bundle": in_bundle,
                 "cited_by_brain": in_brain,
                 "in_composed_brief": in_brief,

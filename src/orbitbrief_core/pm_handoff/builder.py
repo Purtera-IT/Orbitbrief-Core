@@ -191,7 +191,7 @@ def _untruncate_report_atoms(report: Any, envelope: Any) -> Any:
 
     Backfilled rows carry every field the builders read (atom_type,
     authority_class, confidence, verified, text, locator, entity_keys,
-    structured) but not the three dashboard-only flags — ``in_bundle``,
+    structured, section_path) but not the three dashboard-only flags — ``in_bundle``,
     ``cited_by_brain``, ``in_composed_brief`` — which no pm_handoff builder
     reads; only inspection.py does. Text keeps the report's 1200-char clamp so
     nothing downstream sees a longer string than it did before.
@@ -230,6 +230,11 @@ def _untruncate_report_atoms(report: Any, envelope: Any) -> Any:
                 "locator": a.get("locator") or {},
                 "entity_keys": list(a.get("entity_keys") or ()),
                 "structured": dict(a.get("structured") or {}),
+                # The document outline. Missing from the first version of this
+                # list, which silently emptied implementation_notes on every
+                # live compile: a note with no heading cannot be placed in a
+                # procedure, so each one was dropped.
+                "section_path": list(a.get("section_path") or ()),
             })
     return report
 
@@ -417,8 +422,19 @@ def _note_medium(locator: dict[str, Any]) -> str:
 
 
 def _section_parts(atom: dict) -> list[str]:
-    """The document outline above a note, outermost first."""
+    """The document outline above a note, outermost first.
+
+    Read from the atom, and from its locator when the atom has none. The first
+    version read only the top level, and on the live pipeline that meant
+    nothing: _untruncate_report_atoms backfilled every field the builders read
+    EXCEPT section_path, so all 202 of deal 000043's notes arrived headingless
+    and the brief shipped `implementation_notes: []` -- while the same code on
+    the raw envelope found 24 procedures. parser-os stamps the outline on the
+    locator too, so a row that lost one still has the other.
+    """
     raw = atom.get("section_path")
+    if not raw:
+        raw = _as_locator_dict(atom.get("locator")).get("section_path")
     if isinstance(raw, list):
         return [str(x).strip() for x in raw if str(x).strip()]
     if isinstance(raw, str) and raw.strip():
