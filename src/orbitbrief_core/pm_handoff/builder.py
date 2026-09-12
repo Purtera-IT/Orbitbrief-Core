@@ -341,9 +341,35 @@ _MAX_NOTES_PER_PROCEDURE = 40
 #: brief.
 _MAX_PROCEDURES = 24
 
-#: A note is an instruction a technician reads standing up. Past this it is
-#: prose that belongs in the source document, and the locator points there.
-_MAX_NOTE_CHARS = 400
+#: A note is an instruction a technician reads standing up, and one cut
+#: mid-sentence is not an instruction. At a flat 400 characters with "…", deal
+#: 000043's workstation note lost "The computers are the only devices that will
+#: be automatically connected to their new networks by our Engineers, all others
+#: will need to be manually connected" to "automatically connected to the…" --
+#: the one sentence telling a technician which devices are theirs to connect.
+#: Notes are now kept to their last whole sentence under this cap. On that deal
+#: 3 of 133 notes were over 400 characters and the longest was 479 (dated corpus
+#: measurement, 2026-09-12). Past the cap it is prose that belongs in the source
+#: document, and the locator points there.
+_MAX_NOTE_CHARS = 800
+
+_SENTENCE_END = re.compile(r"[.!?](?=\s)")
+
+
+def _note_text(raw: Any) -> str:
+    """The note, whole; or its last whole sentence that fits the cap.
+
+    Only when a single sentence runs past the cap is it cut, at a word, with
+    "…" so nobody mistakes it for the end.
+    """
+    s = re.sub(r"\s+", " ", str(raw or "")).strip()
+    if len(s) <= _MAX_NOTE_CHARS:
+        return s
+    head = s[:_MAX_NOTE_CHARS]
+    ends = [m.end() for m in _SENTENCE_END.finditer(head)]
+    if ends:
+        return head[: ends[-1]]
+    return head[: _MAX_NOTE_CHARS - 1].rsplit(" ", 1)[0].rstrip() + "…"
 
 #: A heading names a thing; a sentence says something about it. parser-os
 #: records a paragraph lead-in in section_path when a document has no real
@@ -526,7 +552,7 @@ def _implementation_notes(report: dict) -> list[dict[str, Any]]:
                 continue
             if str(atom.get("atom_type") or "") != "site_implementation_note":
                 continue
-            text = compact_text(str(atom.get("text") or ""), _MAX_NOTE_CHARS)
+            text = _note_text(atom.get("text"))
             if not text:
                 continue
             path = _heading_path(atom, text)

@@ -14,6 +14,7 @@ field procedure from a brief that contains no field procedure.
 from __future__ import annotations
 
 from orbitbrief_core.pm_handoff.builder import (
+    _MAX_NOTE_CHARS,
     _MAX_NOTES_PER_PROCEDURE,
     _MAX_PROCEDURES,
     _implementation_notes,
@@ -338,3 +339,40 @@ def test_an_empty_top_level_path_falls_through_to_the_locator():
     atom["section_path"] = []
     groups = _implementation_notes({"artifacts": [{"artifact_id": "art-rb", "filename": "r.docx", "atoms": [atom]}]})
     assert [g["procedure"] for g in groups] == ["Connecting Smart TVs"]
+
+
+# The workstation note on deal 000043, in full (479 characters).
+WORKSTATIONS = (
+    "For all workstations, please provide make and model. As shown below, this can be found by going to "
+    "your ‘Settings’, then ‘System’, and then ‘About’ (ex: Dell Latitude 5540). We would also require the "
+    "service tag/serial number (these are typically listed on a sticker under the laptop (as shown below), "
+    "ex: ST = G92KFY3). The computers are the only devices that will be automatically connected to their "
+    "new networks by our Engineers, all others will need to be manually connected."
+)
+
+
+def _only_note(text):
+    groups = _implementation_notes(report([note(text, procedure="Obtaining Information from Workstations", paragraph_index=1)]))
+    return groups[0]["notes"][0]["text"]
+
+
+def test_a_note_under_the_cap_arrives_whole():
+    """Cut at 400 characters it ended "automatically connected to the…", and the
+    runbook could not say which devices the technician has to connect."""
+    assert _only_note(WORKSTATIONS) == WORKSTATIONS
+
+
+def test_a_long_note_is_cut_at_its_last_whole_sentence():
+    text = " ".join(f"Sentence {i} says one thing a technician does at the site." for i in range(40))
+    out = _only_note(text)
+    assert len(out) <= _MAX_NOTE_CHARS
+    assert out.endswith("at the site.")
+    assert "…" not in out
+
+
+def test_one_sentence_past_the_cap_is_cut_at_a_word_and_marked():
+    text = "word " * 400
+    out = _only_note(text)
+    assert len(out) <= _MAX_NOTE_CHARS
+    assert out.endswith("word…")
+
