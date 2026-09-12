@@ -56,6 +56,16 @@ class SiteSummary:
     city: str | None = None
     state: str | None = None
     postal_code: str | None = None
+    # The store's own contact and access, carried from the same roster row for
+    # the same reason as geography. On deal 000043 envelope.site_readiness holds
+    # a phone for 411 sites, an email for 410 and an access window for 401; the
+    # handoff dropped all three, so a runbook could not name who to call at any
+    # of 434 home centers and "Customer POC is required" blocked every one.
+    # No contact NAME is carried because the customer's list has none -- the
+    # email is the contact, and inventing a name from it would be a guess.
+    phone: str | None = None
+    email: str | None = None
+    access_window: str | None = None
 
 
 @dataclass(frozen=True)

@@ -1421,6 +1421,18 @@ def _duplicate_candidates(report: dict[str, Any], case_dir: Path | None) -> list
     return _from(env)
 
 
+def _clean_contact(value: Any) -> str | None:
+    """A contact field as text, or None.
+
+    Spreadsheets hand phone numbers over as integers (9367308849), so this is
+    str(), not a type check that would silently drop them.
+    """
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text[:200] or None
+
+
 def _roster_rows(doc: Any) -> list[dict[str, Any]]:
     """Pull the site roster out of either shape that carries one.
 
@@ -1641,6 +1653,9 @@ def _sites_from_canonical_roster(
                 city=_clean_geo(row.get("city")),
                 state=_clean_geo(row.get("state")),
                 postal_code=_clean_geo(row.get("postal_code") or row.get("zip")),
+                phone=_clean_contact(row.get("phone")),
+                email=_clean_contact(row.get("email")),
+                access_window=_clean_contact(row.get("access_window")),
             )
         )
     return out
