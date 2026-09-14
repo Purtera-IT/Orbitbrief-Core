@@ -376,3 +376,84 @@ def test_one_sentence_past_the_cap_is_cut_at_a_word_and_marked():
     assert len(out) <= _MAX_NOTE_CHARS
     assert out.endswith("word…")
 
+
+# --- a line the parser doubted stays with its siblings -------------------------
+
+INVENTORY = "Inventory & Data Capture Requirements"
+
+
+def doubted(text, atom_type="scope_item", flags=("prose_fallback_capture", "low_confidence_needs_review"), procedure=INVENTORY, **locator):
+    return {
+        "id": f"atm-{abs(hash(text + atom_type)) % 10**8}",
+        "atom_type": atom_type,
+        "text": text,
+        "section_path": ["Services Proposal", "Project Scope", procedure] if procedure else [],
+        "review_flags": list(flags),
+        "locator": locator,
+    }
+
+
+def _inventory_note(**locator):
+    atom = note("Asset tag (if available)", procedure=INVENTORY, **locator)
+    atom["section_path"] = ["Services Proposal", "Project Scope", INVENTORY]
+    return atom
+
+
+def test_a_line_the_parser_doubted_joins_the_procedure_its_heading_holds():
+    """Deal 000043's SOW, second parse: one field note and three scope items the
+    parser flagged for review. The three had fallen out of the procedure."""
+    groups = _implementation_notes(
+        report([
+            doubted("Operating system", paragraph_index=24),
+            _inventory_note(paragraph_index=21),
+            doubted("Computer name", paragraph_index=22),
+            doubted("Device type", paragraph_index=23),
+        ], filename="Services Proposal.docx")
+    )
+    assert len(groups) == 1
+    assert groups[0]["procedure"] == INVENTORY
+    assert [n["text"] for n in groups[0]["notes"]] == ["Asset tag (if available)", "Computer name", "Device type", "Operating system"]
+
+
+def test_a_line_labelled_with_confidence_stays_out():
+    groups = _implementation_notes(
+        report([_inventory_note(paragraph_index=21), doubted("Net 30 payment terms", atom_type="payment_term", flags=(), paragraph_index=22)])
+    )
+    assert [n["text"] for n in groups[0]["notes"]] == ["Asset tag (if available)"]
+
+
+def test_a_doubted_line_does_not_make_a_procedure_of_its_own():
+    assert _implementation_notes(report([doubted("Device type", paragraph_index=23)])) == []
+
+
+def test_a_doubted_transcript_line_stays_out_of_the_procedure():
+    groups = _implementation_notes(
+        report([
+            _inventory_note(paragraph_index=21),
+            doubted("Is the SSID update going to happen same day?", atom_type="open_question", speaker="Chris Harp", utterance_index=4),
+        ])
+    )
+    assert [n["text"] for n in groups[0]["notes"]] == ["Asset tag (if available)"]
+
+
+def test_a_chapter_is_a_chapter_by_its_outline_not_by_which_headings_hold_field_notes():
+    """Clayton's second parse: under "Project Scope", only two child headings held
+    field notes; the other two held lines of other labels. Counted from field
+    notes alone, "Project Scope" read as a procedure and swallowed its children."""
+    def line(text, child, atom_type="site_implementation_note", **locator):
+        atom = note(text, procedure=child, **locator)
+        atom["atom_type"] = atom_type
+        atom["section_path"] = ["Services Proposal", "Project Scope"] + ([child] if child else [])
+        return atom
+
+    groups = _implementation_notes(
+        report([
+            line("Provider will execute standardized activities at each site.", None, paragraph_index=10),
+            line("Asset tag (if available)", "Inventory & Data Capture Requirements", paragraph_index=21),
+            line("Sites not open will be scheduled later.", "Site Deployment & Execution Model", paragraph_index=14),
+            line("This quote is valid for thirty days.", "Project Assumptions", atom_type="contract_term", paragraph_index=30),
+            line("Stored in centralized repository", "Reporting Requirements", atom_type="scope_item", paragraph_index=35),
+        ])
+    )
+    assert sorted(g["procedure"] for g in groups) == ["Inventory & Data Capture Requirements", "Project Scope", "Site Deployment & Execution Model"]
+

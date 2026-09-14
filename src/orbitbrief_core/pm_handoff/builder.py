@@ -191,7 +191,7 @@ def _untruncate_report_atoms(report: Any, envelope: Any) -> Any:
 
     Backfilled rows carry every field the builders read (atom_type,
     authority_class, confidence, verified, text, locator, entity_keys,
-    structured, section_path) but not the three dashboard-only flags — ``in_bundle``,
+    structured, section_path, review_flags) but not the three dashboard-only flags — ``in_bundle``,
     ``cited_by_brain``, ``in_composed_brief`` — which no pm_handoff builder
     reads; only inspection.py does. Text keeps the report's 1200-char clamp so
     nothing downstream sees a longer string than it did before.
@@ -235,6 +235,10 @@ def _untruncate_report_atoms(report: Any, envelope: Any) -> Any:
                 # live compile: a note with no heading cannot be placed in a
                 # procedure, so each one was dropped.
                 "section_path": list(a.get("section_path") or ()),
+                # The parser's own doubts about the label it gave; read by
+                # _implementation_notes. Missing it here would repeat the
+                # section_path mistake above for every backfilled row.
+                "review_flags": list(a.get("review_flags") or ()),
             })
     return report
 
@@ -514,6 +518,10 @@ def _heading_path(atom: dict, text: str) -> tuple[str, ...]:
     return tuple(parts)
 
 
+#: The parser's mark on a label it is not sure of.
+_REVIEW_FLAG = "low_confidence_needs_review"
+
+
 #: A parent heading with this many child headings or fewer is a PROCEDURE whose
 #: children are branches of it ("Depending on your device model"). With more,
 #: it is a chapter and its children are the procedures.
@@ -541,8 +549,25 @@ def _implementation_notes(report: dict) -> list[dict[str, Any]]:
 
     Prose beats tables for the cap, read from the locators each group's own
     notes carry rather than guessed from the file extension -- see _note_medium.
+
+    A LINE THE PARSER DOUBTED STAYS WITH ITS SIBLINGS. The same Clayton SOW,
+    parsed twice (2026-09-12), labelled the list under "Inventory & Data Capture
+    Requirements" four field notes the first time and one field note plus three
+    scope items the second -- "Device type", "Operating system", "Computer
+    name", each flagged by the parser itself as needing review -- and the three
+    fell out of the procedure. A line of another label joins the procedure its
+    heading already holds in the same document when the parser flagged that
+    label for review. Lines labelled with confidence stay out (the SOW's
+    commercial terms, the scheduling tables), and so do transcript lines: a
+    meeting is not a procedure. On both parses of that deal this recovers the
+    three fields and adds nothing else to a prose or table procedure but two
+    responsibility lines on the first parse (dated corpus measurement,
+    2026-09-14).
     """
     rows_by_key: dict[tuple[str, tuple[str, ...]], list[tuple]] = {}
+    doubted: list[tuple[tuple[str, tuple[str, ...]], tuple]] = []
+    # The document's outline, from every line in it whatever its label.
+    outline: dict[tuple[str, tuple[str, ...]], set[str]] = defaultdict(set)
     for art in (report.get("artifacts") or ()):
         if not isinstance(art, dict):
             continue
@@ -550,21 +575,35 @@ def _implementation_notes(report: dict) -> list[dict[str, Any]]:
         for atom in (art.get("atoms") or ()):
             if not isinstance(atom, dict):
                 continue
-            if str(atom.get("atom_type") or "") != "site_implementation_note":
-                continue
             text = _note_text(atom.get("text"))
             if not text:
                 continue
             path = _heading_path(atom, text)
             if not path:
                 continue
-            rows_by_key.setdefault((filename, path), []).append((_note_sort_key(atom), text, atom))
+            for depth in range(1, len(path)):
+                outline[(filename, path[:depth])].add(path[depth])
+            is_note = str(atom.get("atom_type") or "") == "site_implementation_note"
+            if not is_note and _REVIEW_FLAG not in (atom.get("review_flags") or ()):
+                continue
+            row = (_note_sort_key(atom), text, atom)
+            if is_note:
+                rows_by_key.setdefault((filename, path), []).append(row)
+            elif _note_medium(_as_locator_dict(atom.get("locator"))) != "discussion":
+                doubted.append(((filename, path), row))
+    # Only into a procedure the document's own field notes already made.
+    for key, row in doubted:
+        if key in rows_by_key:
+            rows_by_key[key].append(row)
 
-    # Child headings per parent, within one document.
-    children: dict[tuple[str, tuple[str, ...]], int] = defaultdict(int)
-    for filename, path in rows_by_key:
-        if len(path) >= 2:
-            children[(filename, path[:-1])] += 1
+    # Child headings per parent, within one document -- counted from the
+    # document's whole outline, not only the headings the parser happened to
+    # label field notes under. Counted from note headings alone, the second parse
+    # of Clayton's SOW left "Project Scope" two children with field notes instead
+    # of four, so the chapter read as a procedure and swallowed "Inventory & Data
+    # Capture Requirements" (2026-09-12). The author's outline did not change;
+    # the labels did.
+    children: dict[tuple[str, tuple[str, ...]], int] = {key: len(names) for key, names in outline.items()}
 
     # Deepest first, so a branch of a branch lands in the procedure, not midway.
     for key in sorted(list(rows_by_key), key=lambda k: -len(k[1])):

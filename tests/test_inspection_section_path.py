@@ -54,3 +54,21 @@ def test_a_short_document_reaches_the_procedure_list_through_the_real_rows():
     groups = _implementation_notes(report)
     assert [g["procedure"] for g in groups] == [ECOBEE]
     assert len(groups[0]["notes"]) == 2
+
+
+def test_the_report_rows_carry_the_parsers_review_flags():
+    """pm_handoff takes a line the parser flagged for review into its heading's
+    procedure. A row without the flags makes that rule silently never fire."""
+    envelope = _envelope()
+    envelope["atoms"].append(
+        {"id": "a3", "artifact_id": "art-rb", "atom_type": "scope_item", "text": "Device type",
+         "section_path": [ECOBEE], "review_flags": ["low_confidence_needs_review"], "locator": {"paragraph_index": 3}}
+    )
+    rows = {r["id"]: r for r in _view(envelope)["atoms"]}
+    assert rows["a3"]["review_flags"] == ["low_confidence_needs_review"]
+    assert rows["a1"]["review_flags"] == []
+
+    report = {"artifacts": [{"artifact_id": "art-rb", "filename": "OnSite Inventory Runbook.docx", "atoms": []}]}
+    backfilled = {r["id"]: r for r in _untruncate_report_atoms(report, envelope)["artifacts"][0]["atoms"]}
+    assert backfilled["a3"]["review_flags"] == ["low_confidence_needs_review"]
+
