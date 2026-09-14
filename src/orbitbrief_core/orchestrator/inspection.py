@@ -578,6 +578,11 @@ def _artifact_view(
                 # document with at most 60 atoms -- which never gets backfilled
                 # from the envelope -- arrives headingless and is dropped.
                 "section_path": list(atom.get("section_path") or ()),
+                # The parser's own doubts about the label it gave. pm_handoff
+                # takes a line the parser flagged for review into the procedure
+                # its heading already holds; without the flags on this row the
+                # rule could never fire for a document of 60 atoms or fewer.
+                "review_flags": list(atom.get("review_flags") or ()),
                 "in_bundle": in_bundle,
                 "cited_by_brain": in_brain,
                 "in_composed_brief": in_brief,
