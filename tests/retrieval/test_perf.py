@@ -34,6 +34,10 @@ SYNTHETIC_QUERY_COUNT = int(os.environ.get("ORBITBRIEF_RETRIEVAL_PERF_QS", "50")
 
 
 @pytest.mark.perf
+# Builds a 10k-row index before timing anything: ~200s locally, ~300s on CI, and
+# the time is spent in native code the default 120s timeout cannot interrupt.
+# State its real ceiling instead of letting the default look like it applies.
+@pytest.mark.timeout(600)
 def test_top_k_over_10k_packets_under_200ms_p95() -> None:
     """Build → search 10K rows; p95 latency ≤ ``P95_THRESHOLD_MS``."""
     dim = 128
