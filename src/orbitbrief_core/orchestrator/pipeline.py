@@ -37,6 +37,7 @@ from time import perf_counter
 from typing import Any
 
 from orbitbrief_core.brains._retrieval_bundle import RetrievalBundle
+from orbitbrief_core.orchestrator.atom_type_fold import fold_v2_atom_types
 from orbitbrief_core.calibrator import Calibrator, CalibratorReport
 from orbitbrief_core.calibrator.verdict import Verdict
 from orbitbrief_core.composer import (
@@ -618,6 +619,7 @@ class BriefPipeline:
         # Load the envelope dict and write the canonical copy.
         text = envelope_path.read_text(encoding="utf-8")
         envelope_dict = json.loads(text)
+        v2_folded = fold_v2_atom_types(envelope_dict)
         artifacts.write_json(artifacts.envelope_path, envelope_dict)
         runtime = EvidenceRuntime.from_envelope(envelope_dict)
         finished = _iso_now()
@@ -633,6 +635,7 @@ class BriefPipeline:
                 "atom_count": len(envelope_dict.get("atoms") or []),
                 "packet_count": len(envelope_dict.get("packets") or []),
                 "entity_count": len(envelope_dict.get("entities") or []),
+                "v2_atom_types_folded": v2_folded,
             },
         )
         return runtime, rec
