@@ -32,10 +32,13 @@ def _ollama_reachable() -> bool:
         return False
 
 
-pytestmark = pytest.mark.skipif(
-    not _ollama_reachable(),
-    reason=f"Ollama not reachable at {OLLAMA_BASE}",
-)
+pytestmark = [
+    pytest.mark.live,
+    pytest.mark.skipif(
+        not _ollama_reachable(),
+        reason=f"Ollama not reachable at {OLLAMA_BASE}",
+    ),
+]
 
 
 def test_chat_client_round_trip() -> None:
