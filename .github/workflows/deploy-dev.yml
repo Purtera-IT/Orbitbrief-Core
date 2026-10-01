@@ -21,7 +21,7 @@ name: Deploy orbitbrief-core-worker to dev
 
 on:
   push:
-    branches: [main, feat/question-neural-dedupe]
+    branches: [main, feat/question-neural-dedupe, fix/answered-questions-stay-answered]
   workflow_dispatch:
 
 permissions:

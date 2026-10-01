@@ -194,12 +194,23 @@ class FeedbackPolicy:
     gold_by_mode: dict[str, tuple[QuestionFeedbackEvent, ...]] = field(default_factory=dict)
     # Edited wording preferences: rule_id → preferred text
     edits_by_rule: dict[str, str] = field(default_factory=dict)
+    # Asks a PM has ANSWERED on this deal. A rebrief re-coins the LLM's asks
+    # under new ids and new wording (000036, 2026-09-15: "Display delivery
+    # precondition" came back as "Customer kit receipt confirmation" with the
+    # display, mount and hardware restated from the PM's own answer), so an
+    # answer keyed to a rule id alone is lost on the next compile. The rule id
+    # and the ask's text -- and the answer's text, which the re-coined ask
+    # restates -- all mean "already answered here". Deal-scoped by
+    # construction: an answer is about this deal's circumstances.
+    answered_rule_ids: frozenset[str] = frozenset()
+    answered_texts: tuple[str, ...] = ()
 
 
 def compile_feedback_policy(
     events: Iterable[QuestionFeedbackEvent],
     *,
     dismiss_threshold: int = 1,
+    deal_id: str = "",
 ) -> FeedbackPolicy:
     """Turn raw events into immediate suppress / promote policy.
 
@@ -213,9 +224,28 @@ def compile_feedback_policy(
     gold: dict[str, list[QuestionFeedbackEvent]] = {}
     edits: dict[str, str] = {}
     suppressed_text_list: list[str] = []
+    answered_rules: set[str] = set()
+    answered_text_list: list[str] = []
+    this_deal = str(deal_id or "").strip()
 
     for ev in events:
         action = ev.action
+        if action == ACTION_ANSWERED:
+            # Only this deal's answers: the org ledger carries every deal's.
+            if this_deal and str(ev.deal_id or "").strip() != this_deal:
+                continue
+            rid_a = (ev.rule_id or "").strip()
+            if rid_a:
+                answered_rules.add(rid_a)
+            q_text = (ev.question_text or "").strip()
+            a_text = (ev.edited_text or "").strip()
+            if q_text:
+                answered_text_list.append(q_text)
+            if q_text and a_text:
+                answered_text_list.append(f"{q_text} {a_text}")
+            elif a_text:
+                answered_text_list.append(a_text)
+            continue
         rid = (ev.rule_id or "").strip()
         fp = (ev.fingerprint or fingerprint_question(ev.question_text)).strip()
         mode = (ev.project_mode or "").strip()
@@ -259,6 +289,14 @@ def compile_feedback_policy(
             continue
         seen_t.add(key)
         uniq_texts.append(t)
+    seen_a: set[str] = set()
+    uniq_answered: list[str] = []
+    for t in answered_text_list:
+        key = fingerprint_question(t)
+        if key in seen_a:
+            continue
+        seen_a.add(key)
+        uniq_answered.append(t)
     return FeedbackPolicy(
         suppressed_rule_ids=suppressed_rules,
         suppressed_fingerprints=suppressed_fps,
@@ -266,4 +304,6 @@ def compile_feedback_policy(
         suppressed_texts=tuple(uniq_texts),
         gold_by_mode=gold_by_mode,
         edits_by_rule=edits,
+        answered_rule_ids=frozenset(answered_rules),
+        answered_texts=tuple(uniq_answered),
     )
