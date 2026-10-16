@@ -61,6 +61,17 @@ def test_handoff_takes_the_heads_brief(tmp_path, monkeypatch):
     assert on.metrics["customer_question_engine"]["source"] == "c3_brief"
     overview = on.executive_summary["overview"]
     assert overview.startswith("Install three cameras.") and "**Scope.** Mount cameras." in overview
+    assert on.executive_summary["headline"] == "Install three cameras."
+    assert on.executive_summary["source"] == "c3_brief"
     monkeypatch.delenv("ORBITBRIEF_C3_BRIEF")
     off = build_pm_handoff(case)
     assert not off.c3_brief and not any(q.rule_id.startswith("c3:") for q in off.customer_questions)
+
+
+def test_polish_leaves_the_heads_brief_alone():
+    from types import SimpleNamespace
+
+    from orbitbrief_core.neural_heads.exec_summary import apply_exec_summary
+
+    h = SimpleNamespace(executive_summary={"source": "c3_brief", "headline": "Install three cameras."})
+    assert apply_exec_summary(h, {}, chat_client=object()) is h

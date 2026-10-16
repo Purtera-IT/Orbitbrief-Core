@@ -131,3 +131,9 @@ def overview_text(v: dict[str, Any]) -> str:
         if text:
             parts.append(f"**{_SECTION_TITLES.get(key, key.replace('_', ' ').capitalize())}.** {text}")
     return "\n\n".join(p for p in parts if p)
+
+
+def headline(v: dict[str, Any]) -> str:
+    """The panel's title line: the brief summary's first sentence."""
+    first = re.split(r"(?<=[.!?])\s+", (v.get("summary") or "").strip(), maxsplit=1)[0]
+    return first[:200]

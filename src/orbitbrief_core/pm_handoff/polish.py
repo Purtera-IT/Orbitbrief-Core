@@ -903,18 +903,22 @@ def polish_pm_handoff(
     except Exception:
         project_mode = ""
 
+    # The heads' brief is already written and cited; polish leaves it alone.
+    heads_brief = bool(getattr(handoff, "c3_brief", None)) and (
+        (handoff.executive_summary or {}).get("source") == "c3_brief")
     items: list[PolishItem] = []
-    items.extend(
-        _one_line_polish_items(
-            handoff.one_line_summary, model, project_mode=project_mode
+    if not heads_brief:
+        items.extend(
+            _one_line_polish_items(
+                handoff.one_line_summary, model, project_mode=project_mode
+            )
         )
-    )
     items.extend(_gap_polish_items(handoff.gaps, model))
     # Do NOT polish curated customer_questions. The neural question engine
     # already emits PM-ready, evidence-grounded asks; LLM polish was merging
     # distinct intents (e.g. SOP receipt + Montreal paper approval).
     items.extend(_risk_polish_items(handoff.risk_register, model))
-    if handoff.executive_summary:
+    if handoff.executive_summary and not heads_brief:
         items.extend(
             _exec_polish_items(
                 handoff.executive_summary, model, project_mode=project_mode
@@ -941,7 +945,7 @@ def polish_pm_handoff(
     items_polished = sum(1 for r in results.values() if not r.used_fallback)
     items_fallback = sum(1 for r in results.values() if r.used_fallback)
 
-    polished_one_line = _apply_one_line_result(
+    polished_one_line = handoff.one_line_summary if heads_brief else _apply_one_line_result(
         handoff.one_line_summary, results, model, project_mode=project_mode
     )
     polished_gaps = _apply_results_to_gaps(handoff.gaps, results, model)
@@ -958,7 +962,7 @@ def polish_pm_handoff(
         _apply_results_to_exec(
             handoff.executive_summary, results, model, project_mode=project_mode
         )
-        if handoff.executive_summary
+        if handoff.executive_summary and not heads_brief
         else handoff.executive_summary
     )
     polished_slots = _apply_results_to_slots(handoff.customer_answer_slots, results, model)

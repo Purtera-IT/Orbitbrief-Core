@@ -1211,7 +1211,8 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     if c3_view.get("summary"):
         from dataclasses import replace as _dc_replace
 
-        exec_summary = _dc_replace(exec_summary, overview=_c3.overview_text(c3_view))
+        exec_summary = _dc_replace(exec_summary, overview=_c3.overview_text(c3_view),
+                                   headline=_c3.headline(c3_view) or exec_summary.headline)
     # Tier 1-4 PM intelligence
     # (margin computed above, before the summary — it feeds the overview writer.
     # It must read the FULL envelope, not the inspection report's 60-per-file
@@ -1345,7 +1346,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         site_allocations=[asdict(a) for a in allocations],
         acceptance_checks=[asdict(a) for a in accept_checks],
         rfp_line_items=[asdict(r) for r in rfp_items],
-        executive_summary=asdict(exec_summary),
+        executive_summary={**asdict(exec_summary), **({"source": "c3_brief"} if c3_view.get("summary") else {})},
         stakeholder_contacts=[asdict(c) for c in contacts],
         exclusions=[asdict(e) for e in exclusions],
         responsibilities=[asdict(r) for r in responsibilities],
