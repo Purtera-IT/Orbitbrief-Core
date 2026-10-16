@@ -95,6 +95,7 @@ from orbitbrief_core.pm_handoff.question_engine import (
     build_customer_questions,
     domain_ids_allowed_for_mode,
 )
+from orbitbrief_core.pm_handoff import c3_brief as _c3
 from orbitbrief_core.pm_handoff.semantic_dedupe import is_near_duplicate_of_any, semantic_dedupe
 from dataclasses import asdict
 
@@ -1051,6 +1052,18 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
             **question_meta,
             "pool": f"{len(customer_questions_pool)}_cards_on_handoff",
         }
+    # The super heads' brief, when parser-os wrote one and the switch is on:
+    # its questions become the shortlist and the old ones join the pool.
+    c3_view: dict[str, Any] = {}
+    if _c3.enabled() and _c3.written(envelope):
+        old = customer_questions
+        customer_questions = _c3.questions(envelope)
+        seen = {q.rule_id for q in customer_questions_pool}
+        customer_questions_pool = customer_questions + customer_questions_pool + [
+            q for q in old if q.rule_id not in seen]
+        c3_view = _c3.view(envelope)
+        question_meta = {**(question_meta if isinstance(question_meta, dict) else {}),
+                         "source": "c3_brief", "replaced_questions": len(old)}
     # Don't surface the same intent as both a gap/blocker and a curated question.
     gaps = _suppress_gaps_covered_by_questions(gaps, customer_questions)
     project_mode = str(question_meta.get("project_mode") or "")
@@ -1289,6 +1302,9 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         has_compliance_callout=bool(compliance),
     )
 
+    if c3_view.get("summary"):
+        one_line = c3_view["summary"]
+
     return PMHandoff(
         case_id=case_id,
         status=status,
@@ -1303,6 +1319,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         sa_focus=sa_focus,
         customer_questions=customer_questions,
         customer_questions_pool=customer_questions_pool,
+        c3_brief=c3_view,
         money_mentions=[asdict(m) for m in money],
         date_mentions=[asdict(d) for d in dates],
         reconciliation_flags=[asdict(f) for f in flags],
