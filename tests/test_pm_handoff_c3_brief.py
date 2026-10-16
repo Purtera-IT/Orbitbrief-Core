@@ -59,6 +59,8 @@ def test_handoff_takes_the_heads_brief(tmp_path, monkeypatch):
     assert on.one_line_summary == "Install three cameras."
     assert on.c3_brief["sections"]["scope"]
     assert on.metrics["customer_question_engine"]["source"] == "c3_brief"
+    overview = on.executive_summary["overview"]
+    assert overview.startswith("Install three cameras.") and "**Scope.** Mount cameras." in overview
     monkeypatch.delenv("ORBITBRIEF_C3_BRIEF")
     off = build_pm_handoff(case)
     assert not off.c3_brief and not any(q.rule_id.startswith("c3:") for q in off.customer_questions)

@@ -116,3 +116,18 @@ def view(envelope: dict[str, Any]) -> dict[str, Any]:
         "decided_by": brief.get("decided_by") or {},
         "left_out": (brief.get("left_out") or {}).get("count"),
     }
+
+
+_SECTION_TITLES = {"scope": "Scope", "customer_responsibilities": "Customer responsibilities",
+                   "out_of_scope": "Out of scope", "schedule": "Schedule", "fees": "Fees", "terms": "Terms"}
+
+
+def overview_text(v: dict[str, Any]) -> str:
+    """The PM overview panel from the heads' brief: the summary, then each
+    section's sentences under its name (markdown, as the panel renders it)."""
+    parts = [v.get("summary") or ""]
+    for key, items in (v.get("sections") or {}).items():
+        text = " ".join(it["text"] for it in items if it.get("text"))
+        if text:
+            parts.append(f"**{_SECTION_TITLES.get(key, key.replace('_', ' ').capitalize())}.** {text}")
+    return "\n\n".join(p for p in parts if p)

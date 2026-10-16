@@ -1182,6 +1182,10 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     # about cost with no idea what the engagement was worth.
     margin = build_margin_view(full_envelope or report)
     _briefing_chat_client, _briefing_model = _briefing_chat()
+    if c3_view.get("summary"):
+        # The heads' brief is the overview; Core's own writer is not called.
+        one_line = c3_view["summary"]
+        _briefing_chat_client = None
     exec_summary = build_executive_summary(
         case_id=display_label,
         status=status,
@@ -1204,6 +1208,10 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         overview_model=_briefing_model,
         margin_view=asdict(margin) if hasattr(margin, "__dataclass_fields__") else margin,
     )
+    if c3_view.get("summary"):
+        from dataclasses import replace as _dc_replace
+
+        exec_summary = _dc_replace(exec_summary, overview=_c3.overview_text(c3_view))
     # Tier 1-4 PM intelligence
     # (margin computed above, before the summary — it feeds the overview writer.
     # It must read the FULL envelope, not the inspection report's 60-per-file
