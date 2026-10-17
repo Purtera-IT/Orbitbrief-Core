@@ -1329,6 +1329,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         customer_questions=customer_questions,
         customer_questions_pool=customer_questions_pool,
         c3_brief=c3_view,
+        c3_sow=dict((envelope or {}).get("c3_sow") or {}) if isinstance((envelope or {}).get("c3_sow"), dict) else {},
         money_mentions=[asdict(m) for m in money],
         date_mentions=[asdict(d) for d in dates],
         reconciliation_flags=[asdict(f) for f in flags],

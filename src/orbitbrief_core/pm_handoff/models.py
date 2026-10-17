@@ -141,6 +141,9 @@ class PMHandoff:
     #: summary, sections with citations, questions already answered, and who
     #: decided. Empty unless ORBITBRIEF_C3_BRIEF is on -- see pm_handoff/c3_brief.py.
     c3_brief: dict[str, Any] = field(default_factory=dict)
+    #: The SOW content the super heads' lines were written into (parser-os
+    #: ``c3_sow``), passed through for SowSmith to fill its templates with.
+    c3_sow: dict[str, Any] = field(default_factory=dict)
     # A5: cross-doc numeric / date reconciliation tables. These are
     # plain-dict snapshots of MoneyMention / DateMention /
     # ReconciliationFlag so PMHandoff stays JSON-serializable via
