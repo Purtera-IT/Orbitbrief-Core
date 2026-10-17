@@ -137,6 +137,13 @@ class PMHandoff:
     customer_questions: list[GapCard] = field(default_factory=list)
     # Evidence-ranked audit pool (up to ~50). Review Queue uses shortlist only.
     customer_questions_pool: list[GapCard] = field(default_factory=list)
+    #: The super heads' brief (parser-os ``c3_brief``) as the page shows it:
+    #: summary, sections with citations, questions already answered, and who
+    #: decided. Empty unless ORBITBRIEF_C3_BRIEF is on -- see pm_handoff/c3_brief.py.
+    c3_brief: dict[str, Any] = field(default_factory=dict)
+    #: The SOW content the super heads' lines were written into (parser-os
+    #: ``c3_sow``), passed through for SowSmith to fill its templates with.
+    c3_sow: dict[str, Any] = field(default_factory=dict)
     # A5: cross-doc numeric / date reconciliation tables. These are
     # plain-dict snapshots of MoneyMention / DateMention /
     # ReconciliationFlag so PMHandoff stays JSON-serializable via
