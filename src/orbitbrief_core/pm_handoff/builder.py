@@ -1714,9 +1714,11 @@ def _sites_from_canonical_roster(
         # Envelope rows key the site as ``site`` ("site:hc_100"); the handoff's
         # own enriched roster uses ``site_slug`` + ``name``. Accept both.
         slug = str(row.get("site_slug") or row.get("site") or "").strip()
-        label = str(row.get("name") or "").strip() or _display_name_from_aliases(
-            row.get("aliases")
-        )
+        # The envelope's display_name is its one readable label ("HQ — 2970
+        # Brandywine Rd, Atlanta, GA"); aliases can be a file name (010428's
+        # "HOU_Houston_Port_Utilization_2wk.xlsx") or a garbled street repeat.
+        label = (str(row.get("name") or "").strip() or str(row.get("display_name") or "").strip()
+                 or _display_name_from_aliases(row.get("aliases")))
         if not label:
             # Still a real site — fall back to the slug rather than dropping it.
             label = slug.split(":", 1)[-1].replace("_", " ").strip()
