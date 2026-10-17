@@ -118,8 +118,11 @@ def view(envelope: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-_SECTION_TITLES = {"scope": "Scope", "customer_responsibilities": "Customer responsibilities",
-                   "out_of_scope": "Out of scope", "schedule": "Schedule", "fees": "Fees", "terms": "Terms"}
+_SECTION_TITLES = {"scope": "Scope", "job_details": "Job details",
+                   "customer_responsibilities": "Customer responsibilities",
+                   "customer_furnished": "Customer-furnished equipment",
+                   "out_of_scope": "Out of scope", "schedule": "Schedule", "assumptions": "Assumptions",
+                   "fees": "Fees", "terms": "Terms"}
 
 
 def overview_text(v: dict[str, Any]) -> str:
