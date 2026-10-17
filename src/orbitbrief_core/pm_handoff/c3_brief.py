@@ -80,9 +80,13 @@ def questions(envelope: dict[str, Any]) -> list[GapCard]:
         text = strip_cites(q.get("question") or "")
         if not text:
             continue
+        pricing = q.get("kind") == "pricing"
         cards.append(GapCard(
-            rule_id=f"c3:deal:{i}", domain_id="deal", domain_label="Asked in this deal",
-            label=text[:80], severity="warning", message="Asked in the deal's documents, not yet answered",
+            rule_id=f"c3:{'pricing' if pricing else 'deal'}:{i}", domain_id="pricing" if pricing else "deal",
+            domain_label="Before pricing" if pricing else "Asked in this deal",
+            label=text[:80], severity="warning",
+            message=("Open in the deal's facts; needed to price the job" if pricing
+                     else "Asked in the deal's documents, not yet answered"),
             suggested_open_question=text, observed_summary=f"owner: {q.get('owner') or 'project_manager'}",
             sources=_sources(q.get("cites") or [], atoms, files)))
     catalog = sorted(w.get("catalog_questions") or [], key=lambda q: -float(q.get("p") or 0))
