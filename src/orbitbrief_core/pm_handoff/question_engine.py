@@ -3181,6 +3181,7 @@ def apply_feedback(
     project_mode: str,
 ) -> list[QuestionCandidate]:
     suppressed_texts = list(policy.suppressed_texts or ())
+    answered_texts = list(getattr(policy, "answered_texts", ()) or ())
     out: list[QuestionCandidate] = []
     for c in candidates:
         fp = fingerprint_question(c.suggested_open_question or c.message)
@@ -3194,6 +3195,12 @@ def apply_feedback(
         # Semantic neighbor of a dismissed ask (e.g. evidence paraphrase of
         # a dismissed mode-template topology question).
         if suppressed_texts and is_near_duplicate_of_any(qtext, suppressed_texts):
+            continue
+        # Already answered on this deal: by rule id, or as a neighbor of the
+        # answered ask or of the answer itself (a re-coined ask restates it).
+        if c.rule_id in policy.answered_rule_ids:
+            continue
+        if answered_texts and is_near_duplicate_of_any(qtext, answered_texts):
             continue
         # Apply preferred wording
         edit = policy.edits_by_rule.get(c.rule_id)
@@ -3734,7 +3741,10 @@ def build_customer_questions(
 
     if feedback_policy is None:
         events = list(feedback_events) if feedback_events is not None else load_feedback(case_dir=case_dir)
-        feedback_policy = compile_feedback_policy(events)
+        feedback_policy = compile_feedback_policy(
+            events,
+            deal_id=str((envelope or {}).get("project_id") or "") if isinstance(envelope, Mapping) else "",
+        )
 
     docs_by_id = _docs_by_artifact_id(envelope if isinstance(envelope, Mapping) else None)
 
