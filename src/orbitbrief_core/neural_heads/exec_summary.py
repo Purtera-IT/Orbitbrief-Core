@@ -82,6 +82,8 @@ def apply_exec_summary(handoff: Any, envelope: dict, *, chat_client: Any = None,
                        model: str = "qwen3:14b") -> Any:
     if chat_client is None:
         return handoff
+    if (getattr(handoff, "executive_summary", None) or {}).get("source") == "c3_brief":
+        return handoff   # the heads' brief already wrote it
     f = _facts(handoff, envelope)
     es: dict | None = None
     try:

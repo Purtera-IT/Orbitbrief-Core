@@ -95,6 +95,7 @@ from orbitbrief_core.pm_handoff.question_engine import (
     build_customer_questions,
     domain_ids_allowed_for_mode,
 )
+from orbitbrief_core.pm_handoff import c3_brief as _c3
 from orbitbrief_core.pm_handoff.semantic_dedupe import is_near_duplicate_of_any, semantic_dedupe
 from dataclasses import asdict
 
@@ -1051,6 +1052,18 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
             **question_meta,
             "pool": f"{len(customer_questions_pool)}_cards_on_handoff",
         }
+    # The super heads' brief, when parser-os wrote one and the switch is on:
+    # its questions become the shortlist and the old ones join the pool.
+    c3_view: dict[str, Any] = {}
+    if _c3.enabled() and _c3.written(envelope):
+        old = customer_questions
+        customer_questions = _c3.questions(envelope)
+        seen = {q.rule_id for q in customer_questions_pool}
+        customer_questions_pool = customer_questions + customer_questions_pool + [
+            q for q in old if q.rule_id not in seen]
+        c3_view = _c3.view(envelope)
+        question_meta = {**(question_meta if isinstance(question_meta, dict) else {}),
+                         "source": "c3_brief", "replaced_questions": len(old)}
     # Don't surface the same intent as both a gap/blocker and a curated question.
     gaps = _suppress_gaps_covered_by_questions(gaps, customer_questions)
     project_mode = str(question_meta.get("project_mode") or "")
@@ -1169,6 +1182,10 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     # about cost with no idea what the engagement was worth.
     margin = build_margin_view(full_envelope or report)
     _briefing_chat_client, _briefing_model = _briefing_chat()
+    if c3_view.get("summary"):
+        # The heads' brief is the overview; Core's own writer is not called.
+        one_line = c3_view["summary"]
+        _briefing_chat_client = None
     exec_summary = build_executive_summary(
         case_id=display_label,
         status=status,
@@ -1191,6 +1208,11 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         overview_model=_briefing_model,
         margin_view=asdict(margin) if hasattr(margin, "__dataclass_fields__") else margin,
     )
+    if c3_view.get("summary"):
+        from dataclasses import replace as _dc_replace
+
+        exec_summary = _dc_replace(exec_summary, overview=_c3.overview_text(c3_view),
+                                   headline=_c3.headline(c3_view) or exec_summary.headline)
     # Tier 1-4 PM intelligence
     # (margin computed above, before the summary — it feeds the overview writer.
     # It must read the FULL envelope, not the inspection report's 60-per-file
@@ -1289,6 +1311,9 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         has_compliance_callout=bool(compliance),
     )
 
+    if c3_view.get("summary"):
+        one_line = c3_view["summary"]
+
     return PMHandoff(
         case_id=case_id,
         status=status,
@@ -1303,6 +1328,8 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         sa_focus=sa_focus,
         customer_questions=customer_questions,
         customer_questions_pool=customer_questions_pool,
+        c3_brief=c3_view,
+        c3_sow=dict((envelope or {}).get("c3_sow") or {}) if isinstance((envelope or {}).get("c3_sow"), dict) else {},
         money_mentions=[asdict(m) for m in money],
         date_mentions=[asdict(d) for d in dates],
         reconciliation_flags=[asdict(f) for f in flags],
@@ -1320,7 +1347,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         site_allocations=[asdict(a) for a in allocations],
         acceptance_checks=[asdict(a) for a in accept_checks],
         rfp_line_items=[asdict(r) for r in rfp_items],
-        executive_summary=asdict(exec_summary),
+        executive_summary={**asdict(exec_summary), **({"source": "c3_brief"} if c3_view.get("summary") else {})},
         stakeholder_contacts=[asdict(c) for c in contacts],
         exclusions=[asdict(e) for e in exclusions],
         responsibilities=[asdict(r) for r in responsibilities],
@@ -1688,9 +1715,11 @@ def _sites_from_canonical_roster(
         # Envelope rows key the site as ``site`` ("site:hc_100"); the handoff's
         # own enriched roster uses ``site_slug`` + ``name``. Accept both.
         slug = str(row.get("site_slug") or row.get("site") or "").strip()
-        label = str(row.get("name") or "").strip() or _display_name_from_aliases(
-            row.get("aliases")
-        )
+        # The envelope's display_name is its one readable label ("HQ — 2970
+        # Brandywine Rd, Atlanta, GA"); aliases can be a file name (010428's
+        # "HOU_Houston_Port_Utilization_2wk.xlsx") or a garbled street repeat.
+        label = (str(row.get("name") or "").strip() or str(row.get("display_name") or "").strip()
+                 or _display_name_from_aliases(row.get("aliases")))
         if not label:
             # Still a real site — fall back to the slug rather than dropping it.
             label = slug.split(":", 1)[-1].replace("_", " ").strip()
