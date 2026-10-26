@@ -40,6 +40,7 @@ def _ollama_reachable() -> bool:
 
 
 pytestmark = [
+    pytest.mark.live,
     pytest.mark.slow,
     pytest.mark.skipif(
         not _ollama_reachable(),

@@ -254,6 +254,7 @@ def _ollama_reachable() -> bool:
         return False
 
 
+@pytest.mark.live
 @pytest.mark.slow
 @pytest.mark.skipif(
     not _ollama_reachable(), reason=f"Ollama not reachable at {OLLAMA_BASE}"

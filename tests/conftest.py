@@ -7,6 +7,7 @@ conftests *up* the directory tree, not sideways between siblings.
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,18 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "slow: tests that build envelopes from real corpora (10s+ each)",
     )
+    # Envelope fixtures compile through parser-os, which calls a model from site
+    # detection, multi-entity extraction and more — by default at a Tailscale
+    # address. Any machine on that tailnet made every fixture-backed test wait on
+    # a live model during setup (PUR-152); CI, with no route, always took the
+    # deterministic fallback. Default runs now take that fallback everywhere:
+    #   - PARSER_OS_DISABLE_LLM is the kill switch the newer call sites check;
+    #   - OLLAMA_HOST at a closed local port covers call sites that predate it
+    #     (every parser-os version reads OLLAMA_HOST): refused at once, never waited on.
+    # `pytest -m live` is left alone, so the integration tests still reach a model.
+    if "live" not in config.getoption("markexpr", "").replace("not live", ""):
+        os.environ["PARSER_OS_DISABLE_LLM"] = "1"
+        os.environ["OLLAMA_HOST"] = "http://127.0.0.1:9"
 
 
 # ────────────────────────────── shared fixtures ────────────────────────
