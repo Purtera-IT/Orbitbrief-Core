@@ -205,6 +205,16 @@ def main(argv: list[str] | None = None) -> int:
         if args.ollama
         else None
     )
+    # The super heads' brief decides the PM page when the switch is on and
+    # parser-os sent one: Core's own LLM chain, enrichers and polish are not run.
+    from orbitbrief_core.pm_handoff import c3_brief as _c3
+
+    try:
+        _env_for_mode = json.loads(envelope_path.read_text(encoding="utf-8"))
+    except Exception:
+        _env_for_mode = None
+    heads_brief = bool(_c3.enabled() and _c3.heads(_env_for_mode))
+    del _env_for_mode
     pipeline = BriefPipeline(
         chat_client=chat,
         planner_default_model=args.chat_model,
@@ -213,6 +223,7 @@ def main(argv: list[str] | None = None) -> int:
         site_reality_chat_model=args.chat_model,
         config=PipelineConfig(
             persist_review_queue=not args.no_persist_queue,
+            heads_brief=heads_brief,
         ),
     )
     result = pipeline.compile(envelope_path, out_dir=args.out)
@@ -222,20 +233,13 @@ def main(argv: list[str] | None = None) -> int:
     # output directory so the substrate dir doubles as the PM
     # handoff. Failures here never block compile completion.
     try:
-        from orbitbrief_core.pm_handoff import (
-            build_pm_handoff,
-            render_pm_executive_markdown,
-            render_solution_architect_markdown,
-            render_pm_handoff_markdown,
-        )
+        from orbitbrief_core.pm_handoff import build_pm_handoff
         # v45.2: SOW_DRAFT.md is now rendered by SowSmith
         # (Purtera-IT/SowSmith) from envelope.json directly, written by
         # parser-os-worker.  Orbitbrief-Core no longer owns the SOW.
-        from orbitbrief_core.pm_handoff.render_html import (
-            render_pm_executive_html,
-            render_solution_architect_html,
-            render_pm_handoff_html,
-        )
+        # PM_EXECUTIVE_SUMMARY / SA_REVIEW_PACKET / PM_HANDOFF.md were written
+        # here and never uploaded (not in the worker's ARTIFACT_FILES).
+        from orbitbrief_core.pm_handoff.render_html import render_pm_handoff_html
         # v45.3: wire polish_pm_handoff so gaps/risks/exec_summary get
         # PM-voice rewrites instead of raw clinical text.  Same chat
         # client the brains use — already proven to land through
@@ -283,7 +287,7 @@ def main(argv: list[str] | None = None) -> int:
             envelope_obj = json.loads(envelope_path.read_text(encoding="utf-8"))
         except Exception as _exc:
             envelope_obj = None
-        if isinstance(envelope_obj, dict):
+        if isinstance(envelope_obj, dict) and not heads_brief:
             print("compile_brief: v46 step apply_envelope_passthroughs...", file=sys.stderr)
             handoff = apply_envelope_passthroughs(handoff, envelope_obj)
             print("compile_brief: v46 step apply_risk_signals...", file=sys.stderr)
@@ -309,40 +313,45 @@ def main(argv: list[str] | None = None) -> int:
         # Falls through to handoff unchanged if chat client is missing
         # or the call fails — every UI section auto-hides narration
         # when absent.
-        print("compile_brief: v46 step apply_section_narration...", file=sys.stderr)
-        handoff = apply_section_narration(handoff, chat_client=chat)
-        print("compile_brief: v46 step section_narration entries =",
-              len(handoff.section_narration or {}), file=sys.stderr)
+        if heads_brief:
+            # The narrator and polish rewrite prose; under the heads the only
+            # prose writer is the heads' brief (and both were 100% fallback
+            # on dev: a hard-coded model the endpoint does not serve).
+            polished = handoff
+            (out_dir / "polish_report.json").write_text(
+                json.dumps({"skipped": "c3_brief: the heads' brief is not polished"}, indent=2),
+                encoding="utf-8",
+            )
+        else:
+            print("compile_brief: v46 step apply_section_narration...", file=sys.stderr)
+            handoff = apply_section_narration(handoff, chat_client=chat)
+            print("compile_brief: v46 step section_narration entries =",
+                  len(handoff.section_narration or {}), file=sys.stderr)
 
-        # Polish pass — only meaningful when chat client is wired (--ollama).
-        # Without a client this returns (handoff_unchanged, no_op_report).
-        print("compile_brief: v46 step polish_pm_handoff starting...", file=sys.stderr)
-        polished, polish_report = polish_pm_handoff(
-            handoff, chat_client=chat
-        )
-        print(
-            f"compile_brief: v46 step polish_pm_handoff done ({polish_report.items_polished}/{polish_report.items_total} polished)",
-            file=sys.stderr,
-        )
-        (out_dir / "polish_report.json").write_text(
-            json.dumps(polish_report.to_dict(), indent=2), encoding="utf-8"
-        )
+            # Polish pass — only meaningful when chat client is wired (--ollama).
+            # Without a client this returns (handoff_unchanged, no_op_report).
+            print("compile_brief: v46 step polish_pm_handoff starting...", file=sys.stderr)
+            polished, polish_report = polish_pm_handoff(
+                handoff, chat_client=chat
+            )
+            print(
+                f"compile_brief: v46 step polish_pm_handoff done ({polish_report.items_polished}/{polish_report.items_total} polished)",
+                file=sys.stderr,
+            )
+            (out_dir / "polish_report.json").write_text(
+                json.dumps(polish_report.to_dict(), indent=2), encoding="utf-8"
+            )
 
-        (out_dir / "PM_EXECUTIVE_SUMMARY.md").write_text(
-            render_pm_executive_markdown(polished), encoding="utf-8"
-        )
-        (out_dir / "SA_REVIEW_PACKET.md").write_text(
-            render_solution_architect_markdown(polished), encoding="utf-8"
-        )
-        (out_dir / "PM_HANDOFF.md").write_text(
-            render_pm_handoff_markdown(polished), encoding="utf-8"
-        )
-        (out_dir / "PM_EXECUTIVE_SUMMARY.html").write_text(
-            render_pm_executive_html(polished), encoding="utf-8"
-        )
-        (out_dir / "SA_REVIEW_PACKET.html").write_text(
-            render_solution_architect_html(polished), encoding="utf-8"
-        )
+        # The inspection page's PM block, from the one handoff built above
+        # (the pipeline no longer builds a second one for it).
+        from orbitbrief_core.orchestrator.inspection_html import render_inspection_html as _rih
+
+        _report_path = result.artifacts.inspection_json_path
+        if _report_path.is_file():
+            result.artifacts.inspection_html_path.write_text(
+                _rih(json.loads(_report_path.read_text(encoding="utf-8")), pm_handoff=polished.to_dict()),
+                encoding="utf-8",
+            )
         (out_dir / "PM_HANDOFF.html").write_text(
             render_pm_handoff_html(polished), encoding="utf-8"
         )
@@ -352,14 +361,7 @@ def main(argv: list[str] | None = None) -> int:
         # SOW_DRAFT.md intentionally NOT written here — owned by SowSmith
         # in parser-os-worker (see v45.2 separation).
         if not args.quiet:
-            print(
-                f"compile_brief: PM handoff written ({polished.status.upper()}: "
-                f"{len([g for g in polished.gaps if g.severity == 'blocker'])} blocker / "
-                f"{len([g for g in polished.gaps if g.severity == 'warning'])} warning) "
-                f"polish={polish_report.items_polished}/{polish_report.items_total} "
-                f"({polish_report.items_cached} cached, {polish_report.elapsed_ms}ms)",
-                file=sys.stderr,
-            )
+            print(f"compile_brief: PM handoff written ({polished.status.upper()})", file=sys.stderr)
     except Exception as exc:
         # v46.3: surface full traceback to stderr so the worker log
         # captures the exact failure point (compile_run.py forwards
@@ -389,6 +391,10 @@ def main(argv: list[str] | None = None) -> int:
                 )
         except Exception:
             pass
+        # A failed brief is a failed compile: exit non-zero so the worker
+        # records the run failed (it used to exit 0 and the run said success
+        # while latest/ kept the previous brief).
+        return 3
 
     if not args.quiet:
         manifest = json.loads(result.artifacts.manifest_path.read_text(encoding="utf-8"))

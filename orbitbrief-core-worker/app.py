@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from typing import Any
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query
@@ -19,6 +20,25 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("orbitbrief-core-worker")
 
 app = FastAPI(title="orbitbrief-core-worker", version="0.1.0")
+
+# Deals compiling on this replica. A second request for the same deal while
+# one runs gets 409: two compiles of one deal race on latest/ and doubled the
+# cost (parser-os-worker fired an HTTP compile beside Platform's queued one).
+_compiling: set[str] = set()
+_compiling_lock = threading.Lock()
+
+
+def _claim(deal_id: str) -> bool:
+    with _compiling_lock:
+        if deal_id in _compiling:
+            return False
+        _compiling.add(deal_id)
+        return True
+
+
+def _release(deal_id: str) -> None:
+    with _compiling_lock:
+        _compiling.discard(deal_id)
 
 
 class CompileRunBody(BaseModel):
@@ -71,6 +91,8 @@ def _background_compile(deal_id: str, run_id: str, mirror_latest: bool) -> None:
         # _execute_compile already logged the traceback and marked the run
         # failed; this keeps the background task from dying silently.
         log.error("compile FAILED deal=%s run=%s", deal_id, run_id)
+    finally:
+        _release(deal_id)
 
 
 @app.get("/healthz")
@@ -90,6 +112,9 @@ def compile_run(
     async_mode: int = Query(0, alias="async"),
     _: None = Depends(_check_bearer),
 ) -> dict[str, Any]:
+    if not _claim(body.deal_id):
+        log.warning("compile refused deal=%s run=%s: this deal is already compiling", body.deal_id, body.run_id)
+        raise HTTPException(status_code=409, detail="This deal is already compiling")
     if async_mode:
         background_tasks.add_task(_background_compile, body.deal_id, body.run_id, body.mirror_latest)
         return {
@@ -99,7 +124,10 @@ def compile_run(
             "run_id": body.run_id,
             "message": "Compile queued on worker",
         }
-    return _execute_compile(body.deal_id, body.run_id, body.mirror_latest)
+    try:
+        return _execute_compile(body.deal_id, body.run_id, body.mirror_latest)
+    finally:
+        _release(body.deal_id)
 
 
 if __name__ == "__main__":

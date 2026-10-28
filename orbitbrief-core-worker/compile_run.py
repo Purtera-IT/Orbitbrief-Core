@@ -40,6 +40,9 @@ ARTIFACT_FILES = (
     # and deleted with the container, which is exactly what happened between
     # the router wiring landing and this fix.
     ("router_training_rows.jsonl", "application/x-ndjson"),
+    # compile_brief.py's failure marker. Uploaded to the run and to latest/ so
+    # a failed rebrief never leaves the previous brief looking current.
+    ("brief_failed.json", "application/json"),
 )
 
 
@@ -206,7 +209,7 @@ def _forward_handoff_skip_warnings(stderr: str) -> None:
         )
 
 
-def _run_compile(envelope_path: Path, out_dir: Path) -> None:
+def _run_compile(envelope_path: Path, out_dir: Path, feedback_path: Path | None = None) -> None:
     core_root = Path(_env("ORBITBRIEF_CORE_ROOT", "/app/Orbitbrief-Core"))
     parser_root = Path(_env("PARSER_OS_ROOT", "/app/parser-os"))
     compile_py = core_root / "compile_brief.py"
@@ -237,6 +240,12 @@ def _run_compile(envelope_path: Path, out_dir: Path) -> None:
         chat_model,
     ]
     env = {**os.environ, "PYTHONPATH": py_path}
+    # This deal's PM feedback, for this subprocess only. It used to be set on
+    # os.environ, which is process-wide under a threadpool of concurrent
+    # compiles and never cleared: deal B read deal A's feedback file.
+    env.pop("ORBITBRIEF_QUESTION_FEEDBACK_PATH", None)
+    if feedback_path is not None:
+        env["ORBITBRIEF_QUESTION_FEEDBACK_PATH"] = str(feedback_path)
     proc = subprocess.run(
         cmd,
         cwd=str(core_root),
@@ -292,6 +301,16 @@ def _read_pm_status(handoff_path: Path) -> str | None:
         return str(status) if status else None
     except (json.JSONDecodeError, OSError):
         return None
+
+
+def _clear_latest_failure(client: BlobServiceClient, deal_id: str) -> None:
+    """A successful brief supersedes the last failure marker in latest/."""
+    from azure.core.exceptions import ResourceNotFoundError
+
+    try:
+        client.get_blob_client(_container(), f"deals/{deal_id}/orbitbrief/latest/brief_failed.json").delete_blob()
+    except ResourceNotFoundError:
+        pass  # absent is the normal case
 
 
 def _archive_latest_handoff(client: BlobServiceClient, deal_id: str) -> None:
@@ -376,7 +395,6 @@ def compile_orbitbrief_run(
             client, deal_id, work / "question_feedback.jsonl"
         )
         if feedback_path is not None:
-            os.environ["ORBITBRIEF_QUESTION_FEEDBACK_PATH"] = str(feedback_path)
             log.info(
                 "question feedback loaded deal=%s path=%s",
                 deal_id,
@@ -391,7 +409,9 @@ def compile_orbitbrief_run(
         # upload available artifacts, then re-raise.
         compile_error: Exception | None = None
         try:
-            _run_compile(envelope_path, out_dir)
+            _run_compile(envelope_path, out_dir, feedback_path)
+            if not (out_dir / "PM_HANDOFF.json").is_file():
+                raise RuntimeError("compile_brief.py wrote no PM_HANDOFF.json")
         except Exception as exc:
             compile_error = exc
             log.exception(
@@ -403,6 +423,11 @@ def compile_orbitbrief_run(
         pm_status = _read_pm_status(handoff_path)
         _write_calibration_signals(out_dir, envelope_path)
 
+        failed_marker = out_dir / "brief_failed.json"
+        if compile_error is not None and not failed_marker.is_file():
+            failed_marker.write_text(json.dumps({
+                "brief_failed": True, "stage": "compile",
+                "error": f"{type(compile_error).__name__}: {compile_error}"[:1000]}), encoding="utf-8")
         for file_name, content_type in ARTIFACT_FILES:
             local = out_dir / file_name
             if not local.is_file() and file_name == "PM_QUESTION_QUEUE.csv":
@@ -410,10 +435,14 @@ def compile_orbitbrief_run(
             _upload_file(client, deal_id, run_id, file_name, local, content_type)
             if local.is_file() or file_name == "PM_QUESTION_QUEUE.csv":
                 written.append(f"{run_id}/{file_name}")
-            if mirror_latest:
+            # A failed run mirrors only its failure marker to latest/: never a
+            # new pipeline_log beside the old brief, which read as current.
+            if mirror_latest and (compile_error is None or file_name == "brief_failed.json"):
                 _upload_file(client, deal_id, "latest", file_name, local, content_type)
                 if local.is_file():
                     written.append(f"latest/{file_name}")
+        if mirror_latest and compile_error is None:
+            _clear_latest_failure(client, deal_id)
 
         compile_id = None
         case_id = None
@@ -426,7 +455,7 @@ def compile_orbitbrief_run(
             except json.JSONDecodeError:
                 pass
 
-        if mirror_latest and handoff_payload:
+        if mirror_latest and handoff_payload and compile_error is None:
             _upsert_compile_history_index(client, deal_id, handoff_payload)
 
         pipeline = _pipeline_telemetry_summary(out_dir)
