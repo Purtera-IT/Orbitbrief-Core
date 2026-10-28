@@ -19,10 +19,22 @@ name: Deploy orbitbrief-core-worker to dev
 # github.token, which cannot read a private sibling repo, so every run since
 # 2026-06-29 failed at "Checkout Platform-infra" and Core only shipped by hand.
 
+# main only. This used to list feat/question-neural-dedupe as well, so a push to
+# that unmerged WIP branch (last commit 2026-08-02) would rebuild dev Core from
+# it and roll back whatever was running. A branch that needs to reach dev is
+# deployed by hand (ACR build + containerapp update) or merged first.
+# workflow_dispatch is restricted to main below for the same reason: a manual
+# run from the Actions tab picks any branch by default.
 on:
   push:
-    branches: [main, feat/question-neural-dedupe]
+    branches: [main]
   workflow_dispatch:
+
+concurrency:
+  # Two pushes in quick succession must not race to roll the app: the later
+  # one wins anyway, so let it.
+  group: deploy-dev-core
+  cancel-in-progress: false
 
 permissions:
   id-token: write
@@ -47,6 +59,7 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout Orbitbrief-Core
         uses: actions/checkout@v4
