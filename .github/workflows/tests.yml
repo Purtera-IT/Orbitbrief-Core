@@ -8,12 +8,11 @@ name: Tests
 
 on:
   pull_request:
-    # feat/question-neural-dedupe as well as main: deploy-dev.yml triggers on a
-    # push to EITHER branch, so both build images that reach dev. Gating only
-    # main would leave half the deploy path unverified.
-    branches: [main, feat/question-neural-dedupe]
+    # main only: deploy-dev.yml deploys main only (it used to deploy
+    # feat/question-neural-dedupe as well, which is why that branch was here).
+    branches: [main]
   push:
-    branches: [main, feat/question-neural-dedupe]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
