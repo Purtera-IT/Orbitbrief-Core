@@ -847,6 +847,12 @@ def _resolve_service_routing(envelope: Any, case_dir: Path) -> dict[str, Any] | 
     Unwired (no ``ORBITBRIEF_ROUTER_MODEL``) it is a pass-through: the head's own
     answer, unchanged.
     """
+    # The service head decides when it is sure (ORBITBRIEF_C3_BRIEF on); the
+    # router below runs only when the heads give no service.
+    if _c3.enabled():
+        heads_service = _c3.service_routing(envelope)
+        if heads_service:
+            return heads_service
     head = envelope.get("service_routing") if isinstance(envelope, dict) else None
     try:
         from orbitbrief_core.world_model.scope_router import resolve_routing
@@ -937,6 +943,29 @@ def _resolve_service_routing(envelope: Any, case_dir: Path) -> dict[str, Any] | 
     return resolved if isinstance(resolved, dict) else None
 
 
+def _heads_questions(envelope: dict[str, Any], case_dir: Path, c3_state: str) -> tuple[list[GapCard], dict[str, Any]]:
+    """The PM's asks under the heads: their questions only, minus the ones a
+    PM already dismissed or answered on this deal. Core's question pipeline
+    is not run."""
+    from orbitbrief_core.pm_handoff.question_engine import detect_project_mode
+    from orbitbrief_core.pm_handoff.question_feedback import compile_feedback_policy, load_feedback
+
+    cards = _c3.questions(envelope)
+    try:
+        policy = compile_feedback_policy(load_feedback(case_dir=case_dir),
+                                         deal_id=str(envelope.get("project_id") or ""))
+    except Exception as exc:  # feedback is optional; say so rather than hide it
+        _c3.log.warning("question feedback unreadable (%s): head questions shown unfiltered", exc)
+        policy = None
+    cards, settled = _c3.drop_settled(cards, policy)
+    kept = _c3.kept_lines(envelope)
+    atoms = [a for a in envelope.get("atoms") or [] if isinstance(a, dict) and str(a.get("id")) in kept]
+    mode = detect_project_mode(atoms=atoms, service_routing=envelope.get("service_routing"))
+    return cards, {"source": "c3_brief" if c3_state == "ok" else "c3_brief_unwritten",
+                   "c3_state": c3_state, "project_mode": mode, "settled_by_pm": settled,
+                   "core_question_pipeline": "skipped"}
+
+
 def build_pm_handoff(case_dir: Path) -> PMHandoff:
     case_dir = Path(case_dir)
     # Inspection report — orchestrator emits ``90_inspection_report.json``,
@@ -983,6 +1012,17 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         or {}
     )
     service_routing = _resolve_service_routing(envelope, case_dir)
+    # The super heads' brief decides every panel when the switch is on and
+    # parser-os sent one (written or not). ``missing`` is recorded loudly.
+    c3_state = _c3.state(envelope) if _c3.enabled() else "off"
+    heads_on = c3_state in ("ok", "unwritten")
+    if _c3.enabled() and isinstance(service_routing, dict) and service_routing \
+            and service_routing.get("source") != "c3_brief":
+        # The heads gave no sure service: say who decided instead.
+        service_routing = {**service_routing, "decided_by": "core_router", "heads_service": "none"}
+    if c3_state == "missing":
+        _c3.log.warning("c3_brief missing on envelope for %s: rendering Core's older rules with a "
+                        "'heads unavailable' banner", case_dir.name)
     # Write the resolved answer BACK onto the envelope. Everything downstream —
     # build_customer_questions, and through it detect_project_mode — reads
     # envelope["service_routing"] for itself rather than taking this variable, so
@@ -1008,17 +1048,27 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
 
     source_files, artifact_by_id = _build_source_files(report)
     sites = _build_site_summaries(report, case_dir)
-    gaps = _semantic_dedupe_gaps(_build_gap_cards(sow))
+    if heads_on:
+        # One place: every report-reading panel below sees only the lines the
+        # heads kept, with the heads' type.
+        report = _c3.heads_report(report, _c3.kept_lines(envelope))
+    # Template gap packs are off under the heads: their questions are the asks.
+    gaps = [] if heads_on else _semantic_dedupe_gaps(_build_gap_cards(sow))
     domains = _build_domains(report, sow, gaps, service_routing)
     facts, fact_quality_meta = _build_fact_cards(report, artifact_by_id)
-    # Evidence-first curated asks (not the full YAML pack checklist).
-    customer_questions, question_meta = build_customer_questions(
-        gaps=gaps,
-        sites=sites,
-        envelope=envelope if isinstance(envelope, dict) else None,
-        report=report if isinstance(report, dict) else None,
-        case_dir=case_dir,
-    )
+    # Evidence-first curated asks (not the full YAML pack checklist). Under the
+    # heads Core's own question pipeline is not run at all: its asks were
+    # thrown away anyway (and cost an LLM call per compile).
+    if heads_on:
+        customer_questions, question_meta = _heads_questions(envelope, case_dir, c3_state)
+    else:
+        customer_questions, question_meta = build_customer_questions(
+            gaps=gaps,
+            sites=sites,
+            envelope=envelope if isinstance(envelope, dict) else None,
+            report=report if isinstance(report, dict) else None,
+            case_dir=case_dir,
+        )
     pool_raw = question_meta.get("pool") if isinstance(question_meta, dict) else None
     customer_questions_pool: list[GapCard] = []
     if isinstance(pool_raw, list):
@@ -1054,16 +1104,15 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         }
     # The super heads' brief, when parser-os wrote one and the switch is on:
     # its questions become the shortlist and the old ones join the pool.
-    c3_view: dict[str, Any] = {}
-    if _c3.enabled() and _c3.written(envelope):
-        old = customer_questions
-        customer_questions = _c3.questions(envelope)
-        seen = {q.rule_id for q in customer_questions_pool}
-        customer_questions_pool = customer_questions + customer_questions_pool + [
-            q for q in old if q.rule_id not in seen]
-        c3_view = _c3.view(envelope)
+    c3_view: dict[str, Any] = _c3.view(envelope) if _c3.enabled() else {}
+    if heads_on:
+        customer_questions_pool = list(customer_questions)
+    elif c3_state == "missing":
         question_meta = {**(question_meta if isinstance(question_meta, dict) else {}),
-                         "source": "c3_brief", "replaced_questions": len(old)}
+                         "source": "core_fallback", "c3_state": "missing"}
+    if c3_view and isinstance(service_routing, dict):
+        c3_view["service_decided_by"] = service_routing.get("source") == "c3_brief" and "heads" or (
+            service_routing.get("decided_by") or "core")
     # Don't surface the same intent as both a gap/blocker and a curated question.
     gaps = _suppress_gaps_covered_by_questions(gaps, customer_questions)
     project_mode = str(question_meta.get("project_mode") or "")
@@ -1173,8 +1222,12 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     accept_checks = build_acceptance_checks(report)
     rfp_items = build_rfp_line_items(report)
     contacts = build_stakeholder_contacts(report)
-    exclusions = build_exclusions(report)
-    responsibilities = build_responsibilities(report)
+    if heads_on:
+        exclusions = _c3.exclusions(envelope)
+        responsibilities = _c3.responsibilities(envelope)
+    else:
+        exclusions = build_exclusions(report)
+        responsibilities = build_responsibilities(report)
     qty_claims = build_quantity_claims(report)
     qty_contradictions = find_quantity_contradictions(qty_claims)
     # Money is computed BEFORE the summary now: the executive overview writer
@@ -1182,9 +1235,10 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     # about cost with no idea what the engagement was worth.
     margin = build_margin_view(full_envelope or report)
     _briefing_chat_client, _briefing_model = _briefing_chat()
-    if c3_view.get("summary"):
-        # The heads' brief is the overview; Core's own writer is not called.
-        one_line = c3_view["summary"]
+    if heads_on:
+        # The heads' brief is the overview; Core's own writer is not called,
+        # also when the heads' writing step failed (their lines are shown).
+        one_line = c3_view.get("summary") or one_line
         _briefing_chat_client = None
     exec_summary = build_executive_summary(
         case_id=display_label,
@@ -1208,11 +1262,15 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         overview_model=_briefing_model,
         margin_view=asdict(margin) if hasattr(margin, "__dataclass_fields__") else margin,
     )
-    if c3_view.get("summary"):
+    if heads_on:
         from dataclasses import replace as _dc_replace
 
         exec_summary = _dc_replace(exec_summary, overview=_c3.overview_text(c3_view),
                                    headline=_c3.headline(c3_view) or exec_summary.headline)
+    if c3_view.get("banner"):
+        from dataclasses import replace as _dc_replace
+
+        exec_summary = _dc_replace(exec_summary, overview=f"**{c3_view['banner']}**\n\n{exec_summary.overview}")
     # Tier 1-4 PM intelligence
     # (margin computed above, before the summary — it feeds the overview writer.
     # It must read the FULL envelope, not the inspection report's 60-per-file
@@ -1347,10 +1405,11 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         site_allocations=[asdict(a) for a in allocations],
         acceptance_checks=[asdict(a) for a in accept_checks],
         rfp_line_items=[asdict(r) for r in rfp_items],
-        executive_summary={**asdict(exec_summary), **({"source": "c3_brief"} if c3_view.get("summary") else {})},
+        executive_summary={**asdict(exec_summary), **({"source": "c3_brief"} if heads_on else {}),
+                           **({"c3_state": c3_state, "banner": c3_view["banner"]} if c3_view.get("banner") else {})},
         stakeholder_contacts=[asdict(c) for c in contacts],
-        exclusions=[asdict(e) for e in exclusions],
-        responsibilities=[asdict(r) for r in responsibilities],
+        exclusions=[dict(e) if isinstance(e, dict) else asdict(e) for e in exclusions],
+        responsibilities=[dict(r) if isinstance(r, dict) else asdict(r) for r in responsibilities],
         quantity_claims=[asdict(q) for q in qty_claims],
         quantity_contradictions=list(qty_contradictions),
         margin_view=asdict(margin),
@@ -2157,7 +2216,10 @@ def _suppress_gaps_covered_by_questions(
             for i, q in enumerate(questions):
                 q_text = q.suggested_open_question or q.message or ""
                 if is_near_duplicate_of_any(g_text, [q_text]):
-                    if SEVERITY_SORT.get(q.severity, 9) > SEVERITY_SORT.get("blocker", 0):
+                    # A head question's severity is the heads' (no Core gap
+                    # promotes it to blocker).
+                    if not q.rule_id.startswith("c3:") and \
+                            SEVERITY_SORT.get(q.severity, 9) > SEVERITY_SORT.get("blocker", 0):
                         questions[i] = replace(q, severity="blocker")
                     break
         # else: drop gap (do not keep duplicate surface)

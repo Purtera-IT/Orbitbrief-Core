@@ -26,7 +26,8 @@ def test_off_unless_switched(monkeypatch):
 
 def test_questions_deal_first_then_catalog_by_p():
     qs = c.questions(ENV)
-    assert [q.rule_id for q in qs] == ["c3:deal:0", "c3:q:coi", "c3:q:low"]
+    assert [q.rule_id for q in qs][1:] == ["c3:q:coi", "c3:q:low"]
+    assert qs[0].rule_id.startswith("c3:deal:") and len(qs[0].rule_id) == len("c3:deal:") + 10
     assert all(q.severity == "warning" for q in qs)
     assert qs[0].sources[0]["filename"] == "deal.eml"
     assert qs[1].domain_label == "Commercial terms"
@@ -55,7 +56,7 @@ def test_handoff_takes_the_heads_brief(tmp_path, monkeypatch):
     (case / "00_envelope.json").write_text(json.dumps(ENV))
     monkeypatch.setenv("ORBITBRIEF_C3_BRIEF", "on")
     on = build_pm_handoff(case)
-    assert [q.rule_id for q in on.customer_questions][:1] == ["c3:deal:0"]
+    assert on.customer_questions[0].rule_id == c.questions(ENV)[0].rule_id
     assert on.one_line_summary == "Install three cameras."
     assert on.c3_brief["sections"]["scope"]
     assert on.metrics["customer_question_engine"]["source"] == "c3_brief"

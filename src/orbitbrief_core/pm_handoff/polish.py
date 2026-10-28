@@ -924,7 +924,8 @@ def polish_pm_handoff(
                 handoff.executive_summary, model, project_mode=project_mode
             )
         )
-    items.extend(_customer_answer_slot_items(handoff.customer_answer_slots, model))
+    if not heads_brief:
+        items.extend(_customer_answer_slot_items(handoff.customer_answer_slots, model))
 
     # De-duplicate by key — same raw text in multiple slots polishes once
     by_key: dict[str, PolishItem] = {}
@@ -952,10 +953,12 @@ def polish_pm_handoff(
     from orbitbrief_core.pm_handoff.question_engine import _is_customer_facing_question
 
     # Preserve neural-engine wording verbatim (see note above).
+    # A head question is never dropped by the wording filter.
     polished_customer_qs = [
         q
         for q in handoff.customer_questions
-        if _is_customer_facing_question(q.suggested_open_question or q.message or "")
+        if q.rule_id.startswith("c3:")
+        or _is_customer_facing_question(q.suggested_open_question or q.message or "")
     ]
     polished_risks = _apply_results_to_risks(handoff.risk_register, results, model)
     polished_exec = (
@@ -965,7 +968,9 @@ def polish_pm_handoff(
         if handoff.executive_summary and not heads_brief
         else handoff.executive_summary
     )
-    polished_slots = _apply_results_to_slots(handoff.customer_answer_slots, results, model)
+    # Under the heads the answer slots carry the head questions' own wording.
+    polished_slots = (handoff.customer_answer_slots if heads_brief
+                      else _apply_results_to_slots(handoff.customer_answer_slots, results, model))
 
     # validator_enforced reflects whether _validate_polish was the
     # gate that decided cache-vs-LLM. polish_items always runs the
