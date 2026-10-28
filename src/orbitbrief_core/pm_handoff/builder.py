@@ -1170,6 +1170,15 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     # Status for the PM is driven by curated customer_questions (not the
     # full internal YAML gap list). Sites still gate "not ready".
     status, status_label = _derive_status(customer_questions, sow, report, sites)
+    if heads_on:
+        # Template-pack numbers are not deal facts: under the heads the page
+        # shows no YAML SOW-validator counts and no counters from Core's
+        # discarded question pool, and status follows the heads' questions
+        # and the site roster only.
+        for k in ("missing_sow_items", "sow_validator_status", "blockers_known", "warnings_known",
+                  "questions_hidden", "info"):
+            metrics.pop(k, None)
+        status, status_label = _heads_status(customer_questions, sites)
     sa_focus = _build_sa_focus(domains, project_mode=project_mode)
     report_for_label = dict(report) if isinstance(report, dict) else {}
     if isinstance(envelope, dict) and "envelope" not in report_for_label:
@@ -1265,8 +1274,14 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
     if heads_on:
         from dataclasses import replace as _dc_replace
 
-        exec_summary = _dc_replace(exec_summary, overview=_c3.overview_text(c3_view),
-                                   headline=_c3.headline(c3_view) or exec_summary.headline)
+        n_open = len(customer_questions)
+        exec_summary = _dc_replace(
+            exec_summary, overview=_c3.overview_text(c3_view),
+            headline=_c3.headline(c3_view) or exec_summary.headline,
+            health_line=f"{n_open} open question(s) in the heads' brief." if n_open
+            else "The heads' brief has no open questions.",
+            next_action=("Work the open questions below with the customer, then draft the SOW in SowSmith."
+                         if n_open else "Draft the SOW in SowSmith."))
     if c3_view.get("banner"):
         from dataclasses import replace as _dc_replace
 
@@ -1371,6 +1386,10 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
 
     if c3_view.get("summary"):
         one_line = c3_view["summary"]
+    if heads_on:
+        # Both read a history file in the compile's fresh tempdir: always
+        # empty on the worker, shown as if there were no comparable deals.
+        drift, comparable = None, []
 
     return PMHandoff(
         case_id=case_id,
@@ -1436,7 +1455,7 @@ def build_pm_handoff(case_dir: Path) -> PMHandoff:
         crm_detections=[asdict(c) for c in crm_detections],
         parser_quality_score=parser_quality,
         run_telemetry=asdict(run_tele),
-        drift_snapshot=asdict(drift),
+        drift_snapshot=asdict(drift) if drift is not None else {},
         urgency_signals=[asdict(u) for u in urgency],
         customer_answer_slots=[asdict(c) for c in customer_slots],
         calibrator_verdict=calibrator_verdict,
@@ -2754,6 +2773,19 @@ def _build_metrics(report: dict[str, Any], sow: dict[str, Any], facts: dict[str,
         "sow_validator_status": sow.get("status") or "unknown",
         "top_workstream": domain_label(str((report.get("pack_prior") or {}).get("top_pack_id") or "unknown")),
     }
+
+
+def _heads_status(questions: list[GapCard], sites: list[SiteSummary]) -> tuple[str, str]:
+    """Status under the heads: their questions and the site roster, nothing
+    from Core's YAML SOW validator."""
+    blockers = sum(1 for q in questions if q.severity == "blocker")
+    if not any(s.publishable for s in sites):
+        return "red", "Not ready: no confirmed physical site"
+    if blockers:
+        return "red", f"Not SOW-ready: {blockers} blocker question(s) remain"
+    if questions:
+        return "yellow", f"PM review required: {len(questions)} open question(s)"
+    return "green", "Draft-ready: no open questions"
 
 
 def _derive_status(gaps: list[GapCard], sow: dict[str, Any], report: dict[str, Any], sites: list[SiteSummary]) -> tuple[str, str]:

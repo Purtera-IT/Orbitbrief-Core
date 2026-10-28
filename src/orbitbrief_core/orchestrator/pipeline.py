@@ -113,6 +113,11 @@ class PipelineConfig:
     # Bump to 2+ when running against vLLM or Ollama with
     # OLLAMA_NUM_PARALLEL >= N (a real GPU host).
     parallel_brains: int = 1
+    # The super heads' brief decides the PM page (ORBITBRIEF_C3_BRIEF on and
+    # the envelope carries one): the planner -> brains -> validator ->
+    # calibrator -> review -> composer chain (stages 20-80) feeds nothing the
+    # page shows, so it is not run.
+    heads_brief: bool = False
 
 
 @dataclass
@@ -217,6 +222,21 @@ class BriefPipeline:
         )
         result.site_reality = sr_state
         records.append(rec)
+
+        if self.config.heads_brief:
+            # Nothing downstream of the heads reads stages 20-80; on dev every
+            # brain call failed anyway (wrong model for the endpoint), and
+            # its calibrator verdict was shown as if it meant something.
+            for stage in ("20_retrieval_bundles", "30_planner", "31_refiner", "40_brain", "50_validator",
+                          "60_calibrator", "70_review_queue", "80_composer"):
+                records.append(_skipped_record(stage, detail={"reason": "c3_brief: the heads decide the brief"}))
+            artifacts.write_pipeline_log(records)
+            artifacts.write_manifest(self._manifest(envelope_path, result, records))
+            self._run_inspection_stage(artifacts, records)
+            artifacts.write_pipeline_log(records)
+            artifacts.write_manifest(self._manifest(envelope_path, result, records))
+            result.stage_records = records
+            return result
 
         # 20 retrieval bundles per active pack — keyword-density
         # filtered so each brain only sees packets relevant to its
@@ -580,22 +600,14 @@ class BriefPipeline:
             },
         )
         if report is not None:
-            # PM final layer is the FIRST section of the inspection
-            # page; build it best-effort so PMs see their view above
-            # the engineering view, with one-click links to the
-            # standalone PM_EXECUTIVE_SUMMARY / SA_REVIEW_PACKET /
-            # PM_HANDOFF artifacts. Failure here never blocks the
-            # render; we just fall back to engineering-only HTML.
-            pm_handoff_payload: dict[str, Any] | None = None
-            try:
-                from orbitbrief_core.pm_handoff import build_pm_handoff
-                pm_handoff_payload = build_pm_handoff(artifacts.root).to_dict()
-            except Exception:
-                pm_handoff_payload = None
+            # The PM handoff is NOT built here: compile_brief.py builds it
+            # once and re-renders this page with it. Building it here too
+            # doubled the handoff CPU and the scope-router LLM call on every
+            # compile, outside any timed stage.
             try:
                 self._write_text(
                     artifacts.inspection_html_path,
-                    render_inspection_html(report, pm_handoff=pm_handoff_payload),
+                    render_inspection_html(report, pm_handoff=None),
                 )
             except Exception as exc:  # pragma: no cover - defensive
                 rec = StageRecord(
